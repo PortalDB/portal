@@ -1,0 +1,159 @@
+1383825|Kent R. Johnson
+1218919|Marvin Blum
+225521|A. V. Balakrishnan
+1218812|H. G. Martin
+1219013|S. J. Abraham
+1276814|A. N. Prior
+1382781|George C. Sziklai
+1292084|John R. Myhill
+1108126|Wolfgang Wetzel
+1218942|Irving M. Copi
+372014|Victor H. Yngve
+445503|Paul E. Green Jr.
+1259849|John A. Swets
+5042|Lotfi A. Zadeh
+1457348|K. Jaakko
+79383|Theodore G. Birdsall
+1107801|Erwin Brommer
+1218726|Boyd Larrowe
+876380|Samuel D. Conte
+1384266|H. P. Kramer
+1218691|Sergei Alekseevich Lebedev
+1384514|M. Hoberman
+1218718|Bruce G. Oldfield
+1204772|Seymour Stein
+35862|Robert M. Mason
+1219012|L. E. Heizer
+1383684|B. Keiser
+1457325|Alan Ross Anderson
+1166187|Peter Elias
+1187670|Brockway McMillan
+1108035|Ernst P. Billeter
+448993|Marcel Paul Schützenberger
+576026|S. Okada
+1218550|Richard H. Stark
+1384530|Gerald P. Dinneen
+465035|Richard C. Singleton
+775372|John J. Wedel
+1383675|S. Bagno
+1218676|Earl J. Isaac
+1108021|H. Kregeloh
+1114398|Kenneth S. Miller
+1108319|Slawtscho Sagoroff
+1218544|J. M. Hammersley
+1107790|Erich Bukovics
+1219024|Glenn H. Keitel
+1227257|William M. Siebert
+1382884|Douglas G. Lampard
+371175|Walter F. Bauer
+443670|John H. Holland
+371127|L. J. Fogel
+1218847|J. I. Derr
+1129237|Nathaniel Rochester
+1382856|Edward L. O'Neill
+1218596|Robert H. Bracken
+1383699|Herbert Sherman
+1108462|Hans Tröbinger
+1218894|Margaret Baskervill
+1108477|Erich Soom
+1218523|Richard Elton von Holdt
+1382955|J. A. McFadden
+1218493|Owen R. Mock
+1457224|Frederic Brenton Fitch
+1029354|Benoit Mandelbrot
+1457233|M. H. Lob
+1218727|J. R. McReynolds
+1108073|Fritz Neeb
+1383450|B. J. DuWaldt
+1260117|Noam Chomsky
+874555|Alan Cobham
+1183449|L. Lorne Campbell
+139221|Sheldon S. L. Chang
+1161289|Michael E. Fisher
+324082|Mischa Schwartz
+1457208|Raphael M. Robinson
+1205372|Nelson M. Blachman
+1218707|Irwin D. Greenwald
+1218908|Abraham Robinson
+1382577|David S. Slepian
+213414|Herbert A. Simon
+1292322|E. J. Lemmon
+1218622|A. C. Downing Jr.
+1383763|A. B. Lees
+1107931|Anna Klingst
+13878|Jaakko Hintikka
+372983|Alston S. Householder
+1218570|Herbert T. Glantz
+1218686|David A. Huffman
+1283367|Max V. Mathews
+1108221|Rolf Wartmann
+618765|Klaus Wenke
+371109|Heinz Zemanek
+1383919|Richard C. Booton
+993073|John L. Kelly
+1292634|Richard Montague
+1108176|Gerhard Fasching
+466400|Nathaniel Macon
+1457572|Steven Orey
+1457206|Leon Henkin
+1457789|G. D. W. Berry
+1108467|Otto Pichler
+1218658|H. Gordon Rice
+1382958|L. H. Haibt
+1115036|Kurt Bing
+1289742|Amiel Feinstein
+1032694|Clarence L. Johnson
+1032585|Richard C. Jeffrey
+1383696|J. E. Storer
+1033511|Lawrence Wainwright
+1218522|Gus Hempstead
+66528|Allen Newell
+1457215|W. V. Quine
+1218506|Edward H. Friend
+1107919|Johann Pfanzagl
+1457853|Gideon Schwarz
+1457440|Wilhelm Ackermann
+1457239|Gustav Bergmann
+373178|Peter Henrici
+1218831|Mark Lotkin
+1457225|R. L. Wilder
+898779|William F. Schreiber
+1382670|Andrei N. Kolmogorov
+1108365|Walther Eberl
+1218640|Roy F. Reeves
+373415|Jules I. Schwartz
+1384325|A. Jeffrey
+1218578|Wesley S. Melahn
+1218848|R. C. Luke
+1218780|Charles L. Baker
+1218648|John W. Carr III
+1382959|W. L. Duda
+263815|Robert Young
+304428|Granino A. Korn
+66737|Irving S. Reed
+372874|Konrad Zuse
+487343|David L. Jagerman
+139716|Edmund C. Berkeley
+1383612|V. I. Siforov
+1218462|Joseph R. Bruman
+1218717|Robert C. Miller Jr.
+706967|Barry Gordon
+371704|Robert Perkins
+402694|John C. Shepherdson
+1218725|J. H. Brown
+1218624|Harvey Cohn
+248273|George A. Miller
+1107745|Adolf Adam
+1224417|Claude E. Shannon
+1107796|Bruno Thüring
+1259468|John G. Kemeny
+1218478|Louis B. Wadel
+1383333|Rudolf F. Drenick
+1108625|Hubert H. Mayr
+907106|Walter Knödel
+1218461|William R. Hoover
+1457250|Robin O. Gandy
+1383068|Arthur Glovazky
+21478|Robert Price
+1033711|Elliott Mendelson
+1031630|Theresa M. Korn

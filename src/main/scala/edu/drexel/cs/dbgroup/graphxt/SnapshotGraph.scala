@@ -3,6 +3,8 @@ package edu.drexel.cs.dbgroup.graphxt
 
 import scala.collection.immutable.SortedMap
 import scala.collection.immutable.TreeMap
+import scala.reflect.ClassTag
+import scala.util.control._
 
 import org.apache.spark.graphx._
 import org.apache.spark.graphx.Graph
@@ -10,30 +12,40 @@ import org.apache.spark.rdd._
 
 class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializable {
   var span = sp
-  var graphs:Array[Graph[VD,ED]] = new Array[Graph[VD,ED]]()
+  var graphs:Seq[Graph[VD,ED]] = Seq[Graph[VD,ED]]()
   var intervals:SortedMap[Interval, Int] = TreeMap[Interval,Int]()
-
+  var size:Int = 0;
+  
   //Note: this kind of breaks the normal spark/graphx paradigm of returning
   //the new object with the change rather than making the change in place
   //intervals are assumed to be nonoverlapping
   //Note: snapshots should be added from earliest to latest for performance reasons
   //TODO: more error checking on boundary conditions
-  def addSnapshot(place:Interval, snap:Graph[VD, ED]): = {
-    val iter:Iterator[Intervals] = intervals.keysIterator
+  def addSnapshot(place:Interval, snap:Graph[VD, ED]): Unit = {
+    val iter:Iterator[Interval] = intervals.keysIterator
     var pos:Int = -1
     var found:Boolean = false
-    //this is not as efficient as binary search but the list is expected to be short
-    while (iter.hasNext) {
-      val nx:Interval = iter.next
-      if (nx > place) {
-        pos = intervals(nx) - 1
-        found = true
-        break
+    
+    // create a Breaks object (to break out of a loop)
+    val loop = new Breaks
+    
+    loop.breakable{
+      //this is not as efficient as binary search but the list is expected to be short
+      while (iter.hasNext) {
+        val nx:Interval = iter.next
+     
+        if (nx > place) {
+          pos = intervals(nx) - 1
+          found = true
+          loop.break
+        }
       }
     }
+    
+    
     //pos can be negative if there are no elements
     //or if this interval is the smallest of all
-    //or if this interval is the lartest of all
+    //or if this interval is the largest of all
     if (pos < 0) { 
       if (found) {
         //put in position 0, move the rest to the right
@@ -50,9 +62,10 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
       //put in the specified position, move the rest to the right
       intervals.foreach { case (k,v) => if (v > pos) (k, v+1)}
       val (st,en) = graphs.splitAt(pos-1)
-      graphs = st :+ snap ::: en
+      graphs = (st ++ (snap +: en))
     }
     //FIXME? Will this cause unnecessary re-partitioning?
+    size += 1
     snap.partitionBy(new YearPartitionStrategy(place.min-span.min, span.max-span.min))
   }
 
@@ -60,14 +73,20 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
     if (time >= span.min && time<= span.max) {
       //retrieve the position of the correct interval
       var position = -1
-      val iter:Iterator<Int> = intervals.keysIterator
-      while (iter.hasNext) {
-        val nx:Int = iter.next
-        if (intervals(nx).contains(time)) {
-          position = nx
-          break
+      val iter:Iterator[Interval] = intervals.keysIterator
+      val loop = new Breaks
+      
+      loop.breakable{
+        while (iter.hasNext) {
+          val nx:Interval = iter.next
+          if (nx.contains(time)) {
+            //TODO: error checking if this key-value doesn't exist
+            position = intervals(nx)
+            loop.break
+          }
         }
       }
+      
       getSnapshotByPosition(position)
     } else
       null
@@ -90,21 +109,26 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
       var result:SnapshotGraph[VD,ED] = new SnapshotGraph[VD,ED](rng)
 
       var numResults = 0
-      intervals.foreach {
-        case (k,v) =>
-        if (numResults == 0 && k.contains(minBound)) {
-          numResults = 1
-          result.addSnapshot(k,graphs(v))
-        } else if (numResults > 0 && k.contains(maxBound)) {
-          numResults += 1
-          result.addSnapshot(k,graphs(v))
-          break
-        } else if (numResults > 0) {
-          numResults += 1
-          result.addSnapshot(k,graphs(v))
+      val loop = new Breaks
+      
+      loop.breakable{
+        intervals.foreach {
+          case (k,v) =>
+          if (numResults == 0 && k.contains(minBound)) {
+            numResults = 1
+            result.addSnapshot(k,graphs(v))
+          } else if (numResults > 0 && k.contains(maxBound)) {
+            numResults += 1
+            result.addSnapshot(k,graphs(v))
+            loop.break
+          } else if (numResults > 0) {
+            numResults += 1
+            result.addSnapshot(k,graphs(v))
+          }
         }
       }
 
+      result
     } else
       null
   }
@@ -116,9 +140,9 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
   //TODO: add error checking and boundary conditions handling
   def aggregate(resolution: Int, sem: AggregateSemantics.Value): SnapshotGraph[VD,ED] = {
     var result:SnapshotGraph[VD,ED] = new SnapshotGraph[VD,ED](span)
-    val iter:Iterator[Interval,Int] = intervals.iterator
-    var minBound,maxBound
-
+    val iter:Iterator[(Interval,Int)] = intervals.iterator
+    var minBound,maxBound:Int = 0;
+    
     while (iter.hasNext) {
       val (k,v) = iter.next
       minBound = k.min
@@ -131,11 +155,11 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
       for (yy <- 1 to resolution) {
         val (k,v) = iter.next
         if (sem == AggregateSemantics.Existential) {
-          firstVRDD = VertexRDD(firstVRDD.union(graph(v)).distinct)
-          firstERDD = EdgeRDD(firstERDD.union(graph(v)).distinct)
+          firstVRDD = VertexRDD(firstVRDD.union(graphs(v).vertices).distinct)
+          firstERDD = EdgeRDD.fromEdges(firstERDD.union( graphs(v).edges ).distinct)(null, null)
         } else if (sem == AggregateSemantics.Universal) {
-          firstVRDD = VertexRDD(firstVRDD.intersection(graph(v)))
-          firstERDD = EdgeRDD(firstERDD.intersection(graphs(v)))
+          firstVRDD = VertexRDD(firstVRDD.intersection(graphs(v).vertices).distinct)
+          firstERDD = EdgeRDD.fromEdges(firstERDD.intersection(graphs(v).edges).distinct)(null, null)
         }
         maxBound = k.max
       }
@@ -148,11 +172,13 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
   //run PageRank on each contained snapshot
   def pageRank(tol: Double): SnapshotGraph[Double,Double] = {
     var result:SnapshotGraph[Double,Double] = new SnapshotGraph[Double,Double](span)
-    val iter:Iterator[Interval,Int] = intervals.iterator
+    val iter:Iterator[(Interval,Int)] = intervals.iterator
+    
     while (iter.hasNext) {
       val (k,v) = iter.next
-      result.addSnapshot(k,graphs(v).pageRank(tol)
+      result.addSnapshot(k,graphs(v).pageRank(tol))
     }
+    
     result
   }
 }

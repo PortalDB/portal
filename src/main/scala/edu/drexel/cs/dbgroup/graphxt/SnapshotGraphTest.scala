@@ -3,24 +3,32 @@ package edu.drexel.cs.dbgroup.graphxt
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.graphx.GraphLoader
+import org.apache.spark.graphx.Graph
 
-
-class SnapshotGraphTestTest {
-  final def loadData(dataPath: String, sc:SparkContext): SnapshotGraph[String,Double] = {
+object SnapshotGraphTest {
+  final def loadData(dataPath: String, sc:SparkContext): SnapshotGraph[String,Int] = {
     val minYear = 1936
     val maxYear = 2015
     val span = new Interval(minYear, maxYear)
     var years = 0
-    val result: SnapshotGraph[String,Double] = new SnapshotGraph(span)
+    val result: SnapshotGraph[String,Int] = new SnapshotGraph(span)
 
     for (years <- minYear to maxYear) {
-      val users = sc.textFile(dataPath + "/nodes/" + years + ".txt").map(line => line.split(",")).map(parts => (parts.head.toLong, parts(1).toString) )
-      val edges = GraphLoader.edgeListFile(sc, dataPath + "/edges/" + years + ".txt")
+      val users = sc.textFile(dataPath + "/nodes/nodes" + years + ".txt").map(line => line.split("|")).map(parts => (parts.head.toLong, parts(1).toString) )
+      val edges = GraphLoader.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt")
       val graph = edges.outerJoinVertices(users) {
       	case (uid, deg, Some(name)) => name
       	case (uid, deg, None) => ""
       }
-      result.addSnapshot(years, partGrapn)
+      
+//      val newVertices = graph.vertices.map { case (id, attr) => (id.toDouble, attr) }
+//      val newEdges = graph.edges.mapValues { case (edge) => new Edge (edge.srcId.toDouble, edge.dstId.toDouble, edge.attr) }
+//      val newGraph = Graph(graph.vertices, newEdges)
+
+      val partGraph = graph.partitionBy(new YearPartitionStrategy(years-minYear, maxYear))
+      partGraph.cache
+      
+      result.addSnapshot(new Interval(years, years), partGraph)
     }
     result
   }
@@ -30,13 +38,13 @@ class SnapshotGraphTestTest {
   //TODO: test getSnapshot
   def main(args: Array[String]) {
     val sc = new SparkContext("local", "SnapshotGraph Project", 
-      "/Users/vzaychik/spark-1.2.1",
-      List("target/scala-2.10/simple-project_2.10-1.0.jar"))
+      System.getenv("SPARK_HOME"),
+      List("target/scala-2.10/snapshot-graph-project_2.10-1.0.jar"))
 
     var testGraph = loadData(args(0), sc)
     val interv = new Interval(1980, 2015)
     val aggregate = testGraph.select(interv).aggregate(5, AggregateSemantics.Existential)
-    //there should be 8 results
+    //there should be 7 results
     println("total number of results after aggregation: " + aggregate.size)
     //let's run pagerank on the aggregate now
     val ranks = aggregate.pageRank(0.0001)

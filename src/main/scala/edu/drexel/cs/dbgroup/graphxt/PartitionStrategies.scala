@@ -1,5 +1,6 @@
 package edu.drexel.cs.dbgroup.graphxt
 
+import org.apache.spark.graphx._
 import org.apache.spark.graphx.PartitionStrategy
 
 class YearPartitionStrategy(yr: Int, mx: Int) extends PartitionStrategy {
