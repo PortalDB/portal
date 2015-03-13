@@ -14,7 +14,6 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
   var span = sp
   var graphs:Seq[Graph[VD,ED]] = Seq[Graph[VD,ED]]()
   var intervals:SortedMap[Interval, Int] = TreeMap[Interval,Int]()
-  var size:Int = 0;
   
   //Note: this kind of breaks the normal spark/graphx paradigm of returning
   //the new object with the change rather than making the change in place
@@ -65,7 +64,6 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
       graphs = (st ++ (snap +: en))
     }
     //FIXME? Will this cause unnecessary re-partitioning?
-    size += 1
     snap.partitionBy(new YearPartitionStrategy(place.min-span.min, span.max-span.min))
   }
 
@@ -152,14 +150,14 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
       var yy = 0
       //FIXME: what if there is not an evenly divisible number of graphs
       //add handling for that - the last one just gets however many it gets
-      for (yy <- 1 to resolution) {
+      for (yy <- 1 to resolution-1) {
         val (k,v) = iter.next
         if (sem == AggregateSemantics.Existential) {
           firstVRDD = VertexRDD(firstVRDD.union(graphs(v).vertices).distinct)
-          firstERDD = EdgeRDD.fromEdges(firstERDD.union( graphs(v).edges ).distinct)(null, null)
+          firstERDD = EdgeRDD.fromEdges[ED,VD](firstERDD.union( graphs(v).edges ).distinct)
         } else if (sem == AggregateSemantics.Universal) {
           firstVRDD = VertexRDD(firstVRDD.intersection(graphs(v).vertices).distinct)
-          firstERDD = EdgeRDD.fromEdges(firstERDD.intersection(graphs(v).edges).distinct)(null, null)
+          firstERDD = EdgeRDD.fromEdges[ED,VD](firstERDD.intersection(graphs(v).edges).distinct)
         }
         maxBound = k.max
       }
