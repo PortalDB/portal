@@ -1,5 +1,7 @@
+Set $SPARK_HOME environment variable 
+
 To compile:
     sbt package
 
 To run:
-    sbt "run ./resources/set2"
+    sbt "run ../../resources/set2"

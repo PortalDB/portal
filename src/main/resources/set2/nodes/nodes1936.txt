@@ -1,8 +1,0 @@
-1457299|C. I. Lewis
-1457238|Alonzo Church
-1457392|C. J. Ducasse
-1457224|Frederic Brenton Fitch
-1457293|Arnold F. Emch
-1457215|W. V. Quine
-1457733|Emil L. Post
-371227|J. Barkley Rosser

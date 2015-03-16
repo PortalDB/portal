@@ -4,6 +4,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.graphx.GraphLoader
 import org.apache.spark.graphx.Graph
+import scala.util.control._
 
 object SnapshotGraphTest {
   final def loadData(dataPath: String, sc:SparkContext): SnapshotGraph[String,Int] = {
@@ -20,15 +21,11 @@ object SnapshotGraphTest {
       	case (uid, deg, Some(name)) => name
       	case (uid, deg, None) => ""
       }
-      
-//      val newVertices = graph.vertices.map { case (id, attr) => (id.toDouble, attr) }
-//      val newEdges = graph.edges.mapValues { case (edge) => new Edge (edge.srcId.toDouble, edge.dstId.toDouble, edge.attr) }
-//      val newGraph = Graph(graph.vertices, newEdges)
 
-      val partGraph = graph.partitionBy(new YearPartitionStrategy(years-minYear, maxYear))
-      partGraph.cache
+      //val partGraph = graph.partitionBy(new YearPartitionStrategy(years-minYear, maxYear))
+      graph.cache
       
-      result.addSnapshot(new Interval(years, years), partGraph)
+      result.addSnapshot(new Interval(years, years), graph)
     }
     result
   }
@@ -46,9 +43,18 @@ object SnapshotGraphTest {
     val aggregate = testGraph.select(interv).aggregate(5, AggregateSemantics.Existential)
     //there should be 7 results
     println("total number of results after aggregation: " + aggregate.size)
+    
     //let's run pagerank on the aggregate now
     val ranks = aggregate.pageRank(0.0001)
-    println("pagerank for each user over time in aggregate:")
+    println("pagerank for each user over time in aggregate: ")
+   
+    //FIXME: what is pagerank supposed to return?
+    val iter:Iterator[Interval] = ranks.intervals.keysIterator
+    while(iter.hasNext){          
+          val k:Interval = iter.next
+          println("K: " + k, "--- V: " + ranks.select(k))
+    }
+    
     //TODO: do something with ranks like print out top x in each year or whatever
   }
 

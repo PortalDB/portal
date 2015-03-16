@@ -12,6 +12,7 @@ import org.apache.spark.rdd._
 
 class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializable {
   var span = sp
+  var size: Int = 0
   var graphs:Seq[Graph[VD,ED]] = Seq[Graph[VD,ED]]()
   var intervals:SortedMap[Interval, Int] = TreeMap[Interval,Int]()
   
@@ -63,8 +64,10 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
       val (st,en) = graphs.splitAt(pos-1)
       graphs = (st ++ (snap +: en))
     }
+    size += 1
+    
     //FIXME? Will this cause unnecessary re-partitioning?
-    snap.partitionBy(new YearPartitionStrategy(place.min-span.min, span.max-span.min))
+    //snap.partitionBy(new YearPartitionStrategy(place.min-span.min, span.max-span.min))
   }
 
   def getSnapshotByTime(time: Int): Graph[VD, ED] = {
@@ -144,22 +147,36 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
     while (iter.hasNext) {
       val (k,v) = iter.next
       minBound = k.min
+      maxBound = k.max
       //take resolution# of consecutive graphs, combine them according to the semantics
       var firstVRDD:VertexRDD[VD] = graphs(v).vertices
       var firstERDD:EdgeRDD[ED] = graphs(v).edges
       var yy = 0
+      
       //FIXME: what if there is not an evenly divisible number of graphs
       //add handling for that - the last one just gets however many it gets
-      for (yy <- 1 to resolution-1) {
-        val (k,v) = iter.next
-        if (sem == AggregateSemantics.Existential) {
-          firstVRDD = VertexRDD(firstVRDD.union(graphs(v).vertices).distinct)
-          firstERDD = EdgeRDD.fromEdges[ED,VD](firstERDD.union( graphs(v).edges ).distinct)
-        } else if (sem == AggregateSemantics.Universal) {
-          firstVRDD = VertexRDD(firstVRDD.intersection(graphs(v).vertices).distinct)
-          firstERDD = EdgeRDD.fromEdges[ED,VD](firstERDD.intersection(graphs(v).edges).distinct)
+      
+      val loop = new Breaks
+      println("Resolution: " + resolution)
+      loop.breakable{
+        for (yy <- 1 to resolution-1) {
+        println("YY: " + yy)
+        
+          if(iter.hasNext){
+              val (k,v) = iter.next
+          } else{
+            loop.break
+          }
+       
+          if (sem == AggregateSemantics.Existential) {
+            firstVRDD = VertexRDD(firstVRDD.union(graphs(v).vertices).distinct)
+            firstERDD = EdgeRDD.fromEdges[ED,VD](firstERDD.union( graphs(v).edges ).distinct)
+          } else if (sem == AggregateSemantics.Universal) {
+            firstVRDD = VertexRDD(firstVRDD.intersection(graphs(v).vertices).distinct)
+            firstERDD = EdgeRDD.fromEdges[ED,VD](firstERDD.intersection(graphs(v).edges).distinct)
+          }
+          maxBound = k.max
         }
-        maxBound = k.max
       }
 
       result.addSnapshot(new Interval(minBound,maxBound), Graph(firstVRDD,firstERDD))
@@ -174,7 +191,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
     
     while (iter.hasNext) {
       val (k,v) = iter.next
-      result.addSnapshot(k,graphs(v).pageRank(tol))
+      result.addSnapshot(k, graphs(v).pageRank(tol))
     }
     
     result
