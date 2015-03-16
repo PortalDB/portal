@@ -198,3 +198,34 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
   }
 }
 
+object SnapshotGraph {
+  //this assumes that the data is in the dataPath directory, each time period in its own files
+  //and the naming convention is nodes<time>.txt and edges<time>.txt
+  //TODO: extend to be more flexible about input data such as arbitrary uniform intervals are supported
+  final def loadData(dataPath: String, sc:SparkContext): SnapshotGraph[String,Int] = {
+    val minYear:Int = Int.MaxValue
+    val maxYear:Int = 0
+
+    new java.io.File(dataPath).listFiles.filter(_.getName.startsWith("nodes")).map {fname => 
+    	val tm:Int = fname.getName.filter(_.isDigit).toInt
+	minYear = math.min(minYear,tm)
+	maxYear = math.max(maxYear,tm)	
+    }
+
+    val span = new Interval(minYear, maxYear)
+    var years = 0
+    val result: SnapshotGraph[String,Int] = new SnapshotGraph(span)
+
+    for (years <- minYear to maxYear) {
+      val users = sc.textFile(dataPath + "/nodes/nodes" + years + ".txt").map(line => line.split("|")).map(parts => (parts.head.toLong, parts(1).toString) )
+      val edges = GraphLoader.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt")
+      val graph = edges.outerJoinVertices(users) {
+      	case (uid, deg, Some(name)) => name
+      	case (uid, deg, None) => ""
+      }
+
+      result.addSnapshot(new Interval(years, years), graph)
+    }
+    result
+  }
+}
