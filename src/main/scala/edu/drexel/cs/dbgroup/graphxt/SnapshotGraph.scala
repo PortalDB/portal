@@ -6,16 +6,33 @@ import scala.collection.immutable.TreeMap
 import scala.reflect.ClassTag
 import scala.util.control._
 
+import org.apache.spark.SparkContext
 import org.apache.spark.graphx._
 import org.apache.spark.graphx.Graph
 import org.apache.spark.rdd._
+import org.apache.spark.storage.StorageLevel
+import org.apache.spark.storage.StorageLevel._
 
 class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializable {
   var span = sp
-  var size: Int = 0
   var graphs:Seq[Graph[VD,ED]] = Seq[Graph[VD,ED]]()
   var intervals:SortedMap[Interval, Int] = TreeMap[Interval,Int]()
   
+  def size(): Int = { graphs.size }
+
+  def persist(newLevel: StorageLevel = MEMORY_ONLY):Unit = {
+    //persist each graph
+    val iter = graphs.iterator
+    while (iter.hasNext)
+      iter.next.persist(newLevel)
+  }
+
+  def unpersist(blocking: Boolean = true) = {
+    val iter = graphs.iterator
+    while (iter.hasNext)
+      iter.next.unpersist(blocking)
+  }
+
   //Note: this kind of breaks the normal spark/graphx paradigm of returning
   //the new object with the change rather than making the change in place
   //intervals are assumed to be nonoverlapping
@@ -64,10 +81,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
       val (st,en) = graphs.splitAt(pos-1)
       graphs = (st ++ (snap +: en))
     }
-    size += 1
     
-    //FIXME? Will this cause unnecessary re-partitioning?
-    //snap.partitionBy(new YearPartitionStrategy(place.min-span.min, span.max-span.min))
   }
 
   def getSnapshotByTime(time: Int): Graph[VD, ED] = {
@@ -106,7 +120,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
     if (span.intersects(bound)) {
       val minBound = if (bound.min > span.min) bound.min else span.min
       val maxBound = if (bound.max < span.max) bound.max else span.max
-      val rng = new Interval(minBound,maxBound)
+      val rng = Interval(minBound,maxBound)
       var result:SnapshotGraph[VD,ED] = new SnapshotGraph[VD,ED](rng)
 
       var numResults = 0
@@ -153,14 +167,9 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
       var firstERDD:EdgeRDD[ED] = graphs(v).edges
       var yy = 0
       
-      //FIXME: what if there is not an evenly divisible number of graphs
-      //add handling for that - the last one just gets however many it gets
-      
       val loop = new Breaks
-      println("Resolution: " + resolution)
       loop.breakable{
         for (yy <- 1 to resolution-1) {
-        println("YY: " + yy)
         
           if(iter.hasNext){
               val (k,v) = iter.next
@@ -179,19 +188,20 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
         }
       }
 
-      result.addSnapshot(new Interval(minBound,maxBound), Graph(firstVRDD,firstERDD))
+      result.addSnapshot(Interval(minBound,maxBound), Graph(firstVRDD,firstERDD))
     }
     result
   }
 
   //run PageRank on each contained snapshot
-  def pageRank(tol: Double): SnapshotGraph[Double,Double] = {
+  def pageRank(tol: Double, resetProb: Double = 0.15): SnapshotGraph[Double,Double] = {
     var result:SnapshotGraph[Double,Double] = new SnapshotGraph[Double,Double](span)
     val iter:Iterator[(Interval,Int)] = intervals.iterator
     
     while (iter.hasNext) {
       val (k,v) = iter.next
-      result.addSnapshot(k, graphs(v).pageRank(tol))
+      //result.addSnapshot(k, graphs(v).pageRank(tol))
+      result.addSnapshot(k,UndirectedPageRank.runUntilConvergence(graphs(v),tol,resetProb))
     }
     
     result
@@ -203,16 +213,16 @@ object SnapshotGraph {
   //and the naming convention is nodes<time>.txt and edges<time>.txt
   //TODO: extend to be more flexible about input data such as arbitrary uniform intervals are supported
   final def loadData(dataPath: String, sc:SparkContext): SnapshotGraph[String,Int] = {
-    val minYear:Int = Int.MaxValue
-    val maxYear:Int = 0
+    var minYear:Int = Int.MaxValue
+    var maxYear:Int = 0
 
-    new java.io.File(dataPath).listFiles.filter(_.getName.startsWith("nodes")).map {fname => 
+    new java.io.File(dataPath+"/nodes/").listFiles.map {fname => 
     	val tm:Int = fname.getName.filter(_.isDigit).toInt
 	minYear = math.min(minYear,tm)
 	maxYear = math.max(maxYear,tm)	
     }
 
-    val span = new Interval(minYear, maxYear)
+    val span = Interval(minYear, maxYear)
     var years = 0
     val result: SnapshotGraph[String,Int] = new SnapshotGraph(span)
 
@@ -224,7 +234,7 @@ object SnapshotGraph {
       	case (uid, deg, None) => ""
       }
 
-      result.addSnapshot(new Interval(years, years), graph)
+      result.addSnapshot(Interval(years, years), graph)
     }
     result
   }

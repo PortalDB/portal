@@ -18,7 +18,7 @@ object SnapshotGraphTest {
     var testGraph = SnapshotGraph.loadData(args(0), sc)
     val interv = new Interval(1980, 2015)
     val aggregate = testGraph.select(interv).aggregate(5, AggregateSemantics.Existential)
-    //there should be 7 results
+    //there should be 8 results
     println("total number of results after aggregation: " + aggregate.size)
     
     //let's run pagerank on the aggregate now

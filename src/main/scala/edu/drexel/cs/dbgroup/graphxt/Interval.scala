@@ -52,3 +52,6 @@ class Interval(mn: Int, mx: Int) extends Ordered[Interval] with Serializable {
   }
 }
 
+object Interval {
+  def apply(mn: Int, mx: Int) = new Interval(mn,mx)
+}
