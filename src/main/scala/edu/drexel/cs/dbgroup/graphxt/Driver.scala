@@ -5,9 +5,16 @@ import org.apache.spark.SparkContext._
 import org.apache.spark.graphx.Graph
 import scala.util.control._
 import scala.collection.mutable.ArrayBuffer
+import org.apache.log4j.Logger 
+import org.apache.log4j.Level 
 
 object Driver {
   def main(args: Array[String]) = {
+
+  //note: this does not remove ALL logging  
+    Logger.getLogger("org").setLevel(Level.OFF) 
+    Logger.getLogger("akka").setLevel(Level.OFF) 
+
     var graphType: String = ""
     var strategy: String = ""
     var iterations: Int = 1
@@ -25,7 +32,8 @@ object Driver {
       }
     }
 	
-    val sc = new SparkContext("local", "SnapshotGraph Project",
+    //val sc = new SparkContext("local", "SnapshotGraph Project",
+    val sc = new SparkContext("spark://ec2-54-234-129-137.compute-1.amazonaws.com:7077", "SnapshotGraph Project",
       System.getenv("SPARK_HOME"),
       List("target/scala-2.10/snapshot-graph-project_2.10-1.0.jar"))
 
@@ -61,6 +69,7 @@ object Driver {
 
     val endAsMili = System.currentTimeMillis()
     val runTime = endAsMili.toInt - startAsMili.toInt
-    println(runTime)
+    println("Final Runtime: " + runTime)
+
   }
 }

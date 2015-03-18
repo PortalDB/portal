@@ -12,6 +12,7 @@ import org.apache.spark.graphx.Graph
 import org.apache.spark.rdd._
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
+import org.apache.spark.rdd.EmptyRDD
 
 class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializable {
   var span = sp
@@ -228,7 +229,12 @@ object SnapshotGraph {
 
     for (years <- minYear to maxYear) {
       val users = sc.textFile(dataPath + "/nodes/nodes" + years + ".txt").map(line => line.split("|")).map(parts => (parts.head.toLong, parts(1).toString) )
-      val edges = GraphLoader.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt")
+      var edges:Graph[Int,Int] = null
+      if ((new java.io.File(dataPath + "/edges/edges" + years + ".txt")).length > 0) {
+            edges = GraphLoader.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt")
+      } else {
+            edges = Graph[Int,Int](sc.emptyRDD,sc.emptyRDD)
+      }
       val graph = edges.outerJoinVertices(users) {
       	case (uid, deg, Some(name)) => name
       	case (uid, deg, None) => ""
