@@ -1,0 +1,35 @@
+The updated instructions for creating a cluster (assuming you have spark downloaded):
+1) have your pem key (or vzaychik.pem) in a location you know with 600 permissions
+2) set env permissions
+export AWS_ACCESS_KEY_ID=AKIAIPXCE7J7QFXGOILQ
+export AWS_SECRET_ACCESS_KEY=BFYyhiJas9mhbzGyo5ZTuT6caxEsUeMtGTkV0uR8
+
+3) go to the spark/ec2 directory
+4) ./spark-ec2 -k vzaychik -i vzaychik.pem -s 2 launch graphtest
+where the number after -s is how many slaves we want and graphtest is just the name I gave this cluster. It can be whatever we want.
+5) log in
+./spark-ec2 -k vzaychik -i vzaychik.pem login graphtest
+6) install sbt if not already installed
+curl https://bintray.com/sbt/rpm/rpm | sudo tee /etc/yum.repos.d/bintray-sbt-rpm.repo
+sudo yum install sb
+7) if any file editing needed, install emacs if not already installed
+sudo yum install emacs
+8) open and copy the public ssh key from ~/.ssh/id_rsa.pub and add that key to your king git profile
+9) grab our code from git
+git clone gitlab@king.cs.drexel.edu:mrb327/temporaldata.git
+10) cd temporaldata/src/main
+11) edit Driver.scala and replace the url of the master with the current master url (which you got when you started the cluster)
+12) sbt package
+13) from the root directory, copy the files onto all the slaves:
+spark-ec2/copy-dir temporaldata/
+14) assuming everything was done correctly, start a run (this is without the bash) in the temporaldata/src/main directory:
+sbt "run --data /root/temporaldata/resources/set2 --select 1980 1999 --agg 5 exist --agg 2 universal"
+(obviously just an example of particular arguments)
+
+When all the runs are done, log out from the master. To stop it, run
+spark/spark-ec2 -k vzaychik -i vzaychik.pem stop graphtest
+
+If the cluster was already previously created (like graphtest), instead of launch run
+spark/spark-ec2 -k vzaychik -i vzaychik.pem start graphtest
+Then verify that sbt/emacs still installed. Then check whether temporaldata is there - it likely isn't in which case perform the steps above starting from 8.
+
