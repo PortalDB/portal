@@ -16,6 +16,7 @@ import org.apache.spark.rdd.EmptyRDD
 
 class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializable {
   var span = sp
+  //FIXME: for efficiency sake turn graphs into mutable structure
   var graphs:Seq[Graph[VD,ED]] = Seq[Graph[VD,ED]]()
   var intervals:SortedMap[Interval, Int] = TreeMap[Interval,Int]()
   
@@ -207,6 +208,24 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
     
     result
   }
+
+  def partitionBy(pst: PartitionStrategyType.Value):SnapshotGraph[VD,ED] = {
+    if (pst != PartitionStrategyType.None) {
+      var result:SnapshotGraph[VD,ED] = new SnapshotGraph[VD,ED](span)
+      //not changing the intervals, only the graphs at their indices
+      //each partition strategy for SG needs information about the graph
+
+      //use that strategy to partition each of the snapshots
+      intervals.foreach {
+        case (k,v) =>
+          result.addSnapshot(k,graphs(v).partitionBy(PartitionStrategies.makeStrategy(pst,v,graphs.size)))
+      }
+
+      result
+    } else
+      this
+  }
+
 }
 
 object SnapshotGraph {
