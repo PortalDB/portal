@@ -21,7 +21,7 @@ do
 		do
 			(
 				printf "$QUERY,$i,"
-				OUTPUT="$(run $line "--data" $DATA "--strategy" $STRAT)" #where we adjust based on how you run the driver
+				OUTPUT="$(run $line "--data" $DATA "--partition" $STRAT)" #where we adjust based on how you run the driver
 				sed -n '$p' <<< "$OUTPUT"
 			) >> results.csv
 		done
