@@ -10,22 +10,32 @@ ITER="${STRIP[1]}"
 IFS=' ' read -ra STRIP <<< "$line2"
 DATA="${STRIP[1]}"
 IFS=' ' read -ra STRIP <<< "$line3"
-STRAT="${STRIP[1]}"
-COUNTER=0
+STRATLIST="${STRIP[1]}"
+IFS=',' read -ra STRATS <<< "$STRATLIST"
+NUMSTRATS="${#STRATS[@]}"
+LINECOUNTER=0
 while read -r line
 do
-	if [ "$COUNTER" -gt 1 ]; then #make this number numArgs in config - 1
+	#for each query
+	if [ "$LINECOUNTER" -gt 2 ]; then #make this number numArgs in config - 1
 		IFS=' ' read -ra STRIP <<< "$line"
 		QUERY="${STRIP[0]}"
-		for (( i=1; i <= $ITER; i++ ))
+		#for each strat
+		for(( j=0; j<$NUMSTRATS; j++ ))
 		do
-			(
-				printf "$QUERY,$i,"
-				OUTPUT="$(run $line "--data" $DATA "--partition" $STRAT)" #where we adjust based on how you run the driver
-				sed -n '$p' <<< "$OUTPUT"
-			) >> results.csv
+			STRAT="${STRATS[$j]}"
+			echo $QUERY "  " $STRAT 
+			#for as many times as iterator signifies
+			for (( i=1; i <= $ITER; i++ ))
+			do
+				(
+					printf "$QUERY,$STRAT,$i,"
+					OUTPUT="$(run $line "--data" $DATA "--partition" $STRAT)" #where we adjust based on how you run the driver
+					sed -n '$p' <<< "$OUTPUT"
+				) >> results.csv
+			done
 		done
 	fi
-	let COUNTER=1+COUNTER
+	let LINECOUNTER=1+LINECOUNTER
 done < "$filename"
 exec 6<&-
