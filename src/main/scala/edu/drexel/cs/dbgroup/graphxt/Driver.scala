@@ -81,6 +81,12 @@ object Driver {
       }
     }
 
+    //just to make sure there was an action, do a count of edges
+    if (changedType)
+      result2.numEdges
+    else
+      result.numEdges
+
     val endAsMili = System.currentTimeMillis()
     val runTime = endAsMili.toInt - startAsMili.toInt
     println("Final Runtime: " + runTime)

@@ -18,6 +18,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
   var span = sp
   //FIXME: for efficiency sake turn graphs into mutable structure
   var graphs:Seq[Graph[VD,ED]] = Seq[Graph[VD,ED]]()
+  //FIXME? Should this be turned into an RDD?
   var intervals:SortedMap[Interval, Int] = TreeMap[Interval,Int]()
   
   def size(): Int = { graphs.size }
@@ -33,6 +34,15 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
     val iter = graphs.iterator
     while (iter.hasNext)
       iter.next.unpersist(blocking)
+  }
+
+  def numEdges():Long = {
+    val iter:Iterator[Graph[VD,ED]] = graphs.iterator
+    var sum:Long = 0L
+    while (iter.hasNext) {
+      sum += iter.next.edges.count
+    }
+    sum
   }
 
   //Note: this kind of breaks the normal spark/graphx paradigm of returning
@@ -202,6 +212,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
     
     while (iter.hasNext) {
       val (k,v) = iter.next
+      //For regular directed pagerank, uncomment the following line
       //result.addSnapshot(k, graphs(v).pageRank(tol))
       result.addSnapshot(k,UndirectedPageRank.runUntilConvergence(graphs(v),tol,resetProb))
     }
