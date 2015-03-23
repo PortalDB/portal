@@ -84,13 +84,13 @@ object Driver {
 
     //just to make sure there was an action, do a count of edges
     if (changedType)
-      println("final number of edges in result: " + result2.numEdges)
+      result2.numEdges
     else
-      println("final number of edges in result: " + result.numEdges)
+      result.numEdges
 
     val endAsMili = System.currentTimeMillis()
-    val runTime = endAsMili.toInt - startAsMili.toInt
-    println("Final Runtime: " + runTime)
+    val runTime = endAsMili - startAsMili
+    println("Final Runtime: " + runTime + "ms")
 
   }
 }
