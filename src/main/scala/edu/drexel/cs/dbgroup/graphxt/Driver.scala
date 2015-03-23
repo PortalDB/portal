@@ -88,8 +88,8 @@ object Driver {
       result.numEdges
 
     val endAsMili = System.currentTimeMillis()
-    val runTime = endAsMili.toInt - startAsMili.toInt
-    println("Final Runtime: " + runTime)
+    val runTime = endAsMili - startAsMili
+    println("Final Runtime: " + runTime + "ms")
 
   }
 }

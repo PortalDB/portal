@@ -286,8 +286,8 @@ object MultiGraph {
     var minYear:Int = Int.MaxValue
     var maxYear:Int = 0
 
-    val users = sc.textFile(dataPath + "/Node-ID.txt").map { line =>
-      val fields = line.split(",")
+    val users = sc.textFile(dataPath + "/Nodes-ID.txt").map { line =>
+      val fields = line.split("|")
       val tl = fields.tail.tail
       val miny:Int = tl.min.toInt
       val maxy:Int = tl.max.toInt
@@ -299,7 +299,7 @@ object MultiGraph {
     //GraphLoader.edgeListFile does not allow for additional attributes besides srcid/dstid
     //so use an extended version instead which does (but assumes the attr is an int)
     //the edges are in years, need to translate into indices
-    val edges = GraphLoaderAddon.edgeListFile(sc, dataPath + "/Edge-ID.txt").mapEdges(e => (1,e.attr-minYear))
+    val edges = GraphLoaderAddon.edgeListFile(sc, dataPath + "/Edges-ID.txt").mapEdges(e => (1,e.attr-minYear))
 
     //in the source data the vertex attribute list is the name followed by years
     //we need to transform that into a tuple of name,List(indices)
@@ -318,13 +318,12 @@ object MultiGraph {
     new MultiGraph[String,Int](Interval(minYear,maxYear), intvs, graph)
   }
 }
-
-class MultiGraphPTest {
+object MultiGraphPTest {
 
   def main(args: Array[String]) {
-    val sc = new SparkContext("local", "SnapshotGraph Project", 
-      "/Users/vzaychik/spark-1.2.1",
-      List("target/scala-2.10/simple-project_2.10-1.0.jar"))
+    val sc = new SparkContext("local", "MultiGraph Project", 
+      System.getenv("SPARK_HOME"),
+      List("target/scala-2.10/multigraph-project_2.10-1.0.jar"))
 
     var testGraph = MultiGraph.loadGraph(args(0), sc)
     val interv = new Interval(1980, 2015)

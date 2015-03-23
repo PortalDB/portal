@@ -23,15 +23,21 @@ do
 		#for each strat
 		for(( j=0; j<$NUMSTRATS; j++ ))
 		do
-			STRAT="${STRATS[$j]}"
-			echo $QUERY "  " $STRAT 
-			#for as many times as iterator signifies
+            STRAT="${STRATS[$j]}"
+            echo $QUERY "  " $STRAT
+            #for as many times as iterator signifies
+            
+            dataParam="--data"
+            partitionParam="--partition"
+            runCommand="sbt \"run $line $dataParam $DATA $partitionParam $STRAT\"" #where we adjust based on how you run the driver
+
 			for (( i=1; i <= $ITER; i++ ))
-			do
+            do
 				(
-					printf "$QUERY,$STRAT,$i,"
-					OUTPUT="$(sbt run $line "--data" $DATA "--partition" $STRAT)" #where we adjust based on how you run the driver
-					sed -n '$p' <<< "$OUTPUT"
+                    printf "$QUERY,$STRAT,$i,"
+                    OUTPUT="$(eval $runCommand)"
+                    #sed -n '$p' <<< "$OUTPUT"
+                    grep -E 'Final Runtime' <<< "$OUTPUT"
 				) >> results.csv
 			done
 		done

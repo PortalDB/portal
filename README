@@ -3,5 +3,10 @@ Set $SPARK_HOME environment variable
 To compile:
     sbt package
 
-To run:
-    sbt "run ../../resources/set2"
+To run Snapshot Graph Project:
+    sbt "run-main edu.drexel.cs.dbgroup.graphxt.Driver {params}"
+    	** where {params} could be for example: "G4_U --agg 5 universal --pagerank --data ../../resources/set2 --partition EdgePartition2D"
+
+To run MultiGraph Project:
+    sbt "run-main edu.drexel.cs.dbgroup.graphxt.MultiGraphPTest {params}"
+    	** where {params} could be for example: "../../resources"
