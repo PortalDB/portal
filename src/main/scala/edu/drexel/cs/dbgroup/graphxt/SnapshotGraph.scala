@@ -38,9 +38,13 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
 
   def numEdges():Long = {
     val iter:Iterator[Graph[VD,ED]] = graphs.iterator
+    println("total number of graphs: " + graphs.size)
     var sum:Long = 0L
     while (iter.hasNext) {
-      sum += iter.next.edges.count
+      val g = iter.next
+      if (!g.edges.isEmpty) {
+        sum += g.edges.count
+      }
     }
     sum
   }
@@ -212,9 +216,13 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
     
     while (iter.hasNext) {
       val (k,v) = iter.next
-      //For regular directed pagerank, uncomment the following line
-      //result.addSnapshot(k, graphs(v).pageRank(tol))
-      result.addSnapshot(k,UndirectedPageRank.runUntilConvergence(graphs(v),tol,resetProb))
+      if (graphs(v).edges.isEmpty) {
+        result.addSnapshot(k,Graph[Double,Double](ProgramContext.sc.emptyRDD,ProgramContext.sc.emptyRDD))
+      } else {
+        //For regular directed pagerank, uncomment the following line
+        //result.addSnapshot(k, graphs(v).pageRank(tol))
+        result.addSnapshot(k,UndirectedPageRank.runUntilConvergence(graphs(v),tol,resetProb))
+      }
     }
     
     result
