@@ -1,4 +1,7 @@
 #!/bin/bash
+
+echoerr() { cat <<< "$@" 1>&2; }
+
 filename="$1"
 dos2unix -k -o $1 #not needed if config file in unix format already
 exec 6< $1
@@ -36,6 +39,7 @@ do
 				(
                     printf "$QUERY,$STRAT,$i,"
                     OUTPUT="$(eval $runCommand)"
+		    echoerr $OUTPUT
                     #sed -n '$p' <<< "$OUTPUT"
                     grep -E 'Final Runtime' <<< "$OUTPUT"
 				) >> results.csv

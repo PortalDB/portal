@@ -73,13 +73,10 @@ object Driver {
           changedType = true
         }
       }
-      //if this is not the last part of the query, repartition
-      if (nextArg < args.length) {
-        if (changedType)
-          result2 = result2.partitionBy(partitionType)
-        else
-          result = result.partitionBy(partitionType)
-      }
+      if (changedType)
+        result2 = result2.partitionBy(partitionType)
+      else
+        result = result.partitionBy(partitionType)
     }
 
     //just to make sure there was an action, do a count of edges
