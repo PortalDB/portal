@@ -35,13 +35,14 @@ object Driver {
       }
     }
 	
-    //val sc = new SparkContext("local", "SnapshotGraph Project",
-    val sc = new SparkContext("spark://ec2-54-234-129-137.compute-1.amazonaws.com:7077", "SnapshotGraph Project",
+    val sc = new SparkContext("local", "SnapshotGraph Project",
+    //val sc = new SparkContext("spark://ec2-54-234-129-137.compute-1.amazonaws.com:7077", "SnapshotGraph Project",
       System.getenv("SPARK_HOME"),
       List("target/scala-2.10/snapshot-graph-project_2.10-1.0.jar"))
     ProgramContext.setContext(sc)
 
     var result:SnapshotGraph[String,Int] = SnapshotGraph.loadData(data, sc).partitionBy(partitionType)
+    println("Number of partitions after partitioning: " + result.numPartitions)
     var result2:SnapshotGraph[Double,Double] = null
     var changedType = false
 
@@ -73,10 +74,13 @@ object Driver {
           changedType = true
         }
       }
-      if (changedType)
+      if (changedType) {
         result2 = result2.partitionBy(partitionType)
-      else
+        println("Number of partitions after partitioning: " + result2.numPartitions)
+      } else {
         result = result.partitionBy(partitionType)
+        println("Number of partitions after partitioning: " + result.numPartitions)
+      }
     }
 
     //just to make sure there was an action, do a count of edges

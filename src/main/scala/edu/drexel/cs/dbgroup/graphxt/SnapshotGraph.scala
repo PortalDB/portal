@@ -7,6 +7,7 @@ import scala.reflect.ClassTag
 import scala.util.control._
 
 import org.apache.spark.SparkContext
+import org.apache.spark.Partition
 import org.apache.spark.graphx._
 import org.apache.spark.graphx.Graph
 import org.apache.spark.rdd._
@@ -43,10 +44,22 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
     while (iter.hasNext) {
       val g = iter.next
       if (!g.edges.isEmpty) {
-        sum += g.edges.count
+        sum += g.numEdges
       }
     }
     sum
+  }
+
+  def numPartitions():Int = {
+    val iter:Iterator[Graph[VD,ED]] = graphs.iterator
+    var allps: Array[Partition] = Array[Partition]()
+    while (iter.hasNext) {
+      val g = iter.next
+      if (!g.edges.isEmpty) {
+        allps = allps union g.edges.partitions
+      }
+    }
+    allps.size
   }
 
   //Note: this kind of breaks the normal spark/graphx paradigm of returning
