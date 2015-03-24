@@ -68,9 +68,9 @@ object Driver {
       }else if(args(i) == "--pagerank"){
         nextArg = i+1
         if (changedType)
-	  result2 = result2.pageRank(0.0001)
+	  result2 = result2.pageRank(0.0001,0.15,50)
         else {
-	  result2 = result.pageRank(0.0001)
+	  result2 = result.pageRank(0.0001,0.15,50)
           changedType = true
         }
       }

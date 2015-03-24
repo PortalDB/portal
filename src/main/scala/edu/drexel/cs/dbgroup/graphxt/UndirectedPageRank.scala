@@ -22,8 +22,8 @@ object UndirectedPageRank {
    * @return the graph containing with each vertex containing the PageRank and each edge
    *         containing the normalized weight.
    */
-  def runUntilConvergence[VD: ClassTag, ED: ClassTag](
-      graph: Graph[VD, ED], tol: Double, resetProb: Double = 0.15): Graph[Double, Double] =
+  def run[VD: ClassTag, ED: ClassTag](
+      graph: Graph[VD, ED], tol: Double, resetProb: Double = 0.15, maxIter: Int = Int.MaxValue): Graph[Double, Double] =
   {
     // Initialize the pagerankGraph with each edge attribute
     // having weight 1/degree and each vertex with attribute 1.0.
@@ -64,7 +64,8 @@ object UndirectedPageRank {
     val initialMessage = resetProb / (1.0 - resetProb)
 
     // Execute a dynamic version of Pregel.
-    Pregel(pagerankGraph, initialMessage, activeDirection = EdgeDirection.Either)(
+    Pregel(pagerankGraph, initialMessage, maxIter, 
+      activeDirection = EdgeDirection.Either)(
       vertexProgram, sendMessage, messageCombiner)
       .mapTriplets(e => e.attr._1) //I don't think it matters which we pick
       .mapVertices((vid, attr) => attr._1)

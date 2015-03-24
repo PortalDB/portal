@@ -223,7 +223,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
   }
 
   //run PageRank on each contained snapshot
-  def pageRank(tol: Double, resetProb: Double = 0.15): SnapshotGraph[Double,Double] = {
+  def pageRank(tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): SnapshotGraph[Double,Double] = {
     var result:SnapshotGraph[Double,Double] = new SnapshotGraph[Double,Double](span)
     val iter:Iterator[(Interval,Int)] = intervals.iterator
     
@@ -234,7 +234,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
       } else {
         //For regular directed pagerank, uncomment the following line
         //result.addSnapshot(k, graphs(v).pageRank(tol))
-        result.addSnapshot(k,UndirectedPageRank.runUntilConvergence(graphs(v),tol,resetProb))
+        result.addSnapshot(k,UndirectedPageRank.run(graphs(v),tol,resetProb,numIter))
       }
     }
     
