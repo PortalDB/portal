@@ -48,38 +48,35 @@ object Driver {
 
     val startAsMili = System.currentTimeMillis()
 
-    var  nextArg = 0
     for(i <- 0 until args.length){
       if(args(i) == "--agg"){
         var sem = AggregateSemantics.Existential
-        nextArg = i+2
         if (args(i+2) == "universal")
           sem = AggregateSemantics.Universal
-        if (changedType)
-	  result2 = result2.aggregate(args(i+1).toInt, sem)
-        else
-	  result = result.aggregate(args(i+1).toInt, sem)
+        if (changedType) {
+	  result2 = result2.aggregate(args(i+1).toInt, sem).partitionBy(partitionType)
+          println("Number of partitions after partitioning: " + result2.numPartitions)
+        } else {
+	  result = result.aggregate(args(i+1).toInt, sem).partitionBy(partitionType)
+          println("Number of partitions after partitioning: " + result.numPartitions)
+        }
       }else if(args(i) == "--select"){
-        nextArg = i+3
-        if (changedType)
-	  result2 = result2.select(Interval(args(i+1).toInt, args(i+2).toInt))
-        else
-          result = result.select(Interval(args(i+1).toInt, args(i+2).toInt))
+        if (changedType) {
+	  result2 = result2.select(Interval(args(i+1).toInt, args(i+2).toInt)).partitionBy(partitionType)
+          println("Number of partitions after partitioning: " + result2.numPartitions)
+        } else {
+          result = result.select(Interval(args(i+1).toInt, args(i+2).toInt)).partitionBy(partitionType)
+          println("Number of partitions after partitioning: " + result.numPartitions)
+        }
       }else if(args(i) == "--pagerank"){
-        nextArg = i+1
-        if (changedType)
-	  result2 = result2.pageRank(0.0001,0.15,50)
-        else {
-	  result2 = result.pageRank(0.0001,0.15,50)
+        if (changedType) {
+	  result2 = result2.pageRank(0.0001,0.15,50).partitionBy(partitionType)
+          println("Number of partitions after partitioning: " + result2.numPartitions)
+        } else {
+	  result2 = result.pageRank(0.0001,0.15,50).partitionBy(partitionType)
+          println("Number of partitions after partitioning: " + result2.numPartitions)
           changedType = true
         }
-      }
-      if (changedType) {
-        result2 = result2.partitionBy(partitionType)
-        println("Number of partitions after partitioning: " + result2.numPartitions)
-      } else {
-        result = result.partitionBy(partitionType)
-        println("Number of partitions after partitioning: " + result.numPartitions)
       }
     }
 
