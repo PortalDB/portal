@@ -280,7 +280,7 @@ object SnapshotGraph {
 
     for (years <- minYear to maxYear) {
       val users:RDD[(VertexId,String)] = sc.textFile(dataPath + "/nodes/nodes" + years + ".txt").map(line => line.split("|")).map{parts => 
-        if (parts.size > 1 || parts.head == "") 
+        if (parts.size > 1 && parts.head != "") 
           (parts.head.toLong, parts(1).toString) 
         else
           (1L,"Default")
