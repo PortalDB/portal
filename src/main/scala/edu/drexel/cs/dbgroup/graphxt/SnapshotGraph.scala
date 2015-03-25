@@ -279,7 +279,12 @@ object SnapshotGraph {
     val result: SnapshotGraph[String,Int] = new SnapshotGraph(span)
 
     for (years <- minYear to maxYear) {
-      val users = sc.textFile(dataPath + "/nodes/nodes" + years + ".txt").map(line => line.split("|")).map(parts => (parts.head.toLong, parts(1).toString) )
+      val users:RDD[(VertexId,String)] = sc.textFile(dataPath + "/nodes/nodes" + years + ".txt").map(line => line.split("|")).map{parts => 
+        if (parts.size > 1) 
+          (parts.head.toLong, parts(1).toString) 
+        else
+          (1L,"Default")
+      }
       var edges:Graph[Int,Int] = null
       if ((new java.io.File(dataPath + "/edges/edges" + years + ".txt")).length > 0) {
             edges = GraphLoader.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt")
