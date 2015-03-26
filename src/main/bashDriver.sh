@@ -3,7 +3,7 @@
 echoerr() { cat <<< "$@" 1>&2; }
 
 filename="$1"
-dos2unix -k -o $1 #not needed if config file in unix format already
+#dos2unix -k -o $1 #not needed if config file in unix format already
 exec 6< $1
 read line1 <&6
 read line2 <&6

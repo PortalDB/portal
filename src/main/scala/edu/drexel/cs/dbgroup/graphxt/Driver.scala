@@ -70,21 +70,20 @@ object Driver {
         }
       }else if(args(i) == "--pagerank"){
         if (changedType) {
-	  result2 = result2.pageRank(0.0001,0.15,50).partitionBy(partitionType)
+	  result2 = result2.pageRank(0.0001,0.15,args(i+1).toInt).partitionBy(partitionType)
           println("Number of partitions after partitioning: " + result2.numPartitions)
         } else {
-	  result2 = result.pageRank(0.0001,0.15,50).partitionBy(partitionType)
+	  result2 = result.pageRank(0.0001,0.15,args(i+1).toInt).partitionBy(partitionType)
           println("Number of partitions after partitioning: " + result2.numPartitions)
           changedType = true
         }
+      }else if(args(i) == "--count"){
+        if (changedType)
+          println("Total edges across all snapshots: " + result2.numEdges)
+        else
+          println("Total edges across all snapshots: " + result.numEdges)
       }
     }
-
-    //just to make sure there was an action, do a count of edges
-    if (changedType)
-      result2.numEdges
-    else
-      result.numEdges
 
     val endAsMili = System.currentTimeMillis()
     val runTime = endAsMili - startAsMili
