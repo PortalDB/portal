@@ -207,6 +207,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
           }
        
           if (sem == AggregateSemantics.Existential) {
+            //TODO: union all parts at the same time using Context.union
             firstVRDD = VertexRDD(firstVRDD.union(graphs(v).vertices).distinct)
             firstERDD = EdgeRDD.fromEdges[ED,VD](firstERDD.union( graphs(v).edges ).distinct)
           } else if (sem == AggregateSemantics.Universal) {
@@ -237,7 +238,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
         //For undirected pagerank without coalescing, uncomment the following line
         result.addSnapshot(k,UndirectedPageRank.run(graphs(v),tol,resetProb,numIter))
         //For undirected pagerank with coalescing, uncomment the following line
-        result.addSnapshot(k,UndirectedPageRank.run(Graph(graphs(v).vertices,graphs(v).edges.coalesce(2,true)),tol,resetProb,numIter))
+        result.addSnapshot(k,UndirectedPageRank.run(Graph(graphs(v).vertices,graphs(v).edges.coalesce(1,true)),tol,resetProb,numIter))
       }
     }
     
