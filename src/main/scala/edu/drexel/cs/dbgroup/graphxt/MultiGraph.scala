@@ -169,9 +169,10 @@ class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interv
 
       //that's how much we need to reduce all the selected vertex/edges indices by
       val oldst:Int = intvs(intvs.firstKey)
-
+      val temp:Array[Int] = intvs.values.toArray
+      
       //now select the vertices and edges
-      val subg = graphs.subgraph(vpred = (vid,attr) => !attr._2.intersect(Seq(intvs.values)).isEmpty, epred = et => !Seq(intvs.values).intersect(Seq(et.attr._2)).isEmpty)
+      val subg = graphs.subgraph(vpred = (vid,attr) => !attr._2.intersect(temp).isEmpty, epred = et => !temp.intersect(Seq(et.attr._2)).isEmpty)
       //now need to renumber vertex and edge intervals indices
       val verts = VertexRDD(subg.vertices.mapValues((vid,attr) => (attr._1,attr._2.map(x => (x-oldst)))))
       val edges = EdgeRDD.fromEdges[(ED,Int),VD](subg.edges.mapValues(e => (e.attr._1,e.attr._2-oldst)))
@@ -179,6 +180,7 @@ class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interv
       //now need to renumber to start with 0 index
       intvs = intvs.mapValues(x => (x-oldst))
 
+      println("Done with select....")
       new MultiGraph[VD,ED](rng, intvs, Graph(verts,edges))
     } else
       null
@@ -283,16 +285,16 @@ class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interv
 object MultiGraph {
 
   def loadGraph(dataPath: String, sc:SparkContext): MultiGraph[String,Int] = {
-    var minYear:Int = Int.MaxValue
-    var maxYear:Int = 0
+    var minYear:Int = 1936
+    var maxYear:Int = 2015
 
     val users = sc.textFile(dataPath + "/Nodes-ID.txt").map { line =>
       val fields = line.split("|")
       val tl = fields.tail.tail
-      val miny:Int = tl.min.toInt
-      val maxy:Int = tl.max.toInt
-      minYear = math.min(minYear,miny)
-      maxYear = math.max(maxYear,maxy)
+//      val miny:Int = tl.min.toInt
+//      val maxy:Int = tl.max.toInt
+//      minYear = math.min(minYear,miny)
+//      maxYear = math.max(maxYear,maxy)
       (fields.head.toLong, fields.tail)
     }
 
