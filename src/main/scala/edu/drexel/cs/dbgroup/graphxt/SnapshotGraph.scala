@@ -210,8 +210,8 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
             firstVRDD = VertexRDD(firstVRDD.union(graphs(v).vertices).distinct)
             firstERDD = EdgeRDD.fromEdges[ED,VD](firstERDD.union( graphs(v).edges ).distinct)
           } else if (sem == AggregateSemantics.Universal) {
-            firstVRDD = VertexRDD(firstVRDD.intersection(graphs(v).vertices).distinct)
-            firstERDD = EdgeRDD.fromEdges[ED,VD](firstERDD.intersection(graphs(v).edges).distinct)
+            firstVRDD = VertexRDD(firstVRDD.intersection(graphs(v).vertices))
+            firstERDD = EdgeRDD.fromEdges[ED,VD](firstERDD.intersection(graphs(v).edges))
           }
           maxBound = k.max
         }
@@ -234,7 +234,10 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
       } else {
         //For regular directed pagerank, uncomment the following line
         //result.addSnapshot(k, graphs(v).pageRank(tol))
+        //For undirected pagerank without coalescing, uncomment the following line
         result.addSnapshot(k,UndirectedPageRank.run(graphs(v),tol,resetProb,numIter))
+        //For undirected pagerank with coalescing, uncomment the following line
+        result.addSnapshot(k,UndirectedPageRank.run(Graph(graphs(v).vertices,graphs(v).edges.coalesce(2,true)),tol,resetProb,numIter))
       }
     }
     
@@ -250,7 +253,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
       //use that strategy to partition each of the snapshots
       intervals.foreach {
         case (k,v) =>
-          result.addSnapshot(k,graphs(v).partitionBy(PartitionStrategies.makeStrategy(pst,v,graphs.size)))
+          result.addSnapshot(k,graphs(v).partitionBy(PartitionStrategies.makeStrategy(pst,v,graphs.size),8))
       }
 
       result
@@ -283,7 +286,7 @@ object SnapshotGraph {
         if (parts.size > 1 && parts.head != "") 
           (parts.head.toLong, parts(1).toString) 
         else
-          (1L,"Default")
+          (0L,"Default")
       }
       var edges:Graph[Int,Int] = null
       if ((new java.io.File(dataPath + "/edges/edges" + years + ".txt")).length > 0) {

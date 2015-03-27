@@ -42,7 +42,6 @@ object Driver {
     ProgramContext.setContext(sc)
 
     var result:SnapshotGraph[String,Int] = SnapshotGraph.loadData(data, sc).partitionBy(partitionType)
-    println("Number of partitions after partitioning: " + result.numPartitions)
     var result2:SnapshotGraph[Double,Double] = null
     var changedType = false
 
@@ -55,26 +54,20 @@ object Driver {
           sem = AggregateSemantics.Universal
         if (changedType) {
 	  result2 = result2.aggregate(args(i+1).toInt, sem).partitionBy(partitionType)
-          println("Number of partitions after partitioning: " + result2.numPartitions)
         } else {
 	  result = result.aggregate(args(i+1).toInt, sem).partitionBy(partitionType)
-          println("Number of partitions after partitioning: " + result.numPartitions)
         }
       }else if(args(i) == "--select"){
         if (changedType) {
-	  result2 = result2.select(Interval(args(i+1).toInt, args(i+2).toInt)).partitionBy(partitionType)
-          println("Number of partitions after partitioning: " + result2.numPartitions)
+	  result2 = result2.select(Interval(args(i+1).toInt, args(i+2).toInt))
         } else {
-          result = result.select(Interval(args(i+1).toInt, args(i+2).toInt)).partitionBy(partitionType)
-          println("Number of partitions after partitioning: " + result.numPartitions)
+          result = result.select(Interval(args(i+1).toInt, args(i+2).toInt))
         }
       }else if(args(i) == "--pagerank"){
         if (changedType) {
-	  result2 = result2.pageRank(0.0001,0.15,args(i+1).toInt).partitionBy(partitionType)
-          println("Number of partitions after partitioning: " + result2.numPartitions)
+	  result2 = result2.pageRank(0.0001,0.15,args(i+1).toInt)
         } else {
-	  result2 = result.pageRank(0.0001,0.15,args(i+1).toInt).partitionBy(partitionType)
-          println("Number of partitions after partitioning: " + result2.numPartitions)
+	  result2 = result.pageRank(0.0001,0.15,args(i+1).toInt)
           changedType = true
         }
       }else if(args(i) == "--count"){
