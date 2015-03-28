@@ -8,12 +8,13 @@ import org.apache.spark.graphx._
 import org.apache.spark.HashPartitioner
 import org.apache.spark.graphx.PartitionStrategy
 import org.apache.spark.graphx.PartitionStrategy._
+import org.apache.spark.graphx.GraphXPartitionExt._
 
 object GraphXPartitionExtension {
   //an implicit class allows us to override one method of GraphImpl without
   //having to modify every instance of new GraphImpl in the code
   implicit class GraphImplExtension[VD: ClassTag, ED: ClassTag](graph: GraphImpl[VD,ED]) {
-    def partitionBy(partitionStrategy: PartitionStrategyMoreInfo, numPartitions: Int): Graph[VD, ED] = {
+    def partitionByExt(partitionStrategy: PartitionStrategyMoreInfo, numPartitions: Int): Graph[VD, ED] = {
       if (partitionStrategy.isInstanceOf[PartitionStrategyMoreInfo]) {
         val edTag = classTag[ED]
         val vdTag = classTag[VD]
@@ -37,4 +38,5 @@ object GraphXPartitionExtension {
       }
     }
   }
+
 }

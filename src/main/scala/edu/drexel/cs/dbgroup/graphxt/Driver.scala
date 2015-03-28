@@ -7,6 +7,7 @@ import scala.util.control._
 import scala.collection.mutable.ArrayBuffer
 import org.apache.log4j.Logger 
 import org.apache.log4j.Level 
+import org.apache.spark.graphx.impl.GraphXPartitionExtension._
 
 object Driver {
   def main(args: Array[String]) = {
@@ -43,10 +44,10 @@ object Driver {
       }
     }
 	
-    val sc = new SparkContext("local", "SnapshotGraph Project",
-    //val sc = new SparkContext("spark://ec2-54-234-129-137.compute-1.amazonaws.com:7077", "SnapshotGraph Project",
+    val sc = new SparkContext("local", "TemporalGraph Project",
+    //val sc = new SparkContext("spark://ec2-54-234-129-137.compute-1.amazonaws.com:7077", "TemporalGraph Project",
       System.getenv("SPARK_HOME"),
-      List("target/scala-2.10/snapshot-graph-project_2.10-1.0.jar"))
+      List("target/scala-2.10/temporal-graph-project_2.10-1.0.jar","lib/graphx-extensions_2.10-1.0.jar"))
     ProgramContext.setContext(sc)
 
     var changedType = false

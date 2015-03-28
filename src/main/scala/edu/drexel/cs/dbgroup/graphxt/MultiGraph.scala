@@ -11,6 +11,9 @@ import org.apache.spark.SparkContext._
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
 
+import org.apache.spark.graphx.impl.GraphXPartitionExtension._
+import org.apache.spark.graphx.GraphXPartitionExt._
+
 import org.apache.spark.graphx._
 import org.apache.spark.graphx.GraphLoaderAddon
 import org.apache.spark.graphx.Graph
@@ -286,7 +289,7 @@ class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interv
   def partitionBy(pst: PartitionStrategyType.Value, runs: Int):MultiGraph[VD,ED] = {
     if (pst != PartitionStrategyType.None) {
       //not changing the intervals
-      new MultiGraph[VD,ED](span,intervals,graphs.partitionBy(PartitionStrategies.makeStrategy(pst,0,intervals.size,runs)))
+      new MultiGraph[VD,ED](span,intervals,graphs.partitionByExt(PartitionStrategies.makeStrategy(pst,0,intervals.size,runs),8))
     } else
       this
   }

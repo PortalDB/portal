@@ -1,6 +1,6 @@
 lazy val root = (project in file(".")).
 settings(
-    name := "Snapshot Graph Project",
+    name := "Temporal Graph Project",
     version := "1.0",
     scalaVersion := "2.10.4",
     scalaSource in Compile <<= baseDirectory(_ / "."),

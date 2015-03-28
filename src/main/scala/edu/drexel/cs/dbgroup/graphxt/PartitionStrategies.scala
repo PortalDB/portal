@@ -23,8 +23,8 @@ object PartitionStrategies {
       case PartitionStrategyType.NaiveTemporalEdge => new NaiveTemporalEdgePartitioning(total)
       case PartitionStrategyType.ConsecutiveTemporal => new ConsecutiveTemporalPartitionStrategy(index, total)
       case PartitionStrategyType.ConsecutiveTemporalEdge => new ConsecutiveTemporalEdgePartitionStrategy(total)
-      case PartitionStrategyType.HybridRandomTemporal => new HybridRandomCutPartitionStrategy(index)
-      case PartitionStrategyType.HybridRandomEdgeTemporal => HybridRandomCutEdgePartitionStrategy
+      case PartitionStrategyType.HybridRandomTemporal => new HybridRandomCutPartitionStrategy(index,total,runs)
+      case PartitionStrategyType.HybridRandomEdgeTemporal => new HybridRandomCutEdgePartitionStrategy(total,runs)
       case PartitionStrategyType.Hybrid2DTemporal => new Hybrid2DPartitionStrategy(index,total,runs)
       case PartitionStrategyType.Hybrid2DEdgeTemporal => new Hybrid2DEdgePartitionStrategy(total,runs)
     }
@@ -126,20 +126,34 @@ class ConsecutiveTemporalEdgePartitionStrategy(total: Int) extends PartitionStra
 }
 
 //Hybrid (NTP + CRVS). Here, we have to decide ahead of time how many intervals a run should contain.
-class HybridRandomCutPartitionStrategy(in: Int) extends PartitionStrategy {
-  val index: Int = in
+class HybridRandomCutPartitionStrategy(in: Int, ti: Int, rs: Int) extends PartitionStrategy {
+  val snapshot: Int = in
+  val totalSnapshots: Int = ti
+  var runWidth: Int = rs
 
   override def getPartition(src: VertexId, dst: VertexId, numParts: PartitionID): PartitionID = {
-    if (src < dst) {
-      math.abs((src, dst).hashCode()*index) % numParts
-    } else {
-      math.abs((dst, src).hashCode()*index) % numParts
+    var numRuns: Int = (math.ceil(totalSnapshots / runWidth)).toInt
+    if (numRuns > numParts) {
+      numRuns = numParts
+      runWidth  = math.ceil(totalSnapshots / numRuns).toInt
     }
+    val partitionsPerRun:Int = (math.ceil(numParts / numRuns)).toInt
+    val snapshotToRun:Int = (snapshot / runWidth)
+
+    var	partitionWithinRun: Int	= 0
+    if (src < dst) {
+       partitionWithinRun = math.abs((src, dst).hashCode()) % partitionsPerRun
+    } else {
+       partitionWithinRun = math.abs((dst, src).hashCode()) % partitionsPerRun
+    }
+    snapshotToRun * partitionsPerRun + partitionWithinRun
   }
 }
 
 //Hybrid (NTP + CRVS). Here, we have to decide ahead of time how many intervals a run should contain.
-object HybridRandomCutEdgePartitionStrategy extends PartitionStrategyMoreInfo {
+class HybridRandomCutEdgePartitionStrategy(ti: Int, rs: Int) extends PartitionStrategyMoreInfo {
+  val totalSnapshots: Int = ti
+  var runWidth: Int = rs
 
   //we only provide this here because for inheritance we have to.
   //it shouldn't be invoked
@@ -149,23 +163,34 @@ object HybridRandomCutEdgePartitionStrategy extends PartitionStrategyMoreInfo {
 
   override def getPartition[ED: ClassTag](e: Edge[ED], numParts: PartitionID): PartitionID = {
     val (atr,index:Int) = e.attr
-    if (e.srcId < e.dstId) {
-      math.abs((e.srcId, e.dstId).hashCode()*index) % numParts
-    } else {
-      math.abs((e.dstId, e.srcId).hashCode()*index) % numParts
+    var numRuns: Int = (math.ceil(totalSnapshots / runWidth)).toInt
+    if (numRuns > numParts) {
+      numRuns = numParts
+      runWidth  = math.ceil(totalSnapshots / numRuns).toInt
     }
+    val partitionsPerRun:Int = (math.ceil(numParts / numRuns)).toInt
+    val snapshotToRun:Int = (index / runWidth)
+
+    var	partitionWithinRun: Int	= 0
+    if (e.srcId < e.dstId) {
+       partitionWithinRun = math.abs((e.srcId, e.dstId).hashCode()) % partitionsPerRun
+    } else {
+       partitionWithinRun = math.abs((e.dstId, e.srcId).hashCode()) % partitionsPerRun
+    }
+    snapshotToRun * partitionsPerRun + partitionWithinRun
   }
 }
 
 class Hybrid2DPartitionStrategy(in: Int, ti: Int, rs: Int) extends PartitionStrategy {
   val snapshot: Int = in
   val totalSnapshots: Int = ti
-  val runWidth: Int = rs
+  var runWidth: Int = rs
 
   override def getPartition(src: VertexId, dst: VertexId, numParts: PartitionID): PartitionID = {
     var numRuns : Int = (math.ceil(totalSnapshots / runWidth)).toInt
     if (numRuns	> numParts) {
       numRuns = numParts
+      runWidth = math.ceil(totalSnapshots / numRuns).toInt
     }
 
     val	partitionsPerRun : Int = (math.ceil(numParts / numRuns)).toInt
@@ -183,7 +208,7 @@ class Hybrid2DPartitionStrategy(in: Int, ti: Int, rs: Int) extends PartitionStra
 
 class Hybrid2DEdgePartitionStrategy(ti: Int, rs: Int) extends PartitionStrategyMoreInfo {
   val totalSnapshots: Int = ti
-  val runWidth: Int = rs
+  var runWidth: Int = rs
 
   //we only provide this here because for inheritance we have to.
   //it shouldn't be invoked
@@ -197,6 +222,7 @@ class Hybrid2DEdgePartitionStrategy(ti: Int, rs: Int) extends PartitionStrategyM
     var numRuns: Int = (math.ceil(totalSnapshots / runWidth)).toInt
     if (numRuns	> numParts) {
       numRuns = numParts
+      runWidth = math.ceil(totalSnapshots / numRuns).toInt
     }
 
     val	partitionsPerRun: Int = (math.ceil(numParts / numRuns)).toInt
