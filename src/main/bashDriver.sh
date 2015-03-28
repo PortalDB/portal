@@ -8,6 +8,7 @@ exec 6< $1
 read line1 <&6
 read line2 <&6
 read line3 <&6
+read line4 <&6
 IFS=' ' read -ra STRIP <<< "$line1"
 ITER="${STRIP[1]}"
 IFS=' ' read -ra STRIP <<< "$line2"
@@ -22,7 +23,7 @@ LINECOUNTER=0
 while read -r line
 do
 	#for each query
-	if [ "$LINECOUNTER" -gt 2 ]; then #make this number numArgs in config - 1
+	if [ "$LINECOUNTER" -gt 3 ]; then #make this number numArgs in config - 1
 		IFS=' ' read -ra STRIP <<< "$line"
 		QUERY="${STRIP[0]}"
 		#for each strat
@@ -35,7 +36,7 @@ do
             typeParam="--type"
             dataParam="--data"
             partitionParam="--partition"
-            runCommand="sbt \"run $line $dataParam $DATA $partitionParam $STRAT\"" #where we adjust based on how you run the driver
+            runCommand="sbt \"run $line $dataParam $DATA $typeParam $GTYPE $partitionParam $STRAT\"" #where we adjust based on how you run the driver
 
 			for (( i=1; i <= $ITER; i++ ))
             do
