@@ -158,19 +158,32 @@ object HybridRandomCutEdgePartitionStrategy extends PartitionStrategyMoreInfo {
 }
 
 class Hybrid2DPartitionStrategy(in: Int, ti: Int, rs: Int) extends PartitionStrategy {
-  val index: Int = in
-  val totalIndices: Int = ti
-  val width: Int = rs
+  val snapshot: Int = in
+  val totalSnapshots: Int = ti
+  val runWidth: Int = rs
 
   override def getPartition(src: VertexId, dst: VertexId, numParts: PartitionID): PartitionID = {
-    //TODO: put in code from Julia
-    0
+    var numRuns : Int = (math.ceil(totalSnapshots / runWidth)).toInt
+    if (numRuns	> numParts) {
+      numRuns = numParts
+    }
+
+    val	partitionsPerRun : Int = (math.ceil(numParts / numRuns)).toInt
+
+    val	snapshotToRun: Int	= (snapshot / runWidth)
+    val ceilSqrtNumParts: PartitionID = math.ceil(math.sqrt(partitionsPerRun)).toInt
+
+    val col: PartitionID = (math.abs(src) % ceilSqrtNumParts).toInt
+    val row: PartitionID = (math.abs(dst) % ceilSqrtNumParts).toInt
+    val partitionWithinRun: Int = (col * ceilSqrtNumParts + row) % partitionsPerRun
+
+    snapshotToRun * partitionsPerRun + partitionWithinRun
   }
 }
 
 class Hybrid2DEdgePartitionStrategy(ti: Int, rs: Int) extends PartitionStrategyMoreInfo {
-  val totalIndices: Int = ti
-  val width: Int = rs
+  val totalSnapshots: Int = ti
+  val runWidth: Int = rs
 
   //we only provide this here because for inheritance we have to.
   //it shouldn't be invoked
@@ -179,7 +192,22 @@ class Hybrid2DEdgePartitionStrategy(ti: Int, rs: Int) extends PartitionStrategyM
   }
 
   override def getPartition[ED: ClassTag](e: Edge[ED], numParts: PartitionID): PartitionID = {
-    //TODO: put in code from Julia
-    0
+    val (atr,index:Int) = e.attr
+
+    var numRuns: Int = (math.ceil(totalSnapshots / runWidth)).toInt
+    if (numRuns	> numParts) {
+      numRuns = numParts
+    }
+
+    val	partitionsPerRun: Int = (math.ceil(numParts / numRuns)).toInt
+
+    val	snapshotToRun: Int = (index / runWidth)
+    val ceilSqrtNumParts: PartitionID = math.ceil(math.sqrt(partitionsPerRun)).toInt
+
+    val col: PartitionID = (math.abs(e.srcId) % ceilSqrtNumParts).toInt
+    val row: PartitionID = (math.abs(e.dstId) % ceilSqrtNumParts).toInt
+    val partitionWithinRun: Int = (col * ceilSqrtNumParts + row) % partitionsPerRun
+
+    snapshotToRun * partitionsPerRun + partitionWithinRun
   }
 }
