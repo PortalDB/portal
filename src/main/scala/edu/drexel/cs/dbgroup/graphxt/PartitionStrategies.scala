@@ -15,7 +15,7 @@ object PartitionStrategyType extends Enumeration {
 
 object PartitionStrategies {
   //a factory for different strategies
-  def makeStrategy(tp: PartitionStrategyType.Value, index: Int, total: Int):PartitionStrategy = {
+  def makeStrategy(tp: PartitionStrategyType.Value, index: Int, total: Int, runs: Int):PartitionStrategy = {
     tp match {
       case PartitionStrategyType.CanonicalRandomVertexCut => PartitionStrategy.CanonicalRandomVertexCut
       case PartitionStrategyType.EdgePartition2D => PartitionStrategy.EdgePartition2D
@@ -25,8 +25,8 @@ object PartitionStrategies {
       case PartitionStrategyType.ConsecutiveTemporalEdge => new ConsecutiveTemporalEdgePartitionStrategy(total)
       case PartitionStrategyType.HybridRandomTemporal => new HybridRandomCutPartitionStrategy(index)
       case PartitionStrategyType.HybridRandomEdgeTemporal => HybridRandomCutEdgePartitionStrategy
-      case PartitionStrategyType.Hybrid2DTemporal => new Hybrid2DPartitionStrategy(index)
-      case PartitionStrategyType.Hybrid2DEdgeTemporal => Hybrid2DEdgePartitionStrategy
+      case PartitionStrategyType.Hybrid2DTemporal => new Hybrid2DPartitionStrategy(index,total,runs)
+      case PartitionStrategyType.Hybrid2DEdgeTemporal => new Hybrid2DEdgePartitionStrategy(total,runs)
     }
   }
 
@@ -157,18 +157,21 @@ object HybridRandomCutEdgePartitionStrategy extends PartitionStrategyMoreInfo {
   }
 }
 
-class Hybrid2DPartitionStrategy(in: Int) extends PartitionStrategy {
+class Hybrid2DPartitionStrategy(in: Int, ti: Int, rs: Int) extends PartitionStrategy {
   val index: Int = in
+  val totalIndices: Int = ti
+  val width: Int = rs
 
   override def getPartition(src: VertexId, dst: VertexId, numParts: PartitionID): PartitionID = {
-    val ceilSqrtNumParts: PartitionID = math.ceil(math.sqrt(numParts)).toInt
-    val col: PartitionID = (math.abs(src * index) % ceilSqrtNumParts).toInt
-    val row: PartitionID = (math.abs(dst * index) % ceilSqrtNumParts).toInt
-    (col * ceilSqrtNumParts + row) % numParts
+    //TODO: put in code from Julia
+    0
   }
 }
 
-object Hybrid2DEdgePartitionStrategy extends PartitionStrategyMoreInfo {
+class Hybrid2DEdgePartitionStrategy(ti: Int, rs: Int) extends PartitionStrategyMoreInfo {
+  val totalIndices: Int = ti
+  val width: Int = rs
+
   //we only provide this here because for inheritance we have to.
   //it shouldn't be invoked
   override def getPartition(src: VertexId, dst: VertexId, numParts: PartitionID): PartitionID = {
@@ -176,10 +179,7 @@ object Hybrid2DEdgePartitionStrategy extends PartitionStrategyMoreInfo {
   }
 
   override def getPartition[ED: ClassTag](e: Edge[ED], numParts: PartitionID): PartitionID = {
-    val (atr,index:Int) = e.attr
-    val ceilSqrtNumParts: PartitionID = math.ceil(math.sqrt(numParts)).toInt
-    val col: PartitionID = (math.abs(e.srcId * index) % ceilSqrtNumParts).toInt
-    val row: PartitionID = (math.abs(e.dstId * index) % ceilSqrtNumParts).toInt
-    (col * ceilSqrtNumParts + row) % numParts
+    //TODO: put in code from Julia
+    0
   }
 }

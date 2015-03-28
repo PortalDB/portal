@@ -87,7 +87,7 @@ object UndirectedPageRank {
    *         containing the list of normalized weights.
    */
   def runCombined[VD: ClassTag, ED: ClassTag](
-      graph: Graph[(VD, Seq[Int]), (ED,Int)], numInts: Int, tol: Double, resetProb: Double = 0.15): Graph[(Seq[Double], Seq[Int]), (Double,Int)] =
+      graph: Graph[(VD, Seq[Int]), (ED,Int)], numInts: Int, tol: Double, resetProb: Double = 0.15, maxIter: Int = Int.MaxValue): Graph[(Seq[Double], Seq[Int]), (Double,Int)] =
   {
     //we need to exchange one message with the info for each edge interval
 
@@ -161,7 +161,8 @@ object UndirectedPageRank {
     val initialMessage:Map[Int,Double] = (for(i <- 0 to numInts) yield (i -> resetProb / (1.0 - resetProb)))(breakOut)
 
     // Execute a dynamic version of Pregel.
-    Pregel(pagerankGraph, initialMessage, activeDirection = EdgeDirection.Either)(
+    Pregel(pagerankGraph, initialMessage, maxIter,
+      activeDirection = EdgeDirection.Either)(
       vertexProgram, sendMessage, messageCombiner)
       .mapTriplets(e => (e.attr._1, e.attr._3)) //I don't think it matters which we pick
     //take just the new ranks from vertices, and the indices

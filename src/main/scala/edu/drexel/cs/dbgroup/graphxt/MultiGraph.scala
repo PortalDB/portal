@@ -169,12 +169,16 @@ class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interv
 
       //that's how much we need to reduce all the selected vertex/edges indices by
       val oldst:Int = intvs(intvs.firstKey)
+      val olden:Int = intvs(intvs.lastKey)
       val temp:Array[Int] = intvs.values.toArray
-      
+
       //now select the vertices and edges
-      val subg = graphs.subgraph(vpred = (vid,attr) => !attr._2.intersect(temp).isEmpty, epred = et => !temp.intersect(Seq(et.attr._2)).isEmpty)
+      val subg = graphs.subgraph(
+        vpred = (vid,attr) => !attr._2.intersect(temp).isEmpty,
+        epred = et => !temp.intersect(Seq(et.attr._2)).isEmpty)
       //now need to renumber vertex and edge intervals indices
-      val verts = VertexRDD(subg.vertices.mapValues((vid,attr) => (attr._1,attr._2.map(x => (x-oldst)))))
+      //indices outside of selected range get dropped
+      val verts = VertexRDD(subg.vertices.mapValues((vid,attr) => (attr._1,attr._2.filter(x => if (x >= oldst && x <= olden) true else false).map(x => (x-oldst)))))
       val edges = EdgeRDD.fromEdges[(ED,Int),VD](subg.edges.mapValues(e => (e.attr._1,e.attr._2-oldst)))
 
       //now need to renumber to start with 0 index
@@ -211,13 +215,15 @@ class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interv
       loop.breakable{
         for (yy <- 1 to resolution-1) {
           if (iter.hasNext) {
-            val (k,v) = iter.next
+            val (k2,v2) = iter.next
+            maxBound = k2.max
+            sq = sq :+ v2
           } else {
+            intvs += (Interval(minBound,maxBound) -> nextind)
+            seqs = seqs :+ sq
+            nextind += 1
             loop.break
           }
-
-          maxBound = k.max
-          sq = sq :+ v
         }
         intvs += (Interval(minBound,maxBound) -> nextind)
         seqs = seqs :+ sq
@@ -225,6 +231,8 @@ class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interv
       }
     }
 
+    val st:Int = intvs(intvs.firstKey)
+    val en:Int = intvs(intvs.lastKey)
     //for each vertex, make a new list of indices
     //then filter out those vertices that have no indices
     val verts = VertexRDD(graphs.vertices.mapValues{ (vid,attr) =>
@@ -242,9 +250,12 @@ class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interv
         }
       }
       (attr1,newlst)
+      //Evaluate if the below is faster
+      //(attr1,lst.map(x => x/resolution).distinct.filter{x => if (x >= st && x <= en) true else false})
     }.filter{case (id, (attr,lst)) => !lst.isEmpty})
 
     //FIXME: aggregate edge attribute ED too
+    //TODO: maybe faster to filter out first based on vertices aggregated above
     var edges:EdgeRDD[(ED,Int)] = null
     if (sem == AggregateSemantics.Existential) {
       edges = EdgeRDD.fromEdges[(ED,Int),VD](graphs.edges.mapValues{ e =>
@@ -268,14 +279,14 @@ class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interv
   }
 
   //run pagerank on each interval
-  def pageRank(tol: Double, resetProb: Double = 0.15): MultiGraph[Seq[Double],Double] = {
-    new MultiGraph[Seq[Double],Double](span,intervals,UndirectedPageRank.runCombined(graphs,intervals.size,tol,resetProb))
+  def pageRank(tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): MultiGraph[Seq[Double],Double] = {
+    new MultiGraph[Seq[Double],Double](span,intervals,UndirectedPageRank.runCombined(graphs,intervals.size,tol,resetProb,numIter))
   }
 
-  def partitionBy(pst: PartitionStrategyType.Value):MultiGraph[VD,ED] = {
+  def partitionBy(pst: PartitionStrategyType.Value, runs: Int):MultiGraph[VD,ED] = {
     if (pst != PartitionStrategyType.None) {
       //not changing the intervals
-      new MultiGraph[VD,ED](span,intervals,graphs.partitionBy(PartitionStrategies.makeStrategy(pst,0,intervals.size)))
+      new MultiGraph[VD,ED](span,intervals,graphs.partitionBy(PartitionStrategies.makeStrategy(pst,0,intervals.size,runs)))
     } else
       this
   }
@@ -285,16 +296,22 @@ class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interv
 object MultiGraph {
 
   def loadGraph(dataPath: String, sc:SparkContext): MultiGraph[String,Int] = {
-    var minYear:Int = 1936
-    var maxYear:Int = 2015
+    //var minYear:Int = 1936
+    //var maxYear:Int = 2015
+
+    //get the min and max year from file 
+    val source = scala.io.Source.fromFile(dataPath + "/Span.txt")
+    val lines = source.getLines
+    val minYear:Int = lines.next.toInt
+    val maxYear:Int = lines.next.toInt
+    source.close()
+
+    println("Min year for this dataset: " + minYear)
+    println("Max year for this dataset: " + maxYear)
 
     val users = sc.textFile(dataPath + "/Nodes-ID.txt").map { line =>
-      val fields = line.split("|")
-      val tl = fields.tail.tail
-//      val miny:Int = tl.min.toInt
-//      val maxy:Int = tl.max.toInt
-//      minYear = math.min(minYear,miny)
-//      maxYear = math.max(maxYear,maxy)
+      val fields = line.split(',')
+      //println("For user " + fields.head + " named " + fields.tail.head + " the years are " + fields.tail.tail.mkString(","))
       (fields.head.toLong, fields.tail)
     }
 
@@ -306,8 +323,12 @@ object MultiGraph {
     //in the source data the vertex attribute list is the name followed by years
     //we need to transform that into a tuple of name,List(indices)
     val graph:Graph[(String,Seq[Int]),(Int,Int)] = edges.outerJoinVertices(users) {
-      case (uid, deg, Some(attrList)) => (attrList.head,attrList.tail.map(x => x.toInt - minYear).toSeq)
-      case (uid, deg, None) => null
+      //case (uid, deg, Some(attrList)) => (attrList.head,attrList.tail.map(x => x.toInt - minYear).toSeq)
+      //case (uid, deg, None) => null
+      (uid, deg, attrList) => 
+      if (attrList.isEmpty)
+        println ("Vertex with id " + uid + " has empty attr list ")
+      (attrList.get.head, attrList.get.tail.map(x => x.toInt - minYear).toSeq)
     }
 
     //make a list of intervals (here, years) and indices
@@ -319,22 +340,4 @@ object MultiGraph {
 
     new MultiGraph[String,Int](Interval(minYear,maxYear), intvs, graph)
   }
-}
-object MultiGraphPTest {
-
-  def main(args: Array[String]) {
-    val sc = new SparkContext("local", "MultiGraph Project", 
-      System.getenv("SPARK_HOME"),
-      List("target/scala-2.10/multigraph-project_2.10-1.0.jar"))
-
-    var testGraph = MultiGraph.loadGraph(args(0), sc)
-    val interv = new Interval(1980, 2015)
-    val aggregate = testGraph.select(interv).aggregate(5, AggregateSemantics.Existential)
-    //there should be 8 results
-    println("total number of results after aggregation: " + aggregate.size)
-    //let's run pagerank on the aggregate now
-    val ranks = aggregate.pageRank(0.0001)
-    println("done")
-  }
-
 }

@@ -15,7 +15,7 @@ object Driver {
     Logger.getLogger("org").setLevel(Level.OFF) 
     Logger.getLogger("akka").setLevel(Level.OFF) 
 
-    var graphType: String = ""
+    var graphType: String = "SG"
     var strategy: String = ""
     var iterations: Int = 1
     var data = ""
@@ -24,6 +24,14 @@ object Driver {
     for(i <- 0 until args.length){
       if(args(i) == "--type"){
 	graphType = args(i+1)
+        if (graphType == "MG")
+          println("Running experiments with MultiGraph")
+        else if (graphType == "SG")
+          println("Running experiments with SnapshotGraph")
+        else {
+          println("Invalid graph type, exiting")
+          System.exit(1)
+        }
       }else if(args(i) == "--strategy"){
 	strategy = args(i+1)
       }else if(args(i) == "--iterations"){
@@ -41,40 +49,79 @@ object Driver {
       List("target/scala-2.10/snapshot-graph-project_2.10-1.0.jar"))
     ProgramContext.setContext(sc)
 
-    var result:SnapshotGraph[String,Int] = SnapshotGraph.loadData(data, sc).partitionBy(partitionType)
-    var result2:SnapshotGraph[Double,Double] = null
     var changedType = false
-
     val startAsMili = System.currentTimeMillis()
 
-    for(i <- 0 until args.length){
-      if(args(i) == "--agg"){
-        var sem = AggregateSemantics.Existential
-        if (args(i+2) == "universal")
-          sem = AggregateSemantics.Universal
-        if (changedType) {
-	  result2 = result2.aggregate(args(i+1).toInt, sem).partitionBy(partitionType)
-        } else {
-	  result = result.aggregate(args(i+1).toInt, sem).partitionBy(partitionType)
+    //for snapshotgraph tests
+    if (graphType == "SG") {
+      var result:SnapshotGraph[String,Int] = SnapshotGraph.loadData(data, sc)
+      var result2:SnapshotGraph[Double,Double] = null
+
+      for(i <- 0 until args.length){
+        if(args(i) == "--agg"){
+          var sem = AggregateSemantics.Existential
+          if (args(i+2) == "universal")
+            sem = AggregateSemantics.Universal
+          val runWidth:Int = args(i+1).toInt
+          if (changedType) {
+	    result2 = result2.partitionBy(partitionType,runWidth).aggregate(runWidth, sem)
+          } else {
+	    result = result.partitionBy(partitionType,runWidth).aggregate(runWidth, sem)
+          }
+        }else if(args(i) == "--select"){
+          if (changedType) {
+	    result2 = result2.select(Interval(args(i+1).toInt, args(i+2).toInt))
+          } else {
+            result = result.select(Interval(args(i+1).toInt, args(i+2).toInt))
+          }
+        }else if(args(i) == "--pagerank"){
+          if (changedType) {
+	    result2 = result2.pageRank(0.0001,0.15,args(i+1).toInt)
+          } else {
+	    result2 = result.pageRank(0.0001,0.15,args(i+1).toInt)
+            changedType = true
+          }
+        }else if(args(i) == "--count"){
+          if (changedType)
+            println("Total edges across all snapshots: " + result2.partitionBy(PartitionStrategyType.NaiveTemporal,0).numEdges)
+          else
+            println("Total edges across all snapshots: " + result.partitionBy(PartitionStrategyType.NaiveTemporal,0).numEdges)
         }
-      }else if(args(i) == "--select"){
-        if (changedType) {
-	  result2 = result2.select(Interval(args(i+1).toInt, args(i+2).toInt))
-        } else {
-          result = result.select(Interval(args(i+1).toInt, args(i+2).toInt))
+      }
+    } else { //multigraph
+      var result:MultiGraph[String,Int] = MultiGraph.loadGraph(data, sc)
+      var result2:MultiGraph[Seq[Double],Double] = null
+
+      for(i <- 0 until args.length){
+        if(args(i) == "--agg"){
+          var sem = AggregateSemantics.Existential
+          if (args(i+2) == "universal")
+            sem = AggregateSemantics.Universal
+          val runWidth:Int = args(i+1).toInt
+          if (changedType) {
+	    result2 = result2.partitionBy(partitionType,runWidth).aggregate(runWidth, sem)
+          } else {
+	    result = result.partitionBy(partitionType,runWidth).aggregate(runWidth, sem)
+          }
+        }else if(args(i) == "--select"){
+          if (changedType) {
+	    result2 = result2.partitionBy(partitionType,1).select(Interval(args(i+1).toInt, args(i+2).toInt))
+          } else {
+            result = result.partitionBy(partitionType,1).select(Interval(args(i+1).toInt, args(i+2).toInt))
+          }
+        }else if(args(i) == "--pagerank"){
+          if (changedType) {
+	    result2 = result2.partitionBy(partitionType,1).pageRank(0.0001,0.15,args(i+1).toInt)
+          } else {
+	    result2 = result.partitionBy(partitionType,1).pageRank(0.0001,0.15,args(i+1).toInt)
+            changedType = true
+          }
+        }else if(args(i) == "--count"){
+          if (changedType)
+            println("Total edges across all snapshots: " + result2.partitionBy(partitionType,1).graphs.edges.count)
+          else
+            println("Total edges across all snapshots: " + result.partitionBy(partitionType,1).graphs.edges.count)
         }
-      }else if(args(i) == "--pagerank"){
-        if (changedType) {
-	  result2 = result2.pageRank(0.0001,0.15,args(i+1).toInt)
-        } else {
-	  result2 = result.pageRank(0.0001,0.15,args(i+1).toInt)
-          changedType = true
-        }
-      }else if(args(i) == "--count"){
-        if (changedType)
-          println("Total edges across all snapshots: " + result2.numEdges)
-        else
-          println("Total edges across all snapshots: " + result.numEdges)
       }
     }
 

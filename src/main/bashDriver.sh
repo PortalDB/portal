@@ -11,8 +11,10 @@ read line3 <&6
 IFS=' ' read -ra STRIP <<< "$line1"
 ITER="${STRIP[1]}"
 IFS=' ' read -ra STRIP <<< "$line2"
-DATA="${STRIP[1]}"
+GTYPE="${STRIP[1]}"
 IFS=' ' read -ra STRIP <<< "$line3"
+DATA="${STRIP[1]}"
+IFS=' ' read -ra STRIP <<< "$line4"
 STRATLIST="${STRIP[1]}"
 IFS=',' read -ra STRATS <<< "$STRATLIST"
 NUMSTRATS="${#STRATS[@]}"
@@ -29,7 +31,8 @@ do
             STRAT="${STRATS[$j]}"
             echo $QUERY "  " $STRAT
             #for as many times as iterator signifies
-            
+
+            typeParam="--type"
             dataParam="--data"
             partitionParam="--partition"
             runCommand="sbt \"run $line $dataParam $DATA $partitionParam $STRAT\"" #where we adjust based on how you run the driver

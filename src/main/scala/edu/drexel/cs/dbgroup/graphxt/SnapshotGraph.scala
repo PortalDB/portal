@@ -245,7 +245,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
     result
   }
 
-  def partitionBy(pst: PartitionStrategyType.Value):SnapshotGraph[VD,ED] = {
+  def partitionBy(pst: PartitionStrategyType.Value, runs:Int):SnapshotGraph[VD,ED] = {
     if (pst != PartitionStrategyType.None) {
       var result:SnapshotGraph[VD,ED] = new SnapshotGraph[VD,ED](span)
       //not changing the intervals, only the graphs at their indices
@@ -254,7 +254,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
       //use that strategy to partition each of the snapshots
       intervals.foreach {
         case (k,v) =>
-          result.addSnapshot(k,graphs(v).partitionBy(PartitionStrategies.makeStrategy(pst,v,graphs.size),8))
+          result.addSnapshot(k,graphs(v).partitionBy(PartitionStrategies.makeStrategy(pst,v,graphs.size,runs),8))
       }
 
       result
