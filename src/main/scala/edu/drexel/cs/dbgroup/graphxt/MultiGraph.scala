@@ -12,7 +12,6 @@ import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
 
 import org.apache.spark.graphx.impl.GraphXPartitionExtension._
-import org.apache.spark.graphx.GraphXPartitionExt._
 
 import org.apache.spark.graphx._
 import org.apache.spark.graphx.GraphLoaderAddon
