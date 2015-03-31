@@ -236,12 +236,12 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
         //For regular directed pagerank, uncomment the following line
         //result.addSnapshot(k, graphs(v).pageRank(tol))
         //For undirected pagerank without coalescing, uncomment the following line
-        result.addSnapshot(k,UndirectedPageRank.run(graphs(v),tol,resetProb,numIter))
+        //result.addSnapshot(k,UndirectedPageRank.run(graphs(v),tol,resetProb,numIter))
         //For undirected pagerank with coalescing, uncomment the following line
         result.addSnapshot(k,UndirectedPageRank.run(Graph(graphs(v).vertices,graphs(v).edges.coalesce(1,true)),tol,resetProb,numIter))
       }
     }
-    
+
     result
   }
 
