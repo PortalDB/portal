@@ -132,12 +132,12 @@ class HybridRandomCutPartitionStrategy(in: Int, ti: Int, rs: Int) extends Partit
   var runWidth: Int = rs
 
   override def getPartition(src: VertexId, dst: VertexId, numParts: PartitionID): PartitionID = {
-    var numRuns: Int = (math.ceil(totalSnapshots / runWidth)).toInt
+    var numRuns: Int = (math.ceil(totalSnapshots.toDouble / runWidth)).toInt
     if (numRuns > numParts) {
       numRuns = numParts
-      runWidth  = math.ceil(totalSnapshots / numRuns).toInt
+      runWidth  = math.ceil(totalSnapshots.toDouble / numRuns).toInt
     }
-    val partitionsPerRun:Int = (math.ceil(numParts / numRuns)).toInt
+    val partitionsPerRun:Int = (numParts / numRuns).toInt
     val snapshotToRun:Int = (snapshot / runWidth)
 
     var	partitionWithinRun: Int	= 0
@@ -163,12 +163,12 @@ class HybridRandomCutEdgePartitionStrategy(ti: Int, rs: Int) extends PartitionSt
 
   override def getPartition[ED: ClassTag](e: Edge[ED], numParts: PartitionID): PartitionID = {
     val (atr,index:Int) = e.attr
-    var numRuns: Int = (math.ceil(totalSnapshots / runWidth)).toInt
+    var numRuns: Int = (math.ceil(totalSnapshots.toDouble / runWidth)).toInt
     if (numRuns > numParts) {
       numRuns = numParts
-      runWidth  = math.ceil(totalSnapshots / numRuns).toInt
+      runWidth  = math.ceil(totalSnapshots.toDouble / numRuns).toInt
     }
-    val partitionsPerRun:Int = (math.ceil(numParts / numRuns)).toInt
+    val partitionsPerRun:Int = (numParts / numRuns).toInt
     val snapshotToRun:Int = (index / runWidth)
 
     var	partitionWithinRun: Int	= 0
@@ -187,19 +187,19 @@ class Hybrid2DPartitionStrategy(in: Int, ti: Int, rs: Int) extends PartitionStra
   var runWidth: Int = rs
 
   override def getPartition(src: VertexId, dst: VertexId, numParts: PartitionID): PartitionID = {
-    var numRuns : Int = (math.ceil(totalSnapshots / runWidth)).toInt
+    var numRuns : Int = (math.ceil(totalSnapshots.toDouble / runWidth)).toInt
     if (numRuns	> numParts) {
       numRuns = numParts
-      runWidth = math.ceil(totalSnapshots / numRuns).toInt
+      runWidth = math.ceil(totalSnapshots.toDouble / numRuns).toInt
     }
 
     val	partitionsPerRun : Int = (math.ceil(numParts / numRuns)).toInt
-
     val	snapshotToRun: Int	= (snapshot / runWidth)
     val ceilSqrtNumParts: PartitionID = math.ceil(math.sqrt(partitionsPerRun)).toInt
+    val mixingPrime: VertexId = 1125899906842597L
 
-    val col: PartitionID = (math.abs(src) % ceilSqrtNumParts).toInt
-    val row: PartitionID = (math.abs(dst) % ceilSqrtNumParts).toInt
+    val col: PartitionID = (math.abs(src * mixingPrime) % ceilSqrtNumParts).toInt
+    val row: PartitionID = (math.abs(dst * mixingPrime) % ceilSqrtNumParts).toInt
     val partitionWithinRun: Int = (col * ceilSqrtNumParts + row) % partitionsPerRun
 
     snapshotToRun * partitionsPerRun + partitionWithinRun
@@ -219,19 +219,19 @@ class Hybrid2DEdgePartitionStrategy(ti: Int, rs: Int) extends PartitionStrategyM
   override def getPartition[ED: ClassTag](e: Edge[ED], numParts: PartitionID): PartitionID = {
     val (atr,index:Int) = e.attr
 
-    var numRuns: Int = (math.ceil(totalSnapshots / runWidth)).toInt
+    var numRuns: Int = (math.ceil(totalSnapshots.toDouble / runWidth)).toInt
     if (numRuns	> numParts) {
       numRuns = numParts
-      runWidth = math.ceil(totalSnapshots / numRuns).toInt
+      runWidth = math.ceil(totalSnapshots.toDouble / numRuns).toInt
     }
 
     val	partitionsPerRun: Int = (math.ceil(numParts / numRuns)).toInt
-
     val	snapshotToRun: Int = (index / runWidth)
     val ceilSqrtNumParts: PartitionID = math.ceil(math.sqrt(partitionsPerRun)).toInt
+    val mixingPrime: VertexId = 1125899906842597L
 
-    val col: PartitionID = (math.abs(e.srcId) % ceilSqrtNumParts).toInt
-    val row: PartitionID = (math.abs(e.dstId) % ceilSqrtNumParts).toInt
+    val col: PartitionID = (math.abs(e.srcId * mixingPrime) % ceilSqrtNumParts).toInt
+    val row: PartitionID = (math.abs(e.dstId * mixingPrime) % ceilSqrtNumParts).toInt
     val partitionWithinRun: Int = (col * ceilSqrtNumParts + row) % partitionsPerRun
 
     snapshotToRun * partitionsPerRun + partitionWithinRun
