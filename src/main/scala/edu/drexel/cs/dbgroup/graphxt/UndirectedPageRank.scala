@@ -2,7 +2,7 @@ package edu.drexel.cs.dbgroup.graphxt
 
 import scala.reflect.ClassTag
 import org.apache.spark.graphx._
-import scala.collection.immutable.HashMap
+import scala.collection.immutable.Map
 import scala.collection.breakOut
 
 //pageRank implementation using Pregel interface, but for an undirected graph
@@ -91,20 +91,24 @@ object UndirectedPageRank {
   {
     //we need to exchange one message with the info for each edge interval
 
+    def mergedFunc(a:Map[Int,Int], b:Map[Int,Int]): Map[Int,Int] = {
+      a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) }
+    }
+
     //compute degree of each vertex for each interval
     //this should produce a map from interval to degree for each vertex
     //since edge is treated by MultiGraph as undirectional, can use the edge markings
-    val degrees: VertexRDD[HashMap[Int,Int]] = graph.aggregateMessages[HashMap[Int,Int]](
+    val degrees: VertexRDD[Map[Int,Int]] = graph.aggregateMessages[Map[Int,Int]](
       ctx => { 
-        ctx.sendToSrc(HashMap(ctx.attr._2 -> 1))
-        ctx.sendToDst(HashMap(ctx.attr._2 -> 1)) 
+        ctx.sendToSrc(Map(ctx.attr._2 -> 1))
+        ctx.sendToDst(Map(ctx.attr._2 -> 1)) 
       },
-      (a,b) => a.merged(b)({ case ((k,v1),(_,v2)) => (k,v1+v2) }), 
-      TripletFields.None)
+      mergedFunc,
+      TripletFields.All)
   
     // Initialize the pagerankGraph with each edge attribute
     // having weight 1/degree and each vertex with attribute 1.0.
-    val pagerankGraph: Graph[(Seq[(Double,Double)], Seq[Int]), (Double,Double,Int)] = graph
+    val pagerankGraph: Graph[Map[Int,(Double,Double)], (Double,Double,Int)] = graph
       // Associate the degree with each vertex for each interval
       .outerJoinVertices(degrees) {
       case (vid, vdata, Some(deg)) => (vdata._2, deg)
@@ -113,35 +117,39 @@ object UndirectedPageRank {
       // Set the weight on the edges based on the degree of that interval
       .mapTriplets( e => (1.0 / e.srcAttr._2(e.attr._2), 1.0 / e.dstAttr._2(e.attr._2), e.attr._2) )
       // Set the vertex attributes to (initalPR, delta = 0) for each interval
-      .mapVertices( (id, attr) => ( Seq.fill(attr._1.size)((0.0,0.0)), attr._1) )
+      //.mapVertices( (id, attr) => ( Seq.fill(attr._1.size)((0.0,0.0)), attr._1) )
+      .mapVertices( (id, attr) => (attr._1.map { index => index -> (0.0,0.0)}.toMap ) )
       .cache()
 
     // Define the three functions needed to implement PageRank in the GraphX
     // version of Pregel
-    def vertexProgram(id: VertexId, attr: (Seq[(Double, Double)], Seq[Int]), msg: Map[Int,Double]): (Seq[(Double, Double)],Seq[Int]) = {
+    def vertexProgram(id: VertexId, attr: Map[Int,(Double, Double)], msg: Map[Int,Double]): Map[Int,(Double, Double)] = {
       //need to compute new values for each interval
       //each edge carries a message for one interval,
       //which are combined by the combiner into a hash
-      var (vals, intvs) = attr
       //for each interval in the msg hash, update
+      var vals = attr
       msg.foreach { x =>
         val (k,v) = x
         if (vals.contains(k)) {
           val (oldPR, lastDelta) = vals(k)
           val newPR = oldPR + (1.0 - resetProb) * msg(k)
-          vals = vals.patch(k,Seq((newPR, newPR - oldPR)), 1)
+          vals = vals.updated(k,(newPR,newPR-oldPR))
         }
       }
-      (vals,intvs)
+      vals
     }
 
-    def sendMessage(edge: EdgeTriplet[(Seq[(Double, Double)], Seq[Int]), (Double, Double, Int)]) = {
-      if (edge.srcAttr._1(edge.attr._3)._2 > tol && edge.dstAttr._1(edge.attr._3)._2 > tol) {
-        Iterator((edge.dstId, Map((edge.attr._3 -> edge.srcAttr._1(edge.attr._3)._2 * edge.attr._1))), (edge.srcId, Map((edge.attr._3 -> edge.dstAttr._1(edge.attr._3)._2 * edge.attr._2))))
-      } else if (edge.srcAttr._1(edge.attr._3)._2 > tol) { 
-        Iterator((edge.dstId, Map((edge.attr._3 -> edge.srcAttr._1(edge.attr._3)._2 * edge.attr._1))))
-      } else if (edge.dstAttr._1(edge.attr._3)._2 > tol) {
-        Iterator((edge.srcId, Map((edge.attr._3 -> edge.dstAttr._1(edge.attr._3)._2 * edge.attr._2))))
+    def sendMessage(edge: EdgeTriplet[Map[Int,(Double, Double)], (Double, Double, Int)]) = {
+      //each edge attribute is supposed to be a triple of (1/degree, 1/degree, year index)
+      //each vertex attribute is supposed to be a map of (double,double) for each index
+      if (edge.srcAttr(edge.attr._3)._2 > tol && 
+        edge.dstAttr(edge.attr._3)._2 > tol) {
+        Iterator((edge.dstId, Map((edge.attr._3 -> edge.srcAttr(edge.attr._3)._2 * edge.attr._1))), (edge.srcId, Map((edge.attr._3 -> edge.dstAttr(edge.attr._3)._2 * edge.attr._2))))
+      } else if (edge.srcAttr(edge.attr._3)._2 > tol) { 
+        Iterator((edge.dstId, Map((edge.attr._3 -> edge.srcAttr(edge.attr._3)._2 * edge.attr._1))))
+      } else if (edge.dstAttr(edge.attr._3)._2 > tol) {
+        Iterator((edge.srcId, Map((edge.attr._3 -> edge.dstAttr(edge.attr._3)._2 * edge.attr._2))))
       } else {
         Iterator.empty
       }
@@ -166,7 +174,7 @@ object UndirectedPageRank {
       vertexProgram, sendMessage, messageCombiner)
       .mapTriplets(e => (e.attr._1, e.attr._3)) //I don't think it matters which we pick
     //take just the new ranks from vertices, and the indices
-      .mapVertices((vid, attr) => (attr._1.map(x => x._1) , attr._2))
+      .mapVertices((vid, attr) => (attr.values.map {x => x._1 }.toSeq , attr.keySet.toSeq ))
   } // end of runUntilConvergence
 
 }

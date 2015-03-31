@@ -84,9 +84,9 @@ object Driver {
           }
         }else if(args(i) == "--count"){
           if (changedType)
-            println("Total edges across all snapshots: " + result2.partitionBy(PartitionStrategyType.NaiveTemporal,0).numEdges)
+            println("Total edges across all snapshots: " + result2.numEdges)
           else
-            println("Total edges across all snapshots: " + result.partitionBy(PartitionStrategyType.NaiveTemporal,0).numEdges)
+            println("Total edges across all snapshots: " + result.numEdges)
         }
       }
     } else { //multigraph
