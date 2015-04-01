@@ -192,6 +192,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
       var firstVRDD:RDD[(VertexId, VD)] = graphs(v).vertices
       var firstERDD:RDD[Edge[ED]] = graphs(v).edges
       var yy = 0
+      var width = 0
       
       val loop = new Breaks
       loop.breakable{
@@ -200,6 +201,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
           if(iter.hasNext){
               val (k,v) = iter.next
           } else{
+            width = yy-1
             loop.break
           }
        
@@ -208,6 +210,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
           maxBound = k.max
         }
       }
+      if (width == 0) width = resolution-1
 
       if (sem == AggregateSemantics.Existential) {
         result.addSnapshot(Interval(minBound,maxBound), Graph(VertexRDD(firstVRDD.reduceByKey(vAggFunc)), EdgeRDD.fromEdges[ED,VD](firstERDD.map(e => ((e.srcId,e.dstId),e.attr)).reduceByKey(eAggFunc).map { x => 
@@ -216,11 +219,11 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
       } else if (sem == AggregateSemantics.Universal) {
         //FIXME: the results for universal aggregation will be incorrect over partial intervals!!! i.e. if resolution = 5 but the last interval only covers 1-3, nothing will be produced!
         result.addSnapshot(Interval(minBound,maxBound), 
-          Graph(firstVRDD.map(x => (x._1, (x._2, 1))).reduceByKey((x,y) => (vAggFunc(x._1,y._1),x._2+y._2)).filter(x => x._2._2 == resolution).map{x => 
+          Graph(firstVRDD.map(x => (x._1, (x._2, 1))).reduceByKey((x,y) => (vAggFunc(x._1,y._1),x._2+y._2)).filter(x => x._2._2 > width).map{x => 
             val (k,v) = x
             (k, v._1)}
             ,
-            EdgeRDD.fromEdges[ED,VD](firstERDD.map(e => ((e.srcId,e.dstId),(e.attr,1))).reduceByKey((x,y) => (eAggFunc(x._1,y._1),x._2+y._2)).filter(x => x._2._2 == resolution).map { x =>
+            EdgeRDD.fromEdges[ED,VD](firstERDD.map(e => ((e.srcId,e.dstId),(e.attr,1))).reduceByKey((x,y) => (eAggFunc(x._1,y._1),x._2+y._2)).filter(x => x._2._2 > width).map { x =>
           val (k,v) = x
           Edge(k._1, k._2, v._1) }
         )))
