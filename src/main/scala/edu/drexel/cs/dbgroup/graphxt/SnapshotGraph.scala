@@ -14,12 +14,11 @@ import org.apache.spark.rdd._
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
 import org.apache.spark.rdd.EmptyRDD
+import org.apache.spark.rdd.PairRDDFunctions
 
 class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializable {
   var span = sp
-  //FIXME: for efficiency sake turn graphs into mutable structure
   var graphs:Seq[Graph[VD,ED]] = Seq[Graph[VD,ED]]()
-  //FIXME? Should this be turned into an RDD?
   var intervals:SortedMap[Interval, Int] = TreeMap[Interval,Int]()
   
   def size(): Int = { graphs.size }
@@ -66,7 +65,6 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
   //the new object with the change rather than making the change in place
   //intervals are assumed to be nonoverlapping
   //Note: snapshots should be added from earliest to latest for performance reasons
-  //TODO: more error checking on boundary conditions
   def addSnapshot(place:Interval, snap:Graph[VD, ED]): Unit = {
     val iter:Iterator[Interval] = intervals.keysIterator
     var pos:Int = -1
@@ -181,8 +179,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
   //the resolution is in number of graphs to combine, regardless of the resolution of
   //the base data
   //there are no gaps in the output data, although some snapshots may have 0 vertices
-  //TODO: add error checking and boundary conditions handling
-  def aggregate(resolution: Int, sem: AggregateSemantics.Value): SnapshotGraph[VD,ED] = {
+  def aggregate(resolution: Int, sem: AggregateSemantics.Value, vAggFunc: (VD,VD) => VD, eAggFunc: (ED,ED) => ED): SnapshotGraph[VD,ED] = {
     var result:SnapshotGraph[VD,ED] = new SnapshotGraph[VD,ED](span)
     val iter:Iterator[(Interval,Int)] = intervals.iterator
     var minBound,maxBound:Int = 0;
@@ -192,8 +189,8 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
       minBound = k.min
       maxBound = k.max
       //take resolution# of consecutive graphs, combine them according to the semantics
-      var firstVRDD:VertexRDD[VD] = graphs(v).vertices
-      var firstERDD:EdgeRDD[ED] = graphs(v).edges
+      var firstVRDD:RDD[(VertexId, VD)] = graphs(v).vertices
+      var firstERDD:RDD[Edge[ED]] = graphs(v).edges
       var yy = 0
       
       val loop = new Breaks
@@ -206,19 +203,28 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
             loop.break
           }
        
-          if (sem == AggregateSemantics.Existential) {
-            //TODO: union all parts at the same time using Context.union
-            firstVRDD = VertexRDD(firstVRDD.union(graphs(v).vertices).distinct)
-            firstERDD = EdgeRDD.fromEdges[ED,VD](firstERDD.union( graphs(v).edges ).distinct)
-          } else if (sem == AggregateSemantics.Universal) {
-            firstVRDD = VertexRDD(firstVRDD.intersection(graphs(v).vertices))
-            firstERDD = EdgeRDD.fromEdges[ED,VD](firstERDD.intersection(graphs(v).edges))
-          }
+          firstVRDD = firstVRDD.union( graphs(v).vertices )
+          firstERDD = firstERDD.union( graphs(v).edges )
           maxBound = k.max
         }
       }
 
-      result.addSnapshot(Interval(minBound,maxBound), Graph(firstVRDD,firstERDD))
+      if (sem == AggregateSemantics.Existential) {
+        result.addSnapshot(Interval(minBound,maxBound), Graph(VertexRDD(firstVRDD.reduceByKey(vAggFunc)), EdgeRDD.fromEdges[ED,VD](firstERDD.map(e => ((e.srcId,e.dstId),e.attr)).reduceByKey(eAggFunc).map { x => 
+          val (k,v) = x
+          Edge(k._1, k._2, v) })))
+      } else if (sem == AggregateSemantics.Universal) {
+        //FIXME: the results for universal aggregation will be incorrect over partial intervals!!! i.e. if resolution = 5 but the last interval only covers 1-3, nothing will be produced!
+        result.addSnapshot(Interval(minBound,maxBound), 
+          Graph(firstVRDD.map(x => (x._1, (x._2, 1))).reduceByKey((x,y) => (vAggFunc(x._1,y._1),x._2+y._2)).filter(x => x._2._2 == resolution).map{x => 
+            val (k,v) = x
+            (k, v._1)}
+            ,
+            EdgeRDD.fromEdges[ED,VD](firstERDD.map(e => ((e.srcId,e.dstId),(e.attr,1))).reduceByKey((x,y) => (eAggFunc(x._1,y._1),x._2+y._2)).filter(x => x._2._2 == resolution).map { x =>
+          val (k,v) = x
+          Edge(k._1, k._2, v._1) }
+        )))
+      }
     }
     result
   }

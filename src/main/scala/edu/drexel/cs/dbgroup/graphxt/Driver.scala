@@ -53,6 +53,10 @@ object Driver {
     var changedType = false
     val startAsMili = System.currentTimeMillis()
 
+    def vAggFunc(a: String, b: String): String = a
+    def eAggFunc(a: Int, b: Int):Int = a
+    def aggFunc2(a: Double, b: Double):Double = math.max(a,b)
+
     //for snapshotgraph tests
     if (graphType == "SG") {
       var result:SnapshotGraph[String,Int] = SnapshotGraph.loadData(data, sc)
@@ -65,9 +69,9 @@ object Driver {
             sem = AggregateSemantics.Universal
           val runWidth:Int = args(i+1).toInt
           if (changedType) {
-	    result2 = result2.partitionBy(partitionType,runWidth).aggregate(runWidth, sem)
+	    result2 = result2.partitionBy(partitionType,runWidth).aggregate(runWidth, sem, aggFunc2, aggFunc2)
           } else {
-	    result = result.partitionBy(partitionType,runWidth).aggregate(runWidth, sem)
+	    result = result.partitionBy(partitionType,runWidth).aggregate(runWidth, sem, vAggFunc, eAggFunc)
           }
         }else if(args(i) == "--select"){
           if (changedType) {

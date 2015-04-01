@@ -15,9 +15,11 @@ object SnapshotGraphTest {
       System.getenv("SPARK_HOME"),
       List("target/scala-2.10/snapshot-graph-project_2.10-1.0.jar"))
 
+    def vaggfunc(a: String, b: String): String = { a + b }
+
     var testGraph = SnapshotGraph.loadData(args(0), sc)
     val interv = new Interval(1980, 2015)
-    val aggregate = testGraph.select(interv).aggregate(5, AggregateSemantics.Existential)
+    val aggregate = testGraph.select(interv).aggregate(5, AggregateSemantics.Existential, vaggfunc, math.max)
     //there should be 8 results
     println("total number of results after aggregation: " + aggregate.size)
     
