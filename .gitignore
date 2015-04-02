@@ -1,2 +1,7 @@
 **/.DS_Store
+**/*.swp
+**/*.project
+**/*.classpath
 /bin
+src/main/project
+src/main/target

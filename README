@@ -5,8 +5,8 @@ To compile:
 
 To run Snapshot Graph Project:
     sbt "run-main edu.drexel.cs.dbgroup.graphxt.Driver {params}"
-    	** where {params} could be for example: "G4_U --agg 5 universal --pagerank --data ../../resources/set2 --partition EdgePartition2D"
+    	** where {params} could be for example: "G4_U --agg 5 universal --pagerank --data ../../resources/set2 --type SG --partition EdgePartition2D 8"
 
 To run MultiGraph Project:
     sbt "run-main edu.drexel.cs.dbgroup.graphxt.MultiGraphPTest {params}"
-    	** where {params} could be for example: "../../resources"
+    	** where {params} could be for example: " G2_E --agg 5 existential --count --data ../../resources/set2 --type MG --partition HybridRandomTemporal 32"

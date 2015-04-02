@@ -286,9 +286,15 @@ class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interv
   }
 
   def partitionBy(pst: PartitionStrategyType.Value, runs: Int):MultiGraph[VD,ED] = {
+    partitionBy(pst, runs, graphs.edges.partitions.size)
+  }
+  
+  def partitionBy(pst: PartitionStrategyType.Value, runs: Int, parts:Int):MultiGraph[VD,ED] = {
+    var numParts = if (parts > 0) parts else graphs.edges.partitions.size
+    
     if (pst != PartitionStrategyType.None) {
       //not changing the intervals
-      new MultiGraph[VD,ED](span,intervals,graphs.partitionByExt(PartitionStrategies.makeStrategy(pst,0,intervals.size,runs),8))
+      new MultiGraph[VD,ED](span,intervals,graphs.partitionByExt(PartitionStrategies.makeStrategy(pst,0,intervals.size,runs), numParts))
     } else
       this
   }

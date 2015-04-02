@@ -193,7 +193,7 @@ class Hybrid2DPartitionStrategy(in: Int, ti: Int, rs: Int) extends PartitionStra
       runWidth = math.ceil(totalSnapshots.toDouble / numRuns).toInt
     }
 
-    val	partitionsPerRun : Int = (math.ceil(numParts / numRuns)).toInt
+    val	partitionsPerRun : Int = (numParts / numRuns)
     val	snapshotToRun: Int	= (snapshot / runWidth)
     val ceilSqrtNumParts: PartitionID = math.ceil(math.sqrt(partitionsPerRun)).toInt
     val mixingPrime: VertexId = 1125899906842597L
@@ -225,7 +225,7 @@ class Hybrid2DEdgePartitionStrategy(ti: Int, rs: Int) extends PartitionStrategyM
       runWidth = math.ceil(totalSnapshots.toDouble / numRuns).toInt
     }
 
-    val	partitionsPerRun: Int = (math.ceil(numParts / numRuns)).toInt
+    val	partitionsPerRun: Int = (numParts / numRuns)
     val	snapshotToRun: Int = (index / runWidth)
     val ceilSqrtNumParts: PartitionID = math.ceil(math.sqrt(partitionsPerRun)).toInt
     val mixingPrime: VertexId = 1125899906842597L

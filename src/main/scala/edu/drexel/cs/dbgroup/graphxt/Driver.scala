@@ -21,10 +21,11 @@ object Driver {
     var iterations: Int = 1
     var data = ""
     var partitionType:PartitionStrategyType.Value = PartitionStrategyType.None
+    var numParts: Int = -1
 
     for(i <- 0 until args.length){
       if(args(i) == "--type"){
-	graphType = args(i+1)
+	      graphType = args(i+1)
         if (graphType == "MG")
           println("Running experiments with MultiGraph")
         else if (graphType == "SG")
@@ -34,13 +35,17 @@ object Driver {
           System.exit(1)
         }
       }else if(args(i) == "--strategy"){
-	strategy = args(i+1)
+	      strategy = args(i+1)
       }else if(args(i) == "--iterations"){
-	iterations = args(i+1).toInt
+	      iterations = args(i+1).toInt
       }else if(args(i) == "--data"){
-	data = args(i+1)
+	       data = args(i+1)
       }else if (args(i) == "--partition"){
         partitionType = PartitionStrategyType.withName(args(i+1))
+ 
+        if(args.length > i+2){
+           numParts = args(i+2).toInt
+        }
       }
     }
 	
@@ -69,21 +74,21 @@ object Driver {
             sem = AggregateSemantics.Universal
           val runWidth:Int = args(i+1).toInt
           if (changedType) {
-	    result2 = result2.partitionBy(partitionType,runWidth).aggregate(runWidth, sem, aggFunc2, aggFunc2)
+	          result2 = result2.partitionBy(partitionType, runWidth, numParts).aggregate(runWidth, sem, aggFunc2, aggFunc2)
           } else {
-	    result = result.partitionBy(partitionType,runWidth).aggregate(runWidth, sem, vAggFunc, eAggFunc)
+	          result = result.partitionBy(partitionType, runWidth, numParts).aggregate(runWidth, sem, vAggFunc, eAggFunc)
           }
         }else if(args(i) == "--select"){
           if (changedType) {
-	    result2 = result2.select(Interval(args(i+1).toInt, args(i+2).toInt))
+	          result2 = result2.select(Interval(args(i+1).toInt, args(i+2).toInt))
           } else {
             result = result.select(Interval(args(i+1).toInt, args(i+2).toInt))
           }
         }else if(args(i) == "--pagerank"){
           if (changedType) {
-	    result2 = result2.pageRank(0.0001,0.15,args(i+1).toInt)
+	          result2 = result2.pageRank(0.0001,0.15,args(i+1).toInt)
           } else {
-	    result2 = result.pageRank(0.0001,0.15,args(i+1).toInt)
+	          result2 = result.pageRank(0.0001,0.15,args(i+1).toInt)
             changedType = true
           }
         }else if(args(i) == "--count"){
@@ -104,28 +109,28 @@ object Driver {
             sem = AggregateSemantics.Universal
           val runWidth:Int = args(i+1).toInt
           if (changedType) {
-	    result2 = result2.partitionBy(partitionType,runWidth).aggregate(runWidth, sem)
+            result2 = result2.partitionBy(partitionType, runWidth, numParts).aggregate(runWidth, sem)
           } else {
-	    result = result.partitionBy(partitionType,runWidth).aggregate(runWidth, sem)
+            result = result.partitionBy(partitionType,runWidth, numParts).aggregate(runWidth, sem)
           }
         }else if(args(i) == "--select"){
           if (changedType) {
-	    result2 = result2.partitionBy(partitionType,1).select(Interval(args(i+1).toInt, args(i+2).toInt))
+	          result2 = result2.partitionBy(partitionType, 1, numParts).select(Interval(args(i+1).toInt, args(i+2).toInt))
           } else {
-            result = result.partitionBy(partitionType,1).select(Interval(args(i+1).toInt, args(i+2).toInt))
+            result = result.partitionBy(partitionType, 1, numParts).select(Interval(args(i+1).toInt, args(i+2).toInt))
           }
         }else if(args(i) == "--pagerank"){
           if (changedType) {
-	    result2 = result2.partitionBy(partitionType,1).pageRank(0.0001,0.15,args(i+1).toInt)
+	          result2 = result2.partitionBy(partitionType, 1, numParts).pageRank(0.0001,0.15,args(i+1).toInt)
           } else {
-	    result2 = result.partitionBy(partitionType,1).pageRank(0.0001,0.15,args(i+1).toInt)
+	          result2 = result.partitionBy(partitionType, 1, numParts).pageRank(0.0001,0.15,args(i+1).toInt)
             changedType = true
           }
         }else if(args(i) == "--count"){
           if (changedType)
-            println("Total edges across all snapshots: " + result2.partitionBy(partitionType,1).graphs.edges.count)
+            println("Total edges across all snapshots: " + result2.partitionBy(partitionType, 1, numParts).graphs.edges.count)
           else
-            println("Total edges across all snapshots: " + result.partitionBy(partitionType,1).graphs.edges.count)
+            println("Total edges across all snapshots: " + result.partitionBy(partitionType, 1, numParts).graphs.edges.count)
         }
       }
     }
