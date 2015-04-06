@@ -199,15 +199,14 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
         for (yy <- 1 to resolution-1) {
         
           if(iter.hasNext){
-              val (k,v) = iter.next
+            val (k,v) = iter.next
+            firstVRDD = firstVRDD.union( graphs(v).vertices )
+            firstERDD = firstERDD.union( graphs(v).edges )
+            maxBound = k.max
           } else{
             width = yy-1
             loop.break
           }
-       
-          firstVRDD = firstVRDD.union( graphs(v).vertices )
-          firstERDD = firstERDD.union( graphs(v).edges )
-          maxBound = k.max
         }
       }
       if (width == 0) width = resolution-1
@@ -217,7 +216,6 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
           val (k,v) = x
           Edge(k._1, k._2, v) })))
       } else if (sem == AggregateSemantics.Universal) {
-        //FIXME: the results for universal aggregation will be incorrect over partial intervals!!! i.e. if resolution = 5 but the last interval only covers 1-3, nothing will be produced!
         result.addSnapshot(Interval(minBound,maxBound), 
           Graph(firstVRDD.map(x => (x._1, (x._2, 1))).reduceByKey((x,y) => (vAggFunc(x._1,y._1),x._2+y._2)).filter(x => x._2._2 > width).map{x => 
             val (k,v) = x
@@ -298,7 +296,7 @@ object SnapshotGraph {
     val result: SnapshotGraph[String,Int] = new SnapshotGraph(span)
 
     for (years <- minYear to maxYear) {
-      val users:RDD[(VertexId,String)] = sc.textFile(dataPath + "/nodes/nodes" + years + ".txt").map(line => line.split("|")).map{parts => 
+      val users:RDD[(VertexId,String)] = sc.textFile(dataPath + "/nodes/nodes" + years + ".txt").map(line => line.split(",")).map{parts => 
         if (parts.size > 1 && parts.head != "") 
           (parts.head.toLong, parts(1).toString) 
         else
