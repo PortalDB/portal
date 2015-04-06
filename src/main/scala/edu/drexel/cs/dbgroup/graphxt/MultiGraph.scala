@@ -1,4 +1,5 @@
 //One multigraph
+//Each vertex and edge has a value attribute associated with each time period
 package edu.drexel.cs.dbgroup.graphxt
 
 import scala.collection.immutable.SortedMap
@@ -19,10 +20,9 @@ import org.apache.spark.graphx.Graph
 import org.apache.spark.graphx.PartitionStrategy
 import org.apache.spark.rdd._
 
-//TODO: modify such that different partitioning strategies can be specified
-class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interval, Int], grs: Graph[(VD, Seq[Int]),(ED,Int)]) extends Serializable {
+class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interval, Int], grs: Graph[Map[Int,VD],(ED,Int)]) extends Serializable {
   var span = sp
-  var graphs:Graph[(VD,Seq[Int]),(ED,Int)] = grs
+  var graphs:Graph[Map[Int,VD],(ED,Int)] = grs
   var intervals:SortedMap[Interval, Int] = mp
 
 //  def this(sp: Interval) = {
@@ -133,9 +133,9 @@ class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interv
 
   def getSnapshotByPosition(pos: Int): Graph[VD, ED] = {
     if (pos >= 0 && pos < intervals.size) {
-      val subg = graphs.subgraph(vpred = (vid,attr) => attr._2.contains(pos), epred = et => (et.attr._2 == pos))
+      val subg = graphs.subgraph(vpred = (vid,attr) => attr.keySet.contains(pos), epred = et => (et.attr._2 == pos))
       //need to strip the years from the vertices and edges
-      val verts = VertexRDD[VD](subg.vertices.mapValues { (vid,attr) => attr._1})
+      val verts = VertexRDD[VD](subg.vertices.mapValues { mapattr => mapattr.values.head })
       val edgs = EdgeRDD.fromEdges[ED,VD](subg.edges.mapValues {case e => e.attr._1})
       Graph(verts,edgs)
     } else
@@ -172,15 +172,15 @@ class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interv
       //that's how much we need to reduce all the selected vertex/edges indices by
       val oldst:Int = intvs(intvs.firstKey)
       val olden:Int = intvs(intvs.lastKey)
-      val temp:Array[Int] = intvs.values.toArray
+      val temp = intvs.values.toSet
 
       //now select the vertices and edges
       val subg = graphs.subgraph(
-        vpred = (vid,attr) => !attr._2.intersect(temp).isEmpty,
-        epred = et => !temp.intersect(Seq(et.attr._2)).isEmpty)
+        vpred = (vid,attr) => !attr.keySet.intersect(temp).isEmpty,
+        epred = et => temp.contains(et.attr._2))
       //now need to renumber vertex and edge intervals indices
       //indices outside of selected range get dropped
-      val verts = VertexRDD(subg.vertices.mapValues((vid,attr) => (attr._1,attr._2.filter(x => if (x >= oldst && x <= olden) true else false).map(x => (x-oldst)))))
+      val verts = VertexRDD(subg.vertices.mapValues((vid,attr) => attr.filterKeys(x => if (x >= oldst && x <= olden) true else false).map{ case (k,v) => (k-oldst,v) }))
       val edges = EdgeRDD.fromEdges[(ED,Int),VD](subg.edges.mapValues(e => (e.attr._1,e.attr._2-oldst)))
 
       //now need to renumber to start with 0 index
@@ -195,20 +195,17 @@ class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interv
   //the result is another MultiGraph
   //the resolution is in number of graphs to combine, regardless of the resolution of
   //the base data
-  //TODO: add error checking and boundary conditions handling
-  //TODO: how to aggregate the vertex/edge properties?
-  def aggregate(resolution: Int, sem: AggregateSemantics.Value): MultiGraph[VD,ED] = {
+  def aggregate(resolution: Int, sem: AggregateSemantics.Value, vAggFunc: (VD,VD) => VD, eAggFunc: (ED,ED) => ED): MultiGraph[VD,ED] = {
     //make new intervals
     var intvs:SortedMap[Interval, Int] = TreeMap[Interval,Int]()
     var nextind:Int = 0
     var minBound,maxBound: Int = 0
 
-    //make a sequence of resolution size lists, i.e. (0,1,2),(3,4,5)
-    var seqs: Seq[Seq[Int]] = Seq[Seq[Int]]()
+    //make a sequence of resolution sizes
+    var seqs: Seq[Int] = Seq[Int]()
     val iter:Iterator[(Interval,Int)] = intervals.iterator
     while (iter.hasNext) {
       val (k,v) = iter.next
-      var sq:Seq[Int] = Seq(v)
       minBound = k.min
       maxBound = k.max
       var yy = 0
@@ -219,16 +216,15 @@ class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interv
           if (iter.hasNext) {
             val (k2,v2) = iter.next
             maxBound = k2.max
-            sq = sq :+ v2
           } else {
             intvs += (Interval(minBound,maxBound) -> nextind)
-            seqs = seqs :+ sq
+            seqs = seqs :+ yy
             nextind += 1
             loop.break
           }
         }
         intvs += (Interval(minBound,maxBound) -> nextind)
-        seqs = seqs :+ sq
+        seqs = seqs :+ resolution
         nextind += 1
       }
     }
@@ -238,25 +234,14 @@ class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interv
     //for each vertex, make a new list of indices
     //then filter out those vertices that have no indices
     val verts = VertexRDD(graphs.vertices.mapValues{ (vid,attr) =>
-      val (attr1,lst) = attr
-      var newlst:Seq[Int] = Seq()
-      seqs.zipWithIndex.foreach {s =>
-        val (seq,i) = s
-        if (sem == AggregateSemantics.Existential) {
-          //for each sequence of ints, put the new index if any present
-          if (!lst.intersect(seq).isEmpty)
-            newlst = newlst :+ i
-        } else if (sem == AggregateSemantics.Universal) {
-          if (lst.intersect(seq).size == resolution)
-            newlst = newlst :+ i
-        }
+      var tmp:Map[Int,Seq[VD]] = attr.toSeq.map{ case (k,v) => (k/resolution, v)}.groupBy{case (k,v) => k}.mapValues{ v => v.map{ case (x,y) => y }}
+      //tmp is now a map of (index, list(attr))
+      if (sem == AggregateSemantics.Universal) {
+        tmp = tmp.filter{ case (k,v) => v.size == seqs(k)}
       }
-      (attr1,newlst)
-      //Evaluate if the below is faster
-      //(attr1,lst.map(x => x/resolution).distinct.filter{x => if (x >= st && x <= en) true else false})
-    }.filter{case (id, (attr,lst)) => !lst.isEmpty})
+      tmp.mapValues{ v => v.reduce(vAggFunc) }.map(identity)
+    }.filter{case (id, attr:Map[Int,VD]) => !attr.isEmpty})
 
-    //FIXME: aggregate edge attribute ED too
     //TODO: maybe faster to filter out first based on vertices aggregated above
     var edges:EdgeRDD[(ED,Int)] = null
     if (sem == AggregateSemantics.Existential) {
@@ -264,13 +249,17 @@ class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interv
         val (attr,ind) = e.attr
         //for each old index, replace with new index, i.e. for resolution 3, change 0,1,2 to 0
         (attr,ind/resolution)
-      }.distinct)
+      }.map(x => ((x.srcId, x.dstId, x.attr._2), x.attr._1)).reduceByKey(eAggFunc).map{x =>
+        val (k,v) = x
+        //key is srcid, dstid, resolution, value is attrib
+        Edge(k._1, k._2, (v, k._3))
+      })
     } else if (sem == AggregateSemantics.Universal) {
       edges = EdgeRDD.fromEdges[(ED,Int),VD](graphs.edges.mapValues{ e =>
         val (attr,ind) = e.attr
         //for each old index, replace with new index, i.e. for resolution 3, change 0,1,2 to 0
         (attr,ind/resolution)
-      }.map(x => ((x.srcId, x.dstId, x.attr._2), (x.attr._1,1))).reduceByKey((x,y) => (x._1,x._2+y._2)).filter{ case (k,(attr,cnt)) => cnt==resolution}.map{x => 
+      }.map(x => ((x.srcId, x.dstId, x.attr._2), (x.attr._1,1))).reduceByKey((x,y) => (eAggFunc(x._1,y._1),x._2+y._2)).filter{ case (k,(attr,cnt)) => cnt==resolution}.map{x => 
         val (k,v) = x
         //key is srcid, dstid, resolution, value is attrib and count
         Edge(k._1, k._2, (v._1, k._3))
@@ -281,8 +270,8 @@ class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interv
   }
 
   //run pagerank on each interval
-  def pageRank(tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): MultiGraph[Seq[Double],Double] = {
-    new MultiGraph[Seq[Double],Double](span,intervals,UndirectedPageRank.runCombined(graphs,intervals.size,tol,resetProb,numIter))
+  def pageRank(tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): MultiGraph[Double,Double] = {
+    new MultiGraph[Double,Double](span,intervals,UndirectedPageRank.runCombined(graphs,intervals.size,tol,resetProb,numIter))
   }
 
   def partitionBy(pst: PartitionStrategyType.Value, runs: Int):MultiGraph[VD,ED] = {
@@ -330,13 +319,13 @@ object MultiGraph {
 
     //in the source data the vertex attribute list is the name followed by years
     //we need to transform that into a tuple of name,List(indices)
-    val graph:Graph[(String,Seq[Int]),(Int,Int)] = edges.outerJoinVertices(users) {
+    val graph:Graph[Map[Int,String],(Int,Int)] = edges.outerJoinVertices(users) {
       //case (uid, deg, Some(attrList)) => (attrList.head,attrList.tail.map(x => x.toInt - minYear).toSeq)
       //case (uid, deg, None) => null
       (uid, deg, attrList) => 
       if (attrList.isEmpty)
         println ("Vertex with id " + uid + " has empty attr list ")
-      (attrList.get.head, attrList.get.tail.map(x => x.toInt - minYear).toSeq)
+      attrList.get.tail.map(x => (x.toInt - minYear) -> attrList.get.head).toMap
     }
 
     //make a list of intervals (here, years) and indices

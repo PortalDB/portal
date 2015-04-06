@@ -5,7 +5,7 @@ import org.apache.spark.SparkContext._
 import org.apache.log4j.Logger 
 import org.apache.log4j.Level 
 
-object MultiGraphPTest {
+object MultiGraphTest {
 
   def main(args: Array[String]) {
 
@@ -29,7 +29,7 @@ object MultiGraphPTest {
     println("Selected edges count: " + sel.graphs.edges.count)
     println(sel.graphs.edges.collect.mkString("\n"))
 
-    val aggregate = sel.aggregate(5, AggregateSemantics.Existential)
+    val aggregate = sel.aggregate(5, AggregateSemantics.Existential, _ + _, _ + _)
     //there should be 2 results
     println("total number of results after aggregation: " + aggregate.size)
     val iter:Iterator[Interval] = aggregate.intervals.keysIterator
@@ -43,8 +43,7 @@ object MultiGraphPTest {
     println(aggregate.graphs.edges.collect.mkString("\n"))
     
     //let's run pagerank on the aggregate now
-    //TODO: uncomment when pagerank works
-    //val ranks = aggregate.pageRank(0.0001, 0.15, 50)
+    val ranks = aggregate.pageRank(0.0001, 0.15, 50)
     println("done")
   }
 

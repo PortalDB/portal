@@ -87,7 +87,7 @@ object UndirectedPageRank {
    *         containing the list of normalized weights.
    */
   def runCombined[VD: ClassTag, ED: ClassTag](
-      graph: Graph[(VD, Seq[Int]), (ED,Int)], numInts: Int, tol: Double, resetProb: Double = 0.15, maxIter: Int = Int.MaxValue): Graph[(Seq[Double], Seq[Int]), (Double,Int)] =
+      graph: Graph[Map[Int,VD], (ED,Int)], numInts: Int, tol: Double, resetProb: Double = 0.15, maxIter: Int = Int.MaxValue): Graph[Map[Int,Double], (Double,Int)] =
   {
     //we need to exchange one message with the info for each edge interval
 
@@ -111,14 +111,13 @@ object UndirectedPageRank {
     val pagerankGraph: Graph[Map[Int,(Double,Double)], (Double,Double,Int)] = graph
       // Associate the degree with each vertex for each interval
       .outerJoinVertices(degrees) {
-      case (vid, vdata, Some(deg)) => (vdata._2, deg)
-      case (vid, vdata, None) => (vdata._2,Map[Int,Int]())
+      case (vid, vdata, Some(deg)) => deg
+      case (vid, vdata, None) => Map[Int,Int]()
       }
       // Set the weight on the edges based on the degree of that interval
-      .mapTriplets( e => (1.0 / e.srcAttr._2(e.attr._2), 1.0 / e.dstAttr._2(e.attr._2), e.attr._2) )
+      .mapTriplets( e => (1.0 / e.srcAttr(e.attr._2), 1.0 / e.dstAttr(e.attr._2), e.attr._2) )
       // Set the vertex attributes to (initalPR, delta = 0) for each interval
-      //.mapVertices( (id, attr) => ( Seq.fill(attr._1.size)((0.0,0.0)), attr._1) )
-      .mapVertices( (id, attr) => (attr._1.map { index => index -> (0.0,0.0)}.toMap ) )
+      .mapVertices( (id, attr) => attr.mapValues { x => (0.0,0.0) } )
       .cache()
 
     // Define the three functions needed to implement PageRank in the GraphX
@@ -174,7 +173,7 @@ object UndirectedPageRank {
       vertexProgram, sendMessage, messageCombiner)
       .mapTriplets(e => (e.attr._1, e.attr._3)) //I don't think it matters which we pick
     //take just the new ranks from vertices, and the indices
-      .mapVertices((vid, attr) => (attr.values.map {x => x._1 }.toSeq , attr.keySet.toSeq ))
+      .mapVertices((vid, attr) => attr.mapValues( x => x._1))
   } // end of runUntilConvergence
 
 }

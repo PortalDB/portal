@@ -100,7 +100,7 @@ object Driver {
       }
     } else { //multigraph
       var result:MultiGraph[String,Int] = MultiGraph.loadGraph(data, sc)
-      var result2:MultiGraph[Seq[Double],Double] = null
+      var result2:MultiGraph[Double,Double] = null
 
       for(i <- 0 until args.length){
         if(args(i) == "--agg"){
@@ -109,9 +109,9 @@ object Driver {
             sem = AggregateSemantics.Universal
           val runWidth:Int = args(i+1).toInt
           if (changedType) {
-            result2 = result2.partitionBy(partitionType, runWidth, numParts).aggregate(runWidth, sem)
+            result2 = result2.partitionBy(partitionType, runWidth, numParts).aggregate(runWidth, sem, aggFunc2, aggFunc2)
           } else {
-            result = result.partitionBy(partitionType,runWidth, numParts).aggregate(runWidth, sem)
+            result = result.partitionBy(partitionType,runWidth, numParts).aggregate(runWidth, sem, vAggFunc, eAggFunc)
           }
         }else if(args(i) == "--select"){
           if (changedType) {
