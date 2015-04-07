@@ -16,7 +16,7 @@ import org.apache.spark.storage.StorageLevel._
 import org.apache.spark.rdd.EmptyRDD
 import org.apache.spark.rdd.PairRDDFunctions
 
-class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializable {
+class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializable {
   var span = sp
   var graphs:Seq[Graph[VD,ED]] = Seq[Graph[VD,ED]]()
   var intervals:SortedMap[Interval, Int] = TreeMap[Interval,Int]()
@@ -25,40 +25,35 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
 
   def persist(newLevel: StorageLevel = MEMORY_ONLY):Unit = {
     //persist each graph
-    val iter = graphs.iterator
-    while (iter.hasNext)
-      iter.next.persist(newLevel)
+    graphs.map(_.persist(newLevel))
   }
 
   def unpersist(blocking: Boolean = true) = {
-    val iter = graphs.iterator
-    while (iter.hasNext)
-      iter.next.unpersist(blocking)
+    graphs.map(_.unpersist(blocking))
   }
 
   def numEdges():Long = {
-    val iter:Iterator[Graph[VD,ED]] = graphs.iterator
-    println("total number of graphs: " + graphs.size)
-    var sum:Long = 0L
-    while (iter.hasNext) {
-      val g = iter.next
-      if (!g.edges.isEmpty) {
-        sum += g.numEdges
-      }
-    }
-    sum
+//    val sc = ProgramContext.sc
+//    val graphsRDD:RDD[Graph[VD,ED]] = sc.parallelize(graphs)
+
+    val startAsMili = System.currentTimeMillis()
+//    val graphsPar = graphs.par
+    val result = graphs.map(_.numEdges).reduce(_ + _)
+    val endAsMili = System.currentTimeMillis()
+    val finalAsMili = endAsMili - startAsMili
+    println("total number of graphs: " + graphs.size)    
+    println("Time to count edges in SnapshotGraphParallel: " + finalAsMili + "ms")
+    result
   }
 
   def numPartitions():Int = {
-    val iter:Iterator[Graph[VD,ED]] = graphs.iterator
-    var allps: Array[Partition] = Array[Partition]()
-    while (iter.hasNext) {
-      val g = iter.next
-      if (!g.edges.isEmpty) {
-        allps = allps union g.edges.partitions
-      }
-    }
-    allps.size
+    val startAsMili = System.currentTimeMillis()
+//    val graphsPar = graphs.par
+    val result = graphs.map(_.edges.partitions.size).reduce(_ + _)
+    val endAsMili = System.currentTimeMillis()
+    val finalAsMili = endAsMili - startAsMili
+    println("Time to count numParts in SnapshotGraphParallel: " + finalAsMili + "ms")
+    result
   }
 
   //Note: this kind of breaks the normal spark/graphx paradigm of returning
@@ -141,14 +136,14 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
       null
   }
 
-  //since SnapshotGraphs are involatile (except with add)
-  //the result is a new snapshotgraph
-  def select(bound: Interval): SnapshotGraph[VD, ED] = {
+  //since SnapshotGraphParallels are involatile (except with add)
+  //the result is a new SnapshotGraphParallel
+  def select(bound: Interval): SnapshotGraphParallel[VD, ED] = {
     if (span.intersects(bound)) {
       val minBound = if (bound.min > span.min) bound.min else span.min
       val maxBound = if (bound.max < span.max) bound.max else span.max
       val rng = Interval(minBound,maxBound)
-      var result:SnapshotGraph[VD,ED] = new SnapshotGraph[VD,ED](rng)
+      var result:SnapshotGraphParallel[VD,ED] = new SnapshotGraphParallel[VD,ED](rng)
 
       var numResults = 0
       val loop = new Breaks
@@ -175,12 +170,12 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
       null
   }
 
-  //the result is another snapshotgraph
+  //the result is another SnapshotGraphParallel
   //the resolution is in number of graphs to combine, regardless of the resolution of
   //the base data
   //there are no gaps in the output data, although some snapshots may have 0 vertices
-  def aggregate(resolution: Int, sem: AggregateSemantics.Value, vAggFunc: (VD,VD) => VD, eAggFunc: (ED,ED) => ED): SnapshotGraph[VD,ED] = {
-    var result:SnapshotGraph[VD,ED] = new SnapshotGraph[VD,ED](span)
+  def aggregate(resolution: Int, sem: AggregateSemantics.Value, vAggFunc: (VD,VD) => VD, eAggFunc: (ED,ED) => ED): SnapshotGraphParallel[VD,ED] = {
+    var result:SnapshotGraphParallel[VD,ED] = new SnapshotGraphParallel[VD,ED](span)
     val iter:Iterator[(Interval,Int)] = intervals.iterator
     var minBound,maxBound:Int = 0;
     
@@ -231,8 +226,8 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
   }
 
   //run PageRank on each contained snapshot
-  def pageRank(tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): SnapshotGraph[Double,Double] = {
-    var result:SnapshotGraph[Double,Double] = new SnapshotGraph[Double,Double](span)
+  def pageRank(tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): SnapshotGraphParallel[Double,Double] = {
+    var result:SnapshotGraphParallel[Double,Double] = new SnapshotGraphParallel[Double,Double](span)
     val iter:Iterator[(Interval,Int)] = intervals.iterator
     
     while (iter.hasNext) {
@@ -252,15 +247,15 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
     result
   }
   
-  def partitionBy(pst: PartitionStrategyType.Value, runs:Int):SnapshotGraph[VD,ED] = {
+  def partitionBy(pst: PartitionStrategyType.Value, runs:Int):SnapshotGraphParallel[VD,ED] = {
     partitionBy(pst, runs, graphs.head.edges.partitions.size)
   }
   
-  def partitionBy(pst: PartitionStrategyType.Value, runs:Int, parts:Int):SnapshotGraph[VD,ED] = {  
+  def partitionBy(pst: PartitionStrategyType.Value, runs:Int, parts:Int):SnapshotGraphParallel[VD,ED] = {  
     var numParts = if (parts > 0) parts else graphs.head.edges.partitions.size
     
     if (pst != PartitionStrategyType.None) {
-      var result:SnapshotGraph[VD,ED] = new SnapshotGraph[VD,ED](span)
+      var result:SnapshotGraphParallel[VD,ED] = new SnapshotGraphParallel[VD,ED](span)
       //not changing the intervals, only the graphs at their indices
       //each partition strategy for SG needs information about the graph
 
@@ -277,11 +272,11 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializa
 
 }
 
-object SnapshotGraph {
+object SnapshotGraphParallel extends Serializable  {
   //this assumes that the data is in the dataPath directory, each time period in its own files
   //and the naming convention is nodes<time>.txt and edges<time>.txt
   //TODO: extend to be more flexible about input data such as arbitrary uniform intervals are supported
-  final def loadData(dataPath: String, sc:SparkContext): SnapshotGraph[String,Int] = {
+  final def loadData(dataPath: String, sc:SparkContext): SnapshotGraphParallel[String,Int] = {
     var minYear:Int = Int.MaxValue
     var maxYear:Int = 0
 
@@ -293,7 +288,7 @@ object SnapshotGraph {
 
     val span = Interval(minYear, maxYear)
     var years = 0
-    val result: SnapshotGraph[String,Int] = new SnapshotGraph(span)
+    val result: SnapshotGraphParallel[String,Int] = new SnapshotGraphParallel(span)
 
     for (years <- minYear to maxYear) {
       val users:RDD[(VertexId,String)] = sc.textFile(dataPath + "/nodes/nodes" + years + ".txt").map(line => line.split(",")).map{parts => 
@@ -308,6 +303,7 @@ object SnapshotGraph {
       } else {
             edges = Graph[Int,Int](sc.emptyRDD,sc.emptyRDD)
       }
+      
       val graph = edges.outerJoinVertices(users) {
       	case (uid, deg, Some(name)) => name
       	case (uid, deg, None) => ""

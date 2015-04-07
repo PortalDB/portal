@@ -2,8 +2,6 @@ package edu.drexel.cs.dbgroup.graphxt
 
 import scala.math.Ordered.orderingToOrdered
 
-trait Serializable
-
 class Interval(mn: Int, mx: Int) extends Ordered[Interval] with Serializable {
   var min = mn
   var max = mx

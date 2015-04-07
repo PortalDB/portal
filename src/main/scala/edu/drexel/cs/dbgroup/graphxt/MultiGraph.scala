@@ -315,7 +315,7 @@ object MultiGraph {
     //GraphLoader.edgeListFile does not allow for additional attributes besides srcid/dstid
     //so use an extended version instead which does (but assumes the attr is an int)
     //the edges are in years, need to translate into indices
-    val edges = GraphLoaderAddon.edgeListFile(sc, dataPath + "/Edges-ID.txt").mapEdges(e => (1,e.attr-minYear))
+    val edges = GraphLoaderAddon.edgeListFile(sc, dataPath + "/Edges-ID.txt", true).mapEdges(e => (1,e.attr-minYear))
 
     //in the source data the vertex attribute list is the name followed by years
     //we need to transform that into a tuple of name,List(indices)
