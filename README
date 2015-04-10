@@ -9,4 +9,4 @@ To run Snapshot Graph Project:
 
 To run MultiGraph Project:
     sbt "run-main edu.drexel.cs.dbgroup.graphxt.MultiGraphPTest {params}"
-    	** where {params} could be for example: " G2_E --agg 5 existential --count --data ../../resources/set2 --type MG --partition HybridRandomTemporal 32"
+    	** where {params} could be for example: " G2_E --agg 5 existential --count --data ../../resources/set1 --type MG --partition HybridRandomTemporal 32"

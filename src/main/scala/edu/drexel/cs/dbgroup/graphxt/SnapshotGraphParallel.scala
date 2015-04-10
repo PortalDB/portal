@@ -16,10 +16,15 @@ import org.apache.spark.storage.StorageLevel._
 import org.apache.spark.rdd.EmptyRDD
 import org.apache.spark.rdd.PairRDDFunctions
 
-class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag] (sp: Interval) extends Serializable {
+class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag] (sp: Interval, gps: Seq[Graph[VD,ED]], invs: SortedMap[Interval, Int]) extends Serializable {
   var span = sp
-  var graphs:Seq[Graph[VD,ED]] = Seq[Graph[VD,ED]]()
-  var intervals:SortedMap[Interval, Int] = TreeMap[Interval,Int]()
+  var graphs:Seq[Graph[VD,ED]] = gps//Seq[Graph[VD,ED]]()
+  var intervals:SortedMap[Interval, Int] = invs//TreeMap[Interval,Int]()
+ 
+  //constructor overloading
+  def this(sp:Interval) = { 
+    this(sp, Seq[Graph[VD,ED]](), TreeMap[Interval,Int]())
+  }
   
   def size(): Int = { graphs.size }
 
@@ -33,11 +38,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag] (sp: Interval) extends S
   }
 
   def numEdges():Long = {
-//    val sc = ProgramContext.sc
-//    val graphsRDD:RDD[Graph[VD,ED]] = sc.parallelize(graphs)
-
     val startAsMili = System.currentTimeMillis()
-//    val graphsPar = graphs.par
     val result = graphs.map(_.numEdges).reduce(_ + _)
     val endAsMili = System.currentTimeMillis()
     val finalAsMili = endAsMili - startAsMili
@@ -48,7 +49,6 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag] (sp: Interval) extends S
 
   def numPartitions():Int = {
     val startAsMili = System.currentTimeMillis()
-//    val graphsPar = graphs.par
     val result = graphs.map(_.edges.partitions.size).reduce(_ + _)
     val endAsMili = System.currentTimeMillis()
     val finalAsMili = endAsMili - startAsMili
@@ -112,7 +112,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag] (sp: Interval) extends S
       var position = -1
       val iter:Iterator[Interval] = intervals.keysIterator
       val loop = new Breaks
-      
+            
       loop.breakable{
         while (iter.hasNext) {
           val nx:Interval = iter.next
@@ -139,35 +139,22 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag] (sp: Interval) extends S
   //since SnapshotGraphParallels are involatile (except with add)
   //the result is a new SnapshotGraphParallel
   def select(bound: Interval): SnapshotGraphParallel[VD, ED] = {
-    if (span.intersects(bound)) {
-      val minBound = if (bound.min > span.min) bound.min else span.min
-      val maxBound = if (bound.max < span.max) bound.max else span.max
-      val rng = Interval(minBound,maxBound)
-      var result:SnapshotGraphParallel[VD,ED] = new SnapshotGraphParallel[VD,ED](rng)
-
-      var numResults = 0
-      val loop = new Breaks
-      
-      loop.breakable{
-        intervals.foreach {
-          case (k,v) =>
-          if (numResults == 0 && k.contains(minBound)) {
-            numResults = 1
-            result.addSnapshot(k,graphs(v))
-          } else if (numResults > 0 && k.contains(maxBound)) {
-            numResults += 1
-            result.addSnapshot(k,graphs(v))
-            loop.break
-          } else if (numResults > 0) {
-            numResults += 1
-            result.addSnapshot(k,graphs(v))
-          }
-        }
-      }
-
-      result
-    } else
+    if(!span.intersects(bound)){
       null
+    }
+    
+    val minBound = if (bound.min > span.min) bound.min else span.min
+    val maxBound = if (bound.max < span.max) bound.max else span.max
+      
+    //TODO: factor in boundary modifications for aggregated SnapshotGraphs
+    var selectStart = math.abs(span.min - minBound)
+    var selectStop = maxBound - span.min + 1
+    
+    var intervalFilter:SortedMap[Interval, Int] = intervals.slice(selectStart, selectStop)
+    val newseq:Seq[Graph[VD,ED]] = intervalFilter.map(x => graphs(x._2)).toSeq
+    val result = new SnapshotGraphParallel(span, newseq, intervals)
+      
+    result
   }
 
   //the result is another SnapshotGraphParallel
@@ -227,24 +214,22 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag] (sp: Interval) extends S
 
   //run PageRank on each contained snapshot
   def pageRank(tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): SnapshotGraphParallel[Double,Double] = {
-    var result:SnapshotGraphParallel[Double,Double] = new SnapshotGraphParallel[Double,Double](span)
-    val iter:Iterator[(Interval,Int)] = intervals.iterator
-    
-    while (iter.hasNext) {
-      val (k,v) = iter.next
-      if (graphs(v).edges.isEmpty) {
-        result.addSnapshot(k,Graph[Double,Double](ProgramContext.sc.emptyRDD,ProgramContext.sc.emptyRDD))
-      } else {
-        //For regular directed pagerank, uncomment the following line
-        //result.addSnapshot(k, graphs(v).pageRank(tol))
-        //For undirected pagerank without coalescing, uncomment the following line
-        //result.addSnapshot(k,UndirectedPageRank.run(graphs(v),tol,resetProb,numIter))
-        //For undirected pagerank with coalescing, uncomment the following line
-        result.addSnapshot(k,UndirectedPageRank.run(Graph(graphs(v).vertices,graphs(v).edges.coalesce(1,true)),tol,resetProb,numIter))
+    def safePagerank(grp: Graph[VD,ED]):Graph[Double,Double] = {
+      if (grp.edges.isEmpty){
+        Graph[Double,Double](ProgramContext.sc.emptyRDD,ProgramContext.sc.emptyRDD)
       }
-    }
-
-    result
+      else {
+        //For regular directed pagerank, uncomment the following line
+        //grp.pageRank(tol)
+        //For undirected pagerank without coalescing, uncomment the following line
+        //UndirectedPageRank.run(graphs(v),tol,resetProb,numIter)
+        //For undirected pagerank with coalescing, uncomment the following line
+        UndirectedPageRank.run(Graph(grp.vertices,grp.edges.coalesce(1,true)),tol,resetProb,numIter)
+      }
+    }    
+    
+    val newseq:Seq[Graph[Double,Double]] = graphs.map(safePagerank)
+    new SnapshotGraphParallel(span, newseq, intervals)
   }
   
   def partitionBy(pst: PartitionStrategyType.Value, runs:Int):SnapshotGraphParallel[VD,ED] = {
