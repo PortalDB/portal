@@ -10,21 +10,24 @@ read line2 <&6
 read line3 <&6
 read line4 <&6
 read line5 <&6
+read line6 <&6
 IFS=' ' read -ra STRIP <<< "$line1"
-ITER="${STRIP[1]}"
+MAINCLASS="${STRIP[1]}"
 IFS=' ' read -ra STRIP <<< "$line2"
-GTYPE="${STRIP[1]}"
+ITER="${STRIP[1]}"
 IFS=' ' read -ra STRIP <<< "$line3"
-DATA="${STRIP[1]}"
+GTYPE="${STRIP[1]}"
 IFS=' ' read -ra STRIP <<< "$line4"
+DATA="${STRIP[1]}"
+IFS=' ' read -ra STRIP <<< "$line5"
 STRATLIST="${STRIP[1]}"
 IFS=',' read -ra STRATS <<< "$STRATLIST"
 NUMSTRATS="${#STRATS[@]}"
-IFS=' ' read -ra STRIP <<< "$line5"
+IFS=' ' read -ra STRIP <<< "$line6"
 PARTSLIST="${STRIP[1]}"
 IFS=',' read -ra PARTS <<< "$PARTSLIST"
 NUMPARTS="${#PARTS[@]}"
-LINECOUNTER=-1
+LINECOUNTER=-2
 while read -r line
 do
 	#for each query
@@ -47,7 +50,7 @@ do
                 typeParam="--type"
                 dataParam="--data"
                 partitionParam="--partition"
-                runCommand="sbt \"run $line $dataParam $DATA $typeParam $GTYPE $partitionParam $STRAT $PARTITION\"" #where we adjust based on how you run the driver
+                runCommand="sbt \"run-main $MAINCLASS $line $dataParam $DATA $typeParam $GTYPE $partitionParam $STRAT $PARTITION\"" #where we adjust based on how you run the driver
 			    for (( i=1; i <= $ITER; i++ ))
                 do
 				    (
