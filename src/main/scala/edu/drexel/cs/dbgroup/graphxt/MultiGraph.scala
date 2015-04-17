@@ -20,34 +20,48 @@ import org.apache.spark.graphx.Graph
 import org.apache.spark.graphx.PartitionStrategy
 import org.apache.spark.rdd._
 
-class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interval, Int], grs: Graph[Map[Int,VD],(ED,Int)]) extends Serializable {
+class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interval, Int], grs: Graph[Map[Int,VD],(ED,Int)]) extends TemporalGraph[VD,ED] {
   var span = sp
   var graphs:Graph[Map[Int,VD],(ED,Int)] = grs
   var intervals:SortedMap[Interval, Int] = mp
 
-//  def this(sp: Interval) = {
-//    this(sp, TreeMap[Interval,Int](), Graph[(VD,List[Int]),(ED,Int)](sc.emptyRDD,sc.emptyRDD))
-//  }
+  def this(sp: Interval) = {
+    this(sp, TreeMap[Interval,Int](), Graph[Map[Int,VD],(ED,Int)](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD))
+  }
 
   def size():Int = intervals.size
 
-  def persist(newLevel: StorageLevel = MEMORY_ONLY):Unit = {
-    //just persist the graph itself
-    graphs.persist(newLevel)
+  def numEdges(): Long = graphs.numEdges
+
+  def numPartitions(): Int = {
+    if (graphs.edges.isEmpty)
+      0
+    else
+      graphs.edges.partitions.size
   }
 
-  def unpersist(blocking: Boolean = true) = {
+  //FIXME: this is an arbitrary mapping right now, what should we return?
+  def vertices: VertexRDD[VD] = graphs.vertices.mapValues{ attr => attr.values.head }
+  def edges: EdgeRDD[ED] = graphs.edges.mapValues{ case e => e.attr._1 }
+
+  def persist(newLevel: StorageLevel = MEMORY_ONLY): MultiGraph[VD,ED] = {
+    //just persist the graph itself
+    graphs.persist(newLevel)
+    this
+  }
+
+  def unpersist(blocking: Boolean = true): MultiGraph[VD,ED] = {
     graphs.unpersist(blocking)
+    this
   }
 
   //This operation is very inefficient. Adding one snapshot at a time is not recommended
-/*
-  def addSnapshot(place:Interval, snap:Graph[VD, ED]):Unit = {
+  def addSnapshot(place:Interval, snap:Graph[VD, ED]):MultiGraph[VD,ED] = {
     //locate the position for this interval
     val iter:Iterator[Interval] = intervals.keysIterator
     var pos:Int = -1
     var found:Boolean = false
-    //this is not as efficient as binary search but the list is expected to be short
+    var intvs:SortedMap[Interval, Int] = intervals
 
     val loop = new Breaks
     loop.breakable{
@@ -68,48 +82,57 @@ class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interv
       if (found) {
         //put in position 0, move the rest to the right
         pos = 0
-        intervals.map { case (k,v) => (k, v+1) }
-        intervals += (place -> pos)
+        intvs.map { case (k,v) => (k, v+1) }
+        intvs += (place -> pos)
       } else {
         //put in last
-        intervals += (place -> intervals.size)
+        intvs += (place -> intvs.size)
       }
     } else {
       //put in the specified position, move the rest to the right
-      intervals.foreach { case (k,v) => if (v > pos) (k, v+1)}
+      intvs.foreach { case (k,v) => if (v > pos) (k, v+1)}
     }
 
     //join the vertices
     //cogroup produces two sequences
-    //in our case the first sequence is a list of VD,List(int) empty if no previous data
+    //in our case the first sequence is a list of Map or empty if no previous data
     //and the second sequence is a list of VD or empty
     //because we are combining distinct rdds, each list should only have 1 element
     val verts = VertexRDD(graphs.vertices.cogroup(snap.vertices).map{ case (k,(v1,v2)) =>
       if (v1.isEmpty) {
-        (k,v2.head,List(pos))
+        (k,Map[Int,VD](pos -> v2.head))
       } else if (v2.isEmpty) {
         if (found) {
-          (k,v1.head._1,v1.head._2.foreach { v => if (v > pos) v+1})
+          (k, v1.head.map { case (ind,atr) => 
+            if (ind > pos) 
+              (ind+1,atr)
+            else
+              (ind,atr)
+          })
         } else {
-          (k,v1.head._1,v1.head._2)
+          (k,v1.head)
         }
       } else {
-        val newl:List[Int] = v1.head._2.map {(v:Int) => if (v>pos) v+1} :+ pos
-        (k,v1.head._1,newl.sorted)
+        //need to add this new element into the map at the index and move the others
+        (k, v1.head.map { case (ind,atr) =>
+            if (ind > pos) 
+              (ind+1,atr)
+            else
+              (ind,atr)
+          } + (pos -> v2.head))
       }
     })
     //it is understood that this snapshot is new so there shouldn't be any repeated edges
     //MG edges have an attribute and an index
     //but snapshot edges have just an attribute
-    val edgs = EdgeRDD(graphs.edges.union(snap.edges).mapValues{
-      case (srcid, dstid, (attr,Some(intervalindex))) => (srcid, dstid, (attr,intervalindex))
-      case (srcid, dstid, attr) => (srcid, dstid, (attr,pos))
-    })
-
+    val edgs = EdgeRDD.fromEdges[(ED,Int),VD](graphs.edges.union(snap.edges.mapValues{ e => (e.attr,pos) }) //.mapValues{
+//      case (srcid, dstid, (attr,Some(intervalindex))) => (srcid, dstid, (attr,intervalindex))
+//      case (srcid, dstid, attr) => (srcid, dstid, (attr,pos))
+//    })
+    )
     //make the graph
-    graphs = Graph(verts,edgs)
+    new MultiGraph[VD,ED](Interval(intvs.head._1.min,intvs.last._1.max), intvs, Graph(verts,edgs))
   }
- */
 
   def getSnapshotByTime(time: Int): Graph[VD, ED] = {
     if (time >= span.min && time<= span.max) {
@@ -269,11 +292,6 @@ class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interv
     new MultiGraph[VD,ED](span, intvs, Graph(verts,edges))
   }
 
-  //run pagerank on each interval
-  def pageRank(tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): MultiGraph[Double,Double] = {
-    new MultiGraph[Double,Double](span,intervals,UndirectedPageRank.runCombined(graphs,intervals.size,tol,resetProb,numIter))
-  }
-
   def partitionBy(pst: PartitionStrategyType.Value, runs: Int):MultiGraph[VD,ED] = {
     partitionBy(pst, runs, graphs.edges.partitions.size)
   }
@@ -288,11 +306,21 @@ class MultiGraph[VD: ClassTag, ED: ClassTag] (sp: Interval, mp: SortedMap[Interv
       this
   }
 
+  //run pagerank on each interval
+  def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): MultiGraph[Double,Double] = {
+    if (uni)
+      new MultiGraph[Double,Double](span,intervals,UndirectedPageRank.runCombined(graphs,intervals.size,tol,resetProb,numIter))
+    else
+      //not supported for now
+      //TODO: implement this
+      null
+  }
+
 }
 
 object MultiGraph {
 
-  def loadGraph(dataPath: String, sc:SparkContext): MultiGraph[String,Int] = {
+  def loadData(dataPath: String, sc:SparkContext): MultiGraph[String,Int] = {
     //var minYear:Int = 1936
     //var maxYear:Int = 2015
 

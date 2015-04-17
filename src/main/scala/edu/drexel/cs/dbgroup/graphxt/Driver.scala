@@ -22,30 +22,35 @@ object Driver {
     var data = ""
     var partitionType:PartitionStrategyType.Value = PartitionStrategyType.None
     var numParts: Int = -1
+    var warmStart = false
 
     for(i <- 0 until args.length){
       if(args(i) == "--type"){
-	      graphType = args(i+1)
+	graphType = args(i+1)
         if (graphType == "MG")
           println("Running experiments with MultiGraph")
         else if (graphType == "SG")
           println("Running experiments with SnapshotGraph")
+        else if (graphType == "SGP")
+          println("Running experiments with parallel SnapshotGraph")
         else {
           println("Invalid graph type, exiting")
           System.exit(1)
         }
       }else if(args(i) == "--strategy"){
-	      strategy = args(i+1)
+	strategy = args(i+1)
       }else if(args(i) == "--iterations"){
-	      iterations = args(i+1).toInt
+	iterations = args(i+1).toInt
       }else if(args(i) == "--data"){
-	       data = args(i+1)
+	data = args(i+1)
       }else if (args(i) == "--partition"){
         partitionType = PartitionStrategyType.withName(args(i+1))
- 
+
         if(args.length > i+2){
-           numParts = args(i+2).toInt
+          numParts = args(i+2).toInt
         }
+      }else if (args(i) == "--warmstart"){
+        warmStart = true
       }
     }
 	
@@ -56,82 +61,53 @@ object Driver {
     ProgramContext.setContext(sc)
 
     var changedType = false
-    val startAsMili = System.currentTimeMillis()
+    var startAsMili = System.currentTimeMillis()
 
     def vAggFunc(a: String, b: String): String = a
     def eAggFunc(a: Int, b: Int):Int = a
     def aggFunc2(a: Double, b: Double):Double = math.max(a,b)
 
-    //for snapshotgraph tests
-    if (graphType == "SG") {
-      var result:SnapshotGraph[String,Int] = SnapshotGraph.loadData(data, sc)
-      var result2:SnapshotGraph[Double,Double] = null
+    var result:TemporalGraph[String,Int] = loadData(data, sc, graphType)
+    var result2:TemporalGraph[Double,Double] = null
 
-      for(i <- 0 until args.length){
-        if(args(i) == "--agg"){
-          var sem = AggregateSemantics.Existential
-          if (args(i+2) == "universal")
-            sem = AggregateSemantics.Universal
-          val runWidth:Int = args(i+1).toInt
-          if (changedType) {
-	          result2 = result2.partitionBy(partitionType, runWidth, numParts).aggregate(runWidth, sem, aggFunc2, aggFunc2)
-          } else {
-	          result = result.partitionBy(partitionType, runWidth, numParts).aggregate(runWidth, sem, vAggFunc, eAggFunc)
-          }
-        }else if(args(i) == "--select"){
-          if (changedType) {
-	          result2 = result2.select(Interval(args(i+1).toInt, args(i+2).toInt))
-          } else {
-            result = result.select(Interval(args(i+1).toInt, args(i+2).toInt))
-          }
-        }else if(args(i) == "--pagerank"){
-          if (changedType) {
-	          result2 = result2.pageRank(0.0001,0.15,args(i+1).toInt)
-          } else {
-	          result2 = result.pageRank(0.0001,0.15,args(i+1).toInt)
-            changedType = true
-          }
-        }else if(args(i) == "--count"){
-          if (changedType)
-            println("Total edges across all snapshots: " + result2.numEdges)
-          else
-            println("Total edges across all snapshots: " + result.numEdges)
-        }
-      }
-    } else { //multigraph
-      var result:MultiGraph[String,Int] = MultiGraph.loadGraph(data, sc)
-      var result2:MultiGraph[Double,Double] = null
+    if (warmStart) {
+      //collecting all vertices and edges forces load
+      result.vertices.collect
+      result.edges.collect
+      //reset start time
+      println("warm start")
+      startAsMili = System.currentTimeMillis()
+    }
 
-      for(i <- 0 until args.length){
-        if(args(i) == "--agg"){
-          var sem = AggregateSemantics.Existential
-          if (args(i+2) == "universal")
-            sem = AggregateSemantics.Universal
-          val runWidth:Int = args(i+1).toInt
-          if (changedType) {
-            result2 = result2.partitionBy(partitionType, runWidth, numParts).aggregate(runWidth, sem, aggFunc2, aggFunc2)
-          } else {
-            result = result.partitionBy(partitionType,runWidth, numParts).aggregate(runWidth, sem, vAggFunc, eAggFunc)
-          }
-        }else if(args(i) == "--select"){
-          if (changedType) {
-	          result2 = result2.partitionBy(partitionType, 1, numParts).select(Interval(args(i+1).toInt, args(i+2).toInt))
-          } else {
-            result = result.partitionBy(partitionType, 1, numParts).select(Interval(args(i+1).toInt, args(i+2).toInt))
-          }
-        }else if(args(i) == "--pagerank"){
-          if (changedType) {
-	          result2 = result2.partitionBy(partitionType, 1, numParts).pageRank(0.0001,0.15,args(i+1).toInt)
-          } else {
-	          result2 = result.partitionBy(partitionType, 1, numParts).pageRank(0.0001,0.15,args(i+1).toInt)
-            changedType = true
-          }
-        }else if(args(i) == "--count"){
-          if (changedType)
-            println("Total edges across all snapshots: " + result2.partitionBy(partitionType, 1, numParts).graphs.edges.count)
-          else
-            println("Total edges across all snapshots: " + result.partitionBy(partitionType, 1, numParts).graphs.edges.count)
+    for(i <- 0 until args.length){
+      if(args(i) == "--agg"){
+        var sem = AggregateSemantics.Existential
+        if (args(i+2) == "universal")
+          sem = AggregateSemantics.Universal
+        val runWidth:Int = args(i+1).toInt
+        if (changedType) {
+	  result2 = result2.partitionBy(partitionType, runWidth, numParts).aggregate(runWidth, sem, aggFunc2, aggFunc2)
+        } else {
+	  result = result.partitionBy(partitionType, runWidth, numParts).aggregate(runWidth, sem, vAggFunc, eAggFunc)
         }
+      }else if(args(i) == "--select"){
+        if (changedType) {
+	  result2 = result2.select(Interval(args(i+1).toInt, args(i+2).toInt))
+        } else {
+          result = result.select(Interval(args(i+1).toInt, args(i+2).toInt))
+        }
+      }else if(args(i) == "--pagerank"){
+        if (changedType) {
+	  result2 = result2.pageRank(true,0.0001,0.15,args(i+1).toInt)
+        } else {
+	  result2 = result.pageRank(true,0.0001,0.15,args(i+1).toInt)
+          changedType = true
+        }
+      }else if(args(i) == "--count"){
+        if (changedType)
+          println("Total edges across all snapshots: " + result2.numEdges)
+        else
+          println("Total edges across all snapshots: " + result.numEdges)
       }
     }
 
@@ -139,5 +115,14 @@ object Driver {
     val runTime = endAsMili - startAsMili
     println("Final Runtime: " + runTime + "ms")
 
+  }
+
+  def loadData(data: String, sc: SparkContext, gtype: String):TemporalGraph[String,Int] = {
+    if (gtype == "SG") {
+      SnapshotGraph.loadData(data, sc)
+    } else if (gtype == "MG") {
+      MultiGraph.loadData(data, sc)
+    } else
+      null
   }
 }

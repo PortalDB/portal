@@ -36,7 +36,7 @@ object SnapshotGraphTest {
     println(aggregate.graphs(1).edges.collect.mkString("\n"))
 
     //let's run pagerank on the aggregate now
-    val ranks = aggregate.pageRank(0.0001, 0.15, 20)
+    val ranks = aggregate.pageRank(true,0.0001, 0.15, 20)
     println("pagerank for each user over time in aggregate: ")
    
     val iter:Iterator[Interval] = ranks.intervals.keysIterator

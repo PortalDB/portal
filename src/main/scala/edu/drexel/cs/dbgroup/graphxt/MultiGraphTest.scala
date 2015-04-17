@@ -17,7 +17,7 @@ object MultiGraphTest {
       System.getenv("SPARK_HOME"),
       List("target/scala-2.10/multigraph-project_2.10-1.0.jar"))
 
-    var testGraph = MultiGraph.loadGraph(args(0), sc)
+    var testGraph = MultiGraph.loadData(args(0), sc)
 
     //try partitioning
     testGraph = testGraph.partitionBy(PartitionStrategyType.CanonicalRandomVertexCut,0)
@@ -43,7 +43,7 @@ object MultiGraphTest {
     println(aggregate.graphs.edges.collect.mkString("\n"))
     
     //let's run pagerank on the aggregate now
-    val ranks = aggregate.pageRank(0.0001, 0.15, 50)
+    val ranks = aggregate.pageRank(true,0.0001, 0.15, 50)
     println("done")
   }
 
