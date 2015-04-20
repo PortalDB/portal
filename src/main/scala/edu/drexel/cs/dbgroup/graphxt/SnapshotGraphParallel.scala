@@ -344,8 +344,9 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](sp: Interval, invs: Sort
   def partitionBy(pst: PartitionStrategyType.Value, runs: Int, parts: Int): SnapshotGraphParallel[VD, ED] = {
     var numParts = if (parts > 0) parts else graphs.head.edges.partitions.size
 
+    val startAsMili = System.currentTimeMillis()
+
     if (pst != PartitionStrategyType.None) {
-      //      var result:SnapshotGraphParallel[VD,ED] = new SnapshotGraphParallel[VD,ED](span)
       //not changing the intervals, only the graphs at their indices
       //each partition strategy for SG needs information about the graph
 
@@ -353,14 +354,10 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](sp: Interval, invs: Sort
       var temp = intervals.map { case (a, b) => graphs(b).partitionBy(PartitionStrategies.makeStrategy(pst, b, graphs.size, runs), numParts) }
       var gps: ParSeq[Graph[VD, ED]] = temp.toSeq.par
 
-      //      intervals.foreach {
-      //        case (k,v) =>
-      //          result.addSnapshot(k,graphs(v).partitionBy(PartitionStrategies.makeStrategy(pst,v,graphs.size,runs), numParts))
-      //      }
-
-      println("Intervals size in partitionBy: " + intervals.size)
-      println("GPS (graph) size in partitionBy: " + gps.size)
-
+      val endAsMili = System.currentTimeMillis()
+      val finalAsMili = endAsMili - startAsMili
+      println("Time for Partioning in SnapshotGraphParallel: " + finalAsMili + "ms")
+      
       new SnapshotGraphParallel(span, intervals, gps)
     } else
       this
