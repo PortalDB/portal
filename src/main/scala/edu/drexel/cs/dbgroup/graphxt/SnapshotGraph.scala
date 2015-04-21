@@ -8,14 +8,16 @@ import scala.util.control._
 
 import org.apache.spark.SparkContext
 import org.apache.spark.Partition
+
 import org.apache.spark.graphx._
 import org.apache.spark.graphx.Graph
+import org.apache.spark.graphx.GraphLoaderAddon
 import org.apache.spark.rdd._
+import org.apache.spark.rdd.EmptyRDD
+import org.apache.spark.rdd.PairRDDFunctions
 import org.apache.spark.storage.RDDBlockId
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
-import org.apache.spark.rdd.EmptyRDD
-import org.apache.spark.rdd.PairRDDFunctions
 
 class SnapshotGraph[VD: ClassTag, ED: ClassTag](sp: Interval, intvs: SortedMap[Interval, Int], grs: Seq[Graph[VD, ED]]) extends TemporalGraph[VD, ED] {
   var span = sp
@@ -29,7 +31,6 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](sp: Interval, intvs: SortedMap[I
   def size(): Int = { graphs.size }
 
   def numEdges(): Long = {
-    val startAsMili = System.currentTimeMillis()
     val iter: Iterator[Graph[VD, ED]] = graphs.iterator
     var sum: Long = 0L
     while (iter.hasNext) {
@@ -38,14 +39,10 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](sp: Interval, intvs: SortedMap[I
         sum += g.numEdges
       }
     }
-    val endAsMili = System.currentTimeMillis()
-    val finalAsMili = endAsMili - startAsMili
-    println("Time to count edges in SnapshotGraph: " + finalAsMili + "ms")
     sum
   }
 
   def numPartitions(): Int = {
-    val startAsMili = System.currentTimeMillis()
     val iter: Iterator[Graph[VD, ED]] = graphs.iterator
     var allps: Array[Partition] = Array[Partition]()
     while (iter.hasNext) {
@@ -54,9 +51,6 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](sp: Interval, intvs: SortedMap[I
         allps = allps union g.edges.partitions
       }
     }
-    val endAsMili = System.currentTimeMillis()
-    val finalAsMili = endAsMili - startAsMili
-    println("Time to count numParts in SnapshotGraph: " + finalAsMili + "ms")
     allps.size
   }
 
@@ -181,8 +175,6 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](sp: Interval, intvs: SortedMap[I
   //since SnapshotGraphs are involatile (except with add)
   //the result is a new snapshotgraph
   def select(bound: Interval): SnapshotGraph[VD, ED] = {
-    val startAsMili = System.currentTimeMillis()
-
     if (span.intersects(bound)) {
       val minBound = if (bound.min > span.min) bound.min else span.min
       val maxBound = if (bound.max < span.max) bound.max else span.max
@@ -213,9 +205,6 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](sp: Interval, intvs: SortedMap[I
         }
       }
 
-      val endAsMili = System.currentTimeMillis()
-      val finalAsMili = endAsMili - startAsMili
-      println("Time for Selection in SnapshotGraph: " + finalAsMili + "ms")
       new SnapshotGraph(rng, intvs, gps)
     } else
       null
@@ -363,6 +352,7 @@ object SnapshotGraph {
       }
       var edges: Graph[Int, Int] = null
       if ((new java.io.File(dataPath + "/edges/edges" + years + ".txt")).length > 0) {
+        //uses extended version of Graph Loader to load edges with attributes
         edges = GraphLoader.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt", true)
       } else {
         edges = Graph[Int, Int](sc.emptyRDD, sc.emptyRDD)

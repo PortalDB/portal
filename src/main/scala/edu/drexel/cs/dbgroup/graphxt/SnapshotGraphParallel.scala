@@ -42,26 +42,11 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](sp: Interval, invs: Sort
   }
 
   def numEdges(): Long = {
-    val startAsMili = System.currentTimeMillis()
-
-    println("Graphs size: in numEdges(): " + graphs.size)
-    val result = graphs.filterNot(_.edges.isEmpty).map(_.numEdges).reduce(_ + _)
-
-    val endAsMili = System.currentTimeMillis()
-    val finalAsMili = endAsMili - startAsMili
-    println("Time to count edges in SnapshotGraphParallel: " + finalAsMili + "ms")
-    result
+    graphs.filterNot(_.edges.isEmpty).map(_.numEdges).reduce(_ + _)
   }
 
   def numPartitions(): Int = {
-    val startAsMili = System.currentTimeMillis()
-
-    val result = graphs.filterNot(_.edges.isEmpty).map(_.edges.partitions.size).reduce(_ + _)
-
-    val endAsMili = System.currentTimeMillis()
-    val finalAsMili = endAsMili - startAsMili
-    println("Time to count numParts in SnapshotGraphParallel: " + finalAsMili + "ms")
-    result
+    graphs.filterNot(_.edges.isEmpty).map(_.edges.partitions.size).reduce(_ + _)
   }
 
   def vertices: VertexRDD[VD] = {
@@ -156,8 +141,6 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](sp: Interval, invs: Sort
   //since SnapshotGraphParallels are involatile (except with add)
   //the result is a new SnapshotGraphParallel
   def select(bound: Interval): SnapshotGraphParallel[VD, ED] = {
-    val startAsMili = System.currentTimeMillis()
-
     if (!span.intersects(bound)) {
       null
     }
@@ -166,28 +149,14 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](sp: Interval, invs: Sort
     val maxBound = if (bound.max < span.max) bound.max else span.max
     val rng = Interval(minBound, maxBound)
 
-    //TODO: factor in boundary modifications for aggregated SnapshotGraphs
     var selectStart = math.abs(span.min - minBound)
     var selectStop = maxBound - span.min + 1
-
-    println("selectStart: " + selectStart)
-    println("selectStop: " + selectStop)
-
     var intervalFilter: SortedMap[Interval, Int] = intervals.slice(selectStart, selectStop)
+
     val newGraphs: ParSeq[Graph[VD, ED]] = intervalFilter.map(x => graphs(x._2)).toSeq.par
     val newIntervals: SortedMap[Interval, Int] = intervalFilter.mapValues { x => x - selectStart }
-    val result = new SnapshotGraphParallel(rng, newIntervals, newGraphs)
-
-    println("newGraphs size: " + newGraphs.size)
-    println("newIntervals size: " + newIntervals.size)
-    println("intervalFilter size: " + intervalFilter.size)
-    println("intervals size: " + intervals.size)
-
-    val endAsMili = System.currentTimeMillis()
-    val finalAsMili = endAsMili - startAsMili
-    println("Time for Selection in SnapshotGraphParallel: " + finalAsMili + "ms")
-
-    result
+    
+    new SnapshotGraphParallel(rng, newIntervals, newGraphs)
   }
 
   def aggregate(resolution: Int, sem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): SnapshotGraphParallel[VD, ED] = {
@@ -197,9 +166,6 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](sp: Interval, invs: Sort
     val iter: Iterator[(Interval, Int)] = intervals.iterator
     var numResults: Int = 0
     var minBound, maxBound: Int = 0;
-
-    println("Graphs size in aggregate : " + graphs.size)
-    println("Intervals size in aggregate : " + intervals.size)
 
     while (iter.hasNext) {
       val (k, v) = iter.next
@@ -248,75 +214,8 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](sp: Interval, invs: Sort
           }))
       }
     }
-    println("Sem: " + sem)
-    println("GPS size in aggregate: " + gps.size)
-    println("Intvs size in aggregate: " + intvs.size)
 
     new SnapshotGraphParallel(span, intvs, gps)
-  }
-
-  //the result is another SnapshotGraphParallel
-  //the resolution is in number of graphs to combine, regardless of the resolution of
-  //the base data
-  //there are no gaps in the output data, although some snapshots may have 0 vertices
-  def aggregateParallel(resolution: Int, sem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): SnapshotGraphParallel[VD, ED] = {
-    var result: SnapshotGraphParallel[VD, ED] = new SnapshotGraphParallel[VD, ED](span)
-    var intvs: SortedMap[Interval, Int] = TreeMap[Interval, Int]()
-    var gps: Seq[Graph[VD, ED]] = Seq[Graph[VD, ED]]()
-    var numResults: Int = 0
-    var minBound, maxBound: Int = 0;
-
-    var i: Int = 0;
-
-    while (i <= intervals.size) {
-      var sliceWidth: Int = 0;
-      var width = 0
-      //      minBound = intervals.seq(0)
-      //      maxBound = k.max
-
-      if (i + resolution <= intervals.size) {
-        sliceWidth = i + resolution
-        width = resolution - 1
-      } else {
-        sliceWidth = intervals.size
-        width = (sliceWidth % resolution) - 2
-      }
-
-      var aggGraphs: ParSeq[Graph[VD, ED]] = graphs.slice(i, sliceWidth)
-
-      //      println("Graphs size: " + graphs.size)
-      //      println("i: " + i)
-      //      println("sliceWidth: " + sliceWidth)
-      //      println("aggGraphs size: " + aggGraphs.size)
-
-      var firstVRDD: RDD[(VertexId, VD)] = aggGraphs.filterNot(_.vertices.isEmpty).map(_.vertices).reduce((a, b) => VertexRDD(a.union(b)))
-      var firstERDD: RDD[Edge[ED]] = aggGraphs.filterNot(_.edges.isEmpty).map(_.edges).reduce((a, b) => EdgeRDD.fromEdges[ED, VD](a.union(b)))
-
-      println("FirstVRDD: " + firstVRDD.count)
-      println("FirstERDD: " + firstERDD.count)
-      println("Vertex and Edge have been mapped\n")
-
-      intvs += (Interval(minBound, maxBound) -> numResults)
-
-      if (sem == AggregateSemantics.Existential) {
-        gps = gps :+ Graph(VertexRDD(firstVRDD.reduceByKey(vAggFunc)), EdgeRDD.fromEdges[ED, VD](firstERDD.map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eAggFunc).map { x =>
-          val (k, v) = x
-          Edge(k._1, k._2, v)
-        }))
-      } else if (sem == AggregateSemantics.Universal) {
-        gps = gps :+ Graph(firstVRDD.map(x => (x._1, (x._2, 1))).reduceByKey((x, y) => (vAggFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 > width).map { x =>
-          val (k, v) = x
-          (k, v._1)
-        },
-          EdgeRDD.fromEdges[ED, VD](firstERDD.map(e => ((e.srcId, e.dstId), (e.attr, 1))).reduceByKey((x, y) => (eAggFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 > width).map { x =>
-            val (k, v) = x
-            Edge(k._1, k._2, v._1)
-          }))
-      }
-
-      i += resolution
-    }
-    result
   }
 
   //run PageRank on each contained snapshot
@@ -344,8 +243,6 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](sp: Interval, invs: Sort
   def partitionBy(pst: PartitionStrategyType.Value, runs: Int, parts: Int): SnapshotGraphParallel[VD, ED] = {
     var numParts = if (parts > 0) parts else graphs.head.edges.partitions.size
 
-    val startAsMili = System.currentTimeMillis()
-
     if (pst != PartitionStrategyType.None) {
       //not changing the intervals, only the graphs at their indices
       //each partition strategy for SG needs information about the graph
@@ -354,10 +251,6 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](sp: Interval, invs: Sort
       var temp = intervals.map { case (a, b) => graphs(b).partitionBy(PartitionStrategies.makeStrategy(pst, b, graphs.size, runs), numParts) }
       var gps: ParSeq[Graph[VD, ED]] = temp.toSeq.par
 
-      val endAsMili = System.currentTimeMillis()
-      val finalAsMili = endAsMili - startAsMili
-      println("Time for Partioning in SnapshotGraphParallel: " + finalAsMili + "ms")
-      
       new SnapshotGraphParallel(span, intervals, gps)
     } else
       this
