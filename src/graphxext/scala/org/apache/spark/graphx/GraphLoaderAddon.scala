@@ -3,6 +3,7 @@ package org.apache.spark.graphx
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.{Logging, SparkContext}
 import org.apache.spark.graphx.impl.{EdgePartitionBuilder, GraphImpl}
+import org.apache.spark.graphx.impl.EdgeRDDImpl
 
 object GraphLoaderAddon {
 
@@ -14,7 +15,7 @@ object GraphLoaderAddon {
       numEdgePartitions: Int = -1,
       edgeStorageLevel: StorageLevel = StorageLevel.MEMORY_ONLY,
       vertexStorageLevel: StorageLevel = StorageLevel.MEMORY_ONLY)
-    : Graph[Int, Int] =
+    : EdgeRDDImpl[Int, Int] =
   {
     // Parse the edge data table directly into edge partitions
     val lines =
@@ -30,7 +31,10 @@ object GraphLoaderAddon {
           val lineArray = line.split("\\s+")
           val srcId = lineArray(0).toLong
           val dstId = lineArray(1).toLong
-          val attr = lineArray{2}.toInt
+          var attr = 0
+          if(lineArray.length > 2){
+            attr = lineArray{2}.toInt
+          }
           if (canonicalOrientation && srcId > dstId) {
             builder.add(dstId, srcId, attr)
           } else {
@@ -42,8 +46,9 @@ object GraphLoaderAddon {
     }.persist(edgeStorageLevel).setName("GraphLoader.edgeListFile - edges (%s)".format(path))
     edges.count()
 
-    GraphImpl.fromEdgePartitions(edges, defaultVertexAttr = 1, edgeStorageLevel = edgeStorageLevel,
-      vertexStorageLevel = vertexStorageLevel)
+    EdgeRDD.fromEdgePartitions(edges)
+//    GraphImpl.fromEdgePartitions(edges, defaultVertexAttr = 1, edgeStorageLevel = edgeStorageLevel,
+//      vertexStorageLevel = vertexStorageLevel)
   } // end of edgeListFile
 
 }
