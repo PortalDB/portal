@@ -353,7 +353,7 @@ object SnapshotGraph {
       var edges: Graph[Int, Int] = null
       if ((new java.io.File(dataPath + "/edges/edges" + years + ".txt")).length > 0) {
         //uses extended version of Graph Loader to load edges with attributes
-        edges = GraphLoader.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt", true)
+        edges = GraphLoaderAddon.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt", true)
       } else {
         edges = Graph[Int, Int](sc.emptyRDD, sc.emptyRDD)
       }

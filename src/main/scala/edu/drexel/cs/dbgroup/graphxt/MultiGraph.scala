@@ -353,7 +353,7 @@ object MultiGraph {
         //so use an extended version instead which does (but assumes the attr is an int)
         //the edges are in years, need to translate into indices
 
-        var tmpEdges = GraphLoaderAddon.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt", true).mapValues { e => (1, e.attr - minYear) }
+        var tmpEdges = GraphLoaderAddon.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt", true).edges.mapValues{ e => (1, e.attr - minYear) }
 
         if (edges == null) {
           edges = tmpEdges

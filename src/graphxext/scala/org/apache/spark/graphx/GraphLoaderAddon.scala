@@ -15,7 +15,7 @@ object GraphLoaderAddon {
       numEdgePartitions: Int = -1,
       edgeStorageLevel: StorageLevel = StorageLevel.MEMORY_ONLY,
       vertexStorageLevel: StorageLevel = StorageLevel.MEMORY_ONLY)
-    : EdgeRDDImpl[Int, Int] =
+    : Graph[Int, Int] =
   {
     // Parse the edge data table directly into edge partitions
     val lines =
@@ -46,9 +46,8 @@ object GraphLoaderAddon {
     }.persist(edgeStorageLevel).setName("GraphLoader.edgeListFile - edges (%s)".format(path))
     edges.count()
 
-    EdgeRDD.fromEdgePartitions(edges)
-//    GraphImpl.fromEdgePartitions(edges, defaultVertexAttr = 1, edgeStorageLevel = edgeStorageLevel,
-//      vertexStorageLevel = vertexStorageLevel)
+    GraphImpl.fromEdgePartitions(edges, defaultVertexAttr = 1, edgeStorageLevel = edgeStorageLevel,
+      vertexStorageLevel = vertexStorageLevel)
   } // end of edgeListFile
 
 }
