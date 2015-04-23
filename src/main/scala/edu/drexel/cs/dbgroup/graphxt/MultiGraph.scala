@@ -353,7 +353,8 @@ object MultiGraph {
         //so use an extended version instead which does (but assumes the attr is an int)
         //the edges are in years, need to translate into indices
 
-        var tmpEdges = GraphLoaderAddon.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt", true).edges.mapValues{ e => (1, e.attr - minYear) }
+        val tmp = years
+        var tmpEdges = GraphLoaderAddon.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt", true).edges.mapValues{ e => (e.attr, tmp-minYear) }
 
         if (edges == null) {
           edges = tmpEdges
@@ -361,21 +362,15 @@ object MultiGraph {
           edges = edges.union(tmpEdges)
         }
       }
+
       years += 1
     }
 
-    val gps = Graph.fromEdges(edges, 0, StorageLevel.MEMORY_ONLY, StorageLevel.MEMORY_ONLY)
-
-    //in the source data the vertex attribute list is the name followed by years
-    //we need to transform that into a tuple of name,List(indices)
-    val graph: Graph[Map[Int, String], (Int, Int)] = gps.outerJoinVertices(users) {
-      //case (uid, deg, Some(attrList)) => (attrList.head,attrList.tail.map(x => x.toInt - minYear).toSeq)
-      //case (uid, deg, None) => null
-      (uid, deg, attrList) =>
-        if (attrList.isEmpty)
-          println("Vertex with id " + uid + " has empty attr list ")
-        attrList.get.tail.map(x => (x.toInt - minYear) -> attrList.get.head).toMap
-    }
+    val graph: Graph[Map[Int, String], (Int, Int)] = Graph(users.mapValues{ attr => 
+      if (attr.isEmpty)
+        println("Vertex has empty attr list ")
+      attr.tail.map(x => (x.toInt - minYear) -> attr.head).toMap }
+      ,EdgeRDD.fromEdges[(Int, Int), Map[Int, String]](edges))
 
     var intvs: SortedMap[Interval, Int] = TreeMap[Interval, Int]()
     var xx: Int = 0

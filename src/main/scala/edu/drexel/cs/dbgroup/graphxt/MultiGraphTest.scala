@@ -17,9 +17,10 @@ object MultiGraphTest {
       System.getenv("SPARK_HOME"),
       List("target/scala-2.10/multigraph-project_2.10-1.0.jar"))
 
-    var testGraph = MultiGraph.loadData(args(0), sc)
+    var testGraph:MultiGraph[String,Int] = MultiGraph.loadData(args(0), sc)
 
     //try partitioning
+    println("original number of partitions: " + testGraph.edges.partitions.size)
     testGraph = testGraph.partitionBy(PartitionStrategyType.CanonicalRandomVertexCut,0)
 
     val sel = testGraph.select(Interval(1940,1948))
