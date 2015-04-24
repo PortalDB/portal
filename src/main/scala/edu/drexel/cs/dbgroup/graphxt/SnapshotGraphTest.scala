@@ -22,7 +22,13 @@ object SnapshotGraphTest {
 
     var testGraph = SnapshotGraph.loadData(args(0), sc)
     val interv = new Interval(1940, 1948)
-    val aggregate = testGraph.select(interv).aggregate(5, AggregateSemantics.Existential, vaggfunc, _ + _)
+    val sel = testGraph.select(interv)
+    
+    println("total number of results after selection: " + sel.size)
+    println("Selected vertices count: " + sel.graphs.filterNot(_.vertices.isEmpty).map(_.numVertices).reduce(_ + _))
+    println("Selected edges count: " + sel.graphs.filterNot(_.edges.isEmpty).map(_.numEdges).reduce(_ + _) )
+    
+    val aggregate = sel.aggregate(5, AggregateSemantics.Existential, vaggfunc, _ + _)
 
     println("total number of results after aggregation: " + aggregate.size)
     println("Aggregated vertices count 1: " + aggregate.graphs(0).numVertices)

@@ -285,17 +285,18 @@ object SnapshotGraphParallel extends Serializable {
         else
           (0L, "Default")
       }
-      var edges: Graph[Int, Int] = null
+      var edges: RDD[Edge[Int]] = sc.emptyRDD
+      
       if ((new java.io.File(dataPath + "/edges/edges" + years + ".txt")).length > 0) {
-        edges = GraphLoaderAddon.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt", true)
+        //uses extended version of Graph Loader to load edges with attributes
+        val tmp = years
+        edges = GraphLoaderAddon.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt", true).edges
       } else {
-        edges = Graph[Int, Int](sc.emptyRDD, sc.emptyRDD)
+        edges = sc.emptyRDD
       }
-      val graph = edges.outerJoinVertices(users) {
-        case (uid, deg, Some(name)) => name
-        case (uid, deg, None) => ""
-      }
-
+      
+      val graph: Graph[String, Int] = Graph(users, EdgeRDD.fromEdges(edges))
+      
       intvs += (Interval(years, years) -> (years - minYear))
       gps = gps :+ graph
     }

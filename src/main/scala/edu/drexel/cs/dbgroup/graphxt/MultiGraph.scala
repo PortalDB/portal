@@ -325,9 +325,6 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](sp: Interval, mp: SortedMap[Interva
 object MultiGraph {
 
   def loadData(dataPath: String, sc: SparkContext): MultiGraph[String, Int] = {
-    //var minYear:Int = 1936
-    //var maxYear:Int = 2015
-
     //get the min and max year from file 
     val source = scala.io.Source.fromFile(dataPath + "/Span.txt")
     val lines = source.getLines
@@ -345,7 +342,7 @@ object MultiGraph {
     }
 
     var years = minYear
-    var edges: RDD[Edge[(Int, Int)]] = null
+    var edges: RDD[Edge[(Int, Int)]] = sc.emptyRDD
 
     while (years <= maxYear) {
       if ((new java.io.File(dataPath + "/edges/edges" + years + ".txt")).length > 0) {
@@ -356,11 +353,9 @@ object MultiGraph {
         val tmp = years
         var tmpEdges = GraphLoaderAddon.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt", true).edges.mapValues{ e => (e.attr, tmp-minYear) }
 
-        if (edges == null) {
-          edges = tmpEdges
-        } else {
-          edges = edges.union(tmpEdges)
-        }
+        edges = if (edges == null) tmpEdges else edges.union(tmpEdges)
+      }else {
+        edges = edges.union(sc.emptyRDD)
       }
 
       years += 1
