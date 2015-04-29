@@ -1,0 +1,175 @@
+For each slave:
+
+1. Create instance.
+  Go to https://cloud.cci.drexel.edu/dashboard
+  Click on Instances.
+  Click Launch Instance.
+  Follow on-screen instructions. Pick unique name, like Slave05 if there are so far 4 slaves already created. Select the desired flavor - all slaves right now are 02c-08m-20d, which means 2 cores, 8G of RAM, 20G hard drive volume, separately attached. From the Boot Source drop-down, pick Boot from image (creates a new volume). Select Ubuntu Server 14.04 (2.2 GB) Image name. Click Delete on Terminate on. Add the local network dbgroup. Select root_waltz ssh key. If the key is not there, retrieve the public key from waltz - or ask Vera or Gaylord. When all configured, click Launch.
+  Click on Volumes.
+  Click Create Volume.
+  Follow on-screen instructions. Pick corresponding name, like Slave05Hadoop. Set size. Current HDFS volumes are 200G each - this can grow in the future. Pick nova availability zone. Leave the other options with default values. Click Create Volume.
+  Once the volume is in the list, click Edit Attachments for the volume through the drop-down on the right. Select the newly created instance. Click Attach Volume.
+
+2. Basic configuration setup.
+  Log in to waltz. Edit /etc/hosts file and add the new slave. Do the same for all other cluster machines, including master and all slaves.
+  sudo ssh ubuntu@<slaveip>.
+  Edit /etc/hosts file and add all other machines in the cluster - can copy the contents of the file from master.
+  Label the attached hdfs volume: sudo mkfs -L <label> /dev/vdb - verify first that it is /dev/vdb which is not guaranteed.
+  Edit /etc/fstab to automount /opt on the label created on the previous line. For example, if the label added above is slave03hadoop, then add this line: LABEL=slave03hadoop /opt ext2 defaults 0 0
+  Disable ipv6:
+      echo "#disable ipv6" | sudo tee -a /etc/sysctl.conf
+      echo "net.ipv6.conf.all.disable_ipv6 = 1" | sudo tee -a /etc/sysctl.conf
+      echo "net.ipv6.conf.default.disable_ipv6 = 1" | sudo tee -a /etc/sysctl.conf
+      echo "net.ipv6.conf.lo.disable_ipv6 = 1" | sudo tee -a /etc/sysctl.conf
+  Reboot: sudo reboot or press Soft Reboot from the cloud web interface.
+  Log back in, test that ipv6 is off: cat /proc/sys/net/ipv6/conf/all/disable_ipv6  . If value is 1, it's good.
+
+3. Setup Hadoop group and user
+  sudo addgroup hadoop
+  sudo adduser --ingroup hadoop hduser     (dbgroup is the hduser password on all current slaves for ease of maintenance)
+  sudo adduser hduser sudo
+  Switch to hduser:
+  su - hduser
+
+4. SSH setup (as hduser)
+  ssh-keygen -t rsa -P ""
+  cat $HOME/.ssh/id_rsa.pub >> $HOME/.ssh/authorized_keys
+  Edit authorized_keys file on each machine and add this new key (from id_rsa.pub) for hduser
+  Edit authorized_keys file on this instance and add all other keys (ssh-copy-id doesn't work because it's passwordless login only).
+  Test by logging in to each machine: ssh master, etc.  
+
+5. Install/setup Java 7
+  Use wget to download jdk-7u80-linux-x64.gz or scp from wherever it is already downloaded. For example, if you have it on waltz, run 
+     sudo scp jdk-7u80-linux-x64.gz ubuntu@<slave name or ip>:/home/ubuntu
+  gunzip jdk-7u80-linux-x64.gz
+  tar xf jdk-7u80-linux-x64
+  rm jdk-7u80-linux-x64
+  sudo mkdir -p /opt/java
+  sudo mv jdk1.7.0_80/ /opt/java
+  sudo update-alternatives --install "/usr/bin/java" "java" "/opt/java/jdk1.7.0_80/bin/java" 1
+  sudo update-alternatives --install "/usr/bin/javac" "javac" "/opt/java/jdk1.7.0_80/bin/javac" 1
+  sudo update-alternatives --install "/usr/bin/javaws" "javaws" "/opt/java/jdk1.7.0_80/bin/javaws" 1
+  sudo update-alternatives --config java
+  sudo update-alternatives --config javac
+  As hduser:
+  export JAVA_HOME=/opt/java/jdk1.7.0_80/
+  echo "" | sudo tee -a $HOME/.bashrc
+  echo "export JAVA_HOME=/opt/java/jdk1.7.0_80/" | sudo tee -a $HOME/.bashrc
+  check that java is good: java -version
+
+6. Install/Configure Hadoop (as hduser)
+  cd /opt/
+  sudo wget http://supergsego.com/apache/hadoop/core/stable/hadoop-2.6.0.tar.gz
+  sudo tar xzf hadoop-2.6.0.tar.gz
+  sudo mv hadoop-2.6.0 hadoop
+  sudo chown -R hduser:hadoop hadoop
+  sudo rm hadoop-2.6.0.tar.gz
+  echo "export HADOOP_HOME=/opt/hadoop" | sudo tee -a $HOME/.bashrc
+  echo "export HADOOP_PREFIX=$HADOOP_HOME" | sudo tee -a $HOME/.bashrc
+  echo "" | sudo tee -a $HOME/.bashrc
+  echo "unalias fs &> /dev/null" | sudo tee -a $HOME/.bashrc
+  echo "alias fs='hadoop fs'" | sudo tee -a $HOME/.bashrc
+  echo "unalias hls &> /dev/null" | sudo tee -a $HOME/.bashrc
+  echo "alias hls='fs -ls'" | sudo tee -a $HOME/.bashrc
+  export HADOOP_HOME=/opt/hadoop
+  echo "export PATH=$PATH:$HADOOP_HOME/bin" | sudo tee -a $HOME/.bashrc
+  mkdir /opt/hadoop/tmp
+  let's check it all worked:
+    source ~/.bashrc
+    which hadoop
+    hadoop version
+    hls
+  Edit /opt/hadoop/etc/hadoop/core-site.xml to put this configuration:
+       <configuration>
+	  <property>
+            <name>fs.default.name</name>
+            <value>hdfs://master:9000</value>
+          </property>
+       	  <property>
+	    <name>hadoop.tmp.dir</name>
+            <value>/opt/hadoop/tmp</value>
+          </property>
+       </configuration>
+  Edit /opt/hadoop/etc/hadoop/hadoop-env.sh. 
+      Change export JAVA_HOME line to be: export JAVA_HOME=/opt/java/jdk1.7.0_80/
+      Change export HADOOP_OPTS line to be: export HADOOP_OPTS="$HADOOP_OPTS -Djava.net.preferIPv4Stack=true -Djava.library.path=$HADOOP_HOME/lib"
+      Add line export HADOOP_COMMON_LIB_NATIVE_DIR=${HADOOP_PREFIX}/lib/native
+
+  Edit /opt/hadoop/etc/hadoop/hdfs-site.xml to put this configuration:
+       <configuration>
+         <property>
+           <name>dfs.replication</name>
+           <value>1</value>
+         </property>
+       </configuration>
+  cp /opt/hadoop/etc/hadoop/mapred-site.xml.template /opt/hadoop/etc/hadoop/mapred-site.xml
+  Edit /opt/hadoop/etc/hadoop/mapred-site.xml to put this configuration:
+       <configuration>
+         <property>
+	   <name>mapreduce.framework.name</name>
+           <value>yarn</value>
+         </property>
+       </configuration>
+  Edit /opt/hadoop/etc/hadoop/yarn-site.xml to put this configuration:
+       <configuration>
+           <property>
+       	       <name>yarn.nodemanager.aux-services</name>
+               <value>mapreduce_shuffle</value>
+    	   </property>
+    	   <property>
+               <name>yarn.nodemanager.aux-services.mapreduce_shuffle.class</name>
+               <value>org.apache.hadoop.mapred.ShuffleHandler</value>
+    	   </property>
+    	   <property>
+               <name>yarn.resourcemanager.resource-tracker.address</name>
+               <value>master:8025</value>
+    	   </property>
+    	   <property>
+               <name>yarn.resourcemanager.scheduler.address</name>
+               <value>master:8030</value>
+    	   </property>
+    	   <property>
+               <name>yarn.resourcemanager.address</name>
+               <value>master:8040</value>
+    	   </property>
+       </configuration>
+  Edit /opt/hadoop/etc/hadoop/slaves and replace localhost with the name of the slave, i.e. slave05
+  Test the configuration on the slave: hadoop fs -ls hdfs://master:9000/data
+  Add new slave to master configuration by editing /opt/hadoop/etc/hadoop/slaves on master and adding the new slave on the new line.
+  Start the new slave hdfs data node on slave: $HADOOP_HOME/sbin/hadoop-daemon.sh --config "$HADOOP_CONF_DIR" --script "$bin/hdfs" start datanode
+  Test on master: hdfs dfsadmin -report  if the new slave shows up in the list with the expected capacity (just under 200GB), it's working.
+
+7. Install/setup Mesos
+  sudo apt-key adv --keyserver keyserver.ubuntu.com --recv E56151BF
+  DISTRO=$(lsb_release -is | tr '[:upper:]' '[:lower:]')
+  CODENAME=$(lsb_release -cs)
+  echo "deb http://repos.mesosphere.io/${DISTRO} ${CODENAME} main" | sudo tee /etc/apt/sources.list.d/mesosphere.list
+  sudo apt-get -y update
+  sudo apt-get -y install mesos
+  sudo service zookeeper stop
+  sudo sh -c "echo manual > /etc/init/zookeeper.override"
+  Edit /etc/mesos/zk and replace localhost with master
+  sudo service mesos-master stop
+  sudo sh -c "echo manual > /etc/init/mesos-master.override"
+  Edit /etc/default/mesos-slave and add line: HADOOP_HOME=/opt/hadoop
+  echo "HADOOP_HOME=/opt/hadoop" | sudo tee /etc/default/mesos-slave
+  sudo touch /etc/mesos-slave/?no-switch_user
+  sudo sh -c "echo /opt/hadoop > /etc/mesos-slave/hadoop_home"
+  sudo service mesos-slave restart
+  Test if it's working:
+    MASTER=$(mesos-resolve `cat /etc/mesos/zk`)
+    mesos-execute --master=$MASTER --name="cluster-test" --command="sleep 5"  
+    If you see task finish, you are good.
+
+8. Upgrade the kernel 
+  sudo aptitude full-upgrade
+  sudo reboot
+
+DONE!
+------------------
+Sources:
+http://dogdogfish.com/2014/04/22/hadoop-from-spare-change/
+http://dogdogfish.com/2014/04/26/installing-hadoop-2-4-on-ubuntu-14-04/
+http://www.bogotobogo.com/Hadoop/BigData_hadoop_Install_on_ubuntu_single_node_cluster.php
+https://docs.mesosphere.com/getting-started/datacenter/install/
+https://strat0sphere.wordpress.com/2014/10/30/spark-on-mesos-installation-guide/
