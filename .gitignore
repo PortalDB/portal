@@ -2,8 +2,11 @@
 **/*.swp
 **/*.project
 **/*.classpath
+**/*.pyc
 /bin
 src/main/project
 src/main/target
 src/graphxext/project
 src/graphxext/target
+src/main/python/project
+src/main/python/target
