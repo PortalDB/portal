@@ -6,6 +6,9 @@ import scala.collection.immutable.TreeMap
 import scala.reflect.ClassTag
 import scala.util.control._
 
+import org.apache.hadoop.conf._
+import org.apache.hadoop.fs._
+
 import org.apache.spark.SparkContext
 import org.apache.spark.Partition
 
@@ -332,11 +335,24 @@ object SnapshotGraph {
     var minYear: Int = Int.MaxValue
     var maxYear: Int = 0
 
-    new java.io.File(dataPath + "/nodes/").listFiles.map { fname =>
-      val tm: Int = fname.getName.filter(_.isDigit).toInt
-      minYear = math.min(minYear, tm)
-      maxYear = math.max(maxYear, tm)
+    var source:scala.io.Source = null
+    var fs:FileSystem = null
+
+    //TODO: this is ugly, would prefer to use one method that handles both
+    if (dataPath.startsWith("hdfs://")) {
+        val pt:Path = new Path(dataPath + "/Span.txt")
+    	val conf: Configuration = new Configuration()
+    	conf.addResource(new Path("/localhost/hadoop/hadoop-2.6.0/etc/hadoop/core-site.xml"));
+    	fs = FileSystem.get(conf)
+	source = scala.io.Source.fromInputStream(fs.open(pt))
+    } else {
+        source = scala.io.Source.fromFile(dataPath + "/Span.txt")
     }
+
+    val lines = source.getLines
+    minYear = lines.next.toInt
+    maxYear = lines.next.toInt
+    source.close()      
 
     val span = Interval(minYear, maxYear)
     var years = 0
@@ -351,15 +367,26 @@ object SnapshotGraph {
           (0L, "Default")
       }
       var edges: RDD[Edge[Int]] = sc.emptyRDD
-      
-      if ((new java.io.File(dataPath + "/edges/edges" + years + ".txt")).length > 0) {
-        //uses extended version of Graph Loader to load edges with attributes
-        val tmp = years
-        edges = GraphLoaderAddon.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt", true).edges
+    
+      if (dataPath.startsWith("hdfs://")) {  
+            val ept:Path = new Path(dataPath + "/edges/edges" + years + ".txt")
+      	    if (fs.exists(ept) && fs.getFileStatus(ept).getLen > 0) {
+               //uses extended version of Graph Loader to load edges with attributes
+               val tmp = years
+               edges = GraphLoaderAddon.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt", true).edges
+      	    } else {
+              edges = sc.emptyRDD
+      	    }
       } else {
-        edges = sc.emptyRDD
+      	    if ((new java.io.File(dataPath + "/edges/edges" + years + ".txt")).length > 0) {
+               //uses extended version of Graph Loader to load edges with attributes
+               val tmp = years
+               edges = GraphLoaderAddon.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt", true).edges
+      	    } else {
+              edges = sc.emptyRDD
+      	    }
       }
-      
+
       val graph: Graph[String, Int] = Graph(users, EdgeRDD.fromEdges(edges))
       
       intvs += (Interval(years, years) -> (years - minYear))

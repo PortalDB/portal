@@ -2,6 +2,7 @@ package edu.drexel.cs.dbgroup.graphxt
 
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
+import org.apache.spark.SparkConf
 import org.apache.spark.graphx.Graph
 import scala.util.control._
 import scala.collection.mutable.ArrayBuffer
@@ -53,11 +54,23 @@ object Driver {
         warmStart = true
       }
     }
-	
-    val sc = new SparkContext("local", "TemporalGraph Project",
-    //val sc = new SparkContext("spark://ec2-54-234-129-137.compute-1.amazonaws.com:7077", "TemporalGraph Project",
-      System.getenv("SPARK_HOME"),
-      List("target/scala-2.10/temporal-graph-project_2.10-1.0.jar","lib/graphx-extensions_2.10-1.0.jar"))
+
+    //For local spark execution uncomment these 3 lines
+    //val conf = new SparkConf().setMaster("local").setAppName("TemporalGraph Project")
+    //       .setSparkHome(System.getenv("SPARK_HOME")).
+    //	   .setJars(List("target/scala-2.10/temporal-graph-project_2.10-1.0.jar","lib/graphx-extensions_2.10-1.0.jar"))
+
+    //For amazon ec2 execution uncomment these 4 lines. Make sure to use the correct spark master uri
+    //val conf = new SparkConf().setMaster("spark://ec2-54-234-129-137.compute-1.amazonaws.com:7077")
+    //       .setAppName("TemporalGraph Project")
+    //	   .setSparkHome(System.getenv("SPARK_HOME"))
+    //	   .setJars(List("target/scala-2.10/temporal-graph-project_2.10-1.0.jar","lib/graphx-extensions_2.10-1.0.jar"))
+
+    //For mesos cluster execution use these 2 lines
+    val conf = new SparkConf().setMaster("mesos://master:5050").setAppName("TemporalGraph Project")
+	.set("spark.executor.uri", "hdfs://master:9000/spark/spark-1.3.1-bin-hadoop2.6.tgz") 
+
+    val sc = new SparkContext(conf)
     ProgramContext.setContext(sc)
 
     var changedType = false
