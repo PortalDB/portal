@@ -2,6 +2,7 @@ import os;
 import sys;
 import traceback;
 import models;
+import datetime;
 import peewee;
 from peewee import *;
 
@@ -58,7 +59,7 @@ class DBConnection():
                         #persist to Operation table and generate a new op_id
                         operation.save()
                     else:
-                        print "Operation", operation, "already exists in the \'Operation\' table"
+                        #print "Operation", operation, "already exists in the \'Operation\' table"
                         operation.op_id = oldOp.op_id
                     
                     id_dict.update({seqN: operation.op_id})                   
@@ -116,16 +117,17 @@ class DBConnection():
         
         return None
 
-    def persist_exec(self, time_dict, qRef, sType, cConf, rTime, itrN, bRef):
+    def persist_exec(self, time_dict, qRef, gType, sType, cConf, rTime, itrN, bRef):
         try:
             for seqN, time in time_dict.iteritems():
                 exe = models.Execution(
                                 #exec_id = _ _ _ (generated in db)
                                 query_id = qRef,
+                                graphType = gType,
                                 startType = sType,
                                 clusterConfig = cConf,
                                 runTime = rTime,
-                                #started = _ _ _ (generated in db)
+                                started = datetime.datetime.now(),
                                 iterationNum = itrN,
                                 build_num = bRef)
                 exe.save()
@@ -140,10 +142,7 @@ class DBConnection():
 
     def persist_time_op(self, eRef, qRef, id_dict, time_dict):
         try:
-            print "id_dict size:", len(id_dict)
-            print "time_dict size:", len(time_dict)
             for seqN, oid in id_dict.iteritems():
-                print "seqN:", seqN
                 oRef = models.Operation.get(models.Operation.op_id == oid)
 
                 time_op = models.Time_Per_Op(

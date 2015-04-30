@@ -5,7 +5,7 @@ import datetime
 import commands
 import os
 
-database = MySQLDatabase("temporal", host="localhost", port=3306, user="root", passwd="hoo25")
+database = MySQLDatabase("temporal", host="localhost", port=3306, user="", passwd="")
 
 class BaseModel(Model):
     class Meta:
@@ -50,6 +50,7 @@ class Build(BaseModel):
 class Execution(BaseModel):
     exec_id = PrimaryKeyField()
     query_id = ForeignKeyField(Query, to_field="query_id", db_column="query_id")
+    graphType = CharField()
     startType = IntegerField()  #warm = 1, cold = 0
     clusterConfig = CharField()
     runTime = FloatField()

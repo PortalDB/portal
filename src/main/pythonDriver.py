@@ -56,7 +56,7 @@ def create_op(oT, a1, a2, pS, nP, rW):
     return op
 
 def collect_args(query):
-    print "\n", query
+    print "\nQUERY:", query
     line = query.split(" ");
     opDict = {} #dictionary of all operations in the query
     seqNum = 1;
@@ -130,7 +130,7 @@ def run(configFile):
         buildN = int(cf.readline().split(" ")[1]);
         sType = int(cf.readline().split(" ")[1]);
         itr = int(cf.readline().split(" ")[1]);
-        gtype = cf.readline().split(" ")[1].strip("\n");
+        gType = cf.readline().split(" ")[1].strip("\n");
         data = cf.readline().split(" ")[1].strip("\n") + " ";
 
         gtypeParam = "--type "
@@ -155,7 +155,7 @@ def run(configFile):
             line = ln.split(" ");
             qname = line[0]
             query = " ".join(line[1:-1]) + " " + line[-1].strip("\n") + " "
-            sbtCommand = "sbt \"run-main " + mainc + query + dataParam + data + gtypeParam + gtype + warm + "\"";
+            sbtCommand = "sbt \"run-main " + mainc + query + dataParam + data + gtypeParam + gType + warm + "\"";
         
 
             qRef = dbconnect.persist_query() #persist to Query table
@@ -170,12 +170,12 @@ def run(configFile):
                 time_dict = collect_time(output);
                 #time_dict = collect_time("blah blah Selection Runtime: 45ms (1)\n blash again Aggregation Runtime: 3456ms (2)\n blah Count Runtime: 1234ms (3)\n blah Selection Runtime: 23ms (4)\n blasbh Final Runtime: 32421ms\n")
                 rTime = time_dict[0] #get total runtime 
-                eRef = dbconnect.persist_exec(time_dict, qRef, sType, cConf, rTime, i, bRef)
+                eRef = dbconnect.persist_exec(time_dict, qRef, gType, sType, cConf, rTime, i, bRef)
                 dbconnect.persist_time_op(eRef, qRef, id_dict, time_dict) 
-           
+                print "STATUS: Finished running iteration", i, "of current query.." 
+        print "***  Done with executions." 
 
 if __name__ == "__main__":
-    #database = MySQLDatabase("temporal", host="localhost", port=3306, user="root", passwd="hoo25")    
     database = models.BaseModel._meta.database
     dbconnect = connect.DBConnection(database)
 

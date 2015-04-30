@@ -38,6 +38,7 @@ create table build (
 create table execution (
     exec_id int primary key auto_increment,
     query_id int not null,
+    graphType varchar(10) not null,
     startType int not null, /* warm = 1, cold = 0 */
     clusterConfig varchar(40) not null,
     runTime float not null,
