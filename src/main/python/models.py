@@ -12,7 +12,7 @@ class BaseModel(Model):
         database = database
 
 class Operation(BaseModel):
-    opID = PrimaryKeyField()
+    op_id = PrimaryKeyField()
     opType = CharField()
     arg1 = IntegerField(null=True)
     arg2 = IntegerField(null=True)
@@ -21,40 +21,43 @@ class Operation(BaseModel):
     runWidth = IntegerField(null=True)
 
 class Query(BaseModel):
-    queryID = PrimaryKeyField()
+    query_id = PrimaryKeyField()
 
 class Query_Op_Map(BaseModel):
-    queryID = ForeignKeyField(Query)
-    opID = ForeignKeyField(Operation)
+    query_id = ForeignKeyField(Query, to_field="query_id", db_column="query_id")
+    op_id = ForeignKeyField(Operation, to_field="op_id", db_column="op_id")
     seqNum = IntegerField()
 
     class Meta:
-        primary_key = CompositeKey('queryID','opID','seqNum')
+        primary_key = CompositeKey('query_id','op_id','seqNum')
 
 class Build(BaseModel):
-    buildNum = PrimaryKeyField()
+    build_num = IntegerField()
     revisionRef = CharField()
     description = TextField(null=True)
 
+    class Meta:
+        primary_key = CompositeKey('build_num','revisionRef')
+
 class Execution(BaseModel):
-    execID = PrimaryKeyField()
-    queryID = ForeignKeyField(Query)
+    exec_id = PrimaryKeyField()
+    query_id = ForeignKeyField(Query, to_field="query_id", db_column="query_id")
     startType = IntegerField()  #warm = 1, cold = 0
     clusterConfig = CharField()
     runTime = FloatField()
     started = DateTimeField(default=datetime.datetime.now)
     iterationNum = IntegerField()
-    buildNum = ForeignKeyField(Build)
+    build_num = ForeignKeyField(Build, to_field="build_num", db_column="build_num")
 
 class Time_Per_Op(BaseModel):
-    execID = ForeignKeyField(Execution)
-    queryID = ForeignKeyField(Query)
-    opID = ForeignKeyField(Operation)
+    exec_id = ForeignKeyField(Execution, to_field="exec_id", db_column="exec_id")
+    query_id = ForeignKeyField(Query, to_field="query_id", db_column="query_id")
+    op_id = ForeignKeyField(Operation, to_field="op_id", db_column="op_id")
     seqNum = IntegerField()
-    runTIme = FloatField()
+    runTime = FloatField()
 
     class Meta:
-        primary_key = CompositeKey('execID', 'queryID','opID','seqNum')
+        primary_key = CompositeKey('exec_id', 'query_id','op_id','seqNum')
 
 def setupDatabase(clearDatabase):
     if clearDatabase:
