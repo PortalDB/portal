@@ -14,11 +14,11 @@ class DBConnection():
         self.database = db;
 
 
-    def create_query(self):
+    def persist_query(self):
         try:
             query = models.Query(query_id=None);
             query.save();
-            return query.query_id
+            return query
 
         except Exception:
             print "Exception while trying to save to \'Query\' table:"
@@ -72,23 +72,22 @@ class DBConnection():
         
         return None
 
-    def persist_query_ops(self, id_dict, qid):
+    def persist_query_ops(self, qRef, id_dict):
         query_ops = []
 
         try:
             for seqN, oid in id_dict.iteritems():
-                que = models.Query.get(models.Query.query_id == qid)
-                op = models.Operation.get(models.Operation.op_id == oid)
+                oRef = models.Operation.get(models.Operation.op_id == oid)
             
                 newQ = models.Query_Op_Map(
-                                query_id = que,
-                                op_id = op,
+                                query_id = qRef,
+                                op_id = oRef,
                                 seqNum = seqN)
                 query_ops.append(newQ)
 
             with self.database.transaction():
                 for q in query_ops:
-                    print "Query info:", q.query_id, q.op_id, q.seqNum
+                    #print "Query info:", q.query_id, q.op_id, q.seqNum
                     q.save(force_insert=True)
 
         except Exception:
@@ -99,11 +98,10 @@ class DBConnection():
     def persist_buildRef(self, buildN, revNum):
         try:
             #check if revisionRed already exists
-            bld = models.Build.get(models.Build.build_num == buildN)
-            ref = models.Build.get(models.Build.revisionRef == revNum)
-        
+            bld = models.Build.get((models.Build.build_num == buildN) &
+                                    (models.Build.revisionRef == revNum))
+            return bld
         except DoesNotExist:
-            print "starting to create new \'build\' instance"
             build = models.Build(
                             build_num = buildN,
                             revisionRef = revNum,
@@ -118,4 +116,46 @@ class DBConnection():
         
         return None
 
+    def persist_exec(self, time_dict, qRef, sType, cConf, rTime, itrN, bRef):
+        try:
+            for seqN, time in time_dict.iteritems():
+                exe = models.Execution(
+                                #exec_id = _ _ _ (generated in db)
+                                query_id = qRef,
+                                startType = sType,
+                                clusterConfig = cConf,
+                                runTime = rTime,
+                                #started = _ _ _ (generated in db)
+                                iterationNum = itrN,
+                                build_num = bRef)
+                exe.save()
+                return exe
 
+        except Exception:
+            print "Exception while trying to save to \'Execution\' table"
+            print traceback.format_exc()
+            sys.exit(1)
+    
+        return None
+
+    def persist_time_op(self, eRef, qRef, id_dict, time_dict):
+        try:
+            print "id_dict size:", len(id_dict)
+            print "time_dict size:", len(time_dict)
+            for seqN, oid in id_dict.iteritems():
+                print "seqN:", seqN
+                oRef = models.Operation.get(models.Operation.op_id == oid)
+
+                time_op = models.Time_Per_Op(
+                                        exec_id = eRef,
+                                        query_id = qRef,
+                                        op_id = oRef,
+                                        seqNum = seqN,
+                                        runTime = time_dict[seqN])
+
+                time_op.save(force_insert=True)
+
+        except Exception:
+                print "Exception while trying to save to \'Time_Per_Op\' table"
+                print traceback.format_exc()
+                sys.exit(1)

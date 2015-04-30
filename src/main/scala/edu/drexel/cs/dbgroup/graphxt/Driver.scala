@@ -51,8 +51,8 @@ object Driver {
 
     //For local spark execution uncomment these 3 lines
     val conf = new SparkConf().setMaster("local").setAppName("TemporalGraph Project")
-           .setSparkHome(System.getenv("SPARK_HOME"))
-    	   .setJars(List("target/scala-2.10/temporal-graph-project_2.10-1.0.jar","lib/graphx-extensions_2.10-1.0.jar"))
+      .setSparkHome(System.getenv("SPARK_HOME"))
+      .setJars(List("target/scala-2.10/temporal-graph-project_2.10-1.0.jar", "lib/graphx-extensions_2.10-1.0.jar"))
 
     //For amazon ec2 execution uncomment these 4 lines. Make sure to use the correct spark master uri
     //val conf = new SparkConf().setMaster("spark://ec2-54-234-129-137.compute-1.amazonaws.com:7077")
@@ -70,12 +70,13 @@ object Driver {
     var changedType = false
     var startAsMili = System.currentTimeMillis()
 
-      def vAggFunc(a: String, b: String): String = a
-      def eAggFunc(a: Int, b: Int): Int = a
-      def aggFunc2(a: Double, b: Double): Double = math.max(a, b)
+    def vAggFunc(a: String, b: String): String = a
+    def eAggFunc(a: Int, b: Int): Int = a
+    def aggFunc2(a: Double, b: Double): Double = math.max(a, b)
 
     var result: TemporalGraph[String, Int] = loadData(data, sc, graphType)
     var result2: TemporalGraph[Double, Double] = null
+    var argNum = 1  //to keep track of the order of arguments passed
 
     if (warmStart) {
       //collecting all vertices and edges forces load
@@ -91,7 +92,7 @@ object Driver {
       if (args(i) == "--agg") {
         var sem = AggregateSemantics.Existential
         val runWidth: Int = args(i + 1).toInt
-        val partAgg: Boolean = if (args.length > (i+3) && args(i + 3) == "-p") true else false
+        val partAgg: Boolean = if (args.length > (i + 3) && args(i + 3) == "-p") true else false
 
         if (args(i + 2) == "universal")
           sem = AggregateSemantics.Universal
@@ -115,12 +116,14 @@ object Driver {
         }
 
         var aggEnd = System.currentTimeMillis()
-        println("Aggregation Runtime: " + (aggEnd - aggStart) + "ms")
+        var total = aggEnd - aggStart
+        println(f"Aggregation Runtime: $total%dms ($argNum%d)" )
+        argNum += 1
         
       } //select operation 
       else if (args(i) == "--select") {
         val runWidth = 1; //FIXME: is this correct
-        val partSel: Boolean = if (args.length > (i+3) && args(i + 3) == "-p") true else false
+        val partSel: Boolean = if (args.length > (i + 3) && args(i + 3) == "-p") true else false
 
         if (partSel) {
           partitionType = PartitionStrategyType.withName(args(i + 4))
@@ -139,13 +142,15 @@ object Driver {
           }
           result = result.select(Interval(args(i + 1).toInt, args(i + 2).toInt))
         }
-        
+
         var selEnd = System.currentTimeMillis()
-        println("Selection Runtime: " + (selEnd - selStart) + "ms")
+        var total = selEnd - selStart
+        println(f"Selection Runtime: $total%dms ($argNum%d)" )
+        argNum += 1
         
       } else if (args(i) == "--pagerank") {
         val runWidth = 1; //FIXME: is this correct
-        val partPR: Boolean = if (args.length > (i+2) && args(i + 2) == "-p") true else false
+        val partPR: Boolean = if (args.length > (i + 2) && args(i + 2) == "-p") true else false
 
         if (partPR) {
           partitionType = PartitionStrategyType.withName(args(i + 3))
@@ -165,39 +170,44 @@ object Driver {
           result2 = result.pageRank(true, 0.0001, 0.15, args(i + 1).toInt)
           changedType = true
         }
-        
+
         var prEnd = System.currentTimeMillis()
-        println("PageRank Runtime: " + (prEnd - prStart) + "ms")
+        var total = prEnd - prStart
+        println(f"PageRank Runtime: $total%dms ($argNum%d)" )
+        argNum += 1
         
       } else if (args(i) == "--count") {
-        val runWidth = 1;//FIXME: is this correct
-        val partCount: Boolean = if (args.length > (i+1) && args(i + 1) == "-p") true else false;
-        
+        val runWidth = 1; //FIXME: is this correct
+        val partCount: Boolean = if (args.length > (i + 1) && args(i + 1) == "-p") true else false;
+
         if (partCount) {
           partitionType = PartitionStrategyType.withName(args(i + 2))
           numParts = args(i + 3).toInt
         }
 
         var ctStart = System.currentTimeMillis()
-        if (changedType){
-          if(partCount){
+        if (changedType) {
+          if (partCount) {
             result2 = result2.partitionBy(partitionType, runWidth, numParts)
           }
           println("Total edges across all snapshots: " + result2.numEdges)
         } else {
-          if(partCount){
+          if (partCount) {
             result = result.partitionBy(partitionType, runWidth, numParts)
           }
           println("Total edges across all snapshots: " + result.numEdges)
         }
         var ctEnd = System.currentTimeMillis()
-        println("Count Runtime: " + (ctEnd - ctStart) + "ms")
+        var total = ctEnd - ctStart
+        println(f"Count Runtime: $total%dms ($argNum%d)" )
+        argNum += 1
+        
       }
     }
 
     val endAsMili = System.currentTimeMillis()
     val runTime = endAsMili - startAsMili
-    println("Final Runtime: " + runTime + "ms")
+    println(f"Final Runtime: $runTime%dms")
 
   }
 

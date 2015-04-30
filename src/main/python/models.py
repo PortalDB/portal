@@ -20,8 +20,14 @@ class Operation(BaseModel):
     numParts = IntegerField(null=True)
     runWidth = IntegerField(null=True)
 
+    class Meta:
+        db_table = 'operation'
+
 class Query(BaseModel):
     query_id = PrimaryKeyField()
+        
+    class Meta:
+        db_table = 'query'
 
 class Query_Op_Map(BaseModel):
     query_id = ForeignKeyField(Query, to_field="query_id", db_column="query_id")
@@ -30,6 +36,7 @@ class Query_Op_Map(BaseModel):
 
     class Meta:
         primary_key = CompositeKey('query_id','op_id','seqNum')
+        db_table = 'query_op_map'
 
 class Build(BaseModel):
     build_num = IntegerField()
@@ -38,6 +45,7 @@ class Build(BaseModel):
 
     class Meta:
         primary_key = CompositeKey('build_num','revisionRef')
+        db_table = 'build'
 
 class Execution(BaseModel):
     exec_id = PrimaryKeyField()
@@ -45,9 +53,12 @@ class Execution(BaseModel):
     startType = IntegerField()  #warm = 1, cold = 0
     clusterConfig = CharField()
     runTime = FloatField()
-    started = DateTimeField(default=datetime.datetime.now)
+    started = DateTimeField(default=datetime.datetime.now())
     iterationNum = IntegerField()
     build_num = ForeignKeyField(Build, to_field="build_num", db_column="build_num")
+
+    class Meta:
+        db_table = 'execution'
 
 class Time_Per_Op(BaseModel):
     exec_id = ForeignKeyField(Execution, to_field="exec_id", db_column="exec_id")
@@ -58,6 +69,7 @@ class Time_Per_Op(BaseModel):
 
     class Meta:
         primary_key = CompositeKey('exec_id', 'query_id','op_id','seqNum')
+        db_table = 'time_per_op'
 
 def setupDatabase(clearDatabase):
     if clearDatabase:

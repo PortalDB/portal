@@ -10,47 +10,32 @@ from subprocess import Popen, PIPE;
 #dbconnect = None;
 
 def collect_time(output):
-    ftime = atime = stime = ptime = ctime = -1
+    ftime = -1
+    op_list = ["Aggregation", "Selection", "PageRank", "Count"] #append to this list for new opearations
+    time_dict = {}
     
     #collect final runtime
     r = re.compile('Final Runtime: (.*?)ms\n')
     m = r.search(output)
 
     if m:
-       ftime = int(m.group(1))
-       print "FTime: ", ftime
+        ftime = int(m.group(1))
+        time_dict.update({0 : ftime})
 
-    #collect aggregation time
-    r = re.compile('Aggregation Runtime: (.*?)ms\n')
-    m = r.search(output)
+    #collect times for each operation
+    for op in op_list:
+        searchStr = op + " Runtime: (.*?)\n";
+        r = re.compile(searchStr)
+        m = r.findall(output)
 
-    if m:
-       atime = int(m.group(1))
-       print "ATime: ", atime
+        if m:
+            for val in m:
+                res = val.split(" ")
+                opTime = res[0].replace("ms", "") 
+                seqNum = res[1].replace("(", "").replace(")", "") 
+                time_dict.update({int(seqNum) : int(opTime)})
 
-    #collect selection time   
-    r = re.compile('Selection Runtime: (.*?)ms\n')
-    m = r.search (output)
-
-    if m:
-       stime = int(m.group(1))
-       print "STime: ", stime    
-
-    #collect pagerank time   
-    r = re.compile('PageRank Runtime: (.*?)ms\n')
-    m = r.search (output)
-
-    if m:
-       ptime = int(m.group(1))
-       print "PTime: ", ptime
-
-    #collect count time   
-    r = re.compile('Count Runtime: (.*?)ms\n')
-    m = r.search (output)
-
-    if m:
-       ctime = int(m.group(1))
-       print "CTime: ", ctime
+    return time_dict  
 
 #helper fumction for collect_args
 def get_agg_type(sem):
@@ -141,16 +126,26 @@ def run(configFile):
     
         #read first 4 lines (must strip of new line character and append space character) 
         mainc = cf.readline().split(" ")[1].strip("\n") + " ";
-        cConfig = cf.readline().split(" ")[1].strip("\n") + " ";
+        cConf = cf.readline().split(" ")[1].strip("\n") + " ";
         buildN = int(cf.readline().split(" ")[1]);
-        warm = int(cf.readline().split(" ")[1]);
+        sType = int(cf.readline().split(" ")[1]);
         itr = int(cf.readline().split(" ")[1]);
         gtype = cf.readline().split(" ")[1].strip("\n");
         data = cf.readline().split(" ")[1].strip("\n") + " ";
 
         gtypeParam = "--type "
         dataParam = "--data "
-   
+        warm = ""
+
+        #run with warm start
+        if sType == 1:
+            warm = "--warmstart"       
+ 
+        #get git revision number and save build information
+        p1 = Popen('cat ../../.git/refs/heads/master', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        rev = p1.stdout.read();
+        bRef = dbconnect.persist_buildRef(buildN, rev.strip("\n"))
+        
         #read queries from file 
         for ln in cf:
             #error checking for extra line at the end of file
@@ -160,25 +155,23 @@ def run(configFile):
             line = ln.split(" ");
             qname = line[0]
             query = " ".join(line[1:-1]) + " " + line[-1].strip("\n") + " "
-            sbtCommand = "sbt \"run-main " + mainc + query + dataParam + data + gtypeParam + gtype + "\"";
-            startType = 0 #default to cold start
+            sbtCommand = "sbt \"run-main " + mainc + query + dataParam + data + gtypeParam + gtype + warm + "\"";
         
-            qid = dbconnect.create_query() #persist to Query table
+
+            qRef = dbconnect.persist_query() #persist to Query table
             opDict = collect_args(query);
             id_dict = dbconnect.persist_ops(opDict) #persist to Operation table
-            val = dbconnect.persist_query_ops(id_dict, qid) #persist tp Query_Op_Map table        
+            dbconnect.persist_query_ops(qRef, id_dict) #persist tp Query_Op_Map table        
 
-            #get git revision number
-            p1 = Popen('cat ../../.git/refs/heads/master', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-            rev = p1.stdout.read();
-            buildRef = dbconnect.persist_buildRef(buildN, rev)
-
-            print "Running the sbt command against dataset..."
+            print "STATUS: running the sbt command against dataset and collect results..."
             for i in range (1, itr+1):
-                #p2 = Popen(sbtCommand, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True);
-                #output =  p2.stdout.read();
-                print "Collecting runtime information for operations..."
-                #collect_time(output);
+                p2 = Popen(sbtCommand, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True);
+                output =  p2.stdout.read();
+                time_dict = collect_time(output);
+                #time_dict = collect_time("blah blah Selection Runtime: 45ms (1)\n blash again Aggregation Runtime: 3456ms (2)\n blah Count Runtime: 1234ms (3)\n blah Selection Runtime: 23ms (4)\n blasbh Final Runtime: 32421ms\n")
+                rTime = time_dict[0] #get total runtime 
+                eRef = dbconnect.persist_exec(time_dict, qRef, sType, cConf, rTime, i, bRef)
+                dbconnect.persist_time_op(eRef, qRef, id_dict, time_dict) 
            
 
 if __name__ == "__main__":
