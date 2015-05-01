@@ -6,6 +6,7 @@ import org.apache.spark.SparkConf
 import org.apache.spark.graphx.Graph
 import scala.util.control._
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.immutable.SortedMap
 import org.apache.log4j.Logger
 import org.apache.log4j.Level
 import org.apache.spark.graphx.impl.GraphXPartitionExtension._
@@ -70,13 +71,13 @@ object Driver {
     var changedType = false
     var startAsMili = System.currentTimeMillis()
 
-    def vAggFunc(a: String, b: String): String = a
-    def eAggFunc(a: Int, b: Int): Int = a
-    def aggFunc2(a: Double, b: Double): Double = math.max(a, b)
+      def vAggFunc(a: String, b: String): String = a
+      def eAggFunc(a: Int, b: Int): Int = a
+      def aggFunc2(a: Double, b: Double): Double = math.max(a, b)
 
     var result: TemporalGraph[String, Int] = loadData(data, sc, graphType)
     var result2: TemporalGraph[Double, Double] = null
-    var argNum = 1  //to keep track of the order of arguments passed
+    var argNum = 1 //to keep track of the order of arguments passed
 
     if (warmStart) {
       //collecting all vertices and edges forces load
@@ -117,9 +118,9 @@ object Driver {
 
         var aggEnd = System.currentTimeMillis()
         var total = aggEnd - aggStart
-        println(f"Aggregation Runtime: $total%dms ($argNum%d)" )
+        println(f"Aggregation Runtime: $total%dms ($argNum%d)")
         argNum += 1
-        
+
       } //select operation 
       else if (args(i) == "--select") {
         val runWidth = 1; //FIXME: is this correct
@@ -145,9 +146,9 @@ object Driver {
 
         var selEnd = System.currentTimeMillis()
         var total = selEnd - selStart
-        println(f"Selection Runtime: $total%dms ($argNum%d)" )
+        println(f"Selection Runtime: $total%dms ($argNum%d)")
         argNum += 1
-        
+
       } else if (args(i) == "--pagerank") {
         val runWidth = 1; //FIXME: is this correct
         val partPR: Boolean = if (args.length > (i + 2) && args(i + 2) == "-p") true else false
@@ -173,9 +174,9 @@ object Driver {
 
         var prEnd = System.currentTimeMillis()
         var total = prEnd - prStart
-        println(f"PageRank Runtime: $total%dms ($argNum%d)" )
+        println(f"PageRank Runtime: $total%dms ($argNum%d)")
         argNum += 1
-        
+
       } else if (args(i) == "--count") {
         val runWidth = 1; //FIXME: is this correct
         val partCount: Boolean = if (args.length > (i + 1) && args(i + 1) == "-p") true else false;
@@ -199,9 +200,41 @@ object Driver {
         }
         var ctEnd = System.currentTimeMillis()
         var total = ctEnd - ctStart
-        println(f"Count Runtime: $total%dms ($argNum%d)" )
+        println(f"Count Runtime: $total%dms ($argNum%d)")
         argNum += 1
-        
+
+      } else if (args(i) == "--getsnapshot") {
+        val runWidth = 1; //FIXME: is this correct
+        val partGS: Boolean = if (args.length > (i + 2) && args(i + 2) == "-p") true else false
+        val year = args(i + 1).toInt
+        val rng = Interval(year, year)
+        val intvs = SortedMap(rng -> 0)
+
+        if (partGS) {
+          partitionType = PartitionStrategyType.withName(args(i + 3))
+          numParts = args(i + 4).toInt
+        }
+
+        var gsStart = System.currentTimeMillis()
+        if (changedType) {
+          if (partGS) {
+            result2 = result2.partitionBy(partitionType, runWidth, numParts)
+          }
+          val gps = Seq(result2.getSnapshotByTime(args(i + 1).toInt))
+          result2 = new SnapshotGraph(rng, intvs, gps)
+        } else {
+          if (partGS) {
+            result = result.partitionBy(partitionType, runWidth, numParts)
+          }
+          val gps = Seq(result.getSnapshotByTime(args(i + 1).toInt))
+          result = new SnapshotGraph(rng, intvs, gps)
+        }
+
+        var gsEnd = System.currentTimeMillis()
+        var total = gsEnd - gsStart
+        println(f"GetSnapshot Runtime: $total%dms ($argNum%d)")
+        argNum += 1
+
       }
     }
 

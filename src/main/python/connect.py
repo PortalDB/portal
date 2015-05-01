@@ -7,9 +7,6 @@ import peewee;
 from peewee import *;
 
 class DBConnection():
-    #database = None
-    #database = MySQLDatabase("temporal", host="localhost", port=3306, user="root", passwd="hoo25");
-
     @classmethod
     def __init__(self, db):
         self.database = db;

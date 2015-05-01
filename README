@@ -5,5 +5,5 @@ To compile:
 
 To run Experiment driver:
     sbt "run-main edu.drexel.cs.dbgroup.graphxt.Driver {params}"
-    	** where {params} could be for example: "G4_U --agg 5 universal --pagerank --data ../../resources --type SG --partition EdgePartition2D 8"
+    	** where {params} could be for example: "G4_U --agg 5 universal -p EdgePartition2D 8 --pagerank --data ../../resources --type SG --warmstart"
 

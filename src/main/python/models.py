@@ -5,7 +5,7 @@ import datetime
 import commands
 import os
 
-database = MySQLDatabase("temporal", host="localhost", port=3306, user="", passwd="")
+database = MySQLDatabase("temporal", host="localhost", port=3306, user="graphxt", passwd="ilovedb")
 
 class BaseModel(Model):
     class Meta:
