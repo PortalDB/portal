@@ -152,6 +152,8 @@ def run(configFile):
         scalaJar = "target/scala-2.10/tgraph-assembly-1.0.jar "
         warm = ""
         sbtCommand = ""
+        
+        log = open("log.out", "w")
  
         #run with warm start
         if sType == 1:
@@ -174,9 +176,9 @@ def run(configFile):
             classArg = query + dataParam + data + gtypeParam + gType + warm
             
             if env == "local" or env == "ec2":
-                sbtCommand = "sbt \"run-main " + mainc + classArg + " --env " + env + "\"";
+                sbtCommand = "sbt \"run-main " + mainc + classArg + " --env " + env + "\" | tee log.out";
             elif env == 'mesos':
-                sbtCommand = sparkSubmit + mainc + mesosMaster + scalaJar + classArg + " --env " + env    
+                sbtCommand = sparkSubmit + mainc + mesosMaster + scalaJar + classArg + " --env " + env + " | tee log.out"     
 
             qRef = dbconnect.persist_query() #persist to Query table
             opDict = collect_args(query);
@@ -186,13 +188,13 @@ def run(configFile):
             print "STATUS: running the sbt command against dataset and collect results..."
             for i in range (1, itr+1):
                 p2 = Popen(sbtCommand, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True);
-                output =  p2.stdout.read();
+                output = p2.stdout.read()
                 time_dict = collect_time(output);
-                #time_dict = collect_time("blah blah Selection Runtime: 45ms (1)\n blash again Aggregation Runtime: 3456ms (2)\n blah Count Runtime: 1234ms (3)\n blah Selection Runtime: 23ms (4)\n blasbh Final Runtime: 32421ms\n")
                 rTime = time_dict[0] #get total runtime 
                 eRef = dbconnect.persist_exec(time_dict, qRef, gType, sType, cConf, rTime, i, bRef)
                 dbconnect.persist_time_op(eRef, qRef, id_dict, time_dict) 
                 print "STATUS: finished running iteration", i, "of current query.." 
+        log.close();
         print "***  Done with executions." 
 
 if __name__ == "__main__":
