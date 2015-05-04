@@ -25,6 +25,7 @@ object Driver {
     var partitionType: PartitionStrategyType.Value = PartitionStrategyType.None
     var numParts: Int = -1
     var warmStart = false
+    var env = ""
 
     for (i <- 0 until args.length) {
       if (args(i) == "--type") {
@@ -47,23 +48,31 @@ object Driver {
         data = args(i + 1)
       } else if (args(i) == "--warmstart") {
         warmStart = true
+      } else if (args(i) == "--env") {
+        env = args(i + 1)
       }
     }
 
-    //For local spark execution uncomment these 3 lines
-    val conf = new SparkConf().setMaster("local").setAppName("TemporalGraph Project")
-      .setSparkHome(System.getenv("SPARK_HOME"))
-      .setJars(List("target/scala-2.10/temporal-graph-project_2.10-1.0.jar", "lib/graphx-extensions_2.10-1.0.jar"))
+    var conf = new SparkConf()
 
-    //For amazon ec2 execution uncomment these 4 lines. Make sure to use the correct spark master uri
-    //val conf = new SparkConf().setMaster("spark://ec2-54-234-129-137.compute-1.amazonaws.com:7077")
-    //       .setAppName("TemporalGraph Project")
-    //	   .setSparkHome(System.getenv("SPARK_HOME"))
-    //	   .setJars(List("target/scala-2.10/temporal-graph-project_2.10-1.0.jar","lib/graphx-extensions_2.10-1.0.jar"))
+    if (env == "ec2") {
+      //For amazon ec2 execution uncomment these 4 lines. Make sure to use the correct spark master uri
+      conf = new SparkConf().setMaster("spark://ec2-54-234-129-137.compute-1.amazonaws.com:7077")
+        .setAppName("TemporalGraph Project")
+        .setSparkHome(System.getenv("SPARK_HOME"))
+        .setJars(List("target/scala-2.10/temporal-graph-project_2.10-1.0.jar", "lib/graphx-extensions_2.10-1.0.jar"))
 
-    //For mesos cluster execution use these 2 lines
-    //val conf = new SparkConf().setMaster("mesos://master:5050").setAppName("TemporalGraph Project")
-    //	.set("spark.executor.uri", "hdfs://master:9000/spark/spark-1.3.1-bin-hadoop2.6.tgz") 
+    } else if (env == "mesos") {
+      //For mesos cluster execution use these 2 lines
+      conf = new SparkConf().setMaster("mesos://master:5050").setAppName("TemporalGraph Project")
+        .set("spark.executor.uri", "hdfs://master:9000/spark/spark-1.3.1-bin-hadoop2.6.tgz")
+
+    } else { //default config is local
+      //For local spark execution uncomment these 3 lines
+      conf = new SparkConf().setMaster("local").setAppName("TemporalGraph Project")
+        .setSparkHome(System.getenv("SPARK_HOME"))
+        .setJars(List("target/scala-2.10/temporal-graph-project_2.10-1.0.jar", "lib/graphx-extensions_2.10-1.0.jar"))
+    }
 
     val sc = new SparkContext(conf)
     ProgramContext.setContext(sc)

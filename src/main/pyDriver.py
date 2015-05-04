@@ -137,21 +137,26 @@ def run(configFile):
     
         #read first 4 lines (must strip of new line character and append space character) 
         mainc = cf.readline().split(" ")[1].strip("\n") + " ";
+        env = cf.readline().split(" ")[1].strip("\n");
         cConf = cf.readline().split(" ")[1].strip("\n") + " ";
         buildN = int(cf.readline().split(" ")[1]);
         sType = int(cf.readline().split(" ")[1]);
         itr = int(cf.readline().split(" ")[1]);
         gType = cf.readline().split(" ")[1].strip("\n");
-        data = cf.readline().split(" ")[1].strip("\n") + " ";
-
+        data = cf.readline().split(" ")[1].strip("\n") + " ";        
+        
         gtypeParam = "--type "
         dataParam = "--data "
+        sparkSubmit = "$SPARK_HOME/bin/spark-submit --class "
+        mesosMaster = "--master mesos://master:5050 "
+        scalaJar = "target/scala-2.10/tgraph-assembly-1.0.jar "
         warm = ""
-
+        sbtCommand = ""
+ 
         #run with warm start
         if sType == 1:
-            warm = "--warmstart"       
- 
+            warm = " --warmstart"       
+        
         #get git revision number and save build information
         p1 = Popen('cat ../../.git/refs/heads/master', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         rev = p1.stdout.read();
@@ -166,8 +171,12 @@ def run(configFile):
             line = ln.split(" ");
             qname = line[0]
             query = " ".join(line[1:-1]) + " " + line[-1].strip("\n") + " "
-            sbtCommand = "sbt \"run-main " + mainc + query + dataParam + data + gtypeParam + gType + warm + "\"";
-        
+            classArg = query + dataParam + data + gtypeParam + gType + warm
+            
+            if env == "local" or env == "ec2":
+                sbtCommand = "sbt \"run-main " + mainc + classArg + " --env " + env + "\"";
+            elif env == 'mesos':
+                sbtCommand = sparkSubmit + mainc + mesosMaster + scalaJar + classArg + " --env " + env    
 
             qRef = dbconnect.persist_query() #persist to Query table
             opDict = collect_args(query);

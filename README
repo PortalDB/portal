@@ -1,9 +1,28 @@
-Set $SPARK_HOME environment variable 
+--- Run local or on ec2 --- 
+Set $SPARK_HOME environment variable:
+    e.g. export SPARK_HOME=/Applications/spark-1.2.0-bin-hadoop2.4 
 
 To compile:
     sbt package
 
 To run Experiment driver:
     sbt "run-main edu.drexel.cs.dbgroup.graphxt.Driver {params}"
-    	** where {params} could be for example: "G4_U --agg 5 universal -p EdgePartition2D 8 --pagerank --data ../../resources --type SG --warmstart"
+    	** where {params} could be for example: "G4_U --agg 5 universal -p EdgePartition2D 8 --pagerank --data ../../resources --type SG --warmstart --env local"
+                                                OR
+                                                "G4_U --agg 5 universal -p EdgePartition2D 8 --pagerank --data ../../resources --type SG --warmstart --env ec2"
+
+--- Run on mesos ---
+Set environment variables for spark and hadoop:
+    export HADOOP_HOME=/localhost/hadoop/hadoop-2.6.0
+    export SPARK_HOME=/localhost/spark/spark-1.3.1-bin-hadoop2.6/
+    export export LIBPROCESS_IP=192.168.126.12
+    export SPARK_LOCAL_IP=192.168.126.12
+    export HADOOP_PREFIX=$HADOOP_HOME
+
+To compile:
+    sbt assembly
+
+To run Experiment driver:
+    $SPARK_HOME/bin/spark-submit --class edu.drexel.cs.dbgroup.graphxt.Driver --master mesos://master:5050 target/scala-2.10/tgraph-assembly-1.0.jar {params}
+        ** where {params} could be for example: "AggU16by2 --select 2000 2015 --agg 2 universal -p CanonicalRandomVertexCut 8 --data hdfs://master:9000/data/dblp --type SG --env mesos"
 
