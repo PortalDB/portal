@@ -338,16 +338,13 @@ object SnapshotGraph {
     var source:scala.io.Source = null
     var fs:FileSystem = null
 
-    //TODO: this is ugly, would prefer to use one method that handles both
-    if (dataPath.startsWith("hdfs://")) {
-        val pt:Path = new Path(dataPath + "/Span.txt")
-    	val conf: Configuration = new Configuration()
-    	conf.addResource(new Path("/localhost/hadoop/hadoop-2.6.0/etc/hadoop/core-site.xml"));
-    	fs = FileSystem.get(conf)
-	source = scala.io.Source.fromInputStream(fs.open(pt))
-    } else {
-        source = scala.io.Source.fromFile(dataPath + "/Span.txt")
+    val pt:Path = new Path(dataPath + "/Span.txt")
+    val conf: Configuration = new Configuration()
+    if (System.getenv("HADOOP_CONF_DIR") != "") {
+      conf.addResource(new Path(System.getenv("HADOOP_CONF_DIR") + "/core-site.xml"))
     }
+    fs = FileSystem.get(conf)
+    source = scala.io.Source.fromInputStream(fs.open(pt))
 
     val lines = source.getLines
     minYear = lines.next.toInt
@@ -368,23 +365,13 @@ object SnapshotGraph {
       }
       var edges: RDD[Edge[Int]] = sc.emptyRDD
     
-      if (dataPath.startsWith("hdfs://")) {  
-            val ept:Path = new Path(dataPath + "/edges/edges" + years + ".txt")
-      	    if (fs.exists(ept) && fs.getFileStatus(ept).getLen > 0) {
-               //uses extended version of Graph Loader to load edges with attributes
-               val tmp = years
-               edges = GraphLoaderAddon.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt", true).edges
-      	    } else {
-              edges = sc.emptyRDD
-      	    }
+      val ept:Path = new Path(dataPath + "/edges/edges" + years + ".txt")
+      if (fs.exists(ept) && fs.getFileStatus(ept).getLen > 0) {
+        //uses extended version of Graph Loader to load edges with attributes
+        val tmp = years
+        edges = GraphLoaderAddon.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt", true).edges
       } else {
-      	    if ((new java.io.File(dataPath + "/edges/edges" + years + ".txt")).length > 0) {
-               //uses extended version of Graph Loader to load edges with attributes
-               val tmp = years
-               edges = GraphLoaderAddon.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt", true).edges
-      	    } else {
-              edges = sc.emptyRDD
-      	    }
+        edges = sc.emptyRDD
       }
 
       val graph: Graph[String, Int] = Graph(users, EdgeRDD.fromEdges(edges))

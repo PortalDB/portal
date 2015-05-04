@@ -24,21 +24,26 @@ For each slave:
   Reboot: sudo reboot or press Soft Reboot from the cloud web interface.
   Log back in, test that ipv6 is off: cat /proc/sys/net/ipv6/conf/all/disable_ipv6  . If value is 1, it's good.
 
-3. Setup Hadoop group and user
+3. Upgrade the kernel 
+  sudo aptitude update
+  sudo aptitude full-upgrade
+  sudo reboot
+
+4. Setup Hadoop group and user
   sudo addgroup hadoop
   sudo adduser --ingroup hadoop hduser     (dbgroup is the hduser password on all current slaves for ease of maintenance)
   sudo adduser hduser sudo
   Switch to hduser:
   su - hduser
 
-4. SSH setup (as hduser)
+5. SSH setup (as hduser)
   ssh-keygen -t rsa -P ""
   cat $HOME/.ssh/id_rsa.pub >> $HOME/.ssh/authorized_keys
   Edit authorized_keys file on each machine and add this new key (from id_rsa.pub) for hduser
   Edit authorized_keys file on this instance and add all other keys (ssh-copy-id doesn't work because it's passwordless login only).
   Test by logging in to each machine: ssh master, etc.  
 
-5. Install/setup Java 7
+6. Install/setup Java 7
   Use wget to download jdk-7u80-linux-x64.gz or scp from wherever it is already downloaded. For example, if you have it on waltz, run 
      sudo scp jdk-7u80-linux-x64.gz ubuntu@<slave name or ip>:/home/ubuntu
   gunzip jdk-7u80-linux-x64.gz
@@ -57,7 +62,7 @@ For each slave:
   echo "export JAVA_HOME=/opt/java/jdk1.7.0_80/" | sudo tee -a $HOME/.bashrc
   check that java is good: java -version
 
-6. Install/Configure Hadoop (as hduser)
+7. Install/Configure Hadoop (as hduser)
   cd /opt/
   sudo wget http://supergsego.com/apache/hadoop/core/stable/hadoop-2.6.0.tar.gz
   sudo tar xzf hadoop-2.6.0.tar.gz
@@ -139,7 +144,7 @@ For each slave:
   Start the new slave hdfs data node on slave: $HADOOP_HOME/sbin/hadoop-daemon.sh --config "$HADOOP_CONF_DIR" --script "$bin/hdfs" start datanode
   Test on master: hdfs dfsadmin -report  if the new slave shows up in the list with the expected capacity (just under 200GB), it's working.
 
-7. Install/setup Mesos
+8. Install/setup Mesos
   sudo apt-key adv --keyserver keyserver.ubuntu.com --recv E56151BF
   DISTRO=$(lsb_release -is | tr '[:upper:]' '[:lower:]')
   CODENAME=$(lsb_release -cs)
@@ -151,7 +156,6 @@ For each slave:
   Edit /etc/mesos/zk and replace localhost with master
   sudo service mesos-master stop
   sudo sh -c "echo manual > /etc/init/mesos-master.override"
-  Edit /etc/default/mesos-slave and add line: HADOOP_HOME=/opt/hadoop
   echo "HADOOP_HOME=/opt/hadoop" | sudo tee /etc/default/mesos-slave
   sudo touch /etc/mesos-slave/?no-switch_user
   sudo sh -c "echo /opt/hadoop > /etc/mesos-slave/hadoop_home"
@@ -161,9 +165,6 @@ For each slave:
     mesos-execute --master=$MASTER --name="cluster-test" --command="sleep 5"  
     If you see task finish, you are good.
 
-8. Upgrade the kernel 
-  sudo aptitude full-upgrade
-  sudo reboot
 
 DONE!
 ------------------
