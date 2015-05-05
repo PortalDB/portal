@@ -7,6 +7,8 @@ import scala.collection.parallel.ParSeq
 import scala.reflect.ClassTag
 import scala.util.control._
 
+import org.apache.hadoop.conf._
+import org.apache.hadoop.fs._
 import org.apache.spark.SparkContext
 import org.apache.spark.Partition
 import org.apache.spark.graphx._
@@ -156,7 +158,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](sp: Interval, invs: Sort
 
     val newGraphs: ParSeq[Graph[VD, ED]] = intervalFilter.map(x => graphs(x._2)).toSeq.par
     val newIntervals: SortedMap[Interval, Int] = intervalFilter.mapValues { x => x - selectStart }
-    
+
     new SnapshotGraphParallel(rng, newIntervals, newGraphs)
   }
 
@@ -221,17 +223,17 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](sp: Interval, invs: Sort
 
   //run PageRank on each contained snapshot
   def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): SnapshotGraphParallel[Double, Double] = {
-    def safePagerank(grp: Graph[VD, ED]): Graph[Double, Double] = {
-      if (grp.edges.isEmpty) {
-        Graph[Double, Double](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
-      } else {
-        if (uni)
-          UndirectedPageRank.run(Graph(grp.vertices, grp.edges.coalesce(1, true)), tol, resetProb, numIter)
-        else
-          //FIXME: this doesn't use the numIterations stop condition
-          grp.pageRank(tol, resetProb)
+      def safePagerank(grp: Graph[VD, ED]): Graph[Double, Double] = {
+        if (grp.edges.isEmpty) {
+          Graph[Double, Double](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+        } else {
+          if (uni)
+            UndirectedPageRank.run(Graph(grp.vertices, grp.edges.coalesce(1, true)), tol, resetProb, numIter)
+          else
+            //FIXME: this doesn't use the numIterations stop condition
+            grp.pageRank(tol, resetProb)
+        }
       }
-    }
 
     val newseq: ParSeq[Graph[Double, Double]] = graphs.map(safePagerank)
     new SnapshotGraphParallel(span, intervals, newseq)
@@ -267,17 +269,28 @@ object SnapshotGraphParallel extends Serializable {
     var minYear: Int = Int.MaxValue
     var maxYear: Int = 0
 
-    new java.io.File(dataPath + "/nodes/").listFiles.map { fname =>
-      val tm: Int = fname.getName.filter(_.isDigit).toInt
-      minYear = math.min(minYear, tm)
-      maxYear = math.max(maxYear, tm)
-    }
+    var source: scala.io.Source = null
+    var fs: FileSystem = null
 
+    val pt: Path = new Path(dataPath + "/Span.txt")
+    val conf: Configuration = new Configuration()
+    if (System.getenv("HADOOP_CONF_DIR") != "") {
+      conf.addResource(new Path(System.getenv("HADOOP_CONF_DIR") + "/core-site.xml"))
+    }
+    fs = FileSystem.get(conf)
+    source = scala.io.Source.fromInputStream(fs.open(pt))
+
+    val lines = source.getLines
+    minYear = lines.next.toInt
+    maxYear = lines.next.toInt
+    source.close()
+    
     val span = Interval(minYear, maxYear)
     var years = 0
     var intvs: SortedMap[Interval, Int] = TreeMap[Interval, Int]()
     var gps: ParSeq[Graph[String, Int]] = ParSeq[Graph[String, Int]]()
 
+    
     for (years <- minYear to maxYear) {
       val users: RDD[(VertexId, String)] = sc.textFile(dataPath + "/nodes/nodes" + years + ".txt").map(line => line.split(",")).map { parts =>
         if (parts.size > 1 && parts.head != "")
@@ -286,15 +299,16 @@ object SnapshotGraphParallel extends Serializable {
           (0L, "Default")
       }
       var edges: RDD[Edge[Int]] = sc.emptyRDD
-      
-      if ((new java.io.File(dataPath + "/edges/edges" + years + ".txt")).length > 0) {
+    
+      val ept:Path = new Path(dataPath + "/edges/edges" + years + ".txt")
+      if (fs.exists(ept) && fs.getFileStatus(ept).getLen > 0) {
         //uses extended version of Graph Loader to load edges with attributes
         val tmp = years
         edges = GraphLoaderAddon.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt", true).edges
       } else {
         edges = sc.emptyRDD
       }
-      
+
       val graph: Graph[String, Int] = Graph(users, EdgeRDD.fromEdges(edges))
       
       intvs += (Interval(years, years) -> (years - minYear))

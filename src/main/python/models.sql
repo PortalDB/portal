@@ -42,7 +42,7 @@ create table execution (
     startType int not null, /* warm = 1, cold = 0 */
     clusterConfig varchar(40) not null,
     runTime float not null,
-    started datetime not null default current_timestamp,
+    started datetime not null,
     iterationNum int not null,
     build_num int not null,
     foreign key (query_id) references query (query_id),
