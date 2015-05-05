@@ -7,6 +7,8 @@ import scala.collection.immutable.TreeMap
 import scala.reflect.ClassTag
 import scala.util.control._
 
+import org.apache.hadoop.conf._
+import org.apache.hadoop.fs._
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.storage.StorageLevel
@@ -326,10 +328,25 @@ object MultiGraph {
 
   def loadData(dataPath: String, sc: SparkContext): MultiGraph[String, Int] = {
     //get the min and max year from file 
-    val source = scala.io.Source.fromFile(dataPath + "/Span.txt")
+    var minYear: Int = Int.MaxValue
+    var maxYear: Int = 0
+
+    var source: scala.io.Source = null
+    var fs: FileSystem = null
+
+    val pt: Path = new Path(dataPath + "/Span.txt")
+    val conf: Configuration = new Configuration()
+    
+    if (System.getenv("HADOOP_CONF_DIR") != "") {
+      conf.addResource(new Path(System.getenv("HADOOP_CONF_DIR") + "/core-site.xml"))
+    }
+    
+    fs = FileSystem.get(conf)
+    source = scala.io.Source.fromInputStream(fs.open(pt))
+
     val lines = source.getLines
-    val minYear: Int = lines.next.toInt
-    val maxYear: Int = lines.next.toInt
+    minYear = lines.next.toInt
+    maxYear = lines.next.toInt
     source.close()
 
     println("Min year for this dataset: " + minYear)
@@ -341,31 +358,33 @@ object MultiGraph {
       (fields.head.toLong, fields.tail)
     }
 
+    val span = Interval(minYear, maxYear)
     var years = minYear
     var edges: RDD[Edge[(Int, Int)]] = sc.emptyRDD
 
     while (years <= maxYear) {
-      if ((new java.io.File(dataPath + "/edges/edges" + years + ".txt")).length > 0) {
+      val ept: Path = new Path(dataPath + "/edges/edges" + years + ".txt")
+      
+      if (fs.exists(ept) && fs.getFileStatus(ept).getLen > 0) {
         //GraphLoader.edgeListFile does not allow for additional attributes besides srcid/dstid
         //so use an extended version instead which does (but assumes the attr is an int)
         //the edges are in years, need to translate into indices
-
         val tmp = years
-        var tmpEdges = GraphLoaderAddon.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt", true).edges.mapValues{ e => (e.attr, tmp-minYear) }
+        var tmpEdges = GraphLoaderAddon.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt", true).edges.mapValues { e => (e.attr, tmp - minYear) }
 
         edges = if (edges == null) tmpEdges else edges.union(tmpEdges)
-      }else {
+      } else {
         edges = edges.union(sc.emptyRDD)
       }
 
       years += 1
     }
 
-    val graph: Graph[Map[Int, String], (Int, Int)] = Graph(users.mapValues{ attr => 
+    val graph: Graph[Map[Int, String], (Int, Int)] = Graph(users.mapValues { attr =>
       if (attr.isEmpty)
         println("Vertex has empty attr list ")
-      attr.tail.map(x => (x.toInt - minYear) -> attr.head).toMap }
-      ,EdgeRDD.fromEdges[(Int, Int), Map[Int, String]](edges))
+      attr.tail.map(x => (x.toInt - minYear) -> attr.head).toMap
+    }, EdgeRDD.fromEdges[(Int, Int), Map[Int, String]](edges))
 
     var intvs: SortedMap[Interval, Int] = TreeMap[Interval, Int]()
     var xx: Int = 0
@@ -373,6 +392,6 @@ object MultiGraph {
       intvs += (Interval(xx + minYear, xx + minYear) -> xx)
     }
 
-    new MultiGraph[String, Int](Interval(minYear, maxYear), intvs, graph)
+    new MultiGraph[String, Int](span, intvs, graph)
   }
 }
