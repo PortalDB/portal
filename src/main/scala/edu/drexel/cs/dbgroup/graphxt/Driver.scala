@@ -67,6 +67,7 @@ object Driver {
       conf = new SparkConf().setMaster("mesos://master:5050").setAppName("TemporalGraph Project")
         .set("spark.executor.uri", "hdfs://master:9000/spark/spark-1.3.1-bin-hadoop2.6.tgz")
         .set("spark.executor.memory", "6g")
+        .set("spark.mesos.coarse", "true")
 
     } else { //default config is local
       //For local spark execution uncomment these 3 lines
