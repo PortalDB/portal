@@ -65,7 +65,7 @@ def collect_args(query):
 
     for i in range (0, len(line)):
         if line[i] == "--agg":
-            opType = "Aggegate"
+            opType = "Aggregate"
             arg1 = runW = int(line[i+1])
             arg2 = get_agg_type(line[i+2]) 
             partS = numParts = None
