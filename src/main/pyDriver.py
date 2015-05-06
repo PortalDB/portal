@@ -152,8 +152,6 @@ def run(configFile):
         scalaJar = "target/scala-2.10/tgraph-assembly-1.0.jar "
         warm = ""
         sbtCommand = ""
-        
-        log = open("log.out", "w")
  
         #run with warm start
         if sType == 1:
@@ -163,7 +161,7 @@ def run(configFile):
         p1 = Popen('cat ../../.git/refs/heads/master', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         rev = p1.stdout.read();
         bRef = dbconnect.persist_buildRef(buildN, rev.strip("\n"))
-        
+
         #read queries from file 
         for ln in cf:
             #error checking for extra line at the end of file
@@ -174,27 +172,34 @@ def run(configFile):
             qname = line[0]
             query = " ".join(line[1:-1]) + " " + line[-1].strip("\n") + " "
             classArg = query + dataParam + data + gtypeParam + gType + warm
+            querySaved = False;
+            qRef = None;
+            op_dict = id_dict = {}
             
             if env == "local" or env == "ec2":
-                sbtCommand = "sbt \"run-main " + mainc + classArg + " --env " + env + "\" | tee log.out";
+                sbtCommand = "sbt \"run-main " + mainc + classArg + " --env " + env + "\" | tee -a log.out";
             elif env == 'mesos':
-                sbtCommand = sparkSubmit + mainc + mesosMaster + scalaJar + classArg + " --env " + env + " | tee log.out"     
-
-            qRef = dbconnect.persist_query() #persist to Query table
-            opDict = collect_args(query);
-            id_dict = dbconnect.persist_ops(opDict) #persist to Operation table
-            dbconnect.persist_query_ops(qRef, id_dict) #persist tp Query_Op_Map table        
+                sbtCommand = sparkSubmit + mainc + mesosMaster + scalaJar + classArg + " --env " + env + " | tee -a log.out"     
 
             print "STATUS: running the sbt command against dataset and collect results..."
             for i in range (1, itr+1):
                 p2 = Popen(sbtCommand, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True);
                 output = p2.stdout.read()
                 time_dict = collect_time(output);
-                rTime = time_dict[0] #get total runtime 
+                rTime = time_dict[0] #get total runtime
+
+                #only run this once for each query
+                if querySaved == False:
+                    print "STATUS: persisting query information"
+                    qRef = dbconnect.persist_query() #persist to Query table
+                    op_dict = collect_args(query);
+                    id_dict = dbconnect.persist_ops(op_dict) #persist to Operation table
+                    dbconnect.persist_query_ops(qRef, id_dict) #persist tp Query_Op_Map table            
+                    querySaved = True        
+ 
                 eRef = dbconnect.persist_exec(time_dict, qRef, gType, sType, cConf, rTime, i, bRef)
                 dbconnect.persist_time_op(eRef, qRef, id_dict, time_dict) 
                 print "STATUS: finished running iteration", i, "of current query.." 
-        log.close();
         print "***  Done with executions." 
 
 if __name__ == "__main__":
