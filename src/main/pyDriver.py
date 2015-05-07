@@ -160,8 +160,7 @@ def run(configFile):
         
         #get git revision number and save build information
         p1 = Popen('cat ../../.git/refs/heads/master', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-        rev = p1.stdout.read();
-        bRef = dbconnect.persist_buildRef(buildN, rev.strip("\n"))
+        gitRev = p1.communicate()[0];
 
         #read queries from file 
         for ln in cf:
@@ -181,23 +180,39 @@ def run(configFile):
                 sbtCommand = "sbt \"run-main " + mainc + classArg + " --env " + env + "\" | tee -a log.out";
             elif env == 'mesos':
                 sbtCommand = sparkSubmit + mainc + mesosMaster + scalaJar + classArg + " --env " + env + " | tee -a log.out"     
+                
+                #get cluster config
+                p2 = Popen('curl http://master:5050/slaves', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+                out = p2.communicate()[0];
+                slaves = out.count("hostname")
+                cores = 2 #default num cores
+                ram = 8 #default ram
+                cConf = None
 
+                r = re.compile('"cpus":(.*?),').search(out)
+                if r:
+                    cores = int(r.group(1))
+                
+                #set cluster config
+                #FIXME: find ram of slaves
+                cConf = str(slaves) + "s_" + str(cores) + "c_" + str(ram) + "g"  
+            
             print "STATUS: running the sbt command against dataset and collect results..."
             for i in range (1, itr+1):
-                p2 = Popen(sbtCommand, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True);
-                output = p2.communicate()[0]
+                p3 = Popen(sbtCommand, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True);
+                pres = p3.communicate()
+                output = pres[0]
                 time_dict = collect_time(output);
                 rTime = None
+                print output                
 
                 try:
                     rTime = time_dict[0] #get total runtime
                 except KeyError:
                     print "ERROR: Query run did not return a final runtime. See result below:"
-                    print output
+                    print pres[1]
                     print traceback.format_exc()
                     sys.exit(1)
-
-                print output
 
                 #only run this once for each query
                 if querySaved == False:
@@ -208,6 +223,7 @@ def run(configFile):
                     dbconnect.persist_query_ops(qRef, id_dict) #persist tp Query_Op_Map table            
                     querySaved = True        
  
+                bRef = dbconnect.persist_buildRef(buildN, gitRev.strip("\n"))
                 eRef = dbconnect.persist_exec(time_dict, qRef, gType, sType, cConf, rTime, i, bRef)
                 dbconnect.persist_time_op(eRef, qRef, id_dict, time_dict) 
                 print "STATUS: finished running iteration", i, "of current query.." 

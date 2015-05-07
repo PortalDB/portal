@@ -103,7 +103,7 @@ class DBConnection():
             build = models.Build(
                             build_num = buildN,
                             revisionRef = revNum,
-                            description = "This is build #" + str(buildN))
+                            description = "This is build #" + str(buildN) + ". Go to king.cs.drexel.edu/mrb327/temporaldata/commit/" + revNum + "  to see the commit.")
             build.save(force_insert=True)
             return build
         
