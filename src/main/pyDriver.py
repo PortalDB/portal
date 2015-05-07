@@ -1,6 +1,7 @@
 import sys;
 sys.path.insert(0, './python')
 import re;
+import traceback;
 import models, connect;
 import subprocess;
 from peewee import *;
@@ -184,9 +185,19 @@ def run(configFile):
             print "STATUS: running the sbt command against dataset and collect results..."
             for i in range (1, itr+1):
                 p2 = Popen(sbtCommand, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True);
-                output = p2.stdout.read()
+                output = p2.communicate()[0]
                 time_dict = collect_time(output);
-                rTime = time_dict[0] #get total runtime
+                rTime = None
+
+                try:
+                    rTime = time_dict[0] #get total runtime
+                except KeyError:
+                    print "ERROR: Query run did not return a final runtime. See result below:"
+                    print output
+                    print traceback.format_exc()
+                    sys.exit(1)
+
+                print output
 
                 #only run this once for each query
                 if querySaved == False:
