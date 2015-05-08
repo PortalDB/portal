@@ -1,5 +1,6 @@
 import sys;
 sys.path.insert(0, './python')
+import os;
 import re;
 import traceback;
 import models, connect;
@@ -57,7 +58,6 @@ def create_op(oT, a1, a2, pS, nP, rW):
     return op
 
 def collect_args(query):
-    print "\nQUERY:", query
     line = query.split(" ");
     opDict = {} #dictionary of all operations in the query
     seqNum = 1
@@ -136,9 +136,18 @@ def collect_args(query):
 def run(configFile):
     with open(configFile, 'r') as cf:
     
-        #read first 4 lines (must strip of new line character and append space character) 
+        #read first 10 lines of configurations (must strip of new line character and append space character) 
         mainc = cf.readline().split(" ")[1].strip("\n") + " ";
         env = cf.readline().split(" ")[1].strip("\n");
+        
+        #load environment configurations
+        mline = cf.readline().split(" ")
+        mesosConf = " ".join(mline[1:-1]) + " " + mline[-1].strip("\n") + " ";
+        lline = cf.readline().split(" ")
+        localConf = " ".join(lline[1:-1]) + " " + lline[-1].strip("\n") + " ";        
+        eline = cf.readline().split(" ")
+        ec2Conf = " ".join(lline[1:-1]) + " " + lline[-1].strip("\n") + " ";    
+
         cConf = cf.readline().split(" ")[1].strip("\n") + " ";
         buildN = int(cf.readline().split(" ")[1]);
         sType = int(cf.readline().split(" ")[1]);
@@ -149,10 +158,13 @@ def run(configFile):
         gtypeParam = "--type "
         dataParam = "--data "
         sparkSubmit = "$SPARK_HOME/bin/spark-submit --class "
-        mesosMaster = "--master mesos://master:5050 "
-        scalaJar = "target/scala-2.10/tgraph-assembly-1.0.jar "
         warm = ""
-        sbtCommand = ""
+        envConf = localConf #set to local environment by default
+
+        if env == "ec2":
+            envConf = ec2Conf
+        elif env == 'mesos':
+            envConf = mesosConf            
  
         #run with warm start
         if sType == 1:
@@ -175,12 +187,10 @@ def run(configFile):
             querySaved = False;
             qRef = None;
             op_dict = id_dict = {}
+            sparkCommand = sparkSubmit + mainc + envConf + classArg + " --env " + env + " | tee -a log.out"     
             
-            if env == "local" or env == "ec2":
-                sbtCommand = "sbt \"run-main " + mainc + classArg + " --env " + env + "\" | tee -a log.out";
-            elif env == 'mesos':
-                sbtCommand = sparkSubmit + mainc + mesosMaster + scalaJar + classArg + " --env " + env + " | tee -a log.out"     
-                
+            #get cluster information when running on mesos cluster    
+            if env == "mesos":
                 #get cluster config
                 p2 = Popen('curl http://master:5050/slaves', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
                 out = p2.communicate()[0];
@@ -197,9 +207,10 @@ def run(configFile):
                 #FIXME: find ram of slaves
                 cConf = str(slaves) + "s_" + str(cores) + "c_" + str(ram) + "g"  
             
-            print "STATUS: running the sbt command against dataset and collect results..."
+            print "sparkCommand:", sparkCommand
+            print "STATUS: running the spark-submit command against dataset and collect results..."
             for i in range (1, itr+1):
-                p3 = Popen(sbtCommand, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True);
+                p3 = Popen(sparkCommand, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True);
                 pres = p3.communicate()
                 output = pres[0]
                 time_dict = collect_time(output);
@@ -216,7 +227,6 @@ def run(configFile):
 
                 #only run this once for each query
                 if querySaved == False:
-                    print "STATUS: persisting query information"
                     qRef = dbconnect.persist_query() #persist to Query table
                     op_dict = collect_args(query);
                     id_dict = dbconnect.persist_ops(op_dict) #persist to Operation table

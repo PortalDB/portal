@@ -53,29 +53,9 @@ object Driver {
       }
     }
 
-    var conf = new SparkConf()
-
-    if (env == "ec2") {
-      //For amazon ec2 execution uncomment these 4 lines. Make sure to use the correct spark master uri
-      conf = new SparkConf().setMaster("spark://ec2-54-234-129-137.compute-1.amazonaws.com:7077")
-        .setAppName("TemporalGraph Project")
-        .setSparkHome(System.getenv("SPARK_HOME"))
-        .setJars(List("target/scala-2.10/temporal-graph-project_2.10-1.0.jar", "lib/graphx-extensions_2.10-1.0.jar"))
-
-    } else if (env == "mesos") {
-      //For mesos cluster execution use these 2 lines
-      conf = new SparkConf().setMaster("mesos://master:5050").setAppName("TemporalGraph Project")
-        .set("spark.executor.uri", "hdfs://master:9000/spark/spark-1.3.1-bin-hadoop2.6.tgz")
-        .set("spark.executor.memory", "6g")
-        .set("spark.mesos.coarse", "true")
-
-    } else { //default config is local
-      //For local spark execution uncomment these 3 lines
-      conf = new SparkConf().setMaster("local").setAppName("TemporalGraph Project")
-        .setSparkHome(System.getenv("SPARK_HOME"))
-        .setJars(List("target/scala-2.10/temporal-graph-project_2.10-1.0.jar", "lib/graphx-extensions_2.10-1.0.jar"))
-    }
-
+    // environment specific settings for SparkConf must be passed through the command line
+    // settings to pass are master, jars and other configurations
+    var conf = new SparkConf().setAppName("TemporalGraph Project").setSparkHome(System.getenv("SPARK_HOME"))
     val sc = new SparkContext(conf)
     ProgramContext.setContext(sc)
 

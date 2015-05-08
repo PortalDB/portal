@@ -5,11 +5,11 @@ Set $SPARK_HOME environment variable:
 To compile:
     sbt package
 
-To run Experiment driver:
-    sbt "run-main edu.drexel.cs.dbgroup.graphxt.Driver {params}"
+To run Experiment driver locally:
+     $SPARK_HOME/bin/spark-submit --class edu.drexel.cs.dbgroup.graphxt.Driver --master local --jars lib/graphx-extensions_2.10-1.0.jar target/scala-2.10/temporal-graph-project_2.10-1.0.jar {params}
     	** where {params} could be for example: "G4_U --agg 5 universal -p EdgePartition2D 8 --pagerank --data ../../resources --type SG --warmstart --env local"
                                                 OR
-                                                "G4_U --agg 5 universal -p EdgePartition2D 8 --pagerank --data ../../resources --type SG --warmstart --env ec2"
+                                                "G4_U --agg 5 universal -p EdgePartition2D 8 --pagerank --data ../../resources --type SG --warmstart --env ec2" (note: you must change the --master arg for ec2)
 
 --- Run on mesos ---
 Set environment variables for spark and hadoop:
@@ -22,7 +22,7 @@ Set environment variables for spark and hadoop:
 To compile:
     sbt assembly
 
-To run Experiment driver:
+To run Experiment driver on mesos:
     $SPARK_HOME/bin/spark-submit --class edu.drexel.cs.dbgroup.graphxt.Driver --master mesos://master:5050 target/scala-2.10/tgraph-assembly-1.0.jar {params}
         ** where {params} could be for example: "AggU16by2 --select 2000 2015 --agg 2 universal -p CanonicalRandomVertexCut 8 --data hdfs://master:9000/data/dblp --type SG --env mesos"
 
