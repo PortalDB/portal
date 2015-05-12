@@ -48,9 +48,7 @@ object Driver {
         data = args(i + 1)
       } else if (args(i) == "--warmstart") {
         warmStart = true
-      } else if (args(i) == "--env") {
-        env = args(i + 1)
-      }
+      } 
     }
 
     // environment specific settings for SparkConf must be passed through the command line

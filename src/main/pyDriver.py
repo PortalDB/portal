@@ -1,5 +1,5 @@
 import sys;
-sys.path.insert(0, './python')
+sys.path.insert(0, './driverUtils')
 import os;
 import re;
 import traceback;
@@ -187,14 +187,14 @@ def run(configFile):
             querySaved = False;
             qRef = None;
             op_dict = id_dict = {}
-            sparkCommand = sparkSubmit + mainc + envConf + classArg + " --env " + env + " | tee -a log.out"     
+            sparkCommand = sparkSubmit + mainc + envConf + classArg + " | tee -a log.out"     
             
             #get cluster information when running on mesos cluster    
             if env == "mesos":
                 #get cluster config
                 p2 = Popen('curl http://master:5050/slaves', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
                 out = p2.communicate()[0];
-                slaves = out.count("hostname")
+                slaves = out.count("\"active\":true")
                 cores = 2 #default num cores
                 ram = 8 #default ram
                 cConf = None
