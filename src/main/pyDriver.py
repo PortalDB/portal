@@ -283,10 +283,8 @@ def run(configFile):
                 op_dict = id_dict = {}
                 sparkCommand = sparkSubmit + mainc + envConf + classArg + " | tee -a log.out"           
  
-                print q
-                continue
-                #print "sparkCommand:", sparkCommand
-                #print "STATUS: running the spark-submit command against dataset and collect results..."
+                print "sparkCommand:", sparkCommand
+                print "STATUS: running the spark-submit command against dataset and collect results..."
                 for i in range (1, itr+1):
                     p3 = Popen(sparkCommand, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True);
                     pres = p3.communicate()
