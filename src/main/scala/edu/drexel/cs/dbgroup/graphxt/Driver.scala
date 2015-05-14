@@ -81,7 +81,8 @@ object Driver {
       //aggregate operation
       if (args(i) == "--agg") {
         var sem = AggregateSemantics.Existential
-        val runWidth: Int = args(i + 1).toInt
+        var runWidth = 1; 
+        val resolution: Int = args(i + 1).toInt
         val partAgg: Boolean = if (args.length > (i + 3) && args(i + 3) == "-p") true else false
 
         if (args(i + 2) == "universal")
@@ -90,6 +91,7 @@ object Driver {
         if (partAgg) {
           partitionType = PartitionStrategyType.withName(args(i + 4))
           numParts = args(i + 5).toInt
+          runWidth = resolution
         }
 
         var aggStart = System.currentTimeMillis()
@@ -97,12 +99,12 @@ object Driver {
           if (partAgg) {
             result2 = result2.partitionBy(partitionType, runWidth, numParts)
           }
-          result2 = result2.aggregate(runWidth, sem, aggFunc2, aggFunc2)
+          result2 = result2.aggregate(resolution, sem, aggFunc2, aggFunc2)
         } else {
           if (partAgg) {
             result = result.partitionBy(partitionType, runWidth, numParts)
           }
-          result = result.aggregate(runWidth, sem, vAggFunc, eAggFunc)
+          result = result.aggregate(resolution, sem, vAggFunc, eAggFunc)
         }
 
         var aggEnd = System.currentTimeMillis()
