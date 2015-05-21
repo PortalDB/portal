@@ -9,17 +9,20 @@ import scala.util.control._
 
 import org.apache.hadoop.conf._
 import org.apache.hadoop.fs._
+
 import org.apache.spark.SparkContext
 import org.apache.spark.Partition
+
 import org.apache.spark.graphx._
 import org.apache.spark.graphx.Graph
 import org.apache.spark.graphx.GraphLoaderAddon
 import org.apache.spark.rdd._
+import org.apache.spark.rdd.EmptyRDD
+import org.apache.spark.rdd.PairRDDFunctions
 import org.apache.spark.storage.RDDBlockId
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
-import org.apache.spark.rdd.EmptyRDD
-import org.apache.spark.rdd.PairRDDFunctions
+
 
 class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](sp: Interval, invs: SortedMap[Interval, Int], gps: ParSeq[Graph[VD, ED]]) extends TemporalGraph[VD, ED] with Serializable {
   var span = sp
@@ -257,6 +260,51 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](sp: Interval, invs: Sort
       new SnapshotGraphParallel(span, intervals, gps)
     } else
       this
+  }
+  
+  def connectedComponent(numIter: Int = Int.MaxValue): SnapshotGraphParallel[Long, ED] = {
+    var intvs: SortedMap[Interval, Int] = TreeMap[Interval, Int]()
+    var gps: ParSeq[Graph[Long, ED]] = ParSeq[Graph[Long, ED]]()
+    val iter: Iterator[(Interval, Int)] = intervals.iterator
+    var numResults: Int = 0
+
+    while (iter.hasNext) {
+      val (k, v) = iter.next
+      intvs += (k -> numResults)
+      numResults += 1
+
+      if (graphs(v).vertices.isEmpty) {
+        gps = gps :+ Graph[Long, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+      } else {
+        var graph = graphs(v).connectedComponents()
+        gps = gps :+ graph
+      }
+    }
+    
+    new SnapshotGraphParallel(span, intvs, gps)
+  }
+
+  def shortestPaths(landmarks: Seq[VertexId]): SnapshotGraphParallel[ShortestPathsXT.SPMap, ED] = {
+    var intvs: SortedMap[Interval, Int] = TreeMap[Interval, Int]()
+    var gps: ParSeq[Graph[ShortestPathsXT.SPMap, ED]] = ParSeq[Graph[ShortestPathsXT.SPMap, ED]]()
+    val iter: Iterator[(Interval, Int)] = intervals.iterator
+    var numResults: Int = 0
+
+
+    while (iter.hasNext) {
+      val (k, v) = iter.next
+      intvs += (k -> numResults)
+      numResults += 1
+
+      if (graphs(v).vertices.isEmpty) {
+        gps = gps :+ Graph[ShortestPathsXT.SPMap, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+      } else {
+        var graph = ShortestPathsXT.run(graphs(v), landmarks)
+        gps = gps :+ graph
+      }
+    }
+    
+    new SnapshotGraphParallel(span, intvs, gps)
   }
 
 }

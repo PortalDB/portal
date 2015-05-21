@@ -12,6 +12,8 @@ import org.apache.hadoop.fs._
 import org.apache.spark.SparkContext
 import org.apache.spark.Partition
 
+//import org.apache.spark.graphx.lib.ShortestPaths
+
 import org.apache.spark.graphx._
 import org.apache.spark.graphx.Graph
 import org.apache.spark.graphx.GraphLoaderAddon
@@ -324,7 +326,51 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](sp: Interval, intvs: SortedMap[I
 
     new SnapshotGraph(span, intvs, gps)
   }
+  
+  def connectedComponent(numIter: Int = Int.MaxValue): SnapshotGraph[Long, ED] = {
+    var intvs: SortedMap[Interval, Int] = TreeMap[Interval, Int]()
+    var gps: Seq[Graph[Long, ED]] = Seq[Graph[Long, ED]]()
+    val iter: Iterator[(Interval, Int)] = intervals.iterator
+    var numResults: Int = 0
 
+    while (iter.hasNext) {
+      val (k, v) = iter.next
+      intvs += (k -> numResults)
+      numResults += 1
+
+      if (graphs(v).vertices.isEmpty) {
+        gps = gps :+ Graph[Long, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+      } else {
+        var graph = graphs(v).connectedComponents()
+        gps = gps :+ graph
+      }
+    }
+    
+    new SnapshotGraph(span, intvs, gps)
+  }
+
+  def shortestPaths(landmarks: Seq[VertexId]): SnapshotGraph[ShortestPathsXT.SPMap, ED] = {
+    var intvs: SortedMap[Interval, Int] = TreeMap[Interval, Int]()
+    var gps: Seq[Graph[ShortestPathsXT.SPMap, ED]] = Seq[Graph[ShortestPathsXT.SPMap, ED]]()
+    val iter: Iterator[(Interval, Int)] = intervals.iterator
+    var numResults: Int = 0
+
+
+    while (iter.hasNext) {
+      val (k, v) = iter.next
+      intvs += (k -> numResults)
+      numResults += 1
+
+      if (graphs(v).vertices.isEmpty) {
+        gps = gps :+ Graph[ShortestPathsXT.SPMap, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+      } else {
+        var graph = ShortestPathsXT.run(graphs(v), landmarks)
+        gps = gps :+ graph
+      }
+    }
+    
+    new SnapshotGraph(span, intvs, gps)
+  }
 }
 
 object SnapshotGraph {
