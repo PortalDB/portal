@@ -1,5 +1,6 @@
 package edu.drexel.cs.dbgroup.graphxt
 
+import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.graphx.Graph
@@ -51,7 +52,7 @@ object GraphAlgorithmsTest {
     var landmarks = Seq(373150L, 68091L, 1383559L, 1218940L, 1218725L)
 
     val sp = sel.shortestPaths(landmarks)
-    println("shortest paths are: ")
+    println("SG shortest paths are: ")
     println("SP graphs.size: " + sp.graphs.size)
     //    println("SP graphs1: " + sp.graphs(0).vertices.collect.mkString("\n"));
     //    println("\n")
@@ -104,19 +105,41 @@ object GraphAlgorithmsTest {
 
   }
 
+  def mgSPtest(datapath: String, sc: SparkContext) {
+    var testGraph: MultiGraph[String, Int] = MultiGraph.loadData(datapath, sc)
+    var landmarks = Seq(1457314L)
+
+    //try partitioning
+    testGraph = testGraph.partitionBy(PartitionStrategyType.CanonicalRandomVertexCut, 0)
+
+    val sel = testGraph.select(Interval(1950, 1952))
+    println("total number of results after selection: " + sel.size)
+
+    val cc = sel.shortestPaths(landmarks)
+    println("Selected vertices count: " + cc.graphs.vertices.count)
+    println("MG shortest paths are: ")
+    println(cc.graphs.vertices.collect.mkString("\n"))
+
+  }
+
   def main(args: Array[String]) {
     //note: this does not remove ALL logging
     Logger.getLogger("org").setLevel(Level.OFF)
     Logger.getLogger("akka").setLevel(Level.OFF)
 
-    val sc = new SparkContext("local", "SnapshotGraph Project",
-      System.getenv("SPARK_HOME"),
-      List("target/scala-2.10/snapshot-graph-project_2.10-1.0.jar"))
+//    val sc = new SparkContext("local", "SnapshotGraph Project",
+//      System.getenv("SPARK_HOME"),
+//      List("target/scala-2.10/snapshot-graph-project_2.10-1.0.jar"))
+
+    var conf = new SparkConf().setAppName("TemporalGraph Project").setSparkHome(System.getenv("SPARK_HOME"))
+    val sc = new SparkContext(conf)
+    ProgramContext.setContext(sc)
 
     //    sgCCtest(args(0), sc)
-    mgCCtest(args(0), sc)
+    //    mgCCtest(args(0), sc)
     //    sgpCCtest(args(0), sc)
     //    sgSPtest(args(0), sc)
+    mgSPtest(args(0), sc)
   }
 
 }

@@ -22,7 +22,7 @@ object ConnectedComponentsXT {
    * the smallest vertex in each connected component for Intervals
    * in which the vertex appears
    */
-  def runCombined[VD: ClassTag, ED: ClassTag](graph: Graph[Map[Int, VD], (ED, Int)], numInts: Int): Graph[Map[Int, VertexId], (ED, Int)] =
+  def runCombined[VD, ED: ClassTag](graph: Graph[Map[Int, VD], (ED, Int)], numInts: Int): Graph[Map[Int, VertexId], (ED, Int)] =
     {
       // Initialize the pagerankGraph with each edge attribute
       // having weight 1/degree and each vertex with attribute 1.0.
@@ -63,8 +63,7 @@ object ConnectedComponentsXT {
 
         def messageCombiner(a: Map[Int, VertexId], b: Map[Int, VertexId]): Map[Int, VertexId] = {
           (a.keySet ++ a.keySet).map { i =>
-            //Note: will throw an exception if key maps to null value
-            i -> math.min(a.get(i).get, b.get(i).get)
+            i -> math.min(a.getOrElse(i, Long.MaxValue), b.getOrElse(i, Long.MaxValue))
           }.toMap
         }
 

@@ -326,6 +326,11 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](sp: Interval, mp: SortedMap[Interva
   def connectedComponent(): MultiGraph[VertexId, ED] = {
       new MultiGraph[VertexId, ED](span, intervals, ConnectedComponentsXT.runCombined(graphs, intervals.size))
   }
+  
+  //run shortestPaths on each interval
+  def shortestPaths(landmarks: Seq[VertexId]): MultiGraph[ShortestPathsXT.SPMap, ED] = {
+      new MultiGraph[ShortestPathsXT.SPMap, ED](span, intervals, ShortestPathsXT.runCombined(graphs, landmarks, intervals.size))
+  }
 
 }
 
