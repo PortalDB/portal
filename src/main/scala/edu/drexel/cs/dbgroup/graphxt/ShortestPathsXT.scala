@@ -105,15 +105,18 @@ object ShortestPathsXT {
       }
 
       def sendMessage(edge: EdgeTriplet[Map[Int, SPMap], (ED, Int)]): Iterator[(VertexId, Map[Int, SPMap])] = {
-        //each vertex attribute is supposed to be a map of int->int for each index
+        //each vertex attribute is supposed to be a map of int->spmap for each index
         var yearIndex = edge.attr._2
+        var srcSpMap = edge.srcAttr(yearIndex)
+        var dstSpMap = edge.dstAttr(yearIndex)
 
-        val newAttr = incrementMap(edge.dstAttr(yearIndex))
-        val newAttr2 = incrementMap(edge.srcAttr(yearIndex))
-
-        if (edge.srcAttr != addMaps(newAttr, edge.srcAttr(yearIndex)))
+        val newAttr = incrementMap(dstSpMap)
+        val newAttr2 = incrementMap(srcSpMap)
+        
+        
+        if (srcSpMap != addMaps(newAttr, srcSpMap))
           Iterator((edge.srcId, Map(yearIndex -> newAttr)))
-        else if (edge.dstAttr != addMaps(newAttr2, edge.dstAttr(yearIndex)))
+        else if (srcSpMap != addMaps(newAttr2, srcSpMap))
           Iterator((edge.dstId, Map(yearIndex -> newAttr2)))
         else
           Iterator.empty
