@@ -116,7 +116,7 @@ object ShortestPathsXT {
         
         if (srcSpMap != addMaps(newAttr, srcSpMap))
           Iterator((edge.srcId, Map(yearIndex -> newAttr)))
-        else if (srcSpMap != addMaps(newAttr2, srcSpMap))
+        else if (dstSpMap != addMaps(newAttr2, dstSpMap))
           Iterator((edge.dstId, Map(yearIndex -> newAttr2)))
         else
           Iterator.empty

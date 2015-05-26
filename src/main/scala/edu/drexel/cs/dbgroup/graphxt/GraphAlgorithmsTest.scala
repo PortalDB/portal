@@ -107,12 +107,12 @@ object GraphAlgorithmsTest {
 
   def mgSPtest(datapath: String, sc: SparkContext) {
     var testGraph: MultiGraph[String, Int] = MultiGraph.loadData(datapath, sc)
-    var landmarks = Seq(1457314L)
+    var landmarks = Seq(373150L, 1218768L, 1383559L, 1382958L)
 
     //try partitioning
     testGraph = testGraph.partitionBy(PartitionStrategyType.CanonicalRandomVertexCut, 0)
 
-    val sel = testGraph.select(Interval(1950, 1952))
+    val sel = testGraph.select(Interval(1954, 1956))
     println("total number of results after selection: " + sel.size)
 
     val cc = sel.shortestPaths(landmarks)
