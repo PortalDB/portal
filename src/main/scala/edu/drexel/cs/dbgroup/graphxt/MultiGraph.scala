@@ -17,11 +17,12 @@ import org.apache.spark.storage.StorageLevel._
 import org.apache.spark.graphx.impl.GraphXPartitionExtension._
 
 import org.apache.spark.graphx._
-import org.apache.spark.graphx.GraphLoaderAddon
 import org.apache.spark.graphx.Graph
 import org.apache.spark.graphx.impl.EdgeRDDImpl
 import org.apache.spark.graphx.PartitionStrategy
 import org.apache.spark.rdd._
+
+import edu.drexel.cs.dbgroup.graphxt.util.MultifileLoad
 
 class MultiGraph[VD: ClassTag, ED: ClassTag](sp: Interval, mp: SortedMap[Interval, Int], grs: Graph[Map[Int, VD], (ED, Int)]) extends TemporalGraph[VD, ED] {
   var span = sp
@@ -335,8 +336,7 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](sp: Interval, mp: SortedMap[Interva
 }
 
 object MultiGraph {
-
-  def loadData(dataPath: String, sc: SparkContext): MultiGraph[String, Int] = {
+  def loadData(dataPath: String, startIndex: TimeIndex = 0, endIndex: TimeIndex = Int.MaxValue): MultiGraph[String, Int] = {
     //get the min and max year from file 
     var minYear: Int = Int.MaxValue
     var maxYear: Int = 0
@@ -355,46 +355,62 @@ object MultiGraph {
     source = scala.io.Source.fromInputStream(fs.open(pt))
 
     val lines = source.getLines
-    minYear = lines.next.toInt
-    maxYear = lines.next.toInt
+    val minin = lines.next.toInt
+    val maxin = lines.next.toInt
+    minYear = if (minin > startIndex) minin else startIndex
+    maxYear = if (maxin < endIndex) maxin else endIndex
     source.close()
 
-    println("Min year for this dataset: " + minYear)
-    println("Max year for this dataset: " + maxYear)
-
-    val users = sc.textFile(dataPath + "/Nodes-ID.txt").map { line =>
-      val fields = line.split(',')
-      //println("For user " + fields.head + " named " + fields.tail.head + " the years are " + fields.tail.tail.mkString(","))
-      (fields.head.toLong, fields.tail)
+    var users: RDD[(VertexId,Map[Int,String])] = MultifileLoad.readNodes(dataPath, minYear, maxYear).flatMap{ x => 
+      val yr = x._1.split('/').last.dropWhile(!_.isDigit).takeWhile(_.isDigit).toInt
+      x._2.split("\n").map(line => line.split(","))
+        .map { parts =>
+        if (parts.size > 1 && parts.head != "") {
+          (parts.head.toLong, Map((yr - minYear) -> parts(1).toString))
+        } else {
+          (0L, Map[Int,String](-1 -> parts.mkString(",")))
+        }
+      }
     }
+
+/*
+    val problems = users.lookup(0L)
+    println("!!The following vertices have issues: " + problems.mkString("\n"))
+    users = users.aggregateByKey(Map[Int,String]())((k,v) => k ++ v, (v,k) => v ++ k)
+ */
 
     val span = Interval(minYear, maxYear)
-    var years = minYear
-    var edges: RDD[Edge[(Int, Int)]] = sc.emptyRDD
 
-    while (years <= maxYear) {
-      val ept: Path = new Path(dataPath + "/edges/edges" + years + ".txt")
-      
-      if (fs.exists(ept) && fs.getFileStatus(ept).getLen > 0) {
-        //GraphLoader.edgeListFile does not allow for additional attributes besides srcid/dstid
-        //so use an extended version instead which does (but assumes the attr is an int)
-        //the edges are in years, need to translate into indices
-        val tmp = years
-        var tmpEdges = GraphLoaderAddon.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt", true).edges.mapValues { e => (e.attr, tmp - minYear) }
-
-        edges = if (edges == null) tmpEdges else edges.union(tmpEdges)
-      } else {
-        edges = edges.union(sc.emptyRDD)
+    val edges: RDD[Edge[(Int, Int)]] = MultifileLoad.readEdges(dataPath, minYear, maxYear).flatMap{ x =>
+      val tmp = x._1.split('/').last.dropWhile(!_.isDigit).takeWhile(_.isDigit).toInt
+      x._2.split("\n").map{ line =>
+        if (!line.isEmpty && line(0) != '#') {
+          val lineArray = line.split("\\s+")
+          val srcId = lineArray(0).toLong
+          val dstId = lineArray(0).toLong
+          var attr = 0
+          if (lineArray.length > 2)
+            attr = lineArray(2).toInt
+          if (srcId > dstId)
+            Edge(dstId, srcId, (attr, tmp - minYear))
+          else
+            Edge(srcId, dstId, (attr, tmp - minYear))
+        } else {
+          println("!!!!!!!! returning null")
+          null
+        }
       }
-
-      years += 1
     }
-
-    val graph: Graph[Map[Int, String], (Int, Int)] = Graph(users.mapValues { attr =>
-      if (attr.isEmpty)
-        println("Vertex has empty attr list ")
-      attr.tail.map(x => (x.toInt - minYear) -> attr.head).toMap
-    }, EdgeRDD.fromEdges[(Int, Int), Map[Int, String]](edges))
+    
+    val graph: Graph[Map[Int, String], (Int, Int)] = Graph(users,
+      EdgeRDD.fromEdges[(Int, Int), Map[Int, String]](edges), Map[Int,String]())
+    //graph.cache()
+/*
+    val subg = graph.subgraph(
+       vpred = (vid, attr) => (attr == null || attr.size == 0))
+    println("number of vertices with problem attributes: " + subg.vertices.count)
+    println(subg.vertices.collect.mkString("\n"))
+*/
 
     var intvs: SortedMap[Interval, Int] = TreeMap[Interval, Int]()
     var xx: Int = 0
@@ -404,4 +420,5 @@ object MultiGraph {
 
     new MultiGraph[String, Int](span, intvs, graph)
   }
+
 }

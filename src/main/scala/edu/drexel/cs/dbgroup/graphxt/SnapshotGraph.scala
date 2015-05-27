@@ -375,9 +375,8 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](sp: Interval, intvs: SortedMap[I
 
 object SnapshotGraph {
   //this assumes that the data is in the dataPath directory, each time period in its own files
-  //and the naming convention is nodes<time>.txt and edges<time>.txt
   //TODO: extend to be more flexible about input data such as arbitrary uniform intervals are supported
-  final def loadData(dataPath: String, sc: SparkContext): SnapshotGraph[String, Int] = {
+  final def loadData(dataPath: String, startIndex: TimeIndex = 0, endIndex: TimeIndex = Int.MaxValue): SnapshotGraph[String, Int] = {
     var minYear: Int = Int.MaxValue
     var maxYear: Int = 0
 
@@ -393,31 +392,32 @@ object SnapshotGraph {
     source = scala.io.Source.fromInputStream(fs.open(pt))
 
     val lines = source.getLines
-    minYear = lines.next.toInt
-    maxYear = lines.next.toInt
+    val minin = lines.next.toInt
+    val maxin = lines.next.toInt
+    minYear = if (minin > startIndex) minin else startIndex
+    maxYear = if (maxin < endIndex) maxin else endIndex
     source.close()      
 
     val span = Interval(minYear, maxYear)
-    var years = 0
     var intvs: SortedMap[Interval, Int] = TreeMap[Interval, Int]()
     var gps: Seq[Graph[String, Int]] = Seq[Graph[String, Int]]()
 
     for (years <- minYear to maxYear) {
-      val users: RDD[(VertexId, String)] = sc.textFile(dataPath + "/nodes/nodes" + years + ".txt").map(line => line.split(",")).map { parts =>
+      val users: RDD[(VertexId, String)] = ProgramContext.sc.textFile(dataPath + "/nodes/nodes" + years + ".txt").map(line => line.split(",")).map { parts =>
         if (parts.size > 1 && parts.head != "")
           (parts.head.toLong, parts(1).toString)
         else
           (0L, "Default")
       }
-      var edges: RDD[Edge[Int]] = sc.emptyRDD
+      var edges: RDD[Edge[Int]] = ProgramContext.sc.emptyRDD
     
       val ept:Path = new Path(dataPath + "/edges/edges" + years + ".txt")
       if (fs.exists(ept) && fs.getFileStatus(ept).getLen > 0) {
         //uses extended version of Graph Loader to load edges with attributes
         val tmp = years
-        edges = GraphLoaderAddon.edgeListFile(sc, dataPath + "/edges/edges" + years + ".txt", true).edges
+        edges = GraphLoaderAddon.edgeListFile(ProgramContext.sc, dataPath + "/edges/edges" + years + ".txt", true).edges
       } else {
-        edges = sc.emptyRDD
+        edges = ProgramContext.sc.emptyRDD
       }
 
       val graph: Graph[String, Int] = Graph(users, EdgeRDD.fromEdges(edges))
@@ -425,6 +425,7 @@ object SnapshotGraph {
       intvs += (Interval(years, years) -> (years - minYear))
       gps = gps :+ graph
     }
+
     new SnapshotGraph(span, intvs, gps)
   }
 }

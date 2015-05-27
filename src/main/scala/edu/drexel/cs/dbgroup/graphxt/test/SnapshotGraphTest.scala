@@ -1,4 +1,4 @@
-package edu.drexel.cs.dbgroup.graphxt
+package edu.drexel.cs.dbgroup.graphxt.test
 
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
@@ -6,6 +6,8 @@ import org.apache.spark.graphx.Graph
 import scala.util.control._
 import org.apache.log4j.Logger 
 import org.apache.log4j.Level 
+
+import edu.drexel.cs.dbgroup.graphxt._
 
 object SnapshotGraphTest {
 
@@ -20,7 +22,7 @@ object SnapshotGraphTest {
 
     def vaggfunc(a: String, b: String): String = { a + b }
 
-    var testGraph = SnapshotGraph.loadData(args(0), sc)
+    var testGraph = SnapshotGraph.loadData(args(0), 1940, 1948)
     val interv = new Interval(1940, 1948)
     val sel = testGraph.select(interv)
     

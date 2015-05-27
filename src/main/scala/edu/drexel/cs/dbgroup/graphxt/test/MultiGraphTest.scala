@@ -1,9 +1,12 @@
-package edu.drexel.cs.dbgroup.graphxt
+package edu.drexel.cs.dbgroup.graphxt.test
 
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
+import org.apache.spark.SparkConf
 import org.apache.log4j.Logger 
 import org.apache.log4j.Level 
+
+import edu.drexel.cs.dbgroup.graphxt._
 
 object MultiGraphTest {
 
@@ -13,11 +16,16 @@ object MultiGraphTest {
     Logger.getLogger("org").setLevel(Level.OFF) 
     Logger.getLogger("akka").setLevel(Level.OFF) 
 
-    val sc = new SparkContext("local", "MultiGraph Project", 
-      System.getenv("SPARK_HOME"),
-      List("target/scala-2.10/multigraph-project_2.10-1.0.jar"))
+    var conf = new SparkConf()
+      conf = new SparkConf().setMaster("local").setAppName("TemporalGraph Project")
+        .setSparkHome(System.getenv("SPARK_HOME"))
+        .setJars(List("target/scala-2.10/temporal-graph-project_2.10-1.0.jar", "lib/graphx-extensions_2.10-1.0.jar"))
+        .set("spark.executor.memory", "6g")
 
-    var testGraph:MultiGraph[String,Int] = MultiGraph.loadData(args(0), sc)
+    val sc = new SparkContext(conf)
+    ProgramContext.setContext(sc)
+
+    var testGraph:MultiGraph[String,Int] = MultiGraph.loadData(args(0), 1940, 1948)
 
     //try partitioning
     println("original number of partitions: " + testGraph.edges.partitions.size)

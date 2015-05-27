@@ -8,10 +8,12 @@ import scala.util.control._
 import org.apache.log4j.Logger
 import org.apache.log4j.Level
 
+import edu.drexel.cs.dbgroup.graphxt._
+
 object GraphAlgorithmsTest {
 
   def sgCCtest(datapath: String, sc: SparkContext) {
-    var testGraph = SnapshotGraph.loadData(datapath, sc)
+    var testGraph = SnapshotGraph.loadData(datapath, 1950, 1952)
     val interv = new Interval(1950, 1952)
     val sel = testGraph.select(interv)
 
@@ -38,7 +40,7 @@ object GraphAlgorithmsTest {
   }
 
   def sgSPtest(datapath: String, sc: SparkContext) {
-    var testGraph = SnapshotGraph.loadData(datapath, sc)
+    var testGraph = SnapshotGraph.loadData(datapath, 1954, 1956)
     val interv = new Interval(1954, 1956)
     val sel = testGraph.select(interv)
 
@@ -89,7 +91,7 @@ object GraphAlgorithmsTest {
   }
 
   def mgCCtest(datapath: String, sc: SparkContext) {
-    var testGraph: MultiGraph[String, Int] = MultiGraph.loadData(datapath, sc)
+    var testGraph: MultiGraph[String, Int] = MultiGraph.loadData(datapath, 1954, 1956)
 
     //try partitioning
     println("original number of partitions: " + testGraph.edges.partitions.size)
@@ -106,7 +108,7 @@ object GraphAlgorithmsTest {
   }
 
   def mgSPtest(datapath: String, sc: SparkContext) {
-    var testGraph: MultiGraph[String, Int] = MultiGraph.loadData(datapath, sc)
+    var testGraph: MultiGraph[String, Int] = MultiGraph.loadData(datapath, 1954, 1956)
     var landmarks = Seq(373150L, 1218768L, 1383559L, 1382958L)
 
     //try partitioning

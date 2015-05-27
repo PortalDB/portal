@@ -15,8 +15,8 @@ object Driver {
   def main(args: Array[String]) = {
 
     //note: this does not remove ALL logging  
-    Logger.getLogger("org").setLevel(Level.OFF)
-    Logger.getLogger("akka").setLevel(Level.OFF)
+    //Logger.getLogger("org").setLevel(Level.OFF)
+    //Logger.getLogger("akka").setLevel(Level.OFF)
 
     var graphType: String = "SG"
     var strategy: String = ""
@@ -64,7 +64,20 @@ object Driver {
       def eAggFunc(a: Int, b: Int): Int = a
       def aggFunc2(a: Double, b: Double): Double = math.max(a, b)
 
-    var result: TemporalGraph[String, Int] = loadData(data, sc, graphType)
+    var from: Int = 0
+    var to: Int = Int.MaxValue
+    //if there is a select in the query and it comes before others, use it to selectively load
+    val loop = new Breaks
+    loop.breakable {
+      for (i <- 0 until args.length) {
+        args(i) match {
+          case "--select" => from = args(i + 1).toInt; to = args(i + 2).toInt
+          case "--agg" | "--pagerank" | "--agg" | "--count" | "--getsnapshot" => loop.break
+	  case _ =>
+        }
+      }
+    }
+    var result: TemporalGraph[String, Int] = loadData(data, sc, graphType, from, to)
     var result2: TemporalGraph[Double, Double] = null
     var argNum = 1 //to keep track of the order of arguments passed
 
@@ -232,14 +245,14 @@ object Driver {
     val endAsMili = System.currentTimeMillis()
     val runTime = endAsMili - startAsMili
     println(f"Final Runtime: $runTime%dms")
-
+    sc.stop
   }
 
-  def loadData(data: String, sc: SparkContext, gtype: String): TemporalGraph[String, Int] = {
+  def loadData(data: String, sc: SparkContext, gtype: String, from: Int, to: Int): TemporalGraph[String, Int] = {
     if (gtype == "SG") {
-      SnapshotGraph.loadData(data, sc)
+      SnapshotGraph.loadData(data, from, to)
     } else if (gtype == "MG") {
-      MultiGraph.loadData(data, sc)
+      MultiGraph.loadData(data, from, to)
     } else if (gtype == "SGP") {
       SnapshotGraphParallel.loadData(data, sc)
     } else
