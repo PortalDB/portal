@@ -254,7 +254,7 @@ object Driver {
     } else if (gtype == "MG") {
       MultiGraph.loadData(data, from, to)
     } else if (gtype == "SGP") {
-      SnapshotGraphParallel.loadData(data, sc)
+      SnapshotGraphParallel.loadData(data, from, to)
     } else
       null
   }

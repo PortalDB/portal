@@ -1,4 +1,4 @@
-package edu.drexel.cs.dbgroup.graphxt
+package edu.drexel.cs.dbgroup.graphxt.test
 
 import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
@@ -12,7 +12,7 @@ import edu.drexel.cs.dbgroup.graphxt._
 
 object GraphAlgorithmsTest {
 
-  def sgCCtest(datapath: String, sc: SparkContext) {
+  def sgCCtest(datapath: String) {
     var testGraph = SnapshotGraph.loadData(datapath, 1950, 1952)
     val interv = new Interval(1950, 1952)
     val sel = testGraph.select(interv)
@@ -39,7 +39,7 @@ object GraphAlgorithmsTest {
 
   }
 
-  def sgSPtest(datapath: String, sc: SparkContext) {
+  def sgSPtest(datapath: String) {
     var testGraph = SnapshotGraph.loadData(datapath, 1954, 1956)
     val interv = new Interval(1954, 1956)
     val sel = testGraph.select(interv)
@@ -63,8 +63,8 @@ object GraphAlgorithmsTest {
     //    println("SP graphs3: " + sp.graphs(2).vertices.collect.mkString("\n"));
   }
 
-  def sgpCCtest(datapath: String, sc: SparkContext) {
-    var testGraph = SnapshotGraphParallel.loadData(datapath, sc)
+  def sgpCCtest(datapath: String) {
+    var testGraph = SnapshotGraphParallel.loadData(datapath, 1950, 1952)
     val interv = new Interval(1950, 1952)
     val sel = testGraph.select(interv)
 
@@ -90,7 +90,7 @@ object GraphAlgorithmsTest {
 
   }
 
-  def mgCCtest(datapath: String, sc: SparkContext) {
+  def mgCCtest(datapath: String) {
     var testGraph: MultiGraph[String, Int] = MultiGraph.loadData(datapath, 1954, 1956)
 
     //try partitioning
@@ -107,7 +107,7 @@ object GraphAlgorithmsTest {
 
   }
 
-  def mgSPtest(datapath: String, sc: SparkContext) {
+  def mgSPtest(datapath: String) {
     var testGraph: MultiGraph[String, Int] = MultiGraph.loadData(datapath, 1954, 1956)
     var landmarks = Seq(373150L, 1218768L, 1383559L, 1382958L)
 
@@ -141,7 +141,7 @@ object GraphAlgorithmsTest {
     //    mgCCtest(args(0), sc)
     //    sgpCCtest(args(0), sc)
     //    sgSPtest(args(0), sc)
-    mgSPtest(args(0), sc)
+    mgSPtest(args(0))
   }
 
 }
