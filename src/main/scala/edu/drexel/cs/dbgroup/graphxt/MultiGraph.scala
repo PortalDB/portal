@@ -324,7 +324,7 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](sp: Interval, mp: SortedMap[Interva
   }
   
   //run connected components on each interval
-  def connectedComponent(): MultiGraph[VertexId, ED] = {
+  def connectedComponents(): MultiGraph[VertexId, ED] = {
       new MultiGraph[VertexId, ED](span, intervals, ConnectedComponentsXT.runCombined(graphs, intervals.size))
   }
   

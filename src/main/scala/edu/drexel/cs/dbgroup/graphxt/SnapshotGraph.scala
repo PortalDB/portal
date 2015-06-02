@@ -327,7 +327,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](sp: Interval, intvs: SortedMap[I
     new SnapshotGraph(span, intvs, gps)
   }
   
-  def connectedComponent(numIter: Int = Int.MaxValue): SnapshotGraph[Long, ED] = {
+  def connectedComponents(): SnapshotGraph[VertexId, ED] = {
     var intvs: SortedMap[Interval, Int] = TreeMap[Interval, Int]()
     var gps: Seq[Graph[Long, ED]] = Seq[Graph[Long, ED]]()
     val iter: Iterator[(Interval, Int)] = intervals.iterator

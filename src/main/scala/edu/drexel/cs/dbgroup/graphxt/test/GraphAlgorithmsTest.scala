@@ -27,7 +27,7 @@ object GraphAlgorithmsTest {
     println("Selected edges count: " + sel.graphs.filterNot(_.edges.isEmpty).map(_.numEdges).reduce(_ + _))
 
     //run connected components on the selected vertices
-    val cc = sel.connectedComponent()
+    val cc = sel.connectedComponents()
     println("connected components are: ")
     println("CC graphs.size: " + cc.graphs.size)
     //    println("CC graphs1: " + cc.graphs(0).vertices.collect.mkString("\n"));
@@ -78,7 +78,7 @@ object GraphAlgorithmsTest {
     println("Selected edges count: " + sel.graphs.filterNot(_.edges.isEmpty).map(_.numEdges).reduce(_ + _))
 
     //run connected components on the selected vertices
-    val cc = sel.connectedComponent()
+    val cc = sel.connectedComponents()
     println("connected components are: ")
     println("CC graphs.size: " + cc.graphs.size)
     println("CC graphs1: " + cc.graphs(0).vertices.collect.mkString("\n"));
@@ -100,7 +100,7 @@ object GraphAlgorithmsTest {
     val sel = testGraph.select(Interval(1954, 1956))
     println("total number of results after selection: " + sel.size)
 
-    val cc = sel.connectedComponent()
+    val cc = sel.connectedComponents()
     println("connected components are: ")
     println("Selected vertices count: " + cc.graphs.vertices.count)
     println(cc.graphs.vertices.collect.mkString("\n"))

@@ -15,8 +15,8 @@ object Driver {
   def main(args: Array[String]) = {
 
     //note: this does not remove ALL logging  
-    //Logger.getLogger("org").setLevel(Level.OFF)
-    //Logger.getLogger("akka").setLevel(Level.OFF)
+    Logger.getLogger("org").setLevel(Level.OFF)
+    Logger.getLogger("akka").setLevel(Level.OFF)
 
     var graphType: String = "SG"
     var strategy: String = ""

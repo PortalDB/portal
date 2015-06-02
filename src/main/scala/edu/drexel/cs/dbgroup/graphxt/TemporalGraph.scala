@@ -140,4 +140,22 @@ abstract class TemporalGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     */
   def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): TemporalGraph[Double,Double]
 
+  /**
+   * Run connected components algorithm on a temporal graph
+   * return a graph with the vertex value containing the lowest vertex
+   * id in the connected component containing that vertex.
+   *
+   * @return a new Temporal Graph in which each vertex attribute is a list of
+   * the smallest vertex in each connected component for Intervals in which the vertex appears
+   */
+  def connectedComponents(): TemporalGraph[VertexId, ED]
+  
+  /**
+   * Computes shortest paths to the given set of landmark vertices.
+   * @param landmarks the list of landmark vertex ids to which shortest paths will be computed 
+   *
+   * @return a new Temporal Graph where each vertex attribute is the shortest-path distance to
+   * each reachable landmark vertex.
+   */
+  def shortestPaths(landmarks: Seq[VertexId]): TemporalGraph[ShortestPathsXT.SPMap, ED]
 }
