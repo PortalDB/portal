@@ -341,39 +341,21 @@ object SnapshotGraphParallel extends Serializable {
     var intvs: SortedMap[Interval, Int] = TreeMap[Interval, Int]()
     var gps: ParSeq[Graph[String, Int]] = ParSeq[Graph[String, Int]]()
 
-//    val nodesPath = dataPath + "/nodes/nodes{" + NumberRangeRegex.generateRegex(minYear, maxYear) + "}.txt"
-//    val edgesPath = dataPath + "/edges/edges{" + NumberRangeRegex.generateRegex(minYear, maxYear) + "}.txt"
-//    val numNodeParts = MultifileLoad.estimateParts(nodesPath) //min num of partitions to read nodes files with
-//    val numEdgeParts = MultifileLoad.estimateParts(edgesPath) //min num of partitions to read edges files with
-//
-//    println("numNodeParts: " + numNodeParts)
-//    println("numEdgeParts: " + numEdgeParts)
-    var totalA:Long = 0L
-    var totalB:Long = 0L;
-
     for (years <- minYear to maxYear) {
       var nodesPath = dataPath + "/nodes/nodes" + years + ".txt"
       var edgesPath = dataPath + "/edges/edges" + years + ".txt"
       var numNodeParts = MultifileLoad.estimateParts(nodesPath) 
       var numEdgeParts = MultifileLoad.estimateParts(edgesPath) 
       
-      println("numNodeParts: " + numNodeParts)
-      println("numEdgeParts: " + numEdgeParts)
-      
-      var startAsMili = System.currentTimeMillis()
       val users: RDD[(VertexId, String)] = ProgramContext.sc.textFile(dataPath + "/nodes/nodes" + years + ".txt", numNodeParts).map(line => line.split(",")).map { parts =>
         if (parts.size > 1 && parts.head != "")
           (parts.head.toLong, parts(1).toString)
         else
           (0L, "Default")
       }
-      var endAsMili = System.currentTimeMillis()
-      val runTimeA = endAsMili - startAsMili
-      totalA = totalA + runTimeA
       
       var edges: RDD[Edge[Int]] = ProgramContext.sc.emptyRDD
 
-      startAsMili = System.currentTimeMillis()
       val ept: Path = new Path(dataPath + "/edges/edges" + years + ".txt")
       if (fs.exists(ept) && fs.getFileStatus(ept).getLen > 0) {
         //uses extended version of Graph Loader to load edges with attributes
@@ -382,21 +364,12 @@ object SnapshotGraphParallel extends Serializable {
       } else {
         edges = ProgramContext.sc.emptyRDD
       }
-      endAsMili = System.currentTimeMillis()
-      val runTimeB = endAsMili - startAsMili
-      totalB = totalB + runTimeB
       
-      println("Time to read nodes for " + years + ": " + runTimeA)
-      println("Time to read edges for " + years + ": " + runTimeB)
-
       val graph: Graph[String, Int] = Graph(users, EdgeRDD.fromEdges(edges))
 
       intvs += (Interval(years, years) -> (years - minYear))
       gps = gps :+ graph
     }
-    
-    println("Total node reading time: " + totalA + " AVG: " + totalA/80)
-    println("Total edge reading time: " + totalB + " AVG: " + totalB/80)
     
     new SnapshotGraphParallel(span, intvs, gps)
   }
