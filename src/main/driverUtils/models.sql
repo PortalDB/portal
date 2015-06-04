@@ -45,6 +45,7 @@ create table execution (
     started datetime not null,
     iterationNum int not null,
     build_num int not null,
+    dataset varchar(32) not null,
     foreign key (query_id) references query (query_id),
     foreign key (build_num) references build (build_num)
 );

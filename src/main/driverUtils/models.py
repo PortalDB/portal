@@ -57,6 +57,7 @@ class Execution(BaseModel):
     started = DateTimeField(default=datetime.datetime.now())
     iterationNum = IntegerField()
     build_num = ForeignKeyField(Build, to_field="build_num", db_column="build_num")
+    dataset = CharField()
 
     class Meta:
         db_table = 'execution'

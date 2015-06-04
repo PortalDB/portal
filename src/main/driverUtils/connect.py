@@ -114,7 +114,7 @@ class DBConnection():
         
         return None
 
-    def persist_exec(self, time_dict, qRef, gType, sType, cConf, rTime, itrN, bRef):
+    def persist_exec(self, time_dict, qRef, gType, sType, cConf, rTime, itrN, bRef, dSet):
         try:
             for seqN, time in time_dict.iteritems():
                 exe = models.Execution(
@@ -126,7 +126,8 @@ class DBConnection():
                                 runTime = rTime,
                                 started = datetime.datetime.now(),
                                 iterationNum = itrN,
-                                build_num = bRef)
+                                build_num = bRef,
+                                dataset = dSet)
                 exe.save()
                 return exe
 

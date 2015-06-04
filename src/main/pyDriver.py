@@ -221,6 +221,7 @@ def run(configFile):
     itr = int(parser['configs']['iterations'])
     gType = parser['configs']['type']
     data = parser['configs']['data']
+    dataset = parser['configs']['dataset']
     strats.extend(parser['configs']['strategy'].split(","))
     numParts.extend(parser['configs']['numParts'].split(","))
 
@@ -311,7 +312,7 @@ def run(configFile):
                     querySaved = True        
  
                 bRef = dbconnect.persist_buildRef(buildN, gitRev.strip("\n"))
-                eRef = dbconnect.persist_exec(time_dict, qRef, gType, sType, cConf, rTime, i, bRef)
+                eRef = dbconnect.persist_exec(time_dict, qRef, gType, sType, cConf, rTime, i, bRef, dataset)
                 dbconnect.persist_time_op(eRef, qRef, id_dict, time_dict) 
                 print "[STATUS]: finished running iteration", i, "of current query..\n" 
     print "***  Done with executions." 
