@@ -5,6 +5,7 @@ import re;
 import traceback;
 import models, connect;
 import subprocess;
+import configparser;
 from peewee import *;
 from subprocess import Popen, PIPE;
 
@@ -205,115 +206,115 @@ def run(configFile):
     global strats;
     global numParts;
 
-    with open(configFile, 'r') as cf:
-    
-        #read first 10 lines of configurations (must strip of new line character and append space character) 
-        mainc = cf.readline().split(" ")[1].strip("\n") + " ";
-        env = cf.readline().split(" ")[1].strip("\n");
-        
-        #load environment configurations
-        mline = cf.readline().split(" ")
-        mesosConf = " ".join(mline[1:-1]) + " " + mline[-1].strip("\n") + " ";
-        lline = cf.readline().split(" ")
-        localConf = " ".join(lline[1:-1]) + " " + lline[-1].strip("\n") + " ";        
-        eline = cf.readline().split(" ")
-        ec2Conf = " ".join(lline[1:-1]) + " " + lline[-1].strip("\n") + " ";    
+    parser = configparser.ConfigParser()
+    parser.read(configFile)
 
-        cConf = cf.readline().split(" ")[1].strip("\n") + " ";
-        buildN = int(cf.readline().split(" ")[1]);
-        sType = int(cf.readline().split(" ")[1]);
-        itr = int(cf.readline().split(" ")[1]);
-        gType = cf.readline().split(" ")[1].strip("\n");
-        data = cf.readline().split(" ")[1].strip("\n") + " ";        
-        strats.extend((cf.readline().split(" ")[1].strip("\n")).split(","));
-        numParts.extend((cf.readline().split(" ")[1].strip("\n")).split(","));       
+    #load configurations from file
+    mainc = parser['configs']['main']
+    env = parser['configs']['env']
+    mesosConf = parser['configs']['mesosConfig']
+    localConf = parser['configs']['localConfig']
+    ec2Conf = parser['configs']['ec2Config']
+    cConf = parser['configs']['clusterConfig']
+    buildN = int(parser['configs']['buildNum'])
+    sType = int(parser['configs']['warm'])
+    itr = int(parser['configs']['iterations'])
+    gType = parser['configs']['type']
+    data = parser['configs']['data']
+    strats.extend(parser['configs']['strategy'].split(","))
+    numParts.extend(parser['configs']['numParts'].split(","))
+
+    #read queries
+    c = parser['test_queries']['Queries'].split("\n")
+    que = filter(None, c) #queries read from config file
+
+    gtypeParam = " --type "
+    dataParam = "--data "
+    sparkSubmit = "$SPARK_HOME/bin/spark-submit --class "
+    warm = ""
+    envConf = localConf #set to local environment by default
+
+    if env == "ec2":
+        envConf = ec2Conf
+    elif env == 'mesos':
+        envConf = mesosConf    
  
-        gtypeParam = "--type "
-        dataParam = "--data "
-        sparkSubmit = "$SPARK_HOME/bin/spark-submit --class "
-        warm = ""
-        envConf = localConf #set to local environment by default
-
-        if env == "ec2":
-            envConf = ec2Conf
-        elif env == 'mesos':
-            envConf = mesosConf            
- 
-        #run with warm start
-        if sType == 1:
-            warm = " --warmstart"       
-        
-        #get git revision number and save build information
-        p1 = Popen('cat ../../.git/refs/heads/master', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-        gitRev = p1.communicate()[0];
-
-        #read queries from file 
-        for ln in cf:
-            #error checking for extra line at the end of file
-            if not ln:
-                continue;
-
-            line = ln.split(" ");
-            qname = line[0]
-            query = " ".join(line[1:-1]) + " " + line[-1].strip("\n") + " "
-            queries = genRepetitions(query)
-            
-            #get cluster information when running on mesos cluster    
-            if env == "mesos":
-                #get cluster config
-                p2 = Popen('curl http://master:5050/slaves', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-                out = p2.communicate()[0];
-                slaves = out.count("\"active\":true")
-                cores = 2 #default num cores
-                ram = 8 #default ram
-                cConf = None
-
-                r = re.compile('"cpus":(.*?),').search(out)
-                if r:
-                    cores = int(r.group(1))
+    #run with warm start
+    if sType == 1:
+        warm = " --warmstart"    
                 
-                #set cluster config
-                #FIXME: find ram of slaves
-                cConf = str(slaves) + "s_" + str(cores) + "c_" + str(ram) + "g"  
+    #get git revision number and save build information
+    p1 = Popen('cat ../../.git/refs/heads/master', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    gitRev = p1.communicate()[0];
 
-            for q in queries: 
-                classArg = q + dataParam + data + gtypeParam + gType + warm
-                querySaved = False;
-                qRef = None;
-                op_dict = id_dict = {}
-                sparkCommand = sparkSubmit + mainc + envConf + classArg + " | tee -a log.out"           
+    #read queries from file 
+    for ln in que:
+        line = ln.split(" ");
+        qname = line[0]
+        query = " ".join(line[1:-1]) + " " + line[-1].strip("\n") + " "
+        queries = genRepetitions(query)
+            
+        #get cluster information when running on mesos cluster    
+        if env == "mesos":
+            #run sbt assembly
+            Popen('sbt assembly', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+            #get cluster config
+            p2 = Popen('curl http://master:5050/slaves', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+            out = p2.communicate()[0];
+            slaves = out.count("\"active\":true")
+            cores = 2 #default num cores
+            ram = 8 #default ram
+            cConf = None
+
+            r = re.compile('"cpus":(.*?),').search(out)
+            if r:
+                cores = int(r.group(1))
+                
+            #set cluster config
+            #FIXME: find ram of slaves
+            cConf = str(slaves) + "s_" + str(cores) + "c_" + str(ram) + "g"  
+                
+        for q in queries: 
+            classArg = q + dataParam + data + gtypeParam + gType + warm
+            querySaved = False;
+            qRef = None;
+            op_dict = id_dict = {}
+            sparkCommand = sparkSubmit + mainc + " " + envConf + " " + classArg + " | tee -a log.out"           
+
  
-                print "sparkCommand:", sparkCommand
-                print "STATUS: running the spark-submit command against dataset and collect results..."
-                for i in range (1, itr+1):
-                    p3 = Popen(sparkCommand, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True);
-                    pres = p3.communicate()
-                    output = pres[0]
-                    time_dict = collect_time(output);
-                    rTime = None
-                    print output                
+            print "sparkCommand:", sparkCommand
+            print "cluster Config:", cConf
+            print "[STATUS]: running the spark-submit command against dataset and collect results..."
+            
+            for i in range (1, itr+1):
+                p3 = Popen(sparkCommand, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True);
+                pres = p3.communicate()
+                output = pres[0]
+                time_dict = collect_time(output);
+                rTime = None
+                print output                
 
-                    try:
-                        rTime = time_dict[0] #get total runtime
-                    except KeyError:
-                        print "ERROR: Query run did not return a final runtime. See result below:"
-                        print pres[1]
-                        print traceback.format_exc()
-                        sys.exit(1)
+                try:
+                    rTime = time_dict[0] #get total runtime
+                except KeyError:
+                    print "ERROR: Query run did not return a final runtime. See result below:"
+                    print pres[1]
+                    print traceback.format_exc()
+                    sys.exit(1)
 
-                    #only run this once for each query
-                    if querySaved == False:
-                        qRef = dbconnect.persist_query() #persist to Query table
-                        op_dict = collect_args(q);
-                        id_dict = dbconnect.persist_ops(op_dict) #persist to Operation table
-                        dbconnect.persist_query_ops(qRef, id_dict) #persist tp Query_Op_Map table            
-                        querySaved = True        
+                #only run this once for each query
+                if querySaved == False:
+                    qRef = dbconnect.persist_query() #persist to Query table
+                    op_dict = collect_args(q);
+                    id_dict = dbconnect.persist_ops(op_dict) #persist to Operation table
+                    dbconnect.persist_query_ops(qRef, id_dict) #persist tp Query_Op_Map table            
+                    querySaved = True        
  
-                    bRef = dbconnect.persist_buildRef(buildN, gitRev.strip("\n"))
-                    eRef = dbconnect.persist_exec(time_dict, qRef, gType, sType, cConf, rTime, i, bRef)
-                    dbconnect.persist_time_op(eRef, qRef, id_dict, time_dict) 
-                    print "STATUS: finished running iteration", i, "of current query.." 
-        print "***  Done with executions." 
+                bRef = dbconnect.persist_buildRef(buildN, gitRev.strip("\n"))
+                eRef = dbconnect.persist_exec(time_dict, qRef, gType, sType, cConf, rTime, i, bRef)
+                dbconnect.persist_time_op(eRef, qRef, id_dict, time_dict) 
+                print "[STATUS]: finished running iteration", i, "of current query..\n" 
+    print "***  Done with executions." 
 
 if __name__ == "__main__":
     database = models.BaseModel._meta.database
