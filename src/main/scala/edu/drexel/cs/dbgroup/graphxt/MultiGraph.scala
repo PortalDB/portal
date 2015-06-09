@@ -396,14 +396,13 @@ object MultiGraph {
           else
             Edge(srcId, dstId, (attr, tmp - minYear))
         } else {
-          println("!!!!!!!! returning null")
-          null
+          Edge(0L, 0L, (0, -1))
         }
       }
     }
     
-    val graph: Graph[Map[Int, String], (Int, Int)] = Graph(users,
-      EdgeRDD.fromEdges[(Int, Int), Map[Int, String]](edges), Map[Int,String]())
+    val graph: Graph[Map[Int, String], (Int, Int)] = Graph(users.filter(x => x._1 != 0L),
+      EdgeRDD.fromEdges[(Int, Int), Map[Int, String]](edges.filter(e => e.srcId != 0L)), Map[Int,String]())
     //graph.cache()
 /*
     val subg = graph.subgraph(
