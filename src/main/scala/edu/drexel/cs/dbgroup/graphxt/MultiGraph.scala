@@ -364,26 +364,18 @@ object MultiGraph {
     var users: RDD[(VertexId,Map[Int,String])] = MultifileLoad.readNodes(dataPath, minYear, maxYear).flatMap{ x => 
       val yr = x._1.split('/').last.dropWhile(!_.isDigit).takeWhile(_.isDigit).toInt
       x._2.split("\n").map(line => line.split(","))
-        .map { parts =>
+        .flatMap { parts =>
         if (parts.size > 1 && parts.head != "") {
-          (parts.head.toLong, Map((yr - minYear) -> parts(1).toString))
-        } else {
-          (0L, Map[Int,String](-1 -> parts.mkString(",")))
-        }
+          Some((parts.head.toLong, Map((yr - minYear) -> parts(1).toString)))
+        } else None
       }
     }
-
-/*
-    val problems = users.lookup(0L)
-    println("!!The following vertices have issues: " + problems.mkString("\n"))
-    users = users.aggregateByKey(Map[Int,String]())((k,v) => k ++ v, (v,k) => v ++ k)
- */
 
     val span = Interval(minYear, maxYear)
 
     val edges: RDD[Edge[(Int, Int)]] = MultifileLoad.readEdges(dataPath, minYear, maxYear).flatMap{ x =>
       val tmp = x._1.split('/').last.dropWhile(!_.isDigit).takeWhile(_.isDigit).toInt
-      x._2.split("\n").map{ line =>
+      x._2.split("\n").flatMap{ line =>
         if (!line.isEmpty && line(0) != '#') {
           val lineArray = line.split("\\s+")
           val srcId = lineArray(0).toLong
@@ -392,24 +384,16 @@ object MultiGraph {
           if (lineArray.length > 2)
             attr = lineArray(2).toInt
           if (srcId > dstId)
-            Edge(dstId, srcId, (attr, tmp - minYear))
+            Some(Edge(dstId, srcId, (attr, tmp - minYear)))
           else
-            Edge(srcId, dstId, (attr, tmp - minYear))
-        } else {
-          Edge(0L, 0L, (0, -1))
-        }
+            Some(Edge(srcId, dstId, (attr, tmp - minYear)))
+        } else None
       }
     }
     
-    val graph: Graph[Map[Int, String], (Int, Int)] = Graph(users.filter(x => x._1 != 0L),
-      EdgeRDD.fromEdges[(Int, Int), Map[Int, String]](edges.filter(e => e.srcId != 0L)), Map[Int,String]())
+    val graph: Graph[Map[Int, String], (Int, Int)] = Graph(users,
+      EdgeRDD.fromEdges[(Int, Int), Map[Int, String]](edges), Map[Int,String]())
     //graph.cache()
-/*
-    val subg = graph.subgraph(
-       vpred = (vid, attr) => (attr == null || attr.size == 0))
-    println("number of vertices with problem attributes: " + subg.vertices.count)
-    println(subg.vertices.collect.mkString("\n"))
-*/
 
     var intvs: SortedMap[Interval, Int] = TreeMap[Interval, Int]()
     var xx: Int = 0
