@@ -173,6 +173,8 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](sp: Interval, mp: SortedMap[Interva
   }
 
   def select(bound: Interval): MultiGraph[VD, ED] = {
+    if (span.min == bound.min && span.max == bound.max) return this
+
     if (span.intersects(bound)) {
       val minBound = if (bound.min > span.min) bound.min else span.min
       val maxBound = if (bound.max < span.max) bound.max else span.max
