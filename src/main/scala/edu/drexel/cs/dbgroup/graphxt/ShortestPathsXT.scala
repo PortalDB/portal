@@ -71,8 +71,8 @@ object ShortestPathsXT {
    * @return a graph where each vertex attribute is a map containing the shortest-path distance to
    * each reachable landmark vertex.
    */
-  def runCombined[VD, ED: ClassTag](graph: Graph[Map[Int, VD], (ED, Int)], landmarks: Seq[VertexId], numInts: Int): Graph[Map[Int, SPMap], (ED, Int)] = {
-    val spGraph: Graph[Map[Int, SPMap], (ED, Int)] = graph
+  def runCombined[VD, ED: ClassTag](graph: Graph[Map[TimeIndex, VD], (TimeIndex, ED)], landmarks: Seq[VertexId], numInts: Int): Graph[Map[TimeIndex, SPMap], (TimeIndex, ED)] = {
+    val spGraph: Graph[Map[TimeIndex, SPMap], (TimeIndex, ED)] = graph
       // Set the vertex attributes to vertex id for each interval
       .mapVertices { (vid, attr) =>
         attr.mapValues { x =>
@@ -80,15 +80,15 @@ object ShortestPathsXT {
         }
       }
 
-    val initialMessage: Map[Int, SPMap] = (for (i <- 0 to numInts) yield (i -> makeMap()))(breakOut)
+    val initialMessage: Map[TimeIndex, SPMap] = (for (i <- 0 to numInts) yield (i -> makeMap()))(breakOut)
 
-      def addMapsCombined(a: Map[Int, SPMap], b: Map[Int, SPMap]): Map[Int, SPMap] = {
+      def addMapsCombined(a: Map[TimeIndex, SPMap], b: Map[TimeIndex, SPMap]): Map[TimeIndex, SPMap] = {
         (a.keySet ++ b.keySet).map { k => 
           k -> addMaps(a.getOrElse(k, makeMap()), b.getOrElse(k, makeMap()))
           }.toMap
       }
 
-      def vertexProgram(id: VertexId, attr: Map[Int, SPMap], msg: Map[Int, SPMap]): Map[Int, SPMap] = {
+      def vertexProgram(id: VertexId, attr: Map[TimeIndex, SPMap], msg: Map[TimeIndex, SPMap]): Map[TimeIndex, SPMap] = {
         //need to compute new shortestPaths to landmark for each interval
         //each edge carries a message for one interval,
         //which are combined by the combiner into a hash
@@ -104,15 +104,14 @@ object ShortestPathsXT {
         vals
       }
 
-      def sendMessage(edge: EdgeTriplet[Map[Int, SPMap], (ED, Int)]): Iterator[(VertexId, Map[Int, SPMap])] = {
+      def sendMessage(edge: EdgeTriplet[Map[TimeIndex, SPMap], (TimeIndex, ED)]): Iterator[(VertexId, Map[TimeIndex, SPMap])] = {
         //each vertex attribute is supposed to be a map of int->spmap for each index
-        var yearIndex = edge.attr._2
+        var yearIndex = edge.attr._1
         var srcSpMap = edge.srcAttr(yearIndex)
         var dstSpMap = edge.dstAttr(yearIndex)
 
         val newAttr = incrementMap(dstSpMap)
         val newAttr2 = incrementMap(srcSpMap)
-        
         
         if (srcSpMap != addMaps(newAttr, srcSpMap))
           Iterator((edge.srcId, Map(yearIndex -> newAttr)))

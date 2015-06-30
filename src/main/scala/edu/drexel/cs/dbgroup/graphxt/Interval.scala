@@ -3,7 +3,7 @@ package edu.drexel.cs.dbgroup.graphxt
 import scala.math.Ordered.orderingToOrdered
 import scala.math.Ordering._
 
-class Interval(mn: Int, mx: Int) extends Ordered[Interval] with Serializable {
+class Interval(mn: TimeIndex, mx: TimeIndex) extends Ordered[Interval] with Serializable {
   var min = mn
   var max = mx
 
@@ -14,30 +14,13 @@ class Interval(mn: Int, mx: Int) extends Ordered[Interval] with Serializable {
       false
   }
 
-  def contains(num: Int):Boolean = {
+  def contains(num: TimeIndex):Boolean = {
     if (num >= min && num <= max)
       true
     else
       false
   }
 
-  //TODO: is this needed when we extend Ordered and define compare()
-  //returns true if this interval is smaller (i.e. starts earlier) than other other
-//  def <(other: Interval):Boolean = {
-//    if (min < other.min)
-//      true
-//    else
-//      false
-//  }
-//  
-//  //returns true if this interval is larger (i.e. starts later) than other other
-//  def >(other: Interval):Boolean = {
-//    if (max > other.max)
-//      true
-//    else
-//      false
-//  }
-  
   def compare(other: Interval): Int = {
     (this.min, this.max) compare (other.min, other.max)
   }
@@ -52,5 +35,5 @@ class Interval(mn: Int, mx: Int) extends Ordered[Interval] with Serializable {
 }
 
 object Interval {
-  def apply(mn: Int, mx: Int) = new Interval(mn,mx)
+  def apply(mn: TimeIndex, mx: TimeIndex) = new Interval(mn,mx)
 }

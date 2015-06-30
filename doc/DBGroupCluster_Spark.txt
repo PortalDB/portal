@@ -7,6 +7,7 @@ export SPARK_HOME=/localhost/spark/spark-1.3.1-bin-hadoop2.6/
 export export LIBPROCESS_IP=192.168.126.12
 export SPARK_LOCAL_IP=192.168.126.12
 export HADOOP_PREFIX=$HADOOP_HOME
+export HADOOP_CONF_DIR=${HADOOP_HOME}/etc/hadoop
 
 For temporaldata project, do just step 3, then skip to 6. For other projects, do all the steps.
 

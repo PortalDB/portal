@@ -3,6 +3,7 @@ package edu.drexel.cs.dbgroup.graphxt
 
 import scala.collection.immutable.SortedMap
 import scala.collection.immutable.TreeMap
+import scala.collection.mutable.Buffer
 import scala.reflect.ClassTag
 import scala.util.control._
 
@@ -11,8 +12,6 @@ import org.apache.hadoop.fs._
 
 import org.apache.spark.SparkContext
 import org.apache.spark.Partition
-
-//import org.apache.spark.graphx.lib.ShortestPaths
 
 import org.apache.spark.graphx._
 import org.apache.spark.graphx.Graph
@@ -24,18 +23,22 @@ import org.apache.spark.storage.RDDBlockId
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
 
-class SnapshotGraph[VD: ClassTag, ED: ClassTag](sp: Interval, intvs: SortedMap[Interval, Int], grs: Seq[Graph[VD, ED]]) extends TemporalGraph[VD, ED] {
-  var span = sp
-  var graphs: Seq[Graph[VD, ED]] = grs
-  var intervals: SortedMap[Interval, Int] = intvs
+class SnapshotGraph[VD: ClassTag, ED: ClassTag](sp: Interval, res: Int, intvs: SortedMap[Interval, TimeIndex], grs: Seq[Graph[VD, ED]]) extends TemporalGraph[VD, ED] {
+  val span = sp
+  val resolution = res
+  val graphs: Seq[Graph[VD, ED]] = grs
+  val intervals: SortedMap[Interval, TimeIndex] = intvs
+
+  /** Default constructor is provided to support serialization */
+  protected def this() = this(null, 0, null, null)
 
   def this(sp: Interval) = {
-    this(sp, TreeMap[Interval, Int](), Seq[Graph[VD, ED]]())
+    this(sp, 1, TreeMap[Interval, TimeIndex](), Seq[Graph[VD, ED]]())
   }
 
-  def size(): Int = { graphs.size }
+  override def size(): Int = { graphs.size }
 
-  def numEdges(): Long = {
+  override def numEdges(): Long = {
     val iter: Iterator[Graph[VD, ED]] = graphs.iterator
     var sum: Long = 0L
     while (iter.hasNext) {
@@ -47,7 +50,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](sp: Interval, intvs: SortedMap[I
     sum
   }
 
-  def numPartitions(): Int = {
+  override def numPartitions(): Int = {
     val iter: Iterator[Graph[VD, ED]] = graphs.iterator
     var allps: Array[Partition] = Array[Partition]()
     while (iter.hasNext) {
@@ -59,31 +62,33 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](sp: Interval, intvs: SortedMap[I
     allps.size
   }
 
-  def vertices: VertexRDD[VD] = {
-    val iter: Iterator[Graph[VD, ED]] = graphs.iterator
-    var result: RDD[(VertexId, VD)] = ProgramContext.sc.emptyRDD
-    while (iter.hasNext) {
-      val g = iter.next
-      if (!g.vertices.isEmpty)
-        result = result union g.vertices
-    }
-
-    VertexRDD(result) //FIXME: should call .distinct ??
+  override def vertices: VertexRDD[Map[TimeIndex, VD]] = {
+    VertexRDD(graphs.zipWithIndex.filterNot(x => x._1.vertices.isEmpty).map(x => x._1.vertices.mapValues(y => Map[TimeIndex, VD](x._2 -> y)))
+      .reduce((a, b) => VertexRDD(a union b))
+      .reduceByKey((a: Map[TimeIndex, VD], b: Map[TimeIndex, VD]) => a ++ b))
   }
 
-  def edges: EdgeRDD[ED] = {
-    val iter: Iterator[Graph[VD, ED]] = graphs.iterator
-    var result: RDD[Edge[ED]] = ProgramContext.sc.emptyRDD
-    while (iter.hasNext) {
-      val g = iter.next
-      if (!g.edges.isEmpty)
-        result = result union g.edges
-    }
-
-    EdgeRDD.fromEdges[ED, VD](result) //FIXME: should call .distinct ??
+  override def verticesFlat: VertexRDD[(TimeIndex, VD)] = {
+    VertexRDD(graphs.zipWithIndex.filterNot(x => x._1.vertices.isEmpty)
+      .map(x => x._1.vertices.mapValues(y => (x._2, y)))
+      .reduce((a, b) => VertexRDD(a union b)))
   }
 
-  def persist(newLevel: StorageLevel = MEMORY_ONLY): SnapshotGraph[VD, ED] = {
+  override def edges: EdgeRDD[Map[TimeIndex, ED]] = {
+    EdgeRDD.fromEdges[Map[TimeIndex, ED], VD](graphs.zipWithIndex.filterNot(x => x._1.edges.isEmpty).map(x => x._1.edges.mapValues(y => Map[TimeIndex, ED](x._2 -> y.attr)))
+      .reduce((a: RDD[Edge[Map[TimeIndex, ED]]], b: RDD[Edge[Map[TimeIndex, ED]]]) => a union b)
+      .map(x => ((x.srcId, x.dstId), x.attr))
+      .reduceByKey((a: Map[TimeIndex, ED], b: Map[TimeIndex, ED]) => a ++ b)
+      .map(x => Edge(x._1._1, x._1._2, x._2))
+    )
+  }
+
+  override def edgesFlat: EdgeRDD[(TimeIndex, ED)] = {
+    EdgeRDD.fromEdges[(TimeIndex, ED), VD](graphs.zipWithIndex.filterNot(x => x._1.edges.isEmpty).map(x => x._1.edges.mapValues(y => (x._2,y.attr)))
+      .reduce((a: RDD[Edge[(TimeIndex, ED)]], b: RDD[Edge[(TimeIndex, ED)]]) => a union b))
+  }
+
+  override def persist(newLevel: StorageLevel = MEMORY_ONLY): SnapshotGraph[VD, ED] = {
     //persist each graph
     val iter = graphs.iterator
     while (iter.hasNext)
@@ -91,7 +96,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](sp: Interval, intvs: SortedMap[I
     this
   }
 
-  def unpersist(blocking: Boolean = true): SnapshotGraph[VD, ED] = {
+  override def unpersist(blocking: Boolean = true): SnapshotGraph[VD, ED] = {
     val iter = graphs.iterator
     while (iter.hasNext)
       iter.next.unpersist(blocking)
@@ -145,10 +150,10 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](sp: Interval, intvs: SortedMap[I
       gps = (st ++ (snap +: en))
     }
 
-    new SnapshotGraph(span, intvs, gps)
+    new SnapshotGraph(span, resolution, intvs, gps)
   }
 
-  def getSnapshotByTime(time: Int): Graph[VD, ED] = {
+  override def getSnapshotByTime(time: TimeIndex): Graph[VD, ED] = {
     if (time >= span.min && time <= span.max) {
       //retrieve the position of the correct interval
       var position = -1
@@ -170,7 +175,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](sp: Interval, intvs: SortedMap[I
       null
   }
 
-  def getSnapshotByPosition(pos: Int): Graph[VD, ED] = {
+  override def getSnapshotByPosition(pos: TimeIndex): Graph[VD, ED] = {
     if (pos >= 0 && pos < graphs.size)
       graphs(pos)
     else
@@ -179,12 +184,12 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](sp: Interval, intvs: SortedMap[I
 
   //since SnapshotGraphs are involatile (except with add)
   //the result is a new snapshotgraph
-  def select(bound: Interval): SnapshotGraph[VD, ED] = {
+  override def select(bound: Interval): SnapshotGraph[VD, ED] = {
     if (span.intersects(bound)) {
       val minBound = if (bound.min > span.min) bound.min else span.min
       val maxBound = if (bound.max < span.max) bound.max else span.max
       val rng = Interval(minBound, maxBound)
-      var intvs: SortedMap[Interval, Int] = TreeMap[Interval, Int]()
+      var intvs: SortedMap[Interval, TimeIndex] = TreeMap[Interval, TimeIndex]()
       var gps: Seq[Graph[VD, ED]] = Seq[Graph[VD, ED]]()
 
       var numResults = 0
@@ -210,7 +215,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](sp: Interval, intvs: SortedMap[I
         }
       }
 
-      new SnapshotGraph(rng, intvs, gps)
+      new SnapshotGraph(rng, resolution, intvs, gps)
     } else
       null
   }
@@ -219,11 +224,11 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](sp: Interval, intvs: SortedMap[I
   //the resolution is in number of graphs to combine, regardless of the resolution of
   //the base data
   //there are no gaps in the output data, although some snapshots may have 0 vertices
-  def aggregate(resolution: Int, sem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): SnapshotGraph[VD, ED] = {
-    var intvs: SortedMap[Interval, Int] = TreeMap[Interval, Int]()
+  override def aggregate(resolution: Int, sem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): SnapshotGraph[VD, ED] = {
+    var intvs: SortedMap[Interval, TimeIndex] = TreeMap[Interval, TimeIndex]()
     var gps: Seq[Graph[VD, ED]] = Seq[Graph[VD, ED]]()
 
-    val iter: Iterator[(Interval, Int)] = intervals.iterator
+    val iter: Iterator[(Interval, TimeIndex)] = intervals.iterator
     var numResults: Int = 0
     var minBound, maxBound: Int = 0;
 
@@ -275,14 +280,14 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](sp: Interval, intvs: SortedMap[I
       }
     }
 
-    new SnapshotGraph(span, intvs, gps)
+    new SnapshotGraph(span, resolution * this.resolution, intvs, gps)
   }
 
-  def partitionBy(pst: PartitionStrategyType.Value, runs: Int): SnapshotGraph[VD, ED] = {
+  override def partitionBy(pst: PartitionStrategyType.Value, runs: Int): SnapshotGraph[VD, ED] = {
     partitionBy(pst, runs, graphs.head.edges.partitions.size)
   }
 
-  def partitionBy(pst: PartitionStrategyType.Value, runs: Int, parts: Int): SnapshotGraph[VD, ED] = {
+  override def partitionBy(pst: PartitionStrategyType.Value, runs: Int, parts: Int): SnapshotGraph[VD, ED] = {
     var numParts = if (parts > 0) parts else graphs.head.edges.partitions.size
 
     if (pst != PartitionStrategyType.None) {
@@ -299,6 +304,105 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](sp: Interval, intvs: SortedMap[I
       result
     } else
       this
+  }
+
+  override def degrees: VertexRDD[Map[TimeIndex, Int]] = {
+    VertexRDD(graphs.zipWithIndex.map(x => x._1.degrees.mapValues(deg => Map[TimeIndex, Int](x._2 -> deg)))
+      .reduce((x,y) => VertexRDD(x union y))
+      .reduceByKey((a: Map[TimeIndex, Int], b: Map[TimeIndex, Int]) => a ++ b))
+  }
+
+  override def union(other: TemporalGraph[VD, ED]): TemporalGraph[VD, ED] = {
+    var grp2: SnapshotGraph[VD, ED] = other match {
+      case grph: SnapshotGraph[VD, ED] => grph
+      case _ => throw new ClassCastException
+    }
+    if (resolution != grp2.resolution) {
+      println("The resolutions of the two graphs are not the same, ignoring")
+      return this
+    }
+
+    //compute the span
+    val minBound = if (span.min > grp2.span.min) grp2.span.min else span.min
+    val maxBound = if (span.max < grp2.span.max) grp2.span.max else span.max
+
+    //compute the new intervals
+    //because we use 0-indexed intervals, we cannot just take a union of two intervals
+    //we need to reindex first
+
+    //create intervals for missing graphs
+    def makeFullIndex(intvs: SortedMap[Interval, TimeIndex], sp: Interval, res: Int): SortedMap[Interval, Boolean] = {
+      var xx = 0
+      var result: SortedMap[Interval, Boolean] = TreeMap[Interval, Boolean]()
+      val inverted = intvs.map(_.swap)
+      var maxx: TimeIndex = inverted.max._1
+      //need to find the last index even if some graphs at the end of the span are missing
+      if (inverted.max._2.max < sp.max) maxx += (sp.max - inverted.max._2.max)/res
+      var btm = sp.min
+      for (xx <- 0 to maxx) {
+        if (inverted.contains(xx)) {
+          result += (inverted(xx) -> true)
+          btm = inverted(xx).max + 1
+        } else {
+          result += (Interval(btm, btm+res-1) -> false)
+          btm = btm + res
+        }
+      }
+      result
+    }
+
+    //merge intervals, both missing and present, from both graphs
+    //filter out the falses, then map back into map of intervals to indices
+    val mergedIntervals: SortedMap[Interval, TimeIndex] = (makeFullIndex(intervals, span, resolution) ++ makeFullIndex(grp2.intervals, grp2.span, grp2.resolution)).zipWithIndex.filter(x => x._1._2 == true).map(x => (x._1._1,x._2))
+
+    //now the graphs themselves, which are arranged in a sequence
+    //look up the new index of the earliest graph
+    def makeNewIndexGraph(grh: SnapshotGraph[VD, ED]): Seq[(Graph[VD, ED], Int)] = {
+      val newmin = mergedIntervals(grh.intervals.head._1)
+      grh.graphs.zipWithIndex.map(x => (x._1, x._2 + newmin))
+    }
+
+    val graphBuf: Buffer[Graph[VD, ED]] = Buffer[Graph[VD, ED]]()
+    makeNewIndexGraph(this).foreach(x => graphBuf(x._2) = x._1)
+    //FIXME: what if there is a graph for the same index?
+    makeNewIndexGraph(grp2).foreach(x => graphBuf(x._2) = x._1)
+
+    new SnapshotGraph(Interval(minBound, maxBound), resolution, mergedIntervals, graphBuf.toSeq)
+  }
+
+  override def outerJoinVertices[U: ClassTag, VD2: ClassTag](other: RDD[(VertexId, Map[TimeIndex, U])])(mapFunc: (VertexId, TimeIndex, VD, Option[U]) => VD2)(implicit eq: VD =:= VD2 = null): TemporalGraph[VD2, ED] = {
+    val newseq: Seq[Graph[VD2, ED]] = graphs.zipWithIndex.map(x => 
+      x._1.outerJoinVertices(other){ (id: VertexId, attr1: VD, attr2: Option[Map[TimeIndex, U]]) =>
+        //this function receives a (id, attr, Map)
+        //need to instead call mapFunc with (id, index, attr, otherattr)
+        if (attr2.isEmpty)
+          mapFunc(id, x._2, attr1, None)
+        else
+          mapFunc(id, x._2, attr1, attr2.get.get(x._2)) })
+    new SnapshotGraph(span, resolution, intervals, newseq)
+  }
+
+  override def mapVertices[VD2: ClassTag](map: (VertexId, TimeIndex, VD) => VD2)(implicit eq: VD =:= VD2 = null): TemporalGraph[VD2, ED] = {
+    val newseq: Seq[Graph[VD2, ED]] = graphs.zipWithIndex.map(x =>
+      x._1.mapVertices{ (id: VertexId, attr: VD) => map(id, x._2, attr) })
+    new SnapshotGraph(span, resolution, intervals, newseq)
+  }
+
+  override def mapEdges[ED2: ClassTag](map: (Edge[ED], TimeIndex) => ED2): TemporalGraph[VD, ED2] = {
+    val newseq: Seq[Graph[VD, ED2]] = graphs.zipWithIndex.map(x =>
+      x._1.mapEdges{ e: Edge[ED] => map(e, x._2)})
+    new SnapshotGraph(span, resolution, intervals, newseq)
+  }
+
+  override def pregel[A: ClassTag]
+     (initialMsg: A, defValue: A, maxIterations: Int = Int.MaxValue,
+       activeDirection: EdgeDirection = EdgeDirection.Either)
+     (vprog: (VertexId, VD, A) => VD,
+       sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
+       mergeMsg: (A, A) => A): TemporalGraph[VD, ED] = {
+    val newseq: Seq[Graph[VD, ED]] = graphs.map(x => Pregel(x, initialMsg,
+      maxIterations, activeDirection)(vprog, sendMsg, mergeMsg))
+    new SnapshotGraph(span, resolution, intervals, newseq)
   }
 
   //run PageRank on each contained snapshot
@@ -324,7 +428,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](sp: Interval, intvs: SortedMap[I
       }
     }
 
-    new SnapshotGraph(span, intvs, gps)
+    new SnapshotGraph(span, resolution, intvs, gps)
   }
   
   def connectedComponents(): SnapshotGraph[VertexId, ED] = {
@@ -346,7 +450,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](sp: Interval, intvs: SortedMap[I
       }
     }
     
-    new SnapshotGraph(span, intvs, gps)
+    new SnapshotGraph(span, resolution, intvs, gps)
   }
 
   def shortestPaths(landmarks: Seq[VertexId]): SnapshotGraph[ShortestPathsXT.SPMap, ED] = {
@@ -369,7 +473,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](sp: Interval, intvs: SortedMap[I
       }
     }
     
-    new SnapshotGraph(span, intvs, gps)
+    new SnapshotGraph(span, resolution, intvs, gps)
   }
 }
 
@@ -426,6 +530,6 @@ object SnapshotGraph {
       gps = gps :+ graph
     }
 
-    new SnapshotGraph(span, intvs, gps)
+    new SnapshotGraph(span, 1, intvs, gps)
   }
 }

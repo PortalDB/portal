@@ -78,6 +78,7 @@ object Driver {
       }
     }
     var result: TemporalGraph[String, Int] = loadData(data, sc, graphType, from, to)
+    result.persist()
     var result2: TemporalGraph[Double, Double] = null
     var argNum = 1 //to keep track of the order of arguments passed
 
@@ -220,18 +221,19 @@ object Driver {
         }
 
         var gsStart = System.currentTimeMillis()
+        //FIXME! Use the correct type of graph here
         if (changedType) {
           if (partGS) {
             result2 = result2.partitionBy(partitionType, runWidth, numParts)
           }
           val gps = Seq(result2.getSnapshotByTime(args(i + 1).toInt))
-          result2 = new SnapshotGraph(rng, intvs, gps)
+          result2 = new SnapshotGraph(rng, result2.resolution, intvs, gps)
         } else {
           if (partGS) {
             result = result.partitionBy(partitionType, runWidth, numParts)
           }
           val gps = Seq(result.getSnapshotByTime(args(i + 1).toInt))
-          result = new SnapshotGraph(rng, intvs, gps)
+          result = new SnapshotGraph(rng, result.resolution, intvs, gps)
         }
 
         var gsEnd = System.currentTimeMillis()
