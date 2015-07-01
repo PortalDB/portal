@@ -4,6 +4,8 @@ package edu.drexel.cs.dbgroup.graphxt.util
 import org.apache.spark.rdd.RDD
 import org.apache.hadoop.fs._
 import org.apache.hadoop.conf._
+import org.apache.hadoop.mapreduce.{Job => NewHadoopJob}
+import org.apache.hadoop.mapreduce.lib.input.{FileInputFormat => NewFileInputFormat}
 import edu.drexel.cs.dbgroup.graphxt.ProgramContext
 import edu.drexel.cs.dbgroup.graphxt._
 
@@ -20,7 +22,21 @@ object MultifileLoad {
     val edgesPath = path + "/edges/edges{" + NumberRangeRegex.generateRegex(min, max) + "}.txt"
     val numParts = estimateParts(edgesPath)
     println("loading with " + numParts + " partitions")
-    ProgramContext.sc.wholeTextFiles(edgesPath, numParts)
+    //ProgramContext.sc.wholeTextFiles(edgesPath, numParts)
+    readTextFiles(edgesPath, numParts)
+  }
+
+  private def readTextFiles(path: String, minPartitions: Int): RDD[(String, String)] = {
+    val job = NewHadoopJob.getInstance(ProgramContext.sc.hadoopConfiguration)
+    NewFileInputFormat.addInputPath(job, new Path(path))
+    val updateConf = job.getConfiguration
+    new CFTextFileRDD(
+      ProgramContext.sc,
+      classOf[CFInputFormat],
+      classOf[String],
+      classOf[String],
+      updateConf,
+      minPartitions).setName(path)
   }
 
   def estimateParts(path: String): Int = {

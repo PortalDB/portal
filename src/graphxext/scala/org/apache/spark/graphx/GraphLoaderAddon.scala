@@ -53,21 +53,18 @@ object GraphLoaderAddon {
 
   //multiple files in parallel
   def edgeListFiles(
-      files: RDD[(String, String)],
+      lines: RDD[(String, String)],
       minYear: Int,
       canonicalOrientation: Boolean = false,
       edgeStorageLevel: StorageLevel = StorageLevel.MEMORY_ONLY,
       vertexStorageLevel: StorageLevel = StorageLevel.MEMORY_ONLY)
     : Graph[Int, (Int, Int)] =
   {
-    val lines = files.flatMap{ x =>
-      val tmp = x._1.split('/').last.dropWhile(!_.isDigit).takeWhile(_.isDigit).toInt
-      x._2.split("\n").map(line => (tmp, line))
-    }
     val edges = lines.mapPartitionsWithIndex { (pid, iter) =>
       val builder = new EdgePartitionBuilder[(Int, Int), Int]
       iter.foreach { x =>
-        val (year, line) = x
+        val (filename, line) = x
+        val year = filename.split('/').last.dropWhile(!_.isDigit).takeWhile(_.isDigit).toInt
         if (!line.isEmpty && line(0) != '#') {
           val lineArray = line.split("\\s+")
           val srcId = lineArray(0).toLong
