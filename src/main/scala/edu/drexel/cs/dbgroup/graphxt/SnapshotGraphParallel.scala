@@ -30,8 +30,8 @@ import edu.drexel.cs.dbgroup.graphxt.util.MultifileLoad
 class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](sp: Interval, res: Int, invs: SortedMap[Interval, TimeIndex], gps: ParSeq[Graph[VD, ED]]) extends TemporalGraph[VD, ED] with Serializable {
   val span = sp
   val resolution = res
-  val graphs: ParSeq[Graph[VD, ED]] = gps //ParSeq[Graph[VD,ED]]()
-  val intervals: SortedMap[Interval, TimeIndex] = invs //TreeMap[Interval,Int]()
+  val graphs: ParSeq[Graph[VD, ED]] = gps
+  val intervals: SortedMap[Interval, TimeIndex] = invs
 
   /** Default constructor is provided to support serialization */
   protected def this() = this(null, 0, null, null)
@@ -171,6 +171,8 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](sp: Interval, res: Int, 
   //since SnapshotGraphParallels are involatile (except with add)
   //the result is a new SnapshotGraphParallel
   override def select(bound: Interval): SnapshotGraphParallel[VD, ED] = {
+    if (span.min == bound.min && span.max == bound.max) return this
+
     if (!span.intersects(bound)) {
       return null
     }

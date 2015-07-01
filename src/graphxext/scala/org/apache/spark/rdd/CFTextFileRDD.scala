@@ -1,23 +1,12 @@
-package edu.drexel.cs.dbgroup.graphxt.util
+package org.apache.spark.rdd
 
 import org.apache.spark.SparkContext
 import org.apache.spark.SerializableWritable
-import org.apache.spark.rdd.NewHadoopRDD
 import org.apache.spark.Partition
 import org.apache.hadoop.io.Writable
 import org.apache.hadoop.mapreduce.InputSplit
-import org.apache.hadoop.conf.Configuration
-
-private[graphxt] class NewHadoopPartition(
-    rddId: Int,
-    val index: Int,
-    @transient rawSplit: InputSplit with Writable)
-  extends Partition {
-
-  val serializableHadoopSplit = new SerializableWritable(rawSplit)
-
-  override def hashCode(): Int = 41 * (41 + rddId) + index
-}
+import org.apache.hadoop.conf.{Configuration, Configurable}
+import org.apache.spark.input.CFInputFormat
 
 class CFTextFileRDD(
     sc : SparkContext,

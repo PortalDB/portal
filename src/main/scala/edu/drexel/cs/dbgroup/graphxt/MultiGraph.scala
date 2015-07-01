@@ -512,42 +512,19 @@ object MultiGraph {
     source.close()
 
     var users: RDD[(VertexId,Map[Int,String])] = MultifileLoad.readNodes(dataPath, minYear, maxYear).flatMap{ x => 
-      val yr = x._1.split('/').last.dropWhile(!_.isDigit).takeWhile(_.isDigit).toInt
-      x._2.split("\n").map(line => line.split(","))
-        .flatMap { parts =>
-        if (parts.size > 1 && parts.head != "") {
-          Some((parts.head.toLong, Map((yr - minYear) -> parts(1).toString)))
-        } else None
-      }
+      val (filename, line) = x
+      val yr = filename.split('/').last.dropWhile(!_.isDigit).takeWhile(_.isDigit).toInt
+      val parts = line.split(",")
+      if (parts.size > 1 && parts.head != "") {
+        Some((parts.head.toLong, Map((yr - minYear) -> parts(1).toString)))
+      } else None
     }
 
     val span = Interval(minYear, maxYear)
 
-/*
-    val edges: RDD[Edge[(Int, Int)]] = MultifileLoad.readEdges(dataPath, minYear, maxYear).flatMap{ x =>
-      val tmp = x._1.split('/').last.dropWhile(!_.isDigit).takeWhile(_.isDigit).toInt
-      x._2.split("\n").flatMap{ line =>
-        if (!line.isEmpty && line(0) != '#') {
-          val lineArray = line.split("\\s+")
-          val srcId = lineArray(0).toLong
-          val dstId = lineArray(0).toLong
-          var attr = 0
-          if (lineArray.length > 2)
-            attr = lineArray(2).toInt
-          if (srcId > dstId)
-            Some(Edge(dstId, srcId, (tmp - minYear, attr)))
-          else
-            Some(Edge(srcId, dstId, (tmp - minYear, attr)))
-        } else None
-      }
-    }
- */
-
     val edges = GraphLoaderAddon.edgeListFiles(MultifileLoad.readEdges(dataPath, minYear, maxYear), minYear, true).edges
 
     val graph: Graph[Map[Int, String], (Int, Int)] = Graph(users, edges, Map[Int,String]())
-//      EdgeRDD.fromEdges[(TimeIndex, Int), Map[TimeIndex, String]](edges), Map[Int,String]())
-    //graph.cache()
 
     var intvs: SortedMap[Interval, Int] = TreeMap[Interval, Int]()
     var xx: Int = 0
