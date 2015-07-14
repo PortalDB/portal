@@ -528,7 +528,7 @@ object MultiGraph {
 
     var intvs: SortedMap[Interval, Int] = TreeMap[Interval, Int]()
     var xx: Int = 0
-    for (xx <- 0 to maxYear) {
+    for (xx <- 0 to (maxYear-minYear)) {
       intvs += (Interval(xx + minYear, xx + minYear) -> xx)
     }
 
