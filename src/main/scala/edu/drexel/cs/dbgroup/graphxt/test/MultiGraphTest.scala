@@ -32,10 +32,10 @@ object MultiGraphTest {
     testGraph = testGraph.partitionBy(PartitionStrategyType.CanonicalRandomVertexCut,0)
 
     val sel = testGraph.select(Interval(1940,1948))
-    println("total number of results after selection: " + sel.size)
-    println("Selected vertices count: " + sel.graphs.vertices.count)
+    println("total number of results after selection: " + sel.size) //should be 10
+    println("Selected vertices count: " + sel.graphs.vertices.count) //should be 75
     println(sel.graphs.vertices.collect.mkString("\n"))
-    println("Selected edges count: " + sel.graphs.edges.count)
+    println("Selected edges count: " + sel.graphs.edges.count) //should be 13
     println(sel.graphs.edges.collect.mkString("\n"))
 
     val aggregate = sel.aggregate(5, AggregateSemantics.Existential, _ + _, _ + _)

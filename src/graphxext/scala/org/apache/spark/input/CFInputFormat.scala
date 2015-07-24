@@ -1,4 +1,4 @@
-package edu.drexel.cs.dbgroup.graphxt.util
+package org.apache.spark.input
 
 import scala.collection.JavaConversions._
 
