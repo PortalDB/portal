@@ -1,3 +1,6 @@
+\documentclass[10pt]{article}
+\newcommand*{\ql}{YAQL\xspace}
+
 \newcommand{\julia}[1]{[\textcolor{purple}{{\bf Julia: }#1}]}
 \newcommand{\vera}[1]{[\textcolor{orange}{{\bf Vera: }#1}]}
 
@@ -7,12 +10,13 @@
 
 \section{Uses of Temporal Graphs}
 
-property of the overall graph over time: (in TGn, out sequence size n(property))
-  average degree over time (densification)
-  effective diameter over time (length of shortest paths between all pairs of nodes)
+property of the overall graph over time: (in TGn, out sequence size
+n(property)) average degree over time (densification) effective
+diameter over time (length of shortest paths between all pairs of
+nodes)
 
-property of each node over time - this is essentially time series analysis: (in TGn, out G)
-  - number of citations
+property of each node over time - this is essentially time series
+analysis: (in TGn, out G) - number of citations
 
 detection of a pattern or a model over time
 Example:
@@ -67,7 +71,12 @@ Notes:
 \end{itemize}
 
 \begin{quote}
-Definition 1. (Evolving Graph) An evolving graph is a sequence of consecutive graph snapshots G_{ts}\cdotsG_{te} that have the same set of vertices V, but possibly different sets of edges E_{t}, where t=ts,\cdots,te. Let E = \cup_{t=ts}^{te}E_{t} be a union of edges of all graphs in the sequence. We denote an evolving graph as \maths{eg} = (V,E,ts,te,\varepsilon). 
+Definition 1. (Evolving Graph) An evolving graph is a sequence of
+consecutive graph snapshots $G_{ts} \cdots G_{te}$ that have the same
+set of vertices V, but possibly different sets of edges $E_{t}$, where
+$t=ts,\cdots,te$. Let $E = \cup_{t=ts}^{te} E_{t}$ be a union of edges
+of all graphs in the sequence. We denote an evolving graph as
+$\maths{eg} = (V,E,ts,te,\var epsilon)$.
 
 \varepsilon is a set of strings specifying the temporal behavior of edges. For each edge e in E, there is a string \varepsilon(e) with symbols numbered from ts to te. If an edge e is included in snapshot G_{t}, then the corresponding symbol \varepsilon(e)[t] = ``1'', otherwise (edge e is deleted from G_{t} \varepsilon(e)[t] = ``0''.
 
@@ -168,18 +177,121 @@ Notes:
 
 \begin{quote}
 
-Definition 1 (Time Series of Graphs) Given a sequence G_{ts} of n graphs {G_{1}, \cdots ,G_{n}} with G_{i} = (V_{i},E_{i}) for 1 \leq i \leq n. We define G_{ts} to be a {\em time series of graphs} if V_{1} = V_{i} for all 1 \leq i \leq n. G_{i} is the i-th state of G_{ts} and A_{i} is the adjacency matrix of the i-th state.
+Definition 1 (Time Series of Graphs) Given a sequence G_{ts} of n
+graphs {G_{1}, \cdots ,G_{n}} with G_{i} = (V_{i},E_{i}) for 1 \leq i
+\leq n. We define G_{ts} to be a {\em time series of graphs} if V_{1}
+= V_{i} for all 1 \leq i \leq n. G_{i} is the i-th state of G_{ts} and
+A_{i} is the adjacency matrix of the i-th state.
 
-Definition 2 (Dynamic graph) Given a time series of graphs G_{ts} with n states. Then the dynamic graph DG(G_{ts}) of G_{ts} is defined as DG(G_{ts}) = (V_{DG},E_{DG},es), where V_{DG} = V_{i} for all 1 \leq i \leq n and E_{DG} = \cup_{i=1}^{n}E_{i}. The mapping es : E_{DG} \rightarrow {0 | 1}^{n} maps each edge e in E_{DG} to a binary string es(e) of length n. The i-th character of es(e) is 1 if e exists in state i of G_{ts}, and 0 if e does not exist in state i of G_{ts}. es(e) is referred to as the existence string of edge e.
+Definition 2 (Dynamic graph) Given a time series of graphs G_{ts} with
+n states. Then the dynamic graph DG(G_{ts}) of G_{ts} is defined as
+DG(G_{ts}) = (V_{DG},E_{DG},es), where V_{DG} = V_{i} for all 1 \leq i
+\leq n and E_{DG} = \cup_{i=1}^{n}E_{i}. The mapping es : E_{DG}
+\rightarrow {0 | 1}^{n} maps each edge e in E_{DG} to a binary string
+es(e) of length n. The i-th character of es(e) is 1 if e exists in
+state i of G_{ts}, and 0 if e does not exist in state i of
+G_{ts}. es(e) is referred to as the existence string of edge e.
 
-Definition 3 (Topological subgraph) Let DG_{1} = (V_{1},E_{1},L_{1}, es_{1}) and DG_{2} = (V_{2},E_{2},L_{2}, es_{2}) be node-labeled dynamic graphs. DG_{1} is a topological subgraph of DG_{2} (DG_{1} \subseteq DG_{2}) if the following conditions hold: V_{1} \subseteq V_{2}, E_{1} \subseteq E_{2}, L1 = L2, es_{1}(e_{1}) = es_{2}(e_{2}) for all corresponding edges e_{1} in E_{1} and e_{2} in E_{2}. If DG_{1} is a topological subgraph of a dynamic graph DG_{2}, then DG_{2} contains DG_{1} topologically, or in other terms, DG_{2} is a topological supergraph of DG_{1}.
+Definition 3 (Topological subgraph) Let DG_{1} = (V_{1},E_{1},L_{1},
+es_{1}) and DG_{2} = (V_{2},E_{2},L_{2}, es_{2}) be node-labeled
+dynamic graphs. DG_{1} is a topological subgraph of DG_{2} (DG_{1}
+\subseteq DG_{2}) if the following conditions hold: V_{1} \subseteq
+V_{2}, E_{1} \subseteq E_{2}, L1 = L2, es_{1}(e_{1}) = es_{2}(e_{2})
+for all corresponding edges e_{1} in E_{1} and e_{2} in E_{2}. If
+DG_{1} is a topological subgraph of a dynamic graph DG_{2}, then
+DG_{2} contains DG_{1} topologically, or in other terms, DG_{2} is a
+topological supergraph of DG_{1}.
 \end{quote}
 
 \section{Proposed Model}
 
-Definition 1. A {\em snapshot graph} G is a set (V,E,VA,EA), where V is a finite set of nodes, E is a finite set of edges connecting pairs of nodes, VA is a set of possible vertex attributes, and EA is a set of possible edge attributes. Edges are directed. Each node v \in V has a unique id and can have 0 or more attributes from VA. Each pair of nodes (v_{1},v_{2}) can have only a single edge between them of the particular direction. Edge v_{1} \rightarrow v_{2} \neq edge v_{2} \rightarrow v_{1}.
+% Something about our representation of time.  Ints, temporal
+% datatype, unit of time.  See what they do in temporal SQL.
 
-Definition 2. A {\em temporal graph} TG is a set (GS,T,r), where GS is a finite sequence of snapshot graphs (G_{1},\cdots,G_{n}), T =  [ts,te] is a single time interval of the sequence GS, and r is the resolution of the discreet time intervals of GS, i.e. |GS| = |T|/r, where |GS| = n and |T| = ts-te. Node identity persist through time, including if a node is deleted and later readded, i.e. \forall i \in 1 to n, id(v_{ij}) = id(v_{kj}) iff v_{ij} = v_{kj}. The attribute sets do not change, i.e. \forall i \in 1 to n, VA_{1}=VA_{i} and EA_{1}=EA_{i}.
+We work with two types of schema: snapshot schema and temporal schema.
+
+\begin{definition}
+\label{def:sg}
+A {\em snapshot graph} (or a {\em snapshot}) is a tuple $G = (V,E)$,
+where $V$ is a finite set of nodes with schema $sch(V)=(vid, attr_1,
+\ldots, \attr_n)$, with $vid$ as key of $V$, and $E$ is a finite set
+of edges connecting pairs of nodes from $V$, with schema
+$sch(E)=(vid_1, vid_2, attr_1, \ldots, attrs_m)$, and with
+$(vid1,vid2)$ as its key. Note that attributes $attr_i$ in $sch(E)$
+and $sch(A)$ are not restricted to be of atomic types, but may be,
+e.g., maps or tuples.  Note that $G$ may be a directed or an
+undirected graph.  For undirected graphs we choose a cannonical
+representation of an edge, with $vid1 \leq vid2$ (self-loops are
+allowed).
+\end{definition}
+
+Snapshot graphs $G_1 = (V_1, E_1)$ and $G_2 = (V_2, E_2)$ are
+union-compatible if $V_1$ and $V_2$ are union-compatible, as are $E_1$
+and $E_2$.
+
+For example, ....
+
+A snapshot represents a single state of a an evolving graph, and is
+not itself time-aware.  We next describe how temporal evolution of a
+graph is represented by a sequence of snapshots.
+
+\begin{definition}
+\label{def:tg}
+A {\em temporal graph} $T = (S_{1..n}, f)$ associates a finite
+sequence of union-compatible snapshot graphs $S_{1..n} = <G_1, \ldots,
+G_n>$ with a function $f$, which maps an index of a graph in the
+sequence to a time interval $[t_s, t_e)$.  Graphs in the sequence
+  cover consecutive non-overlapping time intervals of equal size, that
+  is:
+
+\begin{enumerate}
+\item $\forall i, f(i).t_e = f(i+1).t_s$
+\item $\forall i, f(1).t_s - f(1).t_e = f(i).t_s - f(i).t_e$  
+\end{enumerate}
+\end{definition}
+
+For convenience, we refer to $ f(i).t_s - f(i).t_e$ as the {\em
+  resolution} of $T$, denoted $r_T$, or simply $r$ when $T$ is clear
+from context.
+
+Importantly, identity of a vertex, denoted by $vid$, is global, and is
+preserved across snapshots in a temporal graph, and across temporal
+graphs.
+
+For example, ..... 
+% Point out how a vertex persists, and an edge persists or doesn't.
+
+A {\em temporal graph} is the basic element in our model.  In what
+follows, we assume that a relation in our database corresponds to a
+single temporal graph, not to a collection of temporal graphs.  We
+next define a temporal graph query language \ql, in which operators
+take as input a single temporal graph or a pair of temporal graphs,
+and produce a temporal graph as output.  To support binary operations,
+we next define union compatibility of temporal graphs.
+
+\begin{definition}
+\label{def:tuc}
+Temporal graphs $T' = (S'_{1..n}, f')$ and $T' = (S''_{1..m}, f'')$ are
+union-compatible if
+\begin{enumerate}
+\item snapshot graphs in sequences are compatible
+\item resolutions are the same
+\item intervals align: create T with [min(start), max(end)) at
+  resolution r, does there exist a mapping from intervals of T' and T"
+  to T?
+\end{enumerate}
+\end{definition}
+
+For example: a pair that is not union-compatible because resolution is
+different. (Because we don't know how to map edges / vertices within
+an interval).  Example of a pair that is not union-compatible although
+the sequences don't overlap.
+
+- Agg: changes temporal schema but not snapshot schema
+- Transform: keeps temporal schema, keeps all edges and vertices, may change snapshot schema and/or values, computed 1 node at a time
+- T-Select: temporal subset based on a temporal expression, currently 1 interval
+- S-Select: subgraph for every snapshot (selection over V and E) 
+- Graph analytics: e.g., Pregel, similar to Transform but may use the structure of a snapshot graph
 
 {\bf Unary Operators}
 
