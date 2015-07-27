@@ -1,0 +1,66 @@
+
+@inproceedings{Kan2009,
+abstract = {An evolving graph is a graph that can change over time. Such graphs can be applied in modelling a wide range of real-world phenomena, like computer networks, social networks and proteian interaction networks. This paper addresses the novel problem of querying evolving graphs using spatio-temporal patterns. In particular, we focus on answering selection queries, which can discover evolving subgraphs that satisfy both a temporal and a spatial predicate. We investigate the efficient implementation of such queries and experimentally evaluate our techniques using real-world evolving graph datasets - Internet connectivity logs and the Enron email corpus. We show that it is possible to use queries to discover meaningful events hidden in this data and demonstrate that our implementation is scalable for very large evolving graphs.},
+address = {Melbourne, Australia},
+annote = {Each timed graph is stored separately. I.e., there is no single evolving representation like common in temporal databases.},
+author = {Kan, Andrey and Chan, Je and Bailey, James and Leckie, Christopher},
+booktitle = {Eighth Australasian Data Mining Conference (AusDM 2009)},
+file = {:Users/vzaychik/Documents/ReferencePapers/Graphs/query-ev-graphs.pdf:pdf},
+keywords = {graph databases},
+mendeley-groups = {Graphs},
+mendeley-tags = {graph databases},
+title = {{A Query Based Approach for Mining Evolving Graphs}},
+volume = {101},
+year = {2009}
+}
+
+@inproceedings{Khurana2013,
+abstract = {We address the problem of managing historical data for large evolving information networks like social networks or citation networks, with the goal to enable temporal and evolutionary queries and analysis. We present the design and architecture of a distributed graph database system that stores the entire history of a network and provides support for efficient retrieval of multiple graphs from arbitrary time points in the past, in addition to maintaining the current state for ongoing updates. Our system exposes a general programmatic API to process and analyze the retrieved snapshots. We introduce DeltaGraph, a novel, extensible, highly tunable, and distributed hierarchical index structure that enables compactly recording the historical information, and that supports efficient retrieval of historical graph snapshots for single-site or parallel processing. Along with the original graph data, DeltaGraph can also maintain and index auxiliary information; this functionality can be used to extend the structure to efficiently execute queries like subgraph pattern matching over historical data. We develop analytical models for both the storage space needed and the snapshot retrieval times to aid in choosing the right parameters for a specific scenario. In addition, we present strategies for materializing portions of the historical graph state in memory to further speed up the retrieval process. Secondly, we present an in-memory graph data structure called GraphPool that can maintain hundreds of historical graph instances in main memory in a non-redundant manner. We present a comprehensive experimental evaluation that illustrates the effectiveness of our proposed techniques at managing historical graph information.},
+address = {Brisbane, QLD},
+archivePrefix = {arXiv},
+arxivId = {1207.5777},
+author = {Khurana, Udayan and Deshpande, Amol},
+booktitle = {2013 IEEE 29th International Conference on Data Engineering (ICDE)},
+eprint = {1207.5777},
+file = {:Users/vzaychik/Documents/ReferencePapers/Graphs/1207.5777.pdf:pdf},
+keywords = {graph databases},
+mendeley-groups = {Graphs},
+mendeley-tags = {graph databases},
+pages = {997 -- 1008},
+title = {{Efficient Snapshot Retrieval over Historical Graph Data}},
+url = {http://arxiv.org/abs/1207.5777},
+year = {2013}
+}
+
+@article{Wood2012,
+abstract = {Query languages for graph databases started to be inves- tigated some 25 years ago. With much current data, such as linked data on the Web and social network data, be- ing graph-structured, there has been a recent resurgence in interest in graph query languages. We provide a brief survey of many of the graph query languages that have been proposed, focussing on the core functionality pro- vided in these languages. We also consider issues such as expressive power and the computational complexity of query evaluation.},
+author = {Wood, Peter T.},
+doi = {10.1145/2206869.2206879},
+file = {:Users/vzaychik/Documents/ReferencePapers/Graphs/wood.pdf:pdf},
+issn = {01635808},
+journal = {ACM SIGMOD Record},
+keywords = {graph databases,query languages},
+mendeley-groups = {Graphs},
+mendeley-tags = {graph databases,query languages},
+month = mar,
+number = {1},
+pages = {50--60},
+title = {{Query languages for graph databases}},
+url = {http://dl.acm.org/citation.cfm?doid=2206869.2206879},
+volume = {41},
+year = {2012}
+}
+
+@inproceedings{Han2014,
+abstract = {Temporal graphs capture changes in graphs over time and are becoming a subject that attracts increasing interest from the research communities, for example, to understand tem- poral characteristics of social interactions on a time-evolving social graph. Chronos is a storage and execution engine de- signed and optimized specifically for running in-memory it- erative graph computation on temporal graphs. Locality is at the center of the Chronos design, where the in-memory layout of temporal graphs and the scheduling of the itera- tive computation on temporal graphs are carefully designed, so that common “bulk” operations on temporal graphs are scheduled to maximize the benefit of in-memory data lo- cality. The design of Chronos further explores the interest- ing interplay among locality, parallelism, and incremental computation in supporting common mining tasks on tempo- ral graphs. The result is a high-performance temporal-graph system that offers up to an order of magnitude speedup for temporal iterative graph mining compared to a straightfor- ward application of existing graph engines on a series of snapshots.},
+address = {Amsterdam, Netherlands},
+author = {Han, Wentao and Chen, Wenguang and Chen, Enhong},
+booktitle = {EuroSys},
+file = {:Users/vzaychik/Documents/ReferencePapers/Graphs/eurosys2014.pdf:pdf},
+isbn = {9781450327046},
+keywords = {graph databases,temporal DB},
+mendeley-groups = {Graphs},
+mendeley-tags = {graph databases,temporal DB},
+title = {{Chronos : A Graph Engine for Temporal Graph Analysis}},
+year = {2014}
+}
