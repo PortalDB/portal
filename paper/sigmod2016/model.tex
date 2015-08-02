@@ -1,86 +1,123 @@
 \section{Model}
 \label{sec:model}
 
-% Something about our representation of time.  Ints, temporal
-% datatype, unit of time.  See what they do in temporal SQL.
-
-We work with two types of schema: snapshot schema and temporal schema.
+In this section we first formally define snapshot graphs, and then
+show how graph evolution is represented by assigning temporal meaning
+to sequences of snapshot graphs.
 
 \begin{definition}
 \label{def:sg}
 A {\em snapshot graph} (or a {\em snapshot}) is a tuple $G = (V,E)$,
-where $V$ is a finite set of nodes with schema $sch(V)=(vid, attr_1,
-\ldots, attr_n)$, with $vid$ as key of $V$, and $E$ is a finite set of
-edges connecting pairs of nodes from $V$, with schema $sch(E)=(vid_1,
-vid_2, attr_1, \ldots, attrs_m)$, and with $(vid1,vid2)$ as its key.
+where $V$ is a finite set of nodes with schema
+$sch(V)=(\underline{vid}, attr_1, \ldots, attr_n)$, and $E$ is a
+finite set of edges connecting pairs of nodes from $V$, with schema
+$sch(E)=(\underline{vid_1}, \underline{vid_2}, attr_1, \ldots,
+attr_m)$.
 \end{definition}
 
-Note that attributes $attr_i$ in $sch(E)$ and $sch(A)$ are not
-restricted to be of atomic types, but may be, e.g., maps or tuples.
+Attributes $attr_i$ in $sch(V)$ and $sch(E)$ are not restricted to be
+of atomic types, but may be, e.g., maps or tuples. However it is
+required that all vertices (resp. edges) of $G$ have the same schema,
+i.e., $V$ and $E$ are homogeneous sets.  
+
+A pair of snapshots $G_1 = (V_1, E_1)$ and $G_2 = (V_2, E_2)$ are
+union-compatible if and $V_2$ are union-compatible, and $E_1$ and
+$E_2$ are union-compatible.
+
 $G$ may represent a directed or an undirected graph.  For undirected
-graphs we choose a cannonical representation of an edge, with $vid1
-\leq vid2$ (self-loops are allowed).
-
-Snapshot graphs $G_1 = (V_1, E_1)$ and $G_2 = (V_2, E_2)$ are
-union-compatible if $V_1$ and $V_2$ are union-compatible, as are $E_1$
-and $E_2$.
-
-For example, ....
+graphs we choose a cannonical representation of an edge, with $vid_1
+\leq vid_2$ (self-loops are allowed).
 
 A snapshot represents a single state of a an evolving graph, and is
 not itself time-aware.  We next describe how temporal evolution of a
-graph is represented by a sequence of snapshots.
+graph is represented by a sequence of snapshots, denoted {\em temporal
+  graphs} in our formalism.  But first we must precisely state how
+time is represented in our model.
+
+Our representation of time follows the SQL:2011
+standard~\cite{DBLP:journals/sigmod/KulkarniM12}.  We adopt the {\em
+  closed-open} period model, i.e., a period represents all times
+starting from and including the start time, continuing to but
+excluding the end time.
 
 \begin{definition}
-\label{def:tg}
-A {\em temporal graph} $T = (S_{1..n}, f)$ associates a finite
-sequence of union-compatible snapshot graphs $S_{1..n} = <G_1, \ldots,
-G_n>$ with a function $f$, which maps an index of a graph in the
-sequence to a time interval $[t_s, t_e)$.  Graphs in the sequence
-  cover consecutive non-overlapping time intervals of equal size, that
-  is:
+\label{def:period}
+A {\em time period} $p = [start, end)$ is an interval on the timeline,
+  demarcated by a start time and an end time, subject to the
+  constraint $start < end$.  We refer to the length of time covered by
+  $p$ as its {\em resolution}.
+\end{definition}
+
+We focus on {\em valid time}, represented by {\em application-time
+  period} in SQL:2011 --- the time period during which data is
+regarded as correctly reflecting reality.  This is in contrast to {\em
+  transaction time} (or {\em system-time period}), which refers to the
+time period during which a row is committed to or recorded in the
+database.  Our goal in this work is to support complex analytics over
+evolving graphs, under the assumption that all historical data is
+avaiable in the database and is read-only.
+
+We represent graph evolution by associating a sequence of snapshots
+with a {\em temporal schema} --- a sequence of consecutive
+non-overlapping time periods, with no gaps.  Further, we require that
+all time periods in the sequence have the same resolution.
+
+\begin{definition}
+\label{def:tseq}
+A {\em temporal sequence} $P = (p_1, \ldots, p_n)$ is a
+sequence of consecutive non-overlapping time periods of the same
+resolution, with no gaps.  That is,
 
 \begin{enumerate}
-\item $\forall i, f(i).t_e = f(i+1).t_s$
-\item $\forall i, f(1).t_s - f(1).t_e = f(i).t_s - f(i).t_e$  
+\item $\forall i \leq n, p_i.end = p_{i+1}.start$
+\item $\forall i, j, p_i.end - p_i.start = p_j.end - p_j.start$  
+\end{enumerate}
+
+$P$ is fully described with three values: the start of the earliest
+period $P.start = p_1.start$, the end of the latest period $P.end =
+p_n.end$, and the resolution of any period $P.res = p_1.end -
+p_1.start$. For convenience, we sometimes write $P(start, end, res)$.
+\end{definition}
+
+\begin{definition}
+\label{def:tunion}
+Temporal sequences $P'$ and $P''$ are union-compatible if:
+
+\begin{enumerate}
+\item $P'.res = P''.res$ and
+\item Construct $P(min(P'.start, P''.start), max(P'.end, P''.end),$
+  $P'.res)$.  Check that $P' \subseteq P$ and $P' \subseteq P$.
 \end{enumerate}
 \end{definition}
 
-For convenience, we refer to $ f(i).t_s - f(i).t_e$ as the {\em
-  resolution} of $T$, denoted $r_T$, or simply $r$ when $T$ is clear
-from context.
+\begin{definition}
+\label{def:tgraph}
+A {\em temporal graph} $T = (G_1, \ldots, G_n; P)$ associates a
+sequence of $n$ union-compatible snapshots with a temporal sequence
+$P$, such that $P.size = n$.
+\end{definition}
 
-Importantly, identity of a vertex, denoted by $vid$, is global, and is
-preserved across snapshots in a temporal graph, and across temporal
-graphs.
+Snapshot graphs in the sequence agree on their schemas of vertices and
+edges, and define a {\em structural schema} of $T$, while temporal
+schema of $T$ is specified by $P$.  Identity of a vertex persists
+across snapshots in a temporal graph, and across temporal graphs.
 
-For example, ..... 
-% Point out how a vertex persists, and an edge persists or doesn't.
+A {\em temporal graph} of Definition~\ref{def:tgraph} is the basic
+element in our model.  In what follows, we assume that a relation in
+our database corresponds to a single temporal graph, not to a
+collection of temporal graphs.  We next define a temporal graph query
+language \ql, in which operators take as input a single temporal graph
+or a pair of temporal graphs, and produce a temporal graph as output.
 
-A {\em temporal graph} is the basic element in our model.  In what
-follows, we assume that a relation in our database corresponds to a
-single temporal graph, not to a collection of temporal graphs.  We
-next define a temporal graph query language \ql, in which operators
-take as input a single temporal graph or a pair of temporal graphs,
-and produce a temporal graph as output.  To support binary operations,
-we next define union compatibility of temporal graphs.
+To support binary operations, we next define union compatibility of
+temporal graphs.
 
 \begin{definition}
 \label{def:tuc}
-Temporal graphs $T' = (S'_{1..n}, f')$ and $T' = (S''_{1..m}, f'')$ are
-union-compatible if
-\begin{enumerate}
-\item snapshot graphs in sequences are compatible
-\item resolutions are the same
-\item intervals align: create T with [min(start), max(end)) at
-  resolution r, does there exist a mapping from intervals of T' and T"
-  to T?
-\end{enumerate}
+Temporal graphs $T'$ and $T''$ are union-compatible if both their
+structural and their temporal schemas are union compatible. 
 \end{definition}
 
-For example: a pair that is not union-compatible because resolution is
-different. (Because we don't know how to map edges / vertices within
-an interval).  Example of a pair that is not union-compatible although
-the sequences don't overlap.
+
 
 
