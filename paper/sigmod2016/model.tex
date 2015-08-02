@@ -1,209 +1,5 @@
-\documentclass[10pt]{article}
-\newcommand*{\ql}{YAQL\xspace}
-
-\newcommand{\julia}[1]{[\textcolor{purple}{{\bf Julia: }#1}]}
-\newcommand{\vera}[1]{[\textcolor{orange}{{\bf Vera: }#1}]}
-
-\begin{document}
-
-\title{Temporal Graph Model}
-
-\section{Uses of Temporal Graphs}
-
-property of the overall graph over time: (in TGn, out sequence size
-n(property)) average degree over time (densification) effective
-diameter over time (length of shortest paths between all pairs of
-nodes)
-
-property of each node over time - this is essentially time series
-analysis: (in TGn, out G) - number of citations
-
-detection of a pattern or a model over time
-Example:
- - what behavior led to a loan default
-
-extrapolation into the future (i.e., based on the history of change over time, can we project into the future?): (in TGm, out TG'm+1 to n)
-
-abnormality detection (where nodes/subgraphs behave according to a pattern and need to find subgraphs that don't): (in TGn, out set(subTGx in space and time)
-
-Anomaly detection: (need a model of normality?)
-- detection of anomaly of a property of the whole graph over time
-- spatial anomaly detection of points which are different than the neighbors
-- temporal anomaly detection of points which are different than the temporal neighbors
-- spatio-temporal anomalies
-
-Query/select with both spatial and temporal constraints (i.e. subgraph operation that adds a temporal predicate): (in TGn, out TG'm where m<n)
- (example: get my friends that i had in year x and that all went to event y)
-
-
-querying for spatio-temporal patterns. Either querying or enumerating. The result in either case is a set of TemporalGraphs which are subgraphs that exhibit the pattern.
-Examples:
- - is there a spatially adjacent group of connections that fail synchronously
- - which groups of connection paths are not persistent over the specified period
- - are there groups of people having their communication intesified over a period of time
- - what relations appear or disappear synchronously between certain groups of people and when does it happen?
- - groups of items that are frequently consumed together
-
-Operations on (semantically at least) snapshots: (in TGn, out TG'n)
- - pagerank
- - weakly connected component
- - single-source shortest path
- - maximal independent set
- - sparse matrix-vector multiplication
- - shortest paths on transportation networks
- - graph sampling (for algorithms which are computationally prohibitive at scale such as effective diameter)
-
-\section{Models from literature}
-
-The terminology in the research literature has not converged. Temporal graphs are in turn called dynamic networks \cite{Lerman2010,Jin2007,Lahiri2008}, evolving graphs \cite{Kan2009,Chan2008,Han2014,Aggarwal2010}, dynamic graphs \cite{Vaquero2014,Borgwardt2006}, evolving graph sequences \cite{Ren2011}, and temporal graphs \cite{Wu2014}.  In all cases, however, a temporal graph is a timeseries/sequence of graph snapshots over discreet time. Most works deal with graph structure exclusively, ignoring the node/edge weights or attributes. Most work focuses on various forms of graph query, including snapshot retrieval and subgraphs. So far I have not encountered any work on binary temporal graph operations like union and intersection, nor graph transformations like aggregation and clustering.
-
-\subsection{A Query Based Approach for Mining Evolving Graphs by Kan et al. \cite{Kan2009}}
-
-Notes:
-\begin{itemize}
-
-\item Kan et al propose an {\em Evolving Graph} that is a sequence of snapshots of regular {\em undirected unweighted} graphs. Snapshot nodes do not have attributes.
-\item It is assumed that the set of vertices does not change between snapshots, i.e. only edges are added or deleted between snapshots.
-\item Discreet time is assumed.
-\item The only operation they propose on the Evolving Graph is a select with a predicate and a waveform where the waveform is an approximate pattern of presence or absence of edges.
-\item The examples of predicates are: timing predicates, size predcates, and clique predicates. I.e., they support any function with linear time complexity wrt the number of vertices and edges.
-
-\end{itemize}
-
-\begin{quote}
-Definition 1. (Evolving Graph) An evolving graph is a sequence of
-consecutive graph snapshots $G_{ts} \cdots G_{te}$ that have the same
-set of vertices V, but possibly different sets of edges $E_{t}$, where
-$t=ts,\cdots,te$. Let $E = \cup_{t=ts}^{te} E_{t}$ be a union of edges
-of all graphs in the sequence. We denote an evolving graph as
-$\maths{eg} = (V,E,ts,te,\var epsilon)$.
-
-\varepsilon is a set of strings specifying the temporal behavior of edges. For each edge e in E, there is a string \varepsilon(e) with symbols numbered from ts to te. If an edge e is included in snapshot G_{t}, then the corresponding symbol \varepsilon(e)[t] = ``1'', otherwise (edge e is deleted from G_{t} \varepsilon(e)[t] = ``0''.
-
-In the scope of the present work we consider only undirected, unweighted graphs and discreet time points, i.e. a sequence of graph snapshots. We focus on edge changes, assuming that the set of vertices remains the same. Note that the changing set of vertices V_{t},t = ts,\cdots,te can be replaced by a union set V = \cup_{t=ts}^{te}V_{t}.
-
-Definition 2. (Evolving Subgraph) Given two evolving graphs eg_{1} = (V_{1},E_{1},ts_{1},te_{1},\varepsilon_{1}) and eg_{2} = (V_{2},E_{2},ts_{2},te_{2},\varepsilon_{2}), eg_{1} is an evolving subgraph of eg_{2} if V_{1} \subseteq V_{2}, E_{1} \subseteq E_{2}, [ts_{1},te_{1}] \subseteq [ts_{2},te_{2}] and \varepsilon_{1} contains substrings from \varepsilon_{2}, taken in the interval [ts_{1},te_{1}] for all e in E_{1}. Saying that eg_{1} is an evolving subgraph of eg_{2} is equivalent to saying that eg_{1} is included in eg_{2}.
-
-The temporal behavior of a changing edge can be represented by the following strings. A waveform (denoted as W) is a string consisting of ``1'' and ``0'' symbols, reflecting the insertion or deletion of an edge from the snapshots of a graph. Symbols in the waveform are numbered starting from 1. 
-
-In our model, the result of a query is a set of subgraphs in which all edges follow the waveform in the query. 
-
-A predicate on an evolving graph P(eg) = {true|false} is a function that takes an evolving graph as input and produces a Boolean value (true or false) as output. Our only requirement for a predicate is that it must be implementable in linear time complexity with respect to the number of vertices and edges in the input graph. Predicates can be used to impose both spatial and temporal constraints. Consider an evolving graph eg = (V,E,ts,te,\varepsilon). We denote the number of vertices and edges in the graph as n_{v} and n_{e} respectively. 
-
-Definition 5. (Query) A (spatio-temporal) query Q is a pair {W,P}, where W is a waveform and P is a predicate.
-
-Definition 6. (Selection Operator) A selection operator takes as input an evolving graph eg, and a query Q = {W,P}. The output is a set of evolving subgraphs correlated with W, which satisfy P:
-
-\sigma(eg, Q) = {sg \subseteq eg : sg \sim W, P(sg) = true}
-
-We require the evolving subgraphs in the output to be maximal, i.e., there is no evolving subgraph that is included in another evolving subgraph from the same output set.
-\end{quote}
-
-\subsection{Efficient Snapshot Retrieval over Historical Graph Data by Khurana and Deshpande \cite{Khurana2013}}
-
-Notes:
-\begin{itemize}
-
-\item Khurana propose an efficient storage and retrieval approach for a {\em dynamic graph} that is a sequence of snapshots of regular directed or undirected graphs over time. Both nodes and edges may have any number of attributes.
-\item The database is a valid time database in the temporal db nomenclature, i.e. the time when the transaction was performed does not matter, only the time of the events matters. Thus snapshot retrieval is a {\em valid timeslice query}.
-\item Node and edge attributes can change over time and new attributes may be added at any time.
-\item Discreet time is assumed.
-\item An {\em event} is defined as a record of atomic activity on a snapshot, which can be a creation/deletion of an edge/node, or change in the attribute value of an edge or node.
-\item Once a node is deleted, it cannot reappear, i.e. it is assigned a new node id if it readded later. (Anothe way to say this is that each node has a sequential snapshot existance without gaps.
-\item Snapshot queries can be over the whole graph or a subgraph.
-
-\begin{quote}
-
-The most basic model of a graph over a period of time is as a collection of graph snapshots, one corresponding to each time in- stance (we assume discrete time). Each such graph snapshot con- tains a set of nodes and a set of edges. The nodes and edges are assigned unique ids at the time of their creation, which are not re- assigned after deletion of the components (a deletion followed by a re-insertion results in assignment of a new id). A node or an edge may be associated with a list of attribute-value pairs; the list of at- tribute names is not fixed a priori and new attributes may be added at any time. Additionally an edge contains the information about whether it is a directed edge or an undirected edge.
-
-We define an event as the record of an atomic activity in the network. An event could pertain to either the creation or deletion of an edge or node, or change in an attribute value of a node or an edge. Alternatively, an event can express the occurrence of a tran- sient edge or node that is valid only for that time instance instead of an interval. An event always corresponds to a single timepoint.
-
-The valid time interval of an edge, [ts, te], is expressed by two different events, edge addition and deletion events at ts and te respectively.
-
-We treat events as bidirectional, i.e., they could be applied to a database snapshot in either direction of time. For example, say that at times t_{k−1} and t_{k}, the graph snapshots are G_{k−1} and G_{k} respectively. If E is the set of all events at time tk, we have that:
-
-G_{k} = G_{k-1} + E, G_{k-1} = G_{k} - E
-
-where the + and - operators denote application of the events in E in the forward and the backward direction. All events are recorded in the direction of evolving time, i.e., going ahead in time. A list of chronologically organized events is called an eventlist.
-
-We are also working on developing a high-level declarative query language (similar to TSQL) and query processing techniques to execute such queries against our database.
-
-The following is a list of some of the retrieval functions that we support in our programmatic API.
-\begin{itemize}
-
-\item GetHistGraph(Time t, String attr options): In the basic single-point graph retrieval call, the first parameter indicates the time; the second parameter indicates the attribute information to be fetched as a string formed by concatenating sub-options
-
-\item GetHistGraphs(List<Time> t list, String attr options), where t list specifies a list of time points.
-
-\item GetHistGraph(TimeExpression tex, String attr options): This is used to retrieve a hypothetical graph using a multinomial Boolean expression over time points.
-
-\item GetHistGraphInterval(Time ts, Time te, String attr options): This is used to retrieve a graph over all the elements that were added during the time interval [ts, te). It also fetches the transient events, not fetched (by definition) by the above calls.
-
-\end{itemize}
-
-\end{quote}
-
-\subsection{Query languages for graph databases by Wood.\cite{Wood2012}}
-
-I am including this one because of its graph model as this is a highly cited paper. There is more in the paper in terms of formally defining queries of various types (paths, subgraph, etc.)
-
-\begin{quote}
-
-In its simplest form a a graph G is a pair (V,E), where V is a finite set of nodes and E is a finite set of edges connecting pairs of nodes. Of course, edges can be directed or undirected. 
-
-Edges are labelled in some way, sometimes with sets of attribute-value pairs. Similarly, in general nodes may be labelled with sets of attribute-value pairs. However, we will mostly limit our discussion to graphs in which each node is identified by a distinct label (identifier) and each directed edge is labelled with a symbol drawn from some finite alphabet \Sigma; hence E \subseteq V \times \Sigma \times V.
-
-It is common in querying graphs that users may want to find pairs (x, y) of nodes such that there is a path from x to y whose sequence of edge labels matches some pattern. One way of specifying such a pattern is by using a regular expression defined over the alphabet of edge labels. Such a query is called a regular path query (RPQ).
-
-CQs and RPQs can be combined to form conjunctive regular path queries (CRPQs).
-
-Given a query expression Q and a graph G, the evaluation of Q on G is denoted Q(G).
-
-Let us call the following question the query evaluation problem (QEP). Given a query expression Q and a graph G,is Q(G) non-empty? As usual, one can consider the complexity of this problem by possibly fixing one of the two inputs. Combined complexity corresponds to when both Q and G are part of the input. Query complexity is when the input is Q,with G being fixed, while data complexity is when the input is G,with Q being fixed. We often consider data complexity to be the most relevant measure since graphs are assumed to be large and query expressions short.
-
-\end{quote}
-
-\subsection{Pattern Mining in Frequent Dynamic Subgraphs by Borgwardt et al.}
-
-Notes:
-\begin{itemize}
-
-\item Borgwardt proposes a {\em Dynamic Graph} which is a transformation of a timeseries (i.e. snapshots) of regular graphs. Both vertices and edges may have labels. It is not stated explicitly whether directed or undirected graphs are supported.
-\item The time is discreet because the author is dealing with timeseries. It is not explicitly stated whether the time points are equidistant or of equal size.
-\item It is assumed that the set of vertices does not change between snapshots, while edges can be added and deleted. The edge presence is represented using the existence strings.
-\item While the nodes and edges have labels, this work does not deal with the labels in any way. Only the graph structure is taken into account.
-
-\end{itemize}
-
-\begin{quote}
-
-Definition 1 (Time Series of Graphs) Given a sequence G_{ts} of n
-graphs {G_{1}, \cdots ,G_{n}} with G_{i} = (V_{i},E_{i}) for 1 \leq i
-\leq n. We define G_{ts} to be a {\em time series of graphs} if V_{1}
-= V_{i} for all 1 \leq i \leq n. G_{i} is the i-th state of G_{ts} and
-A_{i} is the adjacency matrix of the i-th state.
-
-Definition 2 (Dynamic graph) Given a time series of graphs G_{ts} with
-n states. Then the dynamic graph DG(G_{ts}) of G_{ts} is defined as
-DG(G_{ts}) = (V_{DG},E_{DG},es), where V_{DG} = V_{i} for all 1 \leq i
-\leq n and E_{DG} = \cup_{i=1}^{n}E_{i}. The mapping es : E_{DG}
-\rightarrow {0 | 1}^{n} maps each edge e in E_{DG} to a binary string
-es(e) of length n. The i-th character of es(e) is 1 if e exists in
-state i of G_{ts}, and 0 if e does not exist in state i of
-G_{ts}. es(e) is referred to as the existence string of edge e.
-
-Definition 3 (Topological subgraph) Let DG_{1} = (V_{1},E_{1},L_{1},
-es_{1}) and DG_{2} = (V_{2},E_{2},L_{2}, es_{2}) be node-labeled
-dynamic graphs. DG_{1} is a topological subgraph of DG_{2} (DG_{1}
-\subseteq DG_{2}) if the following conditions hold: V_{1} \subseteq
-V_{2}, E_{1} \subseteq E_{2}, L1 = L2, es_{1}(e_{1}) = es_{2}(e_{2})
-for all corresponding edges e_{1} in E_{1} and e_{2} in E_{2}. If
-DG_{1} is a topological subgraph of a dynamic graph DG_{2}, then
-DG_{2} contains DG_{1} topologically, or in other terms, DG_{2} is a
-topological supergraph of DG_{1}.
-\end{quote}
-
-\section{Proposed Model}
+\section{Model}
+\label{sec:model}
 
 % Something about our representation of time.  Ints, temporal
 % datatype, unit of time.  See what they do in temporal SQL.
@@ -214,16 +10,16 @@ We work with two types of schema: snapshot schema and temporal schema.
 \label{def:sg}
 A {\em snapshot graph} (or a {\em snapshot}) is a tuple $G = (V,E)$,
 where $V$ is a finite set of nodes with schema $sch(V)=(vid, attr_1,
-\ldots, \attr_n)$, with $vid$ as key of $V$, and $E$ is a finite set
-of edges connecting pairs of nodes from $V$, with schema
-$sch(E)=(vid_1, vid_2, attr_1, \ldots, attrs_m)$, and with
-$(vid1,vid2)$ as its key. Note that attributes $attr_i$ in $sch(E)$
-and $sch(A)$ are not restricted to be of atomic types, but may be,
-e.g., maps or tuples.  Note that $G$ may be a directed or an
-undirected graph.  For undirected graphs we choose a cannonical
-representation of an edge, with $vid1 \leq vid2$ (self-loops are
-allowed).
+\ldots, attr_n)$, with $vid$ as key of $V$, and $E$ is a finite set of
+edges connecting pairs of nodes from $V$, with schema $sch(E)=(vid_1,
+vid_2, attr_1, \ldots, attrs_m)$, and with $(vid1,vid2)$ as its key.
 \end{definition}
+
+Note that attributes $attr_i$ in $sch(E)$ and $sch(A)$ are not
+restricted to be of atomic types, but may be, e.g., maps or tuples.
+$G$ may represent a directed or an undirected graph.  For undirected
+graphs we choose a cannonical representation of an edge, with $vid1
+\leq vid2$ (self-loops are allowed).
 
 Snapshot graphs $G_1 = (V_1, E_1)$ and $G_2 = (V_2, E_2)$ are
 union-compatible if $V_1$ and $V_2$ are union-compatible, as are $E_1$
@@ -287,28 +83,4 @@ different. (Because we don't know how to map edges / vertices within
 an interval).  Example of a pair that is not union-compatible although
 the sequences don't overlap.
 
-- Agg: changes temporal schema but not snapshot schema
-- Transform: keeps temporal schema, keeps all edges and vertices, may change snapshot schema and/or values, computed 1 node at a time
-- T-Select: temporal subset based on a temporal expression, currently 1 interval
-- S-Select: subgraph for every snapshot (selection over V and E) 
-- Graph analytics: e.g., Pregel, similar to Transform but may use the structure of a snapshot graph
 
-{\bf Unary Operators}
-
-Definition 3. A time selection operator \sigma(TG,T') is a query operator on TG, which returns TG' = (GS',T'',r'), where r'=r, T'' = T \cap T', and GS' \subseteq GS. \vera{Need to express that T'' has to be a multiple of r.}
-
-Definition 4. A selection operator \sigma(TG,p) is a query operator on TG with predicate p which returns TG' = (GS',T',r'), where \forall G' \in GS' p(G') = true and G'_{i} \subset G_{i}, T'=T, and r'=r.
-
-Definition 5. An aggregation operator agg(TG,r',fv,fe) is a modification function on TG which returns TG' = (GS',T',r'), where |GS'|=|GS|/r', and each G \in GS' = \cup(G_{i},\cdots,G_{i+r'-1}) for existential semantics aggE and \cap(G_{i}, \cdots, G_{i+r'-1}) for universal semantics aggU. fv is a function applied to node attribute values of nodes with the same identity, i.e. va(v' \in G_{i}') = fv(va(v_{j} \in G_{i*r'}),\cdots,va(v_{k} \in G_{(i+1)*r'-1})) and id(v_{j})=id(v_{k}). Similarly, fe is a function applied to edge attribute values with the same identity. \vera{We need to express somehow that if |GS| is not evenly divisible by r', we reduce or increase as needed to hold the size/resolution constraint.}
-
-Definition 6. An update operator map(TG,fv,fe) is a modification function on TG which returns TG' = (GS',T',r') where |GS'|=|GS|, T'=T, r'=r, and \forall G' \in GS', VA(G')=fv(VA(G)), VE(G')=fe(VE(G)). \vera{Currently in our API we have mapVertices and mapEdges separately. For the moment I combined them here. I am not sure which is better.}
-
-{\bf Binary Operators.}
-
-Definition 7. A union operator \cup(TG_{1},TG_{2},fv,fe) returns a new temporal graph TG = (GS',T',r'), where \forall G_{i}' \in GS' = (V_{i}',E_{i}',VA_{i}',EA_{i}'), V_{i}'= V_{j} \cup V_{k}, E_{i}'=E_{j} \cup E_{k}, VA_{i}'=fv(VA_{j},VA_{k}), EA_{i}'=fe(VE_{j},VE_{k}), T_{1}(j) = T_{2}(k). That is, a union of two temporal graphs is a union of snapshot graphs with corresponding time intervals, with the functions fv and fe applied where a node with the same identity is found in both snapshots. T'=T_{1} \cup T_{2}. The resolution of the two TGs is the same, r'=r_{1}=r_{2}. If one of the conditions does not hold , \cup returns \emptyset. Note that because T' is a union of T_{1} and T_{2} while required to be a consecutive interval, |T'| \geq |T_{1}|+|T_{2}|.
-
-Definition 8. An intersection operator \cap(TG_{1},TG_{2},fv,fe) similarly returns a new temporal graph TG = (GS',T',r'), where \forall G_{i}' \in GS' = (V_{i}',E_{i}',VA_{i}',EA_{i}'), V_{i}' = V_{j} \cap V_{k}, E_{i}' = E_{j} \cap E_{k}, VA_{i}' = fv(VA_{j},VA_{k}), EA_{i}' = fe(VE_{j},VE_{k}), T_{1}(j) = T_{2}(k). That is, an intersection of two temporal graphs returns subgraphs for those snapshot graphs which occur in both TG_{1} and TG_{2} with corresponding time intervals, with the functions fv and fe applied where a node and edge with the same identity is found in both spanshots, respectively. T' = T_{1} \cap T_{2} (so the intersection operator may result in an empty TG). The resolution of the two TGs is the same, r'=r_{1}=r_{2}. |T'| \leq min(|T_{1}|,|T_{2}|).
-
-\vera{Need to add Pregel and analytics.}
-
-\end{document}

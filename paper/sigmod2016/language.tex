@@ -1,0 +1,8 @@
+\section{Query Language}
+\label{sec:lang}
+
+- Agg: changes temporal schema but not snapshot schema
+- Transform: keeps temporal schema, keeps all edges and vertices, may change snapshot schema and/or values, computed 1 node at a time
+- T-Select: temporal subset based on a temporal expression, currently 1 interval
+- S-Select: subgraph for every snapshot (selection over V and E) 
+- Graph analytics: e.g., Pregel, similar to Transform but may use the structure of a snapshot graph
