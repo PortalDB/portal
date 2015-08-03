@@ -7,32 +7,27 @@ to sequences of snapshot graphs.
 
 \begin{definition}
 \label{def:sg}
-A {\em snapshot graph} (or a {\em snapshot}) is a tuple $G = (V,E)$,
-where $V$ is a finite set of nodes with schema
-$sch(V)=(\underline{vid}, attr_1, \ldots, attr_n)$, and $E$ is a
-finite set of edges connecting pairs of nodes from $V$, with schema
-$sch(E)=(\underline{vid_1}, \underline{vid_2}, attr_1, \ldots,
-attr_m)$.
+A {\em snapshot graph} (or a {\em snapshot}) is a pair $G = (V,E)$,
+where $V$ is a finite set of nodes with schema $(\underline{vid},
+attr_1, \ldots, attr_n)$, and $E$ is a finite set of edges connecting
+pairs of nodes from $V$, with schema $(\underline{vid_1},
+\underline{vid_2}, attr_1, \ldots, attr_m)$.
 \end{definition}
 
-Attributes $attr_i$ in $sch(V)$ and $sch(E)$ are not restricted to be
-of atomic types, but may be, e.g., maps or tuples. However it is
-required that all vertices (resp. edges) of $G$ have the same schema,
-i.e., $V$ and $E$ are homogeneous sets.  
+Attributes of vertices and of edges are not restricted to be of atomic
+types, but may, e.g., be maps or tuples. However it is required that
+all vertices (resp. edges) of $G$ have the same schema, i.e., $V$ and
+$E$ are homogeneous sets.
 
-A pair of snapshots $G_1 = (V_1, E_1)$ and $G_2 = (V_2, E_2)$ are
-union-compatible if and $V_2$ are union-compatible, and $E_1$ and
-$E_2$ are union-compatible.
+A pair of snapshots $G' = (V', E')$ and $G'' = (V'', E'')$ are
+union-compatible if $V'$ and $V''$ are union-compatible, and $E'$ and
+$E''$ are union-compatible.
 
 $G$ may represent a directed or an undirected graph.  For undirected
-graphs we choose a cannonical representation of an edge, with $vid_1
+graphs we choose a canonical representation of an edge, with $vid_1
 \leq vid_2$ (self-loops are allowed).
 
-A snapshot represents a single state of a an evolving graph, and is
-not itself time-aware.  We next describe how temporal evolution of a
-graph is represented by a sequence of snapshots, denoted {\em temporal
-  graphs} in our formalism.  But first we must precisely state how
-time is represented in our model.
+We next describe how time is represented in our model.
 
 Our representation of time follows the SQL:2011
 standard~\cite{DBLP:journals/sigmod/KulkarniM12}.  We adopt the {\em
@@ -43,9 +38,8 @@ excluding the end time.
 \begin{definition}
 \label{def:period}
 A {\em time period} $p = [start, end)$ is an interval on the timeline,
-  demarcated by a start time and an end time, subject to the
-  constraint $start < end$.  We refer to the length of time covered by
-  $p$ as its {\em resolution}.
+  subject to the constraint $start < end$.  We refer to the length of
+  time covered by $p$ as its {\em resolution}.
 \end{definition}
 
 We focus on {\em valid time}, represented by {\em application-time
@@ -55,12 +49,11 @@ regarded as correctly reflecting reality.  This is in contrast to {\em
 time period during which a row is committed to or recorded in the
 database.  Our goal in this work is to support complex analytics over
 evolving graphs, under the assumption that all historical data is
-avaiable in the database and is read-only.
+available in the database and is read-only.
 
-We represent graph evolution by associating a sequence of snapshots
-with a {\em temporal schema} --- a sequence of consecutive
-non-overlapping time periods, with no gaps.  Further, we require that
-all time periods in the sequence have the same resolution.
+We represent graph evolution by associating a sequence of snapshots,
+which are not themselves time-aware, with a a sequence of time
+periods.  This is stated formally next.
 
 \begin{definition}
 \label{def:tseq}
@@ -69,26 +62,29 @@ sequence of consecutive non-overlapping time periods of the same
 resolution, with no gaps.  That is,
 
 \begin{enumerate}
-\item $\forall i \leq n, p_i.end = p_{i+1}.start$
+\item $\forall i < n, p_i.end = p_{i+1}.start$
 \item $\forall i, j, p_i.end - p_i.start = p_j.end - p_j.start$  
 \end{enumerate}
-
-$P$ is fully described with three values: the start of the earliest
-period $P.start = p_1.start$, the end of the latest period $P.end =
-p_n.end$, and the resolution of any period $P.res = p_1.end -
-p_1.start$. For convenience, we sometimes write $P(start, end, res)$.
 \end{definition}
+
+$P$ may be equivalently described by 3 values: the start of the
+earliest period $P.start = p_1.start$, the end of the latest period
+$P.end = p_n.end$, and the resolution of any period $P.res = p_1.end -
+p_1.start$. For convenience, we refer to the number of periods in the
+sequence as $P.size$.
 
 \begin{definition}
 \label{def:tunion}
-Temporal sequences $P'$ and $P''$ are union-compatible if:
-
-\begin{enumerate}
-\item $P'.res = P''.res$ and
-\item Construct $P(min(P'.start, P''.start), max(P'.end, P''.end),$
-  $P'.res)$.  Check that $P' \subseteq P$ and $P' \subseteq P$.
-\end{enumerate}
+Temporal sequences $P'$ and $P''$ are union-compatible if they have
+the same resolution, and if we can construct a valid temporal sequence
+$P$ with $P.start = min(P'.start, P''.start)$, $P.end = max(P'.start,
+P''.start)$, and with $P.res = P'.res$.
 \end{definition}
+
+Recall that a snapshot represents a single state of an evolving graph,
+and is not itself time-aware.  Temporal evolution of a graph is
+represented by a sequence of snapshots, called {\em temporal graphs}
+in our formalism. 
 
 \begin{definition}
 \label{def:tgraph}
@@ -98,18 +94,20 @@ $P$, such that $P.size = n$.
 \end{definition}
 
 Snapshot graphs in the sequence agree on their schemas of vertices and
-edges, and define a {\em structural schema} of $T$, while temporal
-schema of $T$ is specified by $P$.  Identity of a vertex persists
-across snapshots in a temporal graph, and across temporal graphs.
+edges, which together define the {\em structural schema} of $T$, while
+the {\em temporal schema} of $T$ is specified by $P$.  Identity of a
+vertex persists across snapshots in a temporal graph, and across
+temporal graphs.
 
 A {\em temporal graph} of Definition~\ref{def:tgraph} is the basic
 element in our model.  In what follows, we assume that a relation in
 our database corresponds to a single temporal graph, not to a
-collection of temporal graphs.  We next define a temporal graph query
-language \ql, in which operators take as input a single temporal graph
-or a pair of temporal graphs, and produce a temporal graph as output.
+collection of temporal graphs.  In the next section we will define a
+temporal graph query language \ql, in which operators take as input a
+single temporal graph or a pair of temporal graphs, and produce a
+temporal graph as output.
 
-To support binary operations, we next define union compatibility of
+To support binary operations, we now define union compatibility of
 temporal graphs.
 
 \begin{definition}
