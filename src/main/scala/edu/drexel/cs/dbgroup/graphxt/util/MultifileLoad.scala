@@ -51,14 +51,12 @@ object MultifileLoad {
     val len = fs.globStatus(pt).map(_.getLen / 1000000).reduce(_+_)
     println("total length in Mbytes for path " + path + " is " + len)
 
-    //TODO: make this more intelligent
-    if (0 <= len && len <= 3)
-      1
-    else if (len <= 10)
+    if (0 <= len && len < 8)
+      2
+    else if (len <= 150)
       4
-    else if (len <= 300)
-      16
     else
-      32
+      scala.math.pow(2, scala.math.round(scala.math.log(-2.901*0.0000001*len*len + 0.027*len + 6.621)/scala.math.log(2))).toInt
+
   }
 }
