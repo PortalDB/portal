@@ -15,9 +15,9 @@ pairs of nodes from $V$, with schema $(\underline{vid_1},
 \end{definition}
 
 \begin{figure}
-\label{fig:sg}
 \includegraphics[width=3.2in]{figs/snapshot.pdf}
 \caption{Snapshot of VLDB co-authorship graph for 1940, with a single string node attribute $name$ and no edge attributes.}
+\label{fig:sg}
 \end{figure}
 
 Attributes of vertices and of edges are not restricted to be of atomic
@@ -32,11 +32,11 @@ union-compatible if $V'$ and $V''$ are union-compatible, and $E'$ and
 $E''$ are union-compatible.
 \end{definition}
 
-This is a standard union compatibility definition, which requires the
-vertex schma $V$ to be the same for both graphs $G'$ and $G''$ (same
-for edge schema $E$).  For example, the snapshot in
-Figure~\ref{fig:sg} is only compatible with other snapshots where
-vertices have one string attribute $name$ and no edge attributes.
+This is the standard union compatibility definition, which requires
+that vertex schema $V$ and edge schema $E$ be the same for $G'$ and
+$G''$.  For example, the snapshot in Figure~\ref{fig:sg} is only
+compatible with other snapshots where vertices have one non-key string
+attribute $name$ and no non-key edge attributes.
 
 $G$ may represent a directed or an undirected graph.  For undirected
 graphs we choose a canonical representation of an edge, with $vid_1
@@ -44,7 +44,7 @@ graphs we choose a canonical representation of an edge, with $vid_1
 
 We next describe how time is represented in our model.  Following the
 SQL:2011 standard~\cite{DBLP:journals/sigmod/KulkarniM12}, we adopt
-the {\em closed-open} period model, i.e., a period represents all
+the {\em closed-open} period model, where a period represents all
 times starting from and including the start time, continuing to but
 excluding the end time.
 
@@ -86,118 +86,106 @@ $P.end = p_n.end$, and the resolution of any period $P.res = p_1.end -
 p_1.start$. For convenience, we refer to the number of periods in the
 sequence as $P.size$.  
 
-For example, $[1940,1945), [1945,1950), … [2010,2015)$ represents a
-      temporal sequence in the interval [1940,2015) with size 15 and
-        resolution 5.
+For example, $P=([1940,1945), \ldots, [2010,2015))$ represents a
+    temporal sequence with $P.start=1945$, $P.end=2015$, $P.res=5$,
+    and $P.size=15$.
 
-\julia{Define the null sequence: what are the start / end /
-  resolution, considering that $start < end$, not $start \leq end$.}
+A special sequence $P^{\epsilon}$ is the null sequence, with
+$P^{\epsilon}.res=null$, $P^{\epsilon}.start=null$,
+$P^{\epsilon}.end=null$, and  $P^{\epsilon}.size=0$.
 
-\vera{According to the wiki, $[a,a)$ is considered an empty set. So if
-    we just follow the standard interval math semantics, we can say: A
-    null temporal sequence is a sequence represented by the
-    $[p.start,p.end)$ time interval regardless of the resolution. By
-      definition it is of size 0.}
+\eat{\vera{According to the wiki, $[a,a)$ is considered an empty
+      set. So if we just follow the standard interval math semantics,
+      we can say: A null temporal sequence is a sequence represented
+      by the $[p.start,p.end)$ time interval regardless of the
+        resolution. By definition it is of size 0.}}
 
-We adopt a SQL 2011 temporal predicate definitions for {\em contains},
-{\em overlaps}, {\em equals}, {\em preceeds}, and {\em succeeds} for
-time periods.  We further define these predicates for a temporal
-sequence by reducing it to the $p_1.start$ and $P_n.end$ time
-interval.  I.e., a temporal sequence $P'$ preceeds temporal sequence
-$P''$ if $P'.p_n.end \leq P''.p_1.start$.
-
-\begin{definition} [Temporal Sequence Interval Intersection]
-\label{def:tseqii}
-The intersection of a temporal sequence $P$ and interval
-$[p.start,p.end)$ is a subset $P'$ with $P'.start = max(P_1.start,
-  P_i.start), P'.end = min(P_n.end, P_j.end)$, where $P_i$ immediately
-  succeeds $p.start$ and $P_j$ immediately preceeds $p.end$.
-\end{definition}
-
-\vera{I am not sure whether immediately succeeds/preceeds includes a
-  full match, i.e. [1,2) and start=1 should include [1,2) in the
-      result.}
-
-For example, the intersection of temporal sequence $[3,5),[5,7),[7,9)$
-      and time interval $[1,8)$ is $[3,5),[5,7)$. $[7,9)$ is not
-              included because 8 is in the middle of that interval and
-              cannot be included fully.
+We next define union-compatibility for temporal sequences, and present
+two basic operations on temporal sequences, which we will use as
+building blocks when we define our query language in
+Section~\ref{sec:lang}.
 
 \begin{definition} [Temporal Union-Compatibility]
 \label{def:tcompat} 
 Temporal sequences $P'$ and $P''$ are union-compatible if they have
 the same resolution, and if we can construct a valid temporal sequence
 $P$ with $P.start = min(P'.start, P''.start)$, $P.end = max(P'.start,
-P''.start)$, and with $P.res = P'.res$.
+P''.start)$, and $P.res = P'.res$.  $P^{\epsilon}$ is union-compatible
+with any temporal sequence.
 \end{definition}
 
-For example, consider these 4 sequences:
-\begin{enumerate}
-\item $[1,3),[3,5),[5,7),[7,9)$
-\item $[9,10),[10,11)$
-\item $[8,10),[10,12),[12,14)$
-\item $[15,17),[17,19)$
-\end{enumerate}
+For example, consider sequences $P_1=([1,3),[3,5),[5,7))$,
+      $P_2=([9,10),[10,11))$, $P_3=([8,10),[10,12),[12,14))$,
+                $P_4=([12,14),[14,16))$, and $P_5=([20,22))$.
+$P_2$ is not union-compatible with any other sequence because it has a
+different resolution.  $P_1$ and $P_3$ are not union-compatible
+because, while $P_1.res = P_2.res = 3$, it is not possible to
+construct a valid temporal sequence with $P.start=1$, $P.end=14$ and
+$P.res=3$.  Finally, $P_1$, $P_4$ and $P_5$ are pair-wise
+union-compatible.  As our example illustrates, a pair of union-compatible sequences may
+or may not overlap, and may not even be consecutive.
 
-Sequence 2 is not union-compatible with any other because it has a
-different resolution.  Sequences 1 and 3 are not union-compatible
-because, while the resolution is the same, [1,14) is not a valid
-  temporal sequence of resolution 3.  Finally, sequences 1 and 4 are
-  union-compatible.  Notice that there is no requirement for the two
-  sequences to be consecutive to be union-compatible. We describe a
-  result of two non-consecutive temporal sequences further in this
-  section.
-
-\begin{definition} [Temporal Sequence Overlap]
-\label{def:tseqoverlap}
-Temporal overlap between two union-compatible temporal sequences $P'$
-and $P''$ is an intersection $P' \cap P''$ of time periods comprising
-$P'$ and $P''$.
+\begin{definition} [Temporal Intersection]
+\label{def:tseqand}
+Temporal intersection of union-compatible sequences $P'$ and $P''$,
+denoted $P' \cap P''$, is a time sequence $P$, containing intervals
+that are in common to $P'$ and $P''$.  If no intervals are in common
+to $P'$ and $P''$, this operation returns $P^{\epsilon}$.
 \end{definition}
+
+For example, $P_3 \cap P_4 = ([12,14))$ and $P_3 \cap P_5 =
+  P^{\epsilon}$.
+
+\begin{definition} [Temporal Union]
+\label{def:tseqor}
+Temporal union of union-compatible sequences $P'$ and $P''$, denoted
+$P' \cup P''$, is the sequence $P$ with $P.start = min(P'.start,
+P''.start)$, $P.end = max(P'.start, P''.start)$, and $P.res = P'.res$.
+\end{definition}
+
+For example, $P_3 \cup P_4 = ([8,10),\ldots,[14,16))$ and
+$P_3 \cup P_5 = ([8,10), \ldots, [20,22))$.
 
 Recall that a snapshot represents a single state of an evolving graph,
 and is not itself time-aware.  Temporal evolution of a graph is
 represented by a sequence of snapshots, called {\em temporal graphs}
-in our formalism. 
+in our formalism.
 
 \begin{definition} [Temporal Graph]
 \label{def:tgraph} 
-A {\em temporal graph} $T = (G_1, \ldots, G_n; P)$ associates a
-sequence of $n$ structurally union-compatible snapshots with a
-temporal sequence $P$, such that $P.size = n$.
+A {\em temporal graph} (or a {\em \tg}) $T = (G_1, \ldots, G_n; P)$
+  associates a sequence of $n$ structurally union-compatible snapshots
+  with a temporal sequence $P$, such that $P.size = n$.
 \end{definition}
 
 Snapshot graphs in the sequence define the {\em structural schema} of
-$T$, while the {\em temporal schema} of $T$ is specified by $P$.
-Identity of a vertex persists across snapshots in a temporal graph,
-and across temporal graphs.
+$T$, while $P$ specifies the {\em temporal schema} of $T$.
 
-For example, in Figure~\ref{fig:tgraph} vertex with id 3 represents
-the same author W. V. Quine, who published a paper in both of those
-time periods.
+Importantly, identity of a vertex persists across snapshots in a
+\tg, and across \tgs.  For example, in Figure~\ref{fig:tgraph}
+vertex with id 3 represents the same author W. V. Quine, who published
+both in 1940 and in 1952.
 
 \begin{figure}
 \label{fig:tgraph}
 \includegraphics[width=3.2in]{figs/temporalgraph.pdf}
-\caption{A temporal graph of VLDB co-authorship over the period from 1940 to 1953.}
+\caption{A \tg of VLDB co-authorship over the period from 1940 to 1953.}
 \end{figure}
 
-A  temporal graph of Definition~\ref{def:tgraph} is the basic
-element in our model.  In what follows, we assume that a relation in
-our database corresponds to a single temporal graph, not to a
-collection of temporal graphs.  In the next section we will define a
-temporal graph query language \ql, in which operators take as input a
-single temporal graph or a pair of temporal graphs, and produce a
-temporal graph as output.
+To conclude this section, we define union-compatibility for \tgs.
 
-To support binary operations, we now define union compatibility of
-temporal graphs.
-
-\begin{definition} [Graph Union-Compatibility]
-\label{def:tuc} Temporal graphs $T'$ and $T''$ are union-compatible if they are both
+\begin{definition} [\tg Union-Compatibility]
+\label{def:tuc} \tgs $T'$ and $T''$ are union-compatible if they are both
 structurally union-compatible (per Definition~\ref{def:scompat}) and
 temporally union-compatible (per Definition~\ref{def:tcompat}).
 \end{definition}
+
+The \tg of Definition~\ref{def:tgraph} is the basic element in our
+model.  In what follows, we assume that a relation in our database
+corresponds to a single temporal graph, not to a collection of
+temporal graphs.  In the next section we will define the temporal
+graph query language \ql, in which operators take as input a single
+\tg or a pair of \tgs, and produce a \tg as output.
 
 
 
