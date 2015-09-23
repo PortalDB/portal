@@ -10,6 +10,7 @@ import scala.collection.immutable.SortedMap
 import org.apache.log4j.Logger
 import org.apache.log4j.Level
 import org.apache.spark.graphx.impl.GraphXPartitionExtension._
+import java.time.LocalDate
 
 object Driver {
   def main(args: Array[String]) = {
@@ -64,15 +65,15 @@ object Driver {
       def eAggFunc(a: Int, b: Int): Int = a
       def aggFunc2(a: Double, b: Double): Double = math.max(a, b)
 
-    var from: Int = 0
-    var to: Int = Int.MaxValue
+    var from: LocalDate = LocalDate.MIN
+    var to: LocalDate = LocalDate.MAX
     //if there is a select in the query and it comes before others, use it to selectively load
     val loop = new Breaks
     loop.breakable {
       for (i <- 0 until args.length) {
         args(i) match {
-          case "--select" => from = args(i + 1).toInt; to = args(i + 2).toInt
-          case "--agg" | "--pagerank" | "--agg" | "--count" | "--getsnapshot" => loop.break
+          case "--select" => from = LocalDate.parse(args(i + 1)); to = LocalDate.parse(args(i + 2))
+          case "--agg" | "--pagerank" | "--count" => loop.break
 	  case _ =>
         }
       }
@@ -96,7 +97,7 @@ object Driver {
       if (args(i) == "--agg") {
         var sem = AggregateSemantics.Existential
         var runWidth = 1; 
-        val resolution: Int = args(i + 1).toInt
+        val resolution: Resolution = Resolution.from(args(i + 1))
         val partAgg: Boolean = if (args.length > (i + 3) && args(i + 3) == "-p") true else false
 
         if (args(i + 2) == "universal")
@@ -105,17 +106,18 @@ object Driver {
         if (partAgg) {
           partitionType = PartitionStrategyType.withName(args(i + 4))
           numParts = args(i + 5).toInt
-          runWidth = resolution
         }
 
         var aggStart = System.currentTimeMillis()
         if (changedType) {
           if (partAgg) {
+            runWidth = resolution.getNumParts(result2.resolution, LocalDate.now())
             result2 = result2.partitionBy(partitionType, runWidth, numParts)
           }
           result2 = result2.aggregate(resolution, sem, aggFunc2, aggFunc2)
         } else {
           if (partAgg) {
+            runWidth = resolution.getNumParts(result.resolution, LocalDate.now())
             result = result.partitionBy(partitionType, runWidth, numParts)
           }
           result = result.aggregate(resolution, sem, vAggFunc, eAggFunc)
@@ -141,12 +143,12 @@ object Driver {
           if (partSel) {
             result2 = result2.partitionBy(partitionType, runWidth, numParts)
           }
-          result2 = result2.select(Interval(args(i + 1).toInt, args(i + 2).toInt))
+          result2 = result2.select(Interval(LocalDate.parse(args(i + 1)), LocalDate.parse(args(i + 2))))
         } else {
           if (partSel) {
             result = result.partitionBy(partitionType, runWidth, numParts)
           }
-          result = result.select(Interval(args(i + 1).toInt, args(i + 2).toInt))
+          result = result.select(Interval(LocalDate.parse(args(i + 1)), LocalDate.parse(args(i + 2))))
         }
 
         var selEnd = System.currentTimeMillis()
@@ -196,51 +198,17 @@ object Driver {
           if (partCount) {
             result2 = result2.partitionBy(partitionType, runWidth, numParts)
           }
-          println("Total edges across all snapshots: " + result2.numEdges)
+          println("Total edges across all snapshots: " + result2.edges.count)
         } else {
           if (partCount) {
             result = result.partitionBy(partitionType, runWidth, numParts)
           }
-          println("Total edges across all snapshots: " + result.numEdges)
+          println("Total edges across all snapshots: " + result.edges.count)
         }
         var ctEnd = System.currentTimeMillis()
         var total = ctEnd - ctStart
         println(f"Count Runtime: $total%dms ($argNum%d)")
         argNum += 1
-
-      } else if (args(i) == "--getsnapshot") {
-        val runWidth = 1; //FIXME: is this correct
-        val partGS: Boolean = if (args.length > (i + 2) && args(i + 2) == "-p") true else false
-        val year = args(i + 1).toInt
-        val rng = Interval(year, year)
-        val intvs = SortedMap(rng -> 0)
-
-        if (partGS) {
-          partitionType = PartitionStrategyType.withName(args(i + 3))
-          numParts = args(i + 4).toInt
-        }
-
-        var gsStart = System.currentTimeMillis()
-        //FIXME! Use the correct type of graph here
-        if (changedType) {
-          if (partGS) {
-            result2 = result2.partitionBy(partitionType, runWidth, numParts)
-          }
-          val gps = Seq(result2.getSnapshotByTime(args(i + 1).toInt))
-          result2 = new SnapshotGraph(rng, result2.resolution, intvs, gps)
-        } else {
-          if (partGS) {
-            result = result.partitionBy(partitionType, runWidth, numParts)
-          }
-          val gps = Seq(result.getSnapshotByTime(args(i + 1).toInt))
-          result = new SnapshotGraph(rng, result.resolution, intvs, gps)
-        }
-
-        var gsEnd = System.currentTimeMillis()
-        var total = gsEnd - gsStart
-        println(f"GetSnapshot Runtime: $total%dms ($argNum%d)")
-        argNum += 1
-
       }
     }
 
@@ -250,7 +218,7 @@ object Driver {
     sc.stop
   }
 
-  def loadData(data: String, sc: SparkContext, gtype: String, from: Int, to: Int): TemporalGraph[String, Int] = {
+  def loadData(data: String, sc: SparkContext, gtype: String, from: LocalDate, to: LocalDate): TemporalGraph[String, Int] = {
     if (gtype == "SG") {
       SnapshotGraph.loadData(data, from, to)
     } else if (gtype == "MG") {

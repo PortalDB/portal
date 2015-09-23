@@ -1,8 +1,5 @@
-//For one graph per year (spanshots):
 package edu.drexel.cs.dbgroup.graphxt
 
-import scala.collection.immutable.SortedMap
-import scala.collection.immutable.TreeMap
 import scala.collection.parallel.ParSeq
 import scala.collection.mutable.Buffer
 import scala.reflect.ClassTag
@@ -24,338 +21,329 @@ import org.apache.spark.storage.RDDBlockId
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
 
-import edu.drexel.cs.dbgroup.graphxt.util.NumberRangeRegex;
 import edu.drexel.cs.dbgroup.graphxt.util.MultifileLoad
 
-class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](sp: Interval, res: Int, invs: SortedMap[Interval, TimeIndex], gps: ParSeq[Graph[VD, ED]]) extends TemporalGraph[VD, ED] with Serializable {
-  val span = sp
-  val resolution = res
+import java.time.LocalDate
+
+class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: ParSeq[Interval], gps: ParSeq[Graph[VD, ED]]) extends TemporalGraph[VD, ED] with Serializable {
   val graphs: ParSeq[Graph[VD, ED]] = gps
-  val intervals: SortedMap[Interval, TimeIndex] = invs
+  //TODO: because intervals are consecutive and equally sized,
+  //we could store just the start of each one
+  val resolution:Resolution = intvs.head.resolution
+
+  intvs.foreach { ii =>
+    if (ii.resolution != resolution)
+      throw new IllegalArgumentException("temporal sequence is not valid, intervals are not all of equal resolution")
+  }
+
+  val intervals: ParSeq[Interval] = intvs
+  lazy val span: Interval = Interval(intervals.head.start, intervals.last.end)
 
   /** Default constructor is provided to support serialization */
-  protected def this() = this(null, 0, null, null)
+  protected def this() = this(ParSeq[Interval](), ParSeq[Graph[VD, ED]]())
 
-  //constructor overloading
-  def this(sp: Interval) = {
-    this(sp, 1, TreeMap[Interval, Int](), ParSeq[Graph[VD, ED]]())
-  }
+  override def size(): Int = graphs.size
 
-  override def size(): Int = { graphs.size }
-
-  override def numEdges(): Long = {
-    graphs.filterNot(_.edges.isEmpty).map(_.numEdges).reduce(_ + _)
-  }
-
-  override def numPartitions(): Int = {
-    graphs.filterNot(_.edges.isEmpty).map(_.edges.partitions.size).reduce(_ + _)
-  }
-
-  override def vertices: VertexRDD[Map[TimeIndex, VD]] = {
-    VertexRDD(graphs.zipWithIndex.filterNot(x => x._1.vertices.isEmpty).map(x => x._1.vertices.mapValues(y => Map[TimeIndex, VD](x._2 -> y)))
+  override def vertices: VertexRDD[Map[Interval, VD]] = {
+    VertexRDD(graphs.zipWithIndex.filterNot(x => x._1.vertices.isEmpty).map(x => x._1.vertices.mapValues(y => Map[Interval, VD](intervals(x._2) -> y)))
       .reduce((a, b) => VertexRDD(a union b))
-      .reduceByKey((a: Map[TimeIndex, VD], b: Map[TimeIndex, VD]) => a ++ b))
+      .reduceByKey((a: Map[Interval, VD], b: Map[Interval, VD]) => a ++ b))
   }
 
-  override def verticesFlat: VertexRDD[(TimeIndex, VD)] = {
+  override def verticesFlat: VertexRDD[(Interval, VD)] = {
     VertexRDD(graphs.zipWithIndex.filterNot(x => x._1.vertices.isEmpty)
-      .map(x => x._1.vertices.mapValues(y => (x._2, y)))
+      .map(x => x._1.vertices.mapValues(y => (intervals(x._2), y)))
       .reduce((a, b) => VertexRDD(a union b)))
   }
 
-  override def edges: EdgeRDD[Map[TimeIndex, ED]] = {
-    EdgeRDD.fromEdges[Map[TimeIndex, ED], VD](graphs.zipWithIndex.filterNot(x => x._1.edges.isEmpty).map(x => x._1.edges.mapValues(y => Map[TimeIndex, ED](x._2 -> y.attr)))
-      .reduce((a: RDD[Edge[Map[TimeIndex, ED]]], b: RDD[Edge[Map[TimeIndex, ED]]]) => a union b)
+  override def edges: EdgeRDD[Map[Interval, ED]] = {
+    EdgeRDD.fromEdges[Map[Interval, ED], VD](graphs.zipWithIndex.filterNot(x => x._1.edges.isEmpty).map(x => x._1.edges.mapValues(y => Map[Interval, ED](intervals(x._2) -> y.attr)))
+      .reduce((a: RDD[Edge[Map[Interval, ED]]], b: RDD[Edge[Map[Interval, ED]]]) => a union b)
       .map(x => ((x.srcId, x.dstId), x.attr))
-      .reduceByKey((a: Map[TimeIndex, ED], b: Map[TimeIndex, ED]) => a ++ b)
+      .reduceByKey((a: Map[Interval, ED], b: Map[Interval, ED]) => a ++ b)
       .map(x => Edge(x._1._1, x._1._2, x._2))
     )
   }
 
-  override def edgesFlat: EdgeRDD[(TimeIndex, ED)] = {
-    EdgeRDD.fromEdges[(TimeIndex, ED), VD](graphs.zipWithIndex.filterNot(x => x._1.edges.isEmpty).map(x => x._1.edges.mapValues(y => (x._2,y.attr)))
-      .reduce((a: RDD[Edge[(TimeIndex, ED)]], b: RDD[Edge[(TimeIndex, ED)]]) => a union b))
+  override def edgesFlat: EdgeRDD[(Interval, ED)] = {
+    EdgeRDD.fromEdges[(Interval, ED), VD](graphs.zipWithIndex.filterNot(x => x._1.edges.isEmpty).map(x => x._1.edges.mapValues(y => (intervals(x._2),y.attr)))
+      .reduce((a: RDD[Edge[(Interval, ED)]], b: RDD[Edge[(Interval, ED)]]) => a union b))
   }
 
-  override def persist(newLevel: StorageLevel = MEMORY_ONLY): SnapshotGraphParallel[VD, ED] = {
-    //persist each graph
-    graphs.map(_.persist(newLevel))
-    this
+  override def degrees: VertexRDD[Map[Interval, Int]] = {
+    VertexRDD(graphs.zipWithIndex.map(x => x._1.degrees.mapValues(deg => Map[Interval, Int](intervals(x._2) -> deg)))
+      .reduce((x,y) => VertexRDD(x union y))
+      .reduceByKey((a: Map[Interval, Int], b: Map[Interval, Int]) => a ++ b))
   }
 
-  override def unpersist(blocking: Boolean = true): SnapshotGraphParallel[VD, ED] = {
-    graphs.map(_.unpersist(blocking))
-    this
-  }
+  /** Query operations */
 
-  //intervals are assumed to be nonoverlapping
-  //Note: snapshots should be added from earliest to latest for performance reasons
-  //FIXME: this assumes that the span remains unchanged
-  override def addSnapshot(place: Interval, snap: Graph[VD, ED]): SnapshotGraphParallel[VD, ED] = {
-    var intvs = intervals
-    var gps = graphs
-    val iter: Iterator[Interval] = intvs.keysIterator
-    var pos: Int = -1
-    var found: Boolean = false
-
-    // create a Breaks object (to break out of a loop)
-    val loop = new Breaks
-
-    loop.breakable {
-      //this is not as efficient as binary search but the list is expected to be short
-      while (iter.hasNext) {
-        val nx: Interval = iter.next
-
-        if (nx > place) {
-          pos = intvs(nx) - 1
-          found = true
-          loop.break
-        }
-      }
-    }
-
-    //pos can be negative if there are no elements
-    //or if this interval is the smallest of all
-    //or if this interval is the largest of all
-    if (pos < 0) {
-      if (found) {
-        //put in position 0, move the rest to the right
-        pos = 0
-        intvs.map { case (k, v) => (k, v + 1) }
-        intvs += (place -> pos)
-        gps = snap +: gps
-      } else {
-        //put in last
-        intvs += (place -> gps.size)
-        gps = gps :+ snap
-      }
-    } else {
-      //put in the specified position, move the rest to the right
-      intvs.foreach { case (k, v) => if (v > pos) (k, v + 1) }
-      val (st, en) = gps.splitAt(pos - 1)
-      gps = (st ++ (snap +: en))
-    }
-
-    new SnapshotGraphParallel(span, resolution, intvs, gps)
-  }
-
-  override def getSnapshotByTime(time: TimeIndex): Graph[VD, ED] = {
-    if (time >= span.min && time <= span.max) {
-      //retrieve the position of the correct interval
-      var position = -1
-      val iter: Iterator[Interval] = intervals.keysIterator
-      val loop = new Breaks
-
-      loop.breakable {
-        while (iter.hasNext) {
-          val nx: Interval = iter.next
-          if (nx.contains(time)) {
-            position = intervals(nx)
-            loop.break
-          }
-        }
-      }
-
-      getSnapshotByPosition(position)
-    } else
-      null
-  }
-
-  override def getSnapshotByPosition(pos: TimeIndex): Graph[VD, ED] = {
-    if (pos >= 0 && pos < graphs.size)
-      graphs(pos)
-    else
-      null
-  }
-
-  //since SnapshotGraphParallels are involatile (except with add)
-  //the result is a new SnapshotGraphParallel
-  override def select(bound: Interval): SnapshotGraphParallel[VD, ED] = {
-    if (span.min == bound.min && span.max == bound.max) return this
+  override def select(bound: Interval): TemporalGraph[VD, ED] = {
+    if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
 
     if (!span.intersects(bound)) {
-      return null
+      return SnapshotGraphParallel.emptyGraph()
     }
 
-    val minBound = if (bound.min > span.min) bound.min else span.min
-    val maxBound = if (bound.max < span.max) bound.max else span.max
-    val rng = Interval(minBound, maxBound)
+    val startBound = if (bound.start.isAfter(span.start)) bound.start else span.start
+    val endBound = if (bound.end.isBefore(span.end)) bound.end else span.end
+    val rng = Interval(startBound, endBound)
 
-    var selectStart = math.abs(span.min - minBound)
-    var selectStop = maxBound - span.min + 1
-    var intervalFilter: SortedMap[Interval, Int] = intervals.slice(selectStart, selectStop)
+    //compute indices of start and stop
+    val selectStart:Int = intervals.indexOf(resolution.getInterval(startBound))
+    var selectStop:Int = intervals.indexOf(resolution.getInterval(endBound))
+    if (selectStop < 0) selectStop = intervals.size - 1
 
-    val newGraphs: ParSeq[Graph[VD, ED]] = intervalFilter.map(x => graphs(x._2)).toSeq.par
-    val newIntervals: SortedMap[Interval, Int] = intervalFilter.mapValues { x => x - selectStart }
+    val newIntvs: ParSeq[Interval] = intervals.slice(selectStart, selectStop)
+    val newGraphs: ParSeq[Graph[VD, ED]] = graphs.slice(selectStart, selectStop)
 
-    new SnapshotGraphParallel(rng, resolution, newIntervals, newGraphs)
+    new SnapshotGraphParallel(newIntvs, newGraphs)
   }
 
-  override def aggregate(resolution: Int, sem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): SnapshotGraphParallel[VD, ED] = {
-    var intvs: SortedMap[Interval, TimeIndex] = TreeMap[Interval, TimeIndex]()
+  override def select(tpred: Interval => Boolean): TemporalGraph[VD, ED] = {
+    new SnapshotGraphParallel(intervals, graphs.zipWithIndex.map{case (g,i) =>
+      if (tpred(intervals(i)))
+        g
+      else
+        Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+    })
+  }
+
+  override def select(epred: EdgeTriplet[VD,ED] => Boolean, vpred: (VertexId, VD) => Boolean): TemporalGraph[VD, ED] = {
+    new SnapshotGraphParallel(intervals, graphs.map(x => x.subgraph(epred, vpred)))
+  }
+
+  override def aggregate(res: Resolution, sem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
+    var intvs: ParSeq[Interval] = ParSeq[Interval]()
     var gps: ParSeq[Graph[VD, ED]] = ParSeq[Graph[VD, ED]]()
 
-    val iter: Iterator[(Interval, Int)] = intervals.iterator
-    var numResults: Int = 0
-    var minBound, maxBound: Int = 0;
+    if (!resolution.isCompatible(res)) {
+      throw new IllegalArgumentException("incompatible resolution")
+    }
 
-    while (iter.hasNext) {
-      val (k, v) = iter.next
-      minBound = k.min
-      maxBound = k.max
+    //it is possible that different number of graphs end up in different intervals
+    //such as going from days to months
+    var index:Integer = 0
+    var num:Integer = 0
 
-      //take resolution# of consecutive graphs, combine them according to the semantics
-      var firstVRDD: RDD[(VertexId, VD)] = graphs(v).vertices
-      var firstERDD: RDD[Edge[ED]] = graphs(v).edges
-      var yy = 0
-      var width = 0
+    while (index < gps.size) {
+      val intv:Interval = intervals(index)
+      num = 0
+      //need to compute the interval start and end based on resolution new units
+      val newIntv:Interval = res.getInterval(intv.start)
+      val expected:Integer = res.getNumParts(resolution, intv.start)
 
+      var firstVRDD: RDD[(VertexId, VD)] = graphs(index).vertices
+      var firstERDD: RDD[Edge[ED]] = graphs(index).edges
+      index += 1
+      num += 1
+
+      //grab all the intervals that fit within
       val loop = new Breaks
       loop.breakable {
-        for (yy <- 1 to resolution - 1) {
-
-          if (iter.hasNext) {
-            val (k, v) = iter.next
-            firstVRDD = firstVRDD.union(graphs(v).vertices)
-            firstERDD = firstERDD.union(graphs(v).edges)
-            maxBound = k.max
+        while (index < gps.size) {
+          val intv2:Interval = intvs(index)
+          if (newIntv.contains(intv2)) {
+            firstVRDD = firstVRDD.union(graphs(index).vertices)
+            firstERDD = firstERDD.union(graphs(index).edges)
           } else {
-            width = yy - 1
             loop.break
           }
+          num += 1
+          index += 1
         }
       }
-      if (width == 0) width = resolution - 1
 
-      intvs += (Interval(minBound, maxBound) -> numResults)
-      numResults += 1
-
+      intvs = intvs :+ intv
       if (sem == AggregateSemantics.Existential) {
         gps = gps :+ Graph(VertexRDD(firstVRDD.reduceByKey(vAggFunc)), EdgeRDD.fromEdges[ED, VD](firstERDD.map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eAggFunc).map { x =>
           val (k, v) = x
           Edge(k._1, k._2, v)
         }))
-      } else if (sem == AggregateSemantics.Universal) {
-        gps = gps :+ Graph(firstVRDD.map(x => (x._1, (x._2, 1))).reduceByKey((x, y) => (vAggFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 > width).map { x =>
+      } else if (sem == AggregateSemantics.Universal && num == expected) {
+        //we only have a valid aggregated snapshot if we have all the datapoints from this interval
+        gps = gps :+ Graph(firstVRDD.map(x => (x._1, (x._2, 1))).reduceByKey((x, y) => (vAggFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == expected).map { x =>
           val (k, v) = x
           (k, v._1)
         },
-          EdgeRDD.fromEdges[ED, VD](firstERDD.map(e => ((e.srcId, e.dstId), (e.attr, 1))).reduceByKey((x, y) => (eAggFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 > width).map { x =>
+          EdgeRDD.fromEdges[ED, VD](firstERDD.map(e => ((e.srcId, e.dstId), (e.attr, 1))).reduceByKey((x, y) => (eAggFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == expected).map { x =>
             val (k, v) = x
             Edge(k._1, k._2, v._1)
           }))
+      } else { //empty graph
+        gps = gps :+ Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
       }
     }
 
-    new SnapshotGraphParallel(span, resolution * this.resolution, intvs, gps)
+    new SnapshotGraphParallel(intvs, gps)
   }
 
-  override def partitionBy(pst: PartitionStrategyType.Value, runs: Int): SnapshotGraphParallel[VD, ED] = {
-    partitionBy(pst, runs, graphs.head.edges.partitions.size)
+  override def transform[ED2: ClassTag, VD2: ClassTag](emap: (Edge[ED], Interval) => ED2, vmap: (VertexId, Interval, VD) => VD2): TemporalGraph[VD2, ED2] = {
+    new SnapshotGraphParallel(intervals, graphs.zipWithIndex.map(x => x._1.mapVertices{ (id: VertexId, attr: VD) => vmap(id, intervals(x._2), attr) }.mapEdges{ e: Edge[ED] => emap(e, intervals(x._2))}))
   }
 
-  override def partitionBy(pst: PartitionStrategyType.Value, runs: Int, parts: Int): SnapshotGraphParallel[VD, ED] = {
-    var numParts = if (parts > 0) parts else graphs.head.edges.partitions.size
-
-    if (pst != PartitionStrategyType.None) {
-      //not changing the intervals, only the graphs at their indices
-      //each partition strategy for SG needs information about the graph
-
-      //use that strategy to partition each of the snapshots
-      var temp = intervals.map { case (a, b) => graphs(b).partitionBy(PartitionStrategies.makeStrategy(pst, b, graphs.size, runs), numParts) }
-      var gps: ParSeq[Graph[VD, ED]] = temp.toSeq.par
-
-      new SnapshotGraphParallel(span, resolution, intervals, gps)
-    } else
-      this
+  override def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2)(implicit eq: VD =:= VD2 = null): TemporalGraph[VD2, ED] = {
+    new SnapshotGraphParallel(intervals, graphs.zipWithIndex.map(x =>
+      x._1.mapVertices{ (id: VertexId, attr: VD) => map(id, intervals(x._2), attr) }))
   }
 
-  override def degrees: VertexRDD[Map[TimeIndex, Int]] = {
-    VertexRDD(graphs.zipWithIndex.map(x => x._1.degrees.mapValues(deg => Map[TimeIndex, Int](x._2 -> deg)))
-      .reduce((x,y) => VertexRDD(x union y))
-      .reduceByKey((a: Map[TimeIndex, Int], b: Map[TimeIndex, Int]) => a ++ b))
+  override def mapEdges[ED2: ClassTag](map: (Edge[ED], Interval) => ED2): TemporalGraph[VD, ED2] = {
+    new SnapshotGraphParallel(intervals, graphs.zipWithIndex.map(x =>
+      x._1.mapEdges{ e: Edge[ED] => map(e, intervals(x._2))}))
   }
 
-  override def union(other: TemporalGraph[VD, ED]): TemporalGraph[VD, ED] = {
+  override def outerJoinVertices[U: ClassTag, VD2: ClassTag](other: RDD[(VertexId, Map[Interval, U])])(mapFunc: (VertexId, Interval, VD, Option[U]) => VD2)(implicit eq: VD =:= VD2 = null): TemporalGraph[VD2, ED] = {
+    new SnapshotGraphParallel(intervals, graphs.zipWithIndex.map {x => 
+      val in:Interval = intervals(x._2)
+      x._1.outerJoinVertices(other){ (id: VertexId, attr1: VD, attr2: Option[Map[Interval, U]]) =>
+        //this function receives a (id, attr, Map)
+        //need to instead call mapFunc with (id, index, attr, otherattr)
+        if (attr2.isEmpty)
+          mapFunc(id, in, attr1, None)
+        else
+          mapFunc(id, in, attr1, attr2.get.get(in)) }})
+  }
+
+  override def union(other: TemporalGraph[VD, ED], sem: AggregateSemantics.Value, vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
+    /** The type checking already validates that the structurally the graphs are union-compatible
+      * But we also need to check that they are temporally union-compatible
+      * this includes having the same resolution and aligning intervals
+      * Two temporal sequences are compatible if their first elements are compatible
+      */ 
     var grp2: SnapshotGraphParallel[VD, ED] = other match {
       case grph: SnapshotGraphParallel[VD, ED] => grph
       case _ => throw new ClassCastException
     }
-    if (resolution != grp2.resolution) {
-      println("The resolutions of the two graphs are not the same, ignoring")
-      return this
+
+    if (!intervals.head.isUnionCompatible(grp2.intervals.head)) {
+      throw new IllegalArgumentException("two graphs are not union-compatible in the temporal schema")
     }
 
-    //compute the span
-    val minBound = if (span.min > grp2.span.min) grp2.span.min else span.min
-    val maxBound = if (span.max < grp2.span.max) grp2.span.max else span.max
+    //compute the combined span
+     val startBound = if (span.start.isBefore(grp2.span.start)) span.start else grp2.span.start
+    val endBound = if (span.end.isAfter(grp2.span.end)) span.end else grp2.span.end
 
     //compute the new intervals
-    //because we use 0-indexed intervals, we cannot just take a union of two intervals
-    //we need to reindex first
+    //because the temporal sequence is consecutive and of the same resolution
+    //it is easy to generate from the span
+    var mergedIntervals: ParSeq[Interval] = ParSeq[Interval]()
+    var xx:LocalDate = startBound
+    while (xx.isBefore(endBound)) {
+      val nextInterval = resolution.getInterval(xx)
+      mergedIntervals = mergedIntervals :+ nextInterval
+      xx = nextInterval.end
+    }
 
-    //create intervals for missing graphs
-    def makeFullIndex(intvs: SortedMap[Interval, TimeIndex], sp: Interval, res: Int): SortedMap[Interval, Boolean] = {
-      var xx = 0
-      var result: SortedMap[Interval, Boolean] = TreeMap[Interval, Boolean]()
-      val inverted = intvs.map(_.swap)
-      var maxx: TimeIndex = inverted.max._1
-      //need to find the last index even if some graphs at the end of the span are missing
-      if (inverted.max._2.max < sp.max) maxx += (sp.max - inverted.max._2.max)/res
-      var btm = sp.min
-      for (xx <- 0 to maxx) {
-        if (inverted.contains(xx)) {
-          result += (inverted(xx) -> true)
-          btm = inverted(xx).max + 1
-        } else {
-          result += (Interval(btm, btm+res-1) -> false)
-          btm = btm + res
-        }
+    //make graph sequences of the appropriate length
+    val gr1IndexStart:Long = resolution.numBetween(startBound, span.start)
+    val gr2IndexStart:Long = resolution.numBetween(startBound, grp2.span.start)
+    val gr1Pad:Long = resolution.numBetween(span.end, endBound)
+    val gr2Pad:Long = resolution.numBetween(grp2.span.end, endBound)
+    val grseq1:ParSeq[Graph[VD, ED]] = (ParSeq[Graph[VD, ED]]().padTo(gr1IndexStart.toInt, null) ++ graphs).padTo(gr1Pad.toInt, null)
+    val grseq2:ParSeq[Graph[VD, ED]] = (ParSeq[Graph[VD, ED]]().padTo(gr2IndexStart.toInt, null) ++ grp2.graphs).padTo(gr2Pad.toInt, null)
+
+    //then zip them
+    val mergedGraphs:ParSeq[Graph[VD, ED]] = grseq1.zip(grseq2).map { twogrs =>
+      twogrs match {
+        case (gr1, gr2) =>
+          if (sem == AggregateSemantics.Existential) {
+            Graph(VertexRDD(gr1.vertices.union(gr2.vertices).reduceByKey(vFunc)), EdgeRDD.fromEdges[ED, VD](gr1.edges.union(gr2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eFunc).map { x =>
+              val (k, v) = x
+              Edge(k._1, k._2, v)
+            }))
+          } else { //universal
+            Graph(gr1.vertices.union(gr2.vertices).map(x => (x._1, (x._2, 1))).reduceByKey((x, y) => (vFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == 2).map {x =>
+              val (k, v) = x
+              (k, v._1)
+            }, EdgeRDD.fromEdges[ED, VD](gr1.edges.union(gr2.edges).map(e => ((e.srcId, e.dstId), (e.attr, 1))).reduceByKey((x, y) => (eFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == 2).map { x =>
+              val (k, v) = x
+              Edge(k._1, k._2, v._1)
+            }))
+          }
+        case (null, gr2) =>
+          if (sem == AggregateSemantics.Existential)
+            gr2
+          else
+            Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+        case (gr1, null) =>
+          if (sem == AggregateSemantics.Existential)
+            gr1
+          else
+            Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
       }
-      result
     }
 
-    //merge intervals, both missing and present, from both graphs
-    //filter out the falses, then map back into map of intervals to indices
-    val mergedIntervals: SortedMap[Interval, TimeIndex] = (makeFullIndex(intervals, span, resolution) ++ makeFullIndex(grp2.intervals, grp2.span, grp2.resolution)).zipWithIndex.filter(x => x._1._2 == true).map(x => (x._1._1,x._2))
+    new SnapshotGraphParallel(mergedIntervals, mergedGraphs)
+  }
 
-    //now the graphs themselves, which are arranged in a sequence
-    //look up the new index of the earliest graph
-    def makeNewIndexGraph(grh: SnapshotGraphParallel[VD, ED]): ParSeq[(Graph[VD, ED], Int)] = {
-      val newmin = mergedIntervals(grh.intervals.head._1)
-      grh.graphs.zipWithIndex.map(x => (x._1, x._2 + newmin))
+  override def intersection(other: TemporalGraph[VD, ED], sem: AggregateSemantics.Value, vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
+    /** The type checking already validates that the structurally the graphs are union-compatible
+      * But we also need to check that they are temporally union-compatible
+      * this includes having the same resolution and aligning intervals
+      * Two temporal sequences are compatible if their first elements are compatible
+      */ 
+    var grp2: SnapshotGraphParallel[VD, ED] = other match {
+      case grph: SnapshotGraphParallel[VD, ED] => grph
+      case _ => throw new ClassCastException
     }
 
-    val graphBuf: Buffer[Graph[VD, ED]] = Buffer[Graph[VD, ED]]()
-    makeNewIndexGraph(this).foreach(x => graphBuf(x._2) = x._1)
-    //FIXME: what if there is a graph for the same index?
-    makeNewIndexGraph(grp2).foreach(x => graphBuf(x._2) = x._1)
+    if (!intervals.head.isUnionCompatible(grp2.intervals.head)) {
+      throw new IllegalArgumentException("two graphs are not union-compatible in the temporal schema")
+    }
 
-    new SnapshotGraphParallel(Interval(minBound, maxBound), resolution, mergedIntervals, graphBuf.par)
-  }
+    //compute the combined span
+     val startBound = if (span.start.isBefore(grp2.span.start)) grp2.span.start else span.start
+    val endBound = if (span.end.isAfter(grp2.span.end)) grp2.span.end else span.end
+    if (startBound.isAfter(endBound) || startBound.isEqual(endBound)) {
+      SnapshotGraphParallel.emptyGraph()
+    } else {
+      //compute the new interval
+      var mergedIntervals: ParSeq[Interval] = ParSeq[Interval]()
+      var xx:LocalDate = startBound
+      while (xx.isBefore(endBound)) {
+        mergedIntervals = mergedIntervals :+ resolution.getInterval(xx)
+        xx = mergedIntervals.last.end
+      }
 
-  override def outerJoinVertices[U: ClassTag, VD2: ClassTag](other: RDD[(VertexId, Map[TimeIndex, U])])(mapFunc: (VertexId, TimeIndex, VD, Option[U]) => VD2)(implicit eq: VD =:= VD2 = null): TemporalGraph[VD2, ED] = {
-    val newseq: ParSeq[Graph[VD2, ED]] = graphs.zipWithIndex.map(x => 
-      x._1.outerJoinVertices(other){ (id: VertexId, attr1: VD, attr2: Option[Map[TimeIndex, U]]) =>
-        //this function receives a (id, attr, Map)
-        //need to instead call mapFunc with (id, index, attr, otherattr)
-        if (attr2.isEmpty)
-          mapFunc(id, x._2, attr1, None)
-        else
-          mapFunc(id, x._2, attr1, attr2.get.get(x._2)) })
-    new SnapshotGraphParallel(span, resolution, intervals, newseq)
-  }
+      //make graph sequences of the appropriate length
+      val gr1IndexStart:Int = resolution.numBetween(span.start, startBound).toInt
+      val gr2IndexStart:Int = resolution.numBetween(grp2.span.start, startBound).toInt
+      val gr1IndexEnd:Int = gr1IndexStart + mergedIntervals.size
+      val gr2IndexEnd:Int = gr2IndexStart + mergedIntervals.size
+      val grseq1:ParSeq[Graph[VD, ED]] = graphs.slice(gr1IndexStart, gr1IndexEnd)
+      val grseq2:ParSeq[Graph[VD, ED]] = grp2.graphs.slice(gr2IndexStart, gr2IndexEnd)
 
-  override def mapVertices[VD2: ClassTag](map: (VertexId, TimeIndex, VD) => VD2)(implicit eq: VD =:= VD2 = null): TemporalGraph[VD2, ED] = {
-    val newseq: ParSeq[Graph[VD2, ED]] = graphs.zipWithIndex.map(x =>
-      x._1.mapVertices{ (id: VertexId, attr: VD) => map(id, x._2, attr) })
-    new SnapshotGraphParallel(span, resolution, intervals, newseq)
-  }
+      //then zip them
+      val mergedGraphs:ParSeq[Graph[VD, ED]] = grseq1.zip(grseq2).map {
+        case (gr1, gr2) =>
+          if (sem == AggregateSemantics.Existential) {
+            Graph(VertexRDD(gr1.vertices.union(gr2.vertices).reduceByKey(vFunc)), EdgeRDD.fromEdges[ED, VD](gr1.edges.union(gr2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eFunc).map { x =>
+              val (k, v) = x
+              Edge(k._1, k._2, v)
+            }))
+          } else { //universal
+            Graph(gr1.vertices.union(gr2.vertices).map(x => (x._1, (x._2, 1))).reduceByKey((x, y) => (vFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == 2).map {x =>
+              val (k, v) = x
+              (k, v._1)
+            }, EdgeRDD.fromEdges[ED, VD](gr1.edges.union(gr2.edges).map(e => ((e.srcId, e.dstId), (e.attr, 1))).reduceByKey((x, y) => (eFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == 2).map { x =>
+              val (k, v) = x
+              Edge(k._1, k._2, v._1)
+            }))
+          }
+        case (_, gr2) =>
+          if (sem == AggregateSemantics.Existential)
+            gr2
+          else
+            Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+        case (gr1, _) =>
+          if (sem == AggregateSemantics.Existential)
+            gr1
+          else
+            Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+      }
 
-  override def mapEdges[ED2: ClassTag](map: (Edge[ED], TimeIndex) => ED2): TemporalGraph[VD, ED2] = {
-    val newseq: ParSeq[Graph[VD, ED2]] = graphs.zipWithIndex.map(x =>
-      x._1.mapEdges{ e: Edge[ED] => map(e, x._2)})
-    new SnapshotGraphParallel(span, resolution, intervals, newseq)
+      new SnapshotGraphParallel(mergedIntervals, mergedGraphs)
+    }
   }
 
   override def pregel[A: ClassTag]
@@ -364,17 +352,17 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](sp: Interval, res: Int, 
      (vprog: (VertexId, VD, A) => VD,
        sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
        mergeMsg: (A, A) => A): TemporalGraph[VD, ED] = {
-    val newseq: ParSeq[Graph[VD, ED]] = graphs.map(x => Pregel(x, initialMsg,
-      maxIterations, activeDirection)(vprog, sendMsg, mergeMsg))
-    new SnapshotGraphParallel(span, resolution, intervals, newseq)
+    new SnapshotGraphParallel(intervals, graphs.map(x => Pregel(x, initialMsg,
+      maxIterations, activeDirection)(vprog, sendMsg, mergeMsg)))
   }
 
   //run PageRank on each contained snapshot
-  override def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): SnapshotGraphParallel[Double, Double] = {
+  override def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): TemporalGraph[Double, Double] = {
       def safePagerank(grp: Graph[VD, ED]): Graph[Double, Double] = {
         if (grp.edges.isEmpty) {
           Graph[Double, Double](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
         } else {
+          //FIXME: coalesce may not be safe for all sizes
           if (uni)
             UndirectedPageRank.run(Graph(grp.vertices, grp.edges.coalesce(1, true)), tol, resetProb, numIter)
           else
@@ -383,63 +371,78 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](sp: Interval, res: Int, 
         }
       }
 
-    val newseq: ParSeq[Graph[Double, Double]] = graphs.map(safePagerank)
-    new SnapshotGraphParallel(span, resolution, intervals, newseq)
+    new SnapshotGraphParallel(intervals, graphs.map(safePagerank))
+
   }
 
-  override def connectedComponents(): SnapshotGraphParallel[VertexId, ED] = {
-    var intvs: SortedMap[Interval, Int] = TreeMap[Interval, Int]()
-    var gps: ParSeq[Graph[Long, ED]] = ParSeq[Graph[Long, ED]]()
-    val iter: Iterator[(Interval, Int)] = intervals.iterator
-    var numResults: Int = 0
-
-    while (iter.hasNext) {
-      val (k, v) = iter.next
-      intvs += (k -> numResults)
-      numResults += 1
-
-      if (graphs(v).vertices.isEmpty) {
-        gps = gps :+ Graph[Long, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+  override def connectedComponents(): TemporalGraph[VertexId, ED] = {
+    def safeConnectedComponents(grp: Graph[VD, ED]): Graph[VertexId, ED] = {
+      if (grp.vertices.isEmpty) {
+        Graph[VertexId, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
       } else {
-        var graph = graphs(v).connectedComponents()
-        gps = gps :+ graph
+        grp.connectedComponents()
       }
     }
 
-    new SnapshotGraphParallel(span, resolution, intvs, gps)
+    new SnapshotGraphParallel(intervals, graphs.map(safeConnectedComponents))
   }
 
-  override def shortestPaths(landmarks: Seq[VertexId]): SnapshotGraphParallel[ShortestPathsXT.SPMap, ED] = {
-    var intvs: SortedMap[Interval, Int] = TreeMap[Interval, Int]()
-    var gps: ParSeq[Graph[ShortestPathsXT.SPMap, ED]] = ParSeq[Graph[ShortestPathsXT.SPMap, ED]]()
-    val iter: Iterator[(Interval, Int)] = intervals.iterator
-    var numResults: Int = 0
-
-    while (iter.hasNext) {
-      val (k, v) = iter.next
-      intvs += (k -> numResults)
-      numResults += 1
-
-      if (graphs(v).vertices.isEmpty) {
-        gps = gps :+ Graph[ShortestPathsXT.SPMap, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+  override def shortestPaths(landmarks: Seq[VertexId]): TemporalGraph[ShortestPathsXT.SPMap, ED] = {
+    def safeShortestPaths(grp: Graph[VD, ED]): Graph[ShortestPathsXT.SPMap, ED] = {
+      if (grp.vertices.isEmpty) {
+        Graph[ShortestPathsXT.SPMap, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
       } else {
-        var graph = ShortestPathsXT.run(graphs(v), landmarks)
-        gps = gps :+ graph
+        ShortestPathsXT.run(grp, landmarks)
       }
     }
 
-    new SnapshotGraphParallel(span, resolution, intvs, gps)
+    new SnapshotGraphParallel(intervals, graphs.map(safeShortestPaths))
+  }
+
+  /** Spark-specific */
+
+  override def numPartitions(): Int = {
+    graphs.filterNot(_.edges.isEmpty).map(_.edges.partitions.size).reduce(_ + _)
+  }
+
+  override def persist(newLevel: StorageLevel = MEMORY_ONLY): TemporalGraph[VD, ED] = {
+    //persist each graph
+    graphs.map(_.persist(newLevel))
+    this
+  }
+
+  override def unpersist(blocking: Boolean = true): TemporalGraph[VD, ED] = {
+    graphs.map(_.unpersist(blocking))
+    this
+  }
+
+  override def partitionBy(pst: PartitionStrategyType.Value, runs: Int): TemporalGraph[VD, ED] = {
+    //FIXME: what if the first graph has no edges?
+    partitionBy(pst, runs, graphs.head.edges.partitions.size)
+  }
+
+  override def partitionBy(pst: PartitionStrategyType.Value, runs: Int, parts: Int): TemporalGraph[VD, ED] = {
+    var numParts = if (parts > 0) parts else graphs.head.edges.partitions.size
+
+    if (pst != PartitionStrategyType.None) {
+      //not changing the intervals, only the graphs at their indices
+      //each partition strategy for SG needs information about the graph
+
+      //use that strategy to partition each of the snapshots
+      new SnapshotGraphParallel(intervals, graphs.zipWithIndex.map { case (g,i) =>
+        g.partitionBy(PartitionStrategies.makeStrategy(pst, i, graphs.size, runs), numParts) })
+    } else
+      this
   }
 
 }
 
 object SnapshotGraphParallel extends Serializable {
   //this assumes that the data is in the dataPath directory, each time period in its own files
-  //and the naming convention is nodes<time>.txt and edges<time>.txt
-  //TODO: extend to be more flexible about input data such as arbitrary uniform intervals are supported
-  final def loadData(dataPath: String, startIndex: TimeIndex = 0, endIndex: TimeIndex = Int.MaxValue): SnapshotGraphParallel[String, Int] = {
-    var minYear: Int = Int.MaxValue
-    var maxYear: Int = 0
+  //end is not inclusive, i.e. [start, end)
+  final def loadData(dataPath: String, start:LocalDate, end:LocalDate): SnapshotGraphParallel[String, Int] = {
+    var minDate: LocalDate = start
+    var maxDate: LocalDate = end
 
     var source: scala.io.Source = null
     var fs: FileSystem = null
@@ -453,24 +456,27 @@ object SnapshotGraphParallel extends Serializable {
     source = scala.io.Source.fromInputStream(fs.open(pt))
 
     val lines = source.getLines
-    val minin = lines.next.toInt
-    val maxin = lines.next.toInt
-    minYear = if (minin > startIndex) minin else startIndex
-    maxYear = if (maxin < endIndex) maxin else endIndex
+    val minin = LocalDate.parse(lines.next)
+    val maxin = LocalDate.parse(lines.next)
+    val res = Resolution.from(lines.next)
+
+    if (minin.isAfter(start)) 
+      minDate = minin
+    if (maxin.isBefore(end)) 
+      maxDate = maxin
     source.close()
 
-    val span = Interval(minYear, maxYear)
-    var years = 0
-    var intvs: SortedMap[Interval, Int] = TreeMap[Interval, Int]()
+    var intvs: ParSeq[Interval] = ParSeq[Interval]()
     var gps: ParSeq[Graph[String, Int]] = ParSeq[Graph[String, Int]]()
+    var xx:LocalDate = minDate
 
-    for (years <- minYear to maxYear) {
-      var nodesPath = dataPath + "/nodes/nodes" + years + ".txt"
-      var edgesPath = dataPath + "/edges/edges" + years + ".txt"
+    while (xx.isBefore(maxDate)) {
+      var nodesPath = dataPath + "/nodes/nodes" + xx.toString() + ".txt"
+      var edgesPath = dataPath + "/edges/edges" + xx.toString() + ".txt"
       var numNodeParts = MultifileLoad.estimateParts(nodesPath) 
       var numEdgeParts = MultifileLoad.estimateParts(edgesPath) 
       
-      val users: RDD[(VertexId, String)] = ProgramContext.sc.textFile(dataPath + "/nodes/nodes" + years + ".txt", numNodeParts).map(line => line.split(",")).map { parts =>
+      val users: RDD[(VertexId, String)] = ProgramContext.sc.textFile(dataPath + "/nodes/nodes" + xx.toString() + ".txt", numNodeParts).map(line => line.split(",")).map { parts =>
         if (parts.size > 1 && parts.head != "")
           (parts.head.toLong, parts(1).toString)
         else
@@ -479,19 +485,19 @@ object SnapshotGraphParallel extends Serializable {
       
       var edges: EdgeRDD[Int] = EdgeRDD.fromEdges(ProgramContext.sc.emptyRDD)
 
-      val ept: Path = new Path(dataPath + "/edges/edges" + years + ".txt")
+      val ept: Path = new Path(dataPath + "/edges/edges" + xx.toString() + ".txt")
       if (fs.exists(ept) && fs.getFileStatus(ept).getLen > 0) {
         //uses extended version of Graph Loader to load edges with attributes
-        val tmp = years
-        edges = GraphLoaderAddon.edgeListFile(ProgramContext.sc, dataPath + "/edges/edges" + years + ".txt", true, numEdgeParts).edges
+        edges = GraphLoaderAddon.edgeListFile(ProgramContext.sc, dataPath + "/edges/edges" + xx.toString() + ".txt", true, numEdgeParts).edges
       }
       
-      val graph: Graph[String, Int] = Graph(users, edges)
-
-      intvs += (Interval(years, years) -> (years - minYear))
-      gps = gps :+ graph
+      intvs = intvs :+ res.getInterval(xx)
+      gps = gps :+ Graph(users, edges)
+      xx = intvs.last.end
     }
     
-    new SnapshotGraphParallel(span, 1, intvs, gps)
+    new SnapshotGraphParallel(intvs, gps)
   }
+
+  def emptyGraph[VD: ClassTag, ED: ClassTag]():SnapshotGraphParallel[VD, ED] = new SnapshotGraphParallel(ParSeq[Interval](), ParSeq[Graph[VD, ED]]())
 }

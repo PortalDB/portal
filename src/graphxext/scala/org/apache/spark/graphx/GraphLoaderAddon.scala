@@ -5,6 +5,7 @@ import org.apache.spark.storage.StorageLevel
 import org.apache.spark.{Logging, SparkContext}
 import org.apache.spark.graphx.impl.{EdgePartitionBuilder, GraphImpl}
 import org.apache.spark.graphx.impl.EdgeRDDImpl
+import java.time.LocalDate
 
 object GraphLoaderAddon {
 
@@ -54,7 +55,7 @@ object GraphLoaderAddon {
   //multiple files in parallel
   def edgeListFiles(
       lines: RDD[(String, String)],
-      minYear: Int,
+      indices: scala.collection.mutable.Map[LocalDate, Int],
       canonicalOrientation: Boolean = false,
       edgeStorageLevel: StorageLevel = StorageLevel.MEMORY_ONLY,
       vertexStorageLevel: StorageLevel = StorageLevel.MEMORY_ONLY)
@@ -64,7 +65,7 @@ object GraphLoaderAddon {
       val builder = new EdgePartitionBuilder[(Int, Int), Int]
       iter.foreach { x =>
         val (filename, line) = x
-        val year = filename.split('/').last.dropWhile(!_.isDigit).takeWhile(_.isDigit).toInt
+        val dt = LocalDate.parse(filename.split('/').last.dropWhile(!_.isDigit).takeWhile(_ != '.'))
         if (!line.isEmpty && line(0) != '#') {
           val lineArray = line.split("\\s+")
           val srcId = lineArray(0).toLong
@@ -74,14 +75,14 @@ object GraphLoaderAddon {
             attr = lineArray{2}.toInt
           }
           if (canonicalOrientation && srcId > dstId) {
-            builder.add(dstId, srcId, (year - minYear, attr))
+            builder.add(dstId, srcId, (indices(dt), attr))
           } else {
-            builder.add(srcId, dstId, (year - minYear, attr))
+            builder.add(srcId, dstId, (indices(dt), attr))
           }
         }
       }
       Iterator((pid, builder.toEdgePartition))
-    }.persist(edgeStorageLevel).setName("GraphLoader.edgeListFiles - edges (%d)".format(minYear))
+    }.persist(edgeStorageLevel).setName("GraphLoader.edgeListFiles - edges (%d)".format(indices.head.toString))
     edges.count()
 
     GraphImpl.fromEdgePartitions(edges, defaultVertexAttr = 1, edgeStorageLevel = edgeStorageLevel,

@@ -10,117 +10,98 @@ import org.apache.log4j.Level
 
 import edu.drexel.cs.dbgroup.graphxt._
 
+import java.time.LocalDate
+
 object GraphAlgorithmsTest {
 
   def sgCCtest(datapath: String) {
-    var testGraph = SnapshotGraph.loadData(datapath, 1950, 1952)
-    val interv = new Interval(1950, 1952)
+    var testGraph = SnapshotGraph.loadData(datapath, LocalDate.parse("1950-01-01"), LocalDate.parse("1953-01-01"))
+    val interv = new Interval(LocalDate.parse("1950-01-01"), LocalDate.parse("1953-01-01"))
     val sel = testGraph.select(interv)
 
     println("total number of results after selection: " + sel.size)
-    println("Selection graphs.size: " + sel.graphs.size)
-    //    println("Sel graphs1: " + sel.graphs(0).vertices.collect.mkString("\n"))
-    //    println("Sel graphs2: " + sel.graphs(1).vertices.collect.mkString("\n"))
-    println("Sel graphs3: " + sel.graphs(2).vertices.collect.mkString("\n"))
+    println("Sel vertices: " + sel.vertices.collect.mkString("\n"))
 
-    println("\nSelected vertices count: " + sel.graphs.filterNot(_.vertices.isEmpty).map(_.numVertices).reduce(_ + _))
-    println("Selected edges count: " + sel.graphs.filterNot(_.edges.isEmpty).map(_.numEdges).reduce(_ + _))
+    println("\nSelected vertices count: " + sel.vertices.count)
+    println("Selected edges count: " + sel.edges.count)
 
     //run connected components on the selected vertices
     val cc = sel.connectedComponents()
     println("connected components are: ")
-    println("CC graphs.size: " + cc.graphs.size)
-    //    println("CC graphs1: " + cc.graphs(0).vertices.collect.mkString("\n"));
-    //    println("CC graphs2: " + cc.graphs(1).vertices.collect.mkString("\n"));
-    println("CC graphs3: " + cc.graphs(2).vertices.collect.mkString("\n"));
-
-    //    println("CC vertices count: " + cc.graphs.filterNot(_.vertices.isEmpty).map(_.numVertices).reduce(_ + _))
-    //    println("CC edges count: " + cc.graphs.filterNot(_.edges.isEmpty).map(_.numEdges).reduce(_ + _))
+    println("CC graphs.size: " + cc.size)
+    println("CC vertices: " + cc.vertices.collect.mkString("\n"));
 
   }
 
   def sgSPtest(datapath: String) {
-    var testGraph = SnapshotGraph.loadData(datapath, 1954, 1956)
-    val interv = new Interval(1954, 1956)
+    var testGraph = SnapshotGraph.loadData(datapath, LocalDate.parse("1954-01-01"), LocalDate.parse("1957-01-01"))
+    val interv = new Interval(LocalDate.parse("1954-01-01"), LocalDate.parse("1957-01-01"))
     val sel = testGraph.select(interv)
 
     println("total number of results after selection: " + sel.size)
-    println("Selection graphs.size: " + sel.graphs.size)
 
-    println("\nSelected vertices count: " + sel.graphs.filterNot(_.vertices.isEmpty).map(_.numVertices).reduce(_ + _))
-    println("Selected edges count: " + sel.graphs.filterNot(_.edges.isEmpty).map(_.numEdges).reduce(_ + _))
+    println("\nSelected vertices count: " + sel.vertices.count)
+    println("Selected edges count: " + sel.edges.count)
 
     //run shortest paths on the selected vertices
     var landmarks = Seq(373150L, 68091L, 1383559L, 1218940L, 1218725L)
 
     val sp = sel.shortestPaths(landmarks)
     println("SG shortest paths are: ")
-    println("SP graphs.size: " + sp.graphs.size)
-    //    println("SP graphs1: " + sp.graphs(0).vertices.collect.mkString("\n"));
-    //    println("\n")
-    println("SP graphs2: " + sp.graphs(1).vertices.collect.mkString("\n"));
-    //    println("\n")
-    //    println("SP graphs3: " + sp.graphs(2).vertices.collect.mkString("\n"));
+    println("SP graphs.size: " + sp.size)
+    println("SP vertices: " + sp.vertices.collect.mkString("\n"));
   }
 
   def sgpCCtest(datapath: String) {
-    var testGraph = SnapshotGraphParallel.loadData(datapath, 1950, 1952)
-    val interv = new Interval(1950, 1952)
+    var testGraph = SnapshotGraphParallel.loadData(datapath, LocalDate.parse("1950-01-01"), LocalDate.parse("1953-01-01"))
+    val interv = new Interval(LocalDate.parse("1950-01-01"), LocalDate.parse("1953-01-01"))
     val sel = testGraph.select(interv)
 
     println("total number of results after selection: " + sel.size)
-    println("Selection graphs.size: " + sel.graphs.size)
-    println("Sel graphs1: " + sel.graphs(0).vertices.collect.mkString("\n"))
-    println("Sel graphs2: " + sel.graphs(1).vertices.collect.mkString("\n"))
-    println("Sel graphs3: " + sel.graphs(2).vertices.collect.mkString("\n"))
+    println("Sel vertices: " + sel.vertices.collect.mkString("\n"))
 
-    println("\nSelected vertices count: " + sel.graphs.filterNot(_.vertices.isEmpty).map(_.numVertices).reduce(_ + _))
-    println("Selected edges count: " + sel.graphs.filterNot(_.edges.isEmpty).map(_.numEdges).reduce(_ + _))
+    println("\nSelected vertices count: " + sel.vertices.count)
+    println("Selected edges count: " + sel.edges.count)
 
     //run connected components on the selected vertices
     val cc = sel.connectedComponents()
     println("connected components are: ")
-    println("CC graphs.size: " + cc.graphs.size)
-    println("CC graphs1: " + cc.graphs(0).vertices.collect.mkString("\n"));
-    println("CC graphs2: " + cc.graphs(1).vertices.collect.mkString("\n"));
-    println("CC graphs3: " + cc.graphs(2).vertices.collect.mkString("\n"));
-
-    //    println("CC vertices count: " + cc.graphs.filterNot(_.vertices.isEmpty).map(_.numVertices).reduce(_ + _))
-    //    println("CC edges count: " + cc.graphs.filterNot(_.edges.isEmpty).map(_.numEdges).reduce(_ + _))
+    println("CC graphs.size: " + cc.size)
+    println("CC vertices: " + cc.vertices.collect.mkString("\n"));
 
   }
 
   def mgCCtest(datapath: String) {
-    var testGraph: MultiGraph[String, Int] = MultiGraph.loadData(datapath, 1954, 1956)
+    var testGraph: TemporalGraph[String, Int] = MultiGraph.loadData(datapath, LocalDate.parse("1954-01-01"), LocalDate.parse("1957-01-01"))
 
     //try partitioning
-    println("original number of partitions: " + testGraph.edges.partitions.size)
+    println("original number of partitions: " + testGraph.numPartitions)
     testGraph = testGraph.partitionBy(PartitionStrategyType.CanonicalRandomVertexCut, 0)
 
-    val sel = testGraph.select(Interval(1954, 1956))
+    val sel = testGraph.select(Interval(LocalDate.parse("1954-01-01"), LocalDate.parse("1957-01-01")))
     println("total number of results after selection: " + sel.size)
 
     val cc = sel.connectedComponents()
     println("connected components are: ")
-    println("Selected vertices count: " + cc.graphs.vertices.count)
-    println(cc.graphs.vertices.collect.mkString("\n"))
+    println("Selected vertices count: " + cc.vertices.count)
+    println(cc.vertices.collect.mkString("\n"))
 
   }
 
   def mgSPtest(datapath: String) {
-    var testGraph: MultiGraph[String, Int] = MultiGraph.loadData(datapath, 1954, 1956)
+    var testGraph: TemporalGraph[String, Int] = MultiGraph.loadData(datapath, LocalDate.parse("1954-01-01"), LocalDate.parse("1957-01-01"))
     var landmarks = Seq(373150L, 1218768L, 1383559L, 1382958L)
 
     //try partitioning
     testGraph = testGraph.partitionBy(PartitionStrategyType.CanonicalRandomVertexCut, 0)
 
-    val sel = testGraph.select(Interval(1954, 1956))
+    val sel = testGraph.select(Interval(LocalDate.parse("1954-01-01"), LocalDate.parse("1957-01-01")))
     println("total number of results after selection: " + sel.size)
 
     val cc = sel.shortestPaths(landmarks)
-    println("Selected vertices count: " + cc.graphs.vertices.count)
+    println("Selected vertices count: " + cc.vertices.count)
     println("MG shortest paths are: ")
-    println(cc.graphs.vertices.collect.mkString("\n"))
+    println(cc.vertices.collect.mkString("\n"))
 
   }
 

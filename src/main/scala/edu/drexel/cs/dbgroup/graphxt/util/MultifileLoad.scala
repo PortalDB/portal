@@ -10,18 +10,21 @@ import org.apache.spark.rdd.CFTextFileRDD
 import org.apache.spark.input.CFInputFormat
 import edu.drexel.cs.dbgroup.graphxt.ProgramContext
 import edu.drexel.cs.dbgroup.graphxt._
+import java.time.LocalDate
 
 object MultifileLoad {
 
-  def readNodes(path: String, min: TimeIndex, max: TimeIndex): RDD[(String, String)] = {
-    val nodesPath = path + "/nodes/nodes{" + NumberRangeRegex.generateRegex(min, max) + "}.txt"
+  /** this is in the inclusive-inclusive model */
+  //TODO: restrict by date properly, not just by year
+  def readNodes(path: String, min: LocalDate, max: LocalDate): RDD[(String, String)] = {
+    val nodesPath = path + "/nodes/nodes{" + NumberRangeRegex.generateRegex(min.getYear(), max.getYear()) + "-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01])}.txt"
     val numParts = estimateParts(nodesPath)
     println("loading with " + numParts + " partitions")
     readTextFiles(nodesPath, numParts)
   }
 
-  def readEdges(path: String, min: TimeIndex, max: TimeIndex): RDD[(String, String)] = {
-    val edgesPath = path + "/edges/edges{" + NumberRangeRegex.generateRegex(min, max) + "}.txt"
+  def readEdges(path: String, min: LocalDate, max: LocalDate): RDD[(String, String)] = {
+    val edgesPath = path + "/edges/edges{" + NumberRangeRegex.generateRegex(min.getYear(), max.getYear()) + "-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01])}.txt"
     val numParts = estimateParts(edgesPath)
     println("loading with " + numParts + " partitions")
     readTextFiles(edgesPath, numParts)

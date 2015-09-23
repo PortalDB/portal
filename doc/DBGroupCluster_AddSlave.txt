@@ -13,22 +13,22 @@ For each slave:
 2. Basic configuration setup.
   Log in to waltz. Edit /etc/hosts file and add the new slave. 
   Copy the root key to the slave: 
-    sudo scp updateRootAuthorizedKeys ubuntu@slave16:/home/ubuntu/
-    sudo ssh ubuntu@slave16 "sudo bash updateRootAuthorizedKeys"
+    sudo scp updateRootAuthorizedKeys ubuntu@slave17:/home/ubuntu/
+    sudo ssh ubuntu@slave17 "sudo bash updateRootAuthorizedKeys"
         (This will generate a "unable to resolve hostname" error which you may ignore, we'll fix it in the following actions.)
   Copy the /etc/hosts to all the cluster machines: (todo: simplify using ansible)
     sudo scp /etc/hosts root@master:/etc/hosts
     sudo scp /etc/hosts root@slave01:/etc/hosts
     sudo scp /etc/hosts root@slave02:/etc/hosts
     .... for each slave
-    sudo scp /etc/hosts root@slave16:/etc/hosts
+    sudo scp /etc/hosts root@slave21:/etc/hosts
 
 3. Upgrade the kernel 
   sudo ssh root@<slaveip>
   Note that until step 3 is completed, the slave may occasionally and randomly die with a kernel panic. If this happens, soft reboot the instance through the cloud web interface and proceed.
   aptitude update
   aptitude full-upgrade
-  set the correct time (US Eastern): sudo dpkg-reconfigure tzdata
+  set the correct time (US Eastern): dpkg-reconfigure tzdata
   reboot
 
   sudo ssh root@<slaveip>
@@ -39,7 +39,7 @@ For each slave:
       echo "#disable ipv6" | tee -a /etc/sysctl.conf
       echo "net.ipv6.conf.all.disable_ipv6 = 1" | tee -a /etc/sysctl.conf
       echo "net.ipv6.conf.default.disable_ipv6 = 1" | tee -a /etc/sysctl.conf
-      echo "net.ipv6.conf.lo.disable_ipv6 = 1" | tee -a /etc/sysctl.conf
+      echo "net.ipv6.conf.lo.disable_ipv6 = 1" | tee -a /etc/sysctl.conf	
   Restart sysctl: 
       sysctl -p
   Test that ipv6 is off: (If value is 1, it's good. If that doesn't work, reboot and recheck.)
@@ -61,10 +61,8 @@ For each slave:
        sudo scp -3 root@master:/home/hduser/.ssh/id_rsa root@slave16:/home/hduser/.ssh/id_rsa
        sudo scp -3 root@master:/home/hduser/.ssh/authorized_keys root@slave16:/home/hduser/.ssh/authorized_keys
        sudo ssh root@<slaveip>
-       chown hduser ~hduser/.ssh/id_rsa*
-       chown hduser ~hduser/.ssh/authorized_keys
-       chgrp hadoop ~hduser/.ssh/id*
-       chgrp hadoop ~hduser/.ssh/authorized_keys 
+       chown hduser ~hduser/.ssh/*
+       chgrp hadoop ~hduser/.ssh/*
        su - hduser
 
   Test by logging in from this slave to each machine as hduser: ssh master, etc. Also test ssh <slave> from master and previous slaves.
@@ -120,14 +118,21 @@ For each slave:
   Add new slave to master configuration:
     ssh hduser@master 'echo "slave16" | tee -a /opt/hadoop/etc/hadoop/slaves'
 
-  export HADOOP_CONF_DIR=/opt/hadoop/etc/hadoop/
-  Start the new slave hdfs data node on slave: $HADOOP_HOME/sbin/hadoop-daemon.sh --config "$HADOOP_CONF_DIR" --script "$bin/hdfs" start datanode
+  exit (to root)
+  exit (to waltz)
+  Add an init.d script (replace slave16 with the slave name in work)
+  sudo scp -3 root@slave01:/etc/init.d/hdfs root@slave16:/etc/init.d/hdfs
+
+  Start the datanode
+  sudo ssh root@<slaveip>
+  service hdfs restart
+
   Test: 
+    su - hduser
     hdfs dfsadmin -report  if the new slave shows up in the list with the expected capacity (just under 200GB), it's working.
-  Note: to rebalance the disk utilization between data notes, run: hdfs balancer (it will take a long time).
   exit (to root)
 
-8. Install/setup Mesos
+8. Install/setup Mesos (as root on the slave)
   apt-key adv --keyserver keyserver.ubuntu.com --recv E56151BF
   DISTRO=$(lsb_release -is | tr '[:upper:]' '[:lower:]')
   CODENAME=$(lsb_release -cs)

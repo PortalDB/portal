@@ -7,30 +7,22 @@ import org.apache.spark.rdd.RDD
 
 abstract class TemporalGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
 
-  val resolution: Int
+  /**
+    * The length of time covered by each time period in the temporal sequence of this temporal graph
+    */
+  def resolution(): Resolution
 
   /**
-    * The number of non-temporal graphs/snapshots that compose this temporal graph
+    * The size of the temporal sequence and also the number of snapshot graphs
     */
   def size(): Int
-
-  /**
-    * The number of edges across all snapshots, which depends on the internal 
-    * representation.
-    */
-  def numEdges(): Long
-
-  /**
-    * The number of partitions this graph occupies
-    */
-  def numPartitions(): Int
 
   /**
     * An RDD containing the vertices and their associated attributes.
     * @return an RDD containing the vertices in this graph, across all intervals.
     * The vertex attributes are in a Map of TimeIndex->value.
     */
-  def vertices: VertexRDD[Map[TimeIndex, VD]]
+  def vertices: VertexRDD[Map[Interval, VD]]
 
   /**
     * An RDD containing the vertices and their associated attributes.
@@ -39,74 +31,55 @@ abstract class TemporalGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * which means that if the same vertex appears in multiple snapshots/time instances,
     * it will appear multiple times in the RDD.
     */
-  def verticesFlat: VertexRDD[(TimeIndex, VD)]
+  def verticesFlat: VertexRDD[(Interval, VD)]
 
   /**
     * An RDD containing the edges and their associated attributes.
     * @return an RDD containing the edges in this graph, across all intervals.
     */
-  def edges: EdgeRDD[Map[TimeIndex, ED]]
-  def edgesFlat: EdgeRDD[(TimeIndex, ED)]
+  def edges: EdgeRDD[Map[Interval, ED]]
+  def edgesFlat: EdgeRDD[(Interval, ED)]
 
   /**
-   * Caches the vertices and edges associated with this graph at the specified storage level,
-   * ignoring any target storage levels previously set.
-   *
-   * @param newLevel the level at which to cache the graph.
-   *
-   * @return A reference to this graph for convenience.
-   */
-  def persist(newLevel: StorageLevel = StorageLevel.MEMORY_ONLY): TemporalGraph[VD, ED]
-
-  /**
-   * Uncaches both vertices and edges of this graph. This is useful in iterative algorithms that
-   * build a new graph in each iteration.
-   */
-  def unpersist(blocking: Boolean = true): TemporalGraph[VD, ED]
-
-  /**
-    * Add a snapshot to the graph for a single time period.
-    * It is assumed that intervals are non-overlapping and at the same resolution.
-    * @param place the interval of the snapshot to add
-    * @param snap the snapshot graph to add
-    * @return A new graph with the snapshot added
+    * The degree of each vertex in the graph for each time index.
+    * @note Vertices with no edges are not returned in the resulting RDD.
     */
-  def addSnapshot(place: Interval, snap: Graph[VD, ED]): TemporalGraph[VD, ED]
+  def degrees: VertexRDD[Map[Interval, Int]]
 
   /**
-    * Return the snapshot for a particular time period.
-    * If the resolution of this graph is larger than 1, the snapshot of the period
-    * which includes the requested time is returned.
-    * @param time Time/number of the snapshot in question
-    * @return graphx Graph of the snapshot or null if the requested time is 
-    * absent in this temporal graph.
+    * Query operations
     */
-  def getSnapshotByTime(time: TimeIndex): Graph[VD, ED]
 
   /**
-    * Return the snapshot by index/temporal order which is relative to 
-    * the time start of this specific graph.
-    * @param position Index (zero-based) of the snapshot.
-    * @return graphx Graph of the snapshot or null if the requested index
-    * is outside of the graph bounds.
-    */
-  def getSnapshotByPosition(pos: TimeIndex): Graph[VD, ED]
-
-  /**
-    * Select a temporal subset of the graph.
-    * @param bound Interval, inclusive, to extract. If the interval is exceeding
-    * the bounds of the graph coverage, it is scaled down to graph bounds.
-    * @return temporalgraph or null if the requested interval is wholely outside of 
-    * the graph bounds.
+    * Select a temporal subset of the graph. T-Select.
+    * @param bound Time period to extract. 
+    * @return temporalgraph with the temporal intersection or empty graph if 
+    * the requested interval is wholely outside of the graph bounds.
     */
   def select(bound: Interval): TemporalGraph[VD, ED]
 
   /**
+    * Select a temporal subset of the graph based on a temporal predicate.
+    * @param tpred Time predicate to evalute for each time period of the temporal sequence.
+    * @return temporalgraph with the temporal intersection. The structural schema of the graph is not affected.
+    */
+  def select(tpred: Interval => Boolean): TemporalGraph[VD, ED]
+
+  /**
+    * Restrict the graph to only the vertices and edges that satisfy the predicates. S-Select.
+    * @param epred The edge predicate, which takes a triplet and evaluates to true 
+    * if the edge is to be included.
+    * @param vpred The vertex predicate, which takes a vertex object and evaluates 
+    * to true if the vertex is to be included.
+    * @return The temporal subgraph containing only the vertices and edges that satisfy 
+    * the predicates. If no vertices/edges satisfy the predicates in a snapshot, that 
+    * snapshot is empty but still included, i.e. the temporal schema of the graph is not changed.
+    */
+  def select(epred: EdgeTriplet[VD,ED] => Boolean, vpred: (VertexId, VD) => Boolean): TemporalGraph[VD, ED]
+
+  /**
     * Create an aggregate graph over the whole time period.
-    * @param resolution The number of consecutive graphs that compose a single 
-    * aggregate. The total number of snapshots in the graph does not have to be 
-    * evenly divisible by the resolution. The last aggregate will be composed 
-    * from whatever snapshots remain.
+    * @param resolution The desired duration of time intervals in the temporal sequence in sematic units (days, months, years)
     * @param semantics The AggregateSemantics type
     * @param vAggFunction The function to apply to vertex attributes during aggregation.
     * Any associative function can be supported, since the attribute aggregation is
@@ -114,52 +87,47 @@ abstract class TemporalGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * @param eAggFunction The function to apply to edge attributes during aggregation.
     * Any associative function can be supported, since the attribute aggregation is
     * performed in pairs (ala reduce).
-    * @return New temporal graph of size ceiling(currentsize/resolution). Note that
+    * @return New temporal graph with specified resolution. Note that
     * some of the return snapshots may be empty as a result of an aggregation.
+    * @throws IllegalArgumentException if the graphs are not union-compatible.
     */
-  def aggregate(resolution: Int, sem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TemporalGraph[VD, ED]
+  @throws(classOf[IllegalArgumentException])
+  def aggregate(res: Resolution, sem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TemporalGraph[VD, ED]
 
   /**
-    * Repartition the edges in the graph according to the strategy.
-    * The number of partitions remains the same as prior to this operation.
-    * @param partitionStrategy the partitioning strategy type to use. The strategy
-    * object itself is created by the PartitionStrategies.makeStrategy factory call.
-    * @param runs The width of the run (only applicable for hybrid strategies, 
-    * otherwise ignored.
-    * @return new partitioned graph
+    * Transforms the structural schema of the graph
+    * @param emap The mapping function for edges
+    * @param vmap The mapping function for vertices
+    * @return tgraph The transformed graph. The temporal schema is unchanged.
     */
-  def partitionBy(pst: PartitionStrategyType.Value, runs: Int): TemporalGraph[VD, ED]
+  def transform[ED2: ClassTag, VD2: ClassTag](emap: (Edge[ED], Interval) => ED2, vmap: (VertexId, Interval, VD) => VD2): TemporalGraph[VD2, ED2]
 
   /**
-    * Repartition the edges in the graph according to the strategy.
-    * @param partitionStrategy the partitioning strategy type to use. The strategy
-    * object itself is created by the PartitionStrategies.makeStrategy factory call.
-    * @param runs The width of the run (only applicable for hybrid strategies, 
-    * otherwise ignored.
-    * @param parts The number of partitions to partition into.
-    * @return new partitioned graph
+    * Transforms each vertex attribute in the graph for each time period
+    * using the map function. 
+    * Special case of general transform, included here for better compatibility with GraphX.
+    *
+    * @param map the function from a vertex object to a new vertex value
+    *
+    * @tparam VD2 the new vertex data type
+    *
     */
-  def partitionBy(pst: PartitionStrategyType.Value, runs: Int, parts: Int): TemporalGraph[VD, ED]
+  def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2)
+    (implicit eq: VD =:= VD2 = null): TemporalGraph[VD2, ED]
 
   /**
-    * The degree of each vertex in the graph for each time index.
-    * @note Vertices with no edges are not returned in the resulting RDD.
-    */
-  def degrees: VertexRDD[Map[TimeIndex, Int]]
+   * Transforms each edge attribute in the graph using the map function.  The map function is not
+   * passed the vertex value for the vertices adjacent to the edge.  If vertex values are desired,
+   * use `mapTriplets`.
+   * Special case of general transform, included here for better compatibility with GraphX.
+   *
+   * @param map the function from an edge object with a time index to a new edge value.
+   *
+   * @tparam ED2 the new edge data type
+   *
+   */
+  def mapEdges[ED2: ClassTag](map: (Edge[ED], Interval) => ED2): TemporalGraph[VD, ED2]
 
-  /**
-    * Produce a union of two temporal graphs.
-    * If the time index overlaps, the snapshot for that index is a union
-    * of the two snapshots. If there are any vertices or edges in the
-    * overlapping snapshot that themselves overlap, both may be 
-    * retained. This might produce undesirable behavior if the vertex/edge
-    * attributes are different between the two TGs on the overlapping items.
-    * Assumption: the resolution of the two graphs is the same,
-    * otherwise the original graph is returned with no modifications
-    * @param other The other TemporalGraph with the same attribute types
-    * @return new TemporalGraph with the union of snapshots from both graphs
-    */
-  def union(other: TemporalGraph[VD, ED]): TemporalGraph[VD, ED]
 
   /**
    * Joins the vertices with entries in the `table` RDD and merges the results using `mapFunc`.
@@ -177,33 +145,49 @@ abstract class TemporalGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
    *
    * @example This function is used to update the vertices with new values based on external data.
    */
-  def outerJoinVertices[U: ClassTag, VD2: ClassTag](other: RDD[(VertexId, Map[TimeIndex, U])])
-  (mapFunc: (VertexId, TimeIndex, VD, Option[U]) => VD2)(implicit eq: VD =:= VD2 = null)
+  def outerJoinVertices[U: ClassTag, VD2: ClassTag](other: RDD[(VertexId, Map[Interval, U])])
+  (mapFunc: (VertexId, Interval, VD, Option[U]) => VD2)(implicit eq: VD =:= VD2 = null)
       : TemporalGraph[VD2, ED]
 
   /**
-    * Transforms each vertex attribute in the graph for each time period
-    * using the map function.
-    *
-    * @param map the function from a vertex object to a new vertex value
-    *
-    * @tparam VD2 the new vertex data type
-    *
+    * Produce a union of two union-compatible temporal graphs. 
+    * The result is a union of the temporal sequences of the two graphs.
+    * For the snapshots that correspond to the same time period,
+    * the existential or universal semantics is applied.
+    * If there are any vertices or edges in the
+    * overlapping snapshot that themselves overlap (have the same id), 
+    * the transformation function vFunc/eFunc is applied.
+    * @param other The other TemporalGraph with the same structural schema
+    * @param sem Universal or Existential semantics
+    * @param vFunc The combination function when the same vertex is found within the same time period
+    * @param eFunc The combination function when the same edge is found within the same time period
+    * @return new TemporalGraph with the union of snapshots from both graphs
+    * @throws IllegalArgumentException if the graphs are not union-compatible.
     */
-  def mapVertices[VD2: ClassTag](map: (VertexId, TimeIndex, VD) => VD2)
-    (implicit eq: VD =:= VD2 = null): TemporalGraph[VD2, ED]
+  @throws(classOf[IllegalArgumentException])
+  def union(other: TemporalGraph[VD, ED], sem: AggregateSemantics.Value, vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TemporalGraph[VD, ED]
 
   /**
-   * Transforms each edge attribute in the graph using the map function.  The map function is not
-   * passed the vertex value for the vertices adjacent to the edge.  If vertex values are desired,
-   * use `mapTriplets`.
-   *
-   * @param map the function from an edge object with a time index to a new edge value.
-   *
-   * @tparam ED2 the new edge data type
-   *
-   */
-  def mapEdges[ED2: ClassTag](map: (Edge[ED], TimeIndex) => ED2): TemporalGraph[VD, ED2]
+    * Produce the intersection of two union-compatible temporal graphs.
+    * The result is an intersection of the temporal sequences of the two graphs.
+    * For the snapshots that correspond to the same time period,
+    * the existential or universal semantics is applied.
+    * If there are any vertices or edges in the overlapping snapshot that
+    * themselves overlap (have the same id),
+    * the transformation function vFunc/eFunc is applied.
+    * @param other The other TemporalGraph with the same structural schema
+    * @param sem Universal or Existential semantics
+    * @param vFunc The combination function when the same vertex is found within the same time period
+    * @param eFunc The combination function when the same edge is found within the same time period
+    * @return new TemporaGraph with the intersection of snapshots from both graphs
+    * @throws IllegalArgumentException if the graphs are not union-compatible
+    */
+  @throws(classOf[IllegalArgumentException])
+  def intersection(other: TemporalGraph[VD, ED], sem: AggregateSemantics.Value, vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TemporalGraph[VD, ED]
+
+  /**
+    * The analytics methods
+    */
 
   /**
     * Execute a Pregel-like iterative vertex-parallel abstraction.  The
@@ -294,4 +278,52 @@ abstract class TemporalGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
    * each reachable landmark vertex.
    */
   def shortestPaths(landmarks: Seq[VertexId]): TemporalGraph[ShortestPathsXT.SPMap, ED]
+
+  /**
+    * The spark-specific partitioning-related methods
+    */
+
+  /**
+    * The number of partitions this graph occupies
+    */
+  def numPartitions(): Int
+
+  /**
+   * Caches the vertices and edges associated with this graph at the specified storage level,
+   * ignoring any target storage levels previously set.
+   *
+   * @param newLevel the level at which to cache the graph.
+   *
+   * @return A reference to this graph for convenience.
+   */
+  def persist(newLevel: StorageLevel = StorageLevel.MEMORY_ONLY): TemporalGraph[VD, ED]
+
+  /**
+   * Uncaches both vertices and edges of this graph. This is useful in iterative algorithms that
+   * build a new graph in each iteration.
+   */
+  def unpersist(blocking: Boolean = true): TemporalGraph[VD, ED]
+
+  /**
+    * Repartition the edges in the graph according to the strategy.
+    * The number of partitions remains the same as prior to this operation.
+    * @param partitionStrategy the partitioning strategy type to use. The strategy
+    * object itself is created by the PartitionStrategies.makeStrategy factory call.
+    * @param runs The width of the run (only applicable for hybrid strategies, 
+    * otherwise ignored.
+    * @return new partitioned graph
+    */
+  def partitionBy(pst: PartitionStrategyType.Value, runs: Int): TemporalGraph[VD, ED]
+
+  /**
+    * Repartition the edges in the graph according to the strategy.
+    * @param partitionStrategy the partitioning strategy type to use. The strategy
+    * object itself is created by the PartitionStrategies.makeStrategy factory call.
+    * @param runs The width of the run (only applicable for hybrid strategies, 
+    * otherwise ignored.
+    * @param parts The number of partitions to partition into.
+    * @return new partitioned graph
+    */
+  def partitionBy(pst: PartitionStrategyType.Value, runs: Int, parts: Int): TemporalGraph[VD, ED]
+
 }

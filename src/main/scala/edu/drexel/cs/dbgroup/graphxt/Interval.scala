@@ -2,38 +2,82 @@ package edu.drexel.cs.dbgroup.graphxt
 
 import scala.math.Ordered.orderingToOrdered
 import scala.math.Ordering._
+import java.time.LocalDate
+import java.time.Period
 
-class Interval(mn: TimeIndex, mx: TimeIndex) extends Ordered[Interval] with Serializable {
-  var min = mn
-  var max = mx
+/**
+  * Time period with a closed-open model, i.e. [start, end)
+  * A time period where start=end is null/empty.
+  */
+class Interval(st: LocalDate, en: LocalDate) extends Ordered[Interval] with Serializable {
+  val start:LocalDate = st
+  val end:LocalDate = en
 
   def contains(other: Interval):Boolean = {
-    if (other.min >= min && other.max <= max)
+    if ((other.start.isAfter(start) || other.start.isEqual(start)) && (other.end.isBefore(end) || other.end.isEqual(end)))
       true
     else
       false
   }
 
-  def contains(num: TimeIndex):Boolean = {
-    if (num >= min && num <= max)
+  def contains(num: LocalDate):Boolean = {
+    if ((num.isAfter(start) || num.isEqual(start)) && num.isBefore(end))
       true
     else
       false
   }
 
   def compare(other: Interval): Int = {
-    (this.min, this.max) compare (other.min, other.max)
+    if (resolution.equals(other.resolution)) {
+      if (start.isEqual(other.start) && end.isEqual(other.end))
+        0
+      else if (start.isBefore(other.start))
+        -1
+      else
+        1
+    } else {
+      throw new IllegalArgumentException("intervals of different resolutions are not comparable")
+    }
   }
 
   //if the other interval has any (including complete) overlap in years, return true
   def intersects(other: Interval):Boolean = {
-    if (other.min > max || other.max < min)
+    if (other.start.isAfter(end) || other.end.isAfter(start))
       false
     else
       true
   }
+
+  def isEmpty():Boolean = start == end
+
+  def isUnionCompatible(other:Interval):Boolean = {
+    if (resolution.equals(other.resolution)) {
+      var st:LocalDate = start
+      var en:LocalDate = end
+      if (start.isBefore(other.start)) {
+        st = start
+        en = other.start
+      } else {
+        st = other.start
+        en = start
+      }
+      val distance:Period = Period.between(st, en)
+
+      if (distance.isZero())
+        true
+      else {
+        if (distance.get(resolution.unit) % resolution.get(resolution.unit) == 0)
+          true
+        else
+          false
+      }
+    } else
+      false
+  }
+
+  lazy val resolution:Resolution = Resolution.between(start, end)
 }
 
 object Interval {
-  def apply(mn: TimeIndex, mx: TimeIndex) = new Interval(mn,mx)
+  def apply(mn: LocalDate, mx: LocalDate) = new Interval(mn,mx)
 }

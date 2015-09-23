@@ -8,6 +8,8 @@ import org.apache.log4j.Level
 
 import edu.drexel.cs.dbgroup.graphxt._
 
+import java.time.LocalDate
+
 object MultiGraphTest {
 
   def main(args: Array[String]) {
@@ -25,31 +27,26 @@ object MultiGraphTest {
     val sc = new SparkContext(conf)
     ProgramContext.setContext(sc)
 
-    var testGraph:MultiGraph[String,Int] = MultiGraph.loadData(args(0), 1940, 1948)
+    var testGraph:TemporalGraph[String,Int] = MultiGraph.loadData(args(0), LocalDate.parse("1940-01-01"), LocalDate.parse("1949-01-01"))
 
     //try partitioning
     println("original number of partitions: " + testGraph.edges.partitions.size)
     testGraph = testGraph.partitionBy(PartitionStrategyType.CanonicalRandomVertexCut,0)
 
-    val sel = testGraph.select(Interval(1940,1948))
+    val sel = testGraph.select(Interval(LocalDate.parse("1940-01-01"),LocalDate.parse("1940-01-01")))
     println("total number of results after selection: " + sel.size) //should be 10
-    println("Selected vertices count: " + sel.graphs.vertices.count) //should be 75
-    println(sel.graphs.vertices.collect.mkString("\n"))
-    println("Selected edges count: " + sel.graphs.edges.count) //should be 13
-    println(sel.graphs.edges.collect.mkString("\n"))
+    println("Selected vertices count: " + sel.vertices.count) //should be 75
+    println(sel.vertices.collect.mkString("\n"))
+    println("Selected edges count: " + sel.edges.count) //should be 13
+    println(sel.edges.collect.mkString("\n"))
 
-    val aggregate = sel.aggregate(5, AggregateSemantics.Existential, _ + _, _ + _)
+    val aggregate = sel.aggregate(Resolution.from("PY5"), AggregateSemantics.Existential, _ + _, _ + _)
     //there should be 2 results
     println("total number of results after aggregation: " + aggregate.size)
-    val iter:Iterator[Interval] = aggregate.intervals.keysIterator
-    while (iter.hasNext) {
-      val nx:Interval = iter.next
-      println(nx.min + "-" + nx.max)
-    }
-    println("Aggregated vertices count: " + aggregate.graphs.vertices.count)
-    println(aggregate.graphs.vertices.collect.mkString("\n"))
-    println("Aggregated edges count: " + aggregate.graphs.edges.count)
-    println(aggregate.graphs.edges.collect.mkString("\n"))
+    println("Aggregated vertices count: " + aggregate.vertices.count)
+    println(aggregate.vertices.collect.mkString("\n"))
+    println("Aggregated edges count: " + aggregate.edges.count)
+    println(aggregate.edges.collect.mkString("\n"))
     
     //let's run pagerank on the aggregate now
     val ranks = aggregate.pageRank(true,0.0001, 0.15, 50)
