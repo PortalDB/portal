@@ -1,0 +1,4 @@
+To rebalance the disk utilization between data notes on hdfs, run: hdfs balancer (it will take a long time).
+
+To change permissions on hdfs files/directories, use dfs -setfacl --set command. Remember that there are no individual user accounts on the cluster outside of waltz, so facl is the only way to deal with it. Example:
+dfs -setfacl --set user::r--,user:hduser:rwx,user:vzaychik:rwx,user:akhil:rwx,user:julia:rwx,default:user::rwx,default:group::r-x,group::r-x,other::r-x,default:group:temporaldata:rwx,default:other::r-x hdfs://master:9000/data
