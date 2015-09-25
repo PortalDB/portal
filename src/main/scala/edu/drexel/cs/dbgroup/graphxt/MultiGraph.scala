@@ -27,22 +27,22 @@ import org.apache.spark.rdd._
 import edu.drexel.cs.dbgroup.graphxt.util.MultifileLoad
 import java.time.LocalDate
 
-class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: ParSeq[Interval], grs: Graph[Map[TimeIndex, VD], (TimeIndex, ED)]) extends TemporalGraph[VD, ED] with Serializable {
+class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Map[TimeIndex, VD], (TimeIndex, ED)]) extends TemporalGraph[VD, ED] with Serializable {
   val graphs: Graph[Map[TimeIndex, VD], (TimeIndex, ED)] = grs
   //TODO: because intervals are consecutive and equally sized,
   //we could store just the start of each one
-  val resolution:Resolution = intvs.head.resolution
+  val resolution:Resolution = if (intvs.size > 0) intvs.head.resolution else Resolution.zero
 
   intvs.foreach { ii =>
-    if (ii.resolution != resolution)
+    if (!ii.resolution.isEqual(resolution))
       throw new IllegalArgumentException("temporal sequence is not valid, intervals are not all of equal resolution")
   }
 
-  val intervals: ParSeq[Interval] = intvs
-  lazy val span: Interval = Interval(intervals.head.start, intervals.last.end)
+  val intervals: Seq[Interval] = intvs
+  lazy val span: Interval = if (intervals.size > 0) Interval(intervals.head.start, intervals.last.end) else Interval(LocalDate.now, LocalDate.now)
 
   /** Default constructor is provided to support serialization */
-  protected def this() = this(ParSeq[Interval](), Graph[Map[TimeIndex, VD], (TimeIndex, ED)](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD))
+  protected def this() = this(Seq[Interval](), Graph[Map[TimeIndex, VD], (TimeIndex, ED)](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD))
 
   override def size(): Int = intervals.size
 
@@ -96,7 +96,7 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: ParSeq[Interval], grs: Graph
       var selectStop:Int = intervals.indexOf(resolution.getInterval(endBound))
       if (selectStop < 0) selectStop = intervals.size - 1
 
-      val newIntvs: ParSeq[Interval] = intervals.slice(selectStart, selectStop)
+      val newIntvs: Seq[Interval] = intervals.slice(selectStart, selectStop)
 
       //now select the vertices and edges
       val subg = graphs.subgraph(
@@ -124,7 +124,7 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: ParSeq[Interval], grs: Graph
   }
 
   override def aggregate(res: Resolution, sem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
-    var intvs: ParSeq[Interval] = ParSeq[Interval]()
+    var intvs: Seq[Interval] = Seq[Interval]()
 
     if (!resolution.isCompatible(res)) {
       throw new IllegalArgumentException("incompatible resolution")
@@ -149,7 +149,7 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: ParSeq[Interval], grs: Graph
       val loop = new Breaks
       loop.breakable {
         while (index < intervals.size) {
-          val intv2:Interval = intvs(index)
+          val intv2:Interval = intervals(index)
           if (newIntv.contains(intv2)) {
             indMap(index) = intvs.size
             index += 1
@@ -159,7 +159,7 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: ParSeq[Interval], grs: Graph
         }
       }
 
-      intvs = intvs :+ intv
+      intvs = intvs :+ newIntv
     }
 
     val cntMap:scala.collection.mutable.Map[TimeIndex, Int] = HashMap[TimeIndex, Int]().withDefaultValue(0)
@@ -248,7 +248,7 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: ParSeq[Interval], grs: Graph
     //compute the new intervals
     //because the temporal sequence is consecutive and of the same resolution
     //it is easy to generate from the span
-    var mergedIntervals: ParSeq[Interval] = ParSeq[Interval]()
+    var mergedIntervals: Seq[Interval] = Seq[Interval]()
     var xx:LocalDate = startBound
     while (xx.isBefore(endBound)) {
       val nextInterval = resolution.getInterval(xx)
@@ -311,7 +311,7 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: ParSeq[Interval], grs: Graph
       MultiGraph.emptyGraph()
     } else {
       //compute the new interval
-      var mergedIntervals: ParSeq[Interval] = ParSeq[Interval]()
+      var mergedIntervals: Seq[Interval] = Seq[Interval]()
       var xx:LocalDate = startBound
       while (xx.isBefore(endBound)) {
         mergedIntervals = mergedIntervals :+ resolution.getInterval(xx)
@@ -474,7 +474,7 @@ object MultiGraph {
       maxDate = maxin
     source.close()
 
-    var intvs: ParSeq[Interval] = ParSeq[Interval]()
+    var intvs: Seq[Interval] = Seq[Interval]()
     val indices: scala.collection.mutable.Map[LocalDate, TimeIndex] = HashMap[LocalDate, TimeIndex]()
     var xx: LocalDate = minDate
     var count:Int = 0
@@ -501,6 +501,6 @@ object MultiGraph {
     new MultiGraph[String, Int](intvs, graph)
   }
 
-  def emptyGraph[VD: ClassTag, ED: ClassTag]():MultiGraph[VD, ED] = new MultiGraph(ParSeq[Interval](), Graph[Map[TimeIndex, VD],(TimeIndex, ED)](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD))
+  def emptyGraph[VD: ClassTag, ED: ClassTag]():MultiGraph[VD, ED] = new MultiGraph(Seq[Interval](), Graph[Map[TimeIndex, VD],(TimeIndex, ED)](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD))
 
 }

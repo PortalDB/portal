@@ -25,55 +25,89 @@ import edu.drexel.cs.dbgroup.graphxt.util.MultifileLoad
 
 import java.time.LocalDate
 
-class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: ParSeq[Interval], gps: ParSeq[Graph[VD, ED]]) extends TemporalGraph[VD, ED] with Serializable {
+class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gps: ParSeq[Graph[VD, ED]]) extends TemporalGraph[VD, ED] with Serializable {
   val graphs: ParSeq[Graph[VD, ED]] = gps
   //TODO: because intervals are consecutive and equally sized,
   //we could store just the start of each one
-  val resolution:Resolution = intvs.head.resolution
+  val resolution:Resolution = if (intvs.size > 0) intvs.head.resolution else Resolution.zero
 
   intvs.foreach { ii =>
-    if (ii.resolution != resolution)
+    if (!ii.resolution.isEqual(resolution))
       throw new IllegalArgumentException("temporal sequence is not valid, intervals are not all of equal resolution")
   }
 
-  val intervals: ParSeq[Interval] = intvs
-  lazy val span: Interval = Interval(intervals.head.start, intervals.last.end)
+  val intervals: Seq[Interval] = intvs
+  lazy val span: Interval = if (intervals.size > 0) Interval(intvs.head.start, intvs.last.end) else Interval(LocalDate.now, LocalDate.now)
 
   /** Default constructor is provided to support serialization */
-  protected def this() = this(ParSeq[Interval](), ParSeq[Graph[VD, ED]]())
+  protected def this() = this(Seq[Interval](), ParSeq[Graph[VD, ED]]())
 
   override def size(): Int = graphs.size
 
   override def vertices: VertexRDD[Map[Interval, VD]] = {
-    VertexRDD(graphs.zipWithIndex.filterNot(x => x._1.vertices.isEmpty).map(x => x._1.vertices.mapValues(y => Map[Interval, VD](intervals(x._2) -> y)))
+    if (size > 0)
+      VertexRDD(graphs.zipWithIndex
+      .map(x => (x._1, intervals(x._2)))
+      .filterNot(x => x._1.vertices.isEmpty).map(x => x._1.vertices.mapValues(y => Map[Interval, VD](x._2 -> y)))
       .reduce((a, b) => VertexRDD(a union b))
       .reduceByKey((a: Map[Interval, VD], b: Map[Interval, VD]) => a ++ b))
+    else {
+      val ret:VertexRDD[Map[Interval,VD]] = VertexRDD(ProgramContext.sc.emptyRDD)
+      ret
+    }
   }
 
   override def verticesFlat: VertexRDD[(Interval, VD)] = {
-    VertexRDD(graphs.zipWithIndex.filterNot(x => x._1.vertices.isEmpty)
-      .map(x => x._1.vertices.mapValues(y => (intervals(x._2), y)))
+    if (size > 0)
+      VertexRDD(graphs.zipWithIndex
+      .map(x => (x._1, intervals(x._2)))
+      .filterNot(x => x._1.vertices.isEmpty)
+      .map(x => x._1.vertices.mapValues(y => (x._2, y)))
       .reduce((a, b) => VertexRDD(a union b)))
+    else {
+      val ret:VertexRDD[(Interval,VD)] = VertexRDD(ProgramContext.sc.emptyRDD)
+      ret
+    }
   }
 
   override def edges: EdgeRDD[Map[Interval, ED]] = {
-    EdgeRDD.fromEdges[Map[Interval, ED], VD](graphs.zipWithIndex.filterNot(x => x._1.edges.isEmpty).map(x => x._1.edges.mapValues(y => Map[Interval, ED](intervals(x._2) -> y.attr)))
+    if (size > 0)
+      EdgeRDD.fromEdges[Map[Interval, ED], VD](graphs.zipWithIndex
+      .map(x => (x._1, intervals(x._2)))
+      .filterNot(x => x._1.edges.isEmpty)
+      .map(x => x._1.edges.mapValues(y => Map[Interval, ED](x._2 -> y.attr)))
       .reduce((a: RDD[Edge[Map[Interval, ED]]], b: RDD[Edge[Map[Interval, ED]]]) => a union b)
       .map(x => ((x.srcId, x.dstId), x.attr))
       .reduceByKey((a: Map[Interval, ED], b: Map[Interval, ED]) => a ++ b)
       .map(x => Edge(x._1._1, x._1._2, x._2))
-    )
+      )
+    else
+      EdgeRDD.fromEdges[Map[Interval, ED], VD](ProgramContext.sc.emptyRDD)
   }
 
   override def edgesFlat: EdgeRDD[(Interval, ED)] = {
-    EdgeRDD.fromEdges[(Interval, ED), VD](graphs.zipWithIndex.filterNot(x => x._1.edges.isEmpty).map(x => x._1.edges.mapValues(y => (intervals(x._2),y.attr)))
+    if (size > 0)
+      EdgeRDD.fromEdges[(Interval, ED), VD](graphs.zipWithIndex
+      .map(x => (x._1, intervals(x._2)))
+      .filterNot(x => x._1.edges.isEmpty)
+      .map(x => x._1.edges.mapValues(y => (x._2,y.attr)))
       .reduce((a: RDD[Edge[(Interval, ED)]], b: RDD[Edge[(Interval, ED)]]) => a union b))
+    else
+      EdgeRDD.fromEdges[(Interval, ED), VD](ProgramContext.sc.emptyRDD)
   }
 
   override def degrees: VertexRDD[Map[Interval, Int]] = {
-    VertexRDD(graphs.zipWithIndex.map(x => x._1.degrees.mapValues(deg => Map[Interval, Int](intervals(x._2) -> deg)))
+    if (size > 0)
+      VertexRDD(graphs.zipWithIndex
+      .map(x => (x._1, intervals(x._2)))
+      .filterNot(x => x._1.edges.isEmpty)
+      .map(x => x._1.degrees.mapValues(deg => Map[Interval, Int](x._2 -> deg)))
       .reduce((x,y) => VertexRDD(x union y))
       .reduceByKey((a: Map[Interval, Int], b: Map[Interval, Int]) => a ++ b))
+    else {
+      val ret:VertexRDD[Map[Interval, Int]] = VertexRDD(ProgramContext.sc.emptyRDD)
+      ret
+    }
   }
 
   /** Query operations */
@@ -94,7 +128,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: ParSeq[Interval],
     var selectStop:Int = intervals.indexOf(resolution.getInterval(endBound))
     if (selectStop < 0) selectStop = intervals.size - 1
 
-    val newIntvs: ParSeq[Interval] = intervals.slice(selectStart, selectStop)
+    val newIntvs: Seq[Interval] = intervals.slice(selectStart, selectStop)
     val newGraphs: ParSeq[Graph[VD, ED]] = graphs.slice(selectStart, selectStop)
 
     new SnapshotGraphParallel(newIntvs, newGraphs)
@@ -114,7 +148,10 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: ParSeq[Interval],
   }
 
   override def aggregate(res: Resolution, sem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
-    var intvs: ParSeq[Interval] = ParSeq[Interval]()
+    if (size == 0)
+      return SnapshotGraphParallel.emptyGraph()
+
+    var intvs: Seq[Interval] = Seq[Interval]()
     var gps: ParSeq[Graph[VD, ED]] = ParSeq[Graph[VD, ED]]()
 
     if (!resolution.isCompatible(res)) {
@@ -126,7 +163,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: ParSeq[Interval],
     var index:Integer = 0
     var num:Integer = 0
 
-    while (index < gps.size) {
+    while (index < graphs.size) {
       val intv:Interval = intervals(index)
       num = 0
       //need to compute the interval start and end based on resolution new units
@@ -141,8 +178,8 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: ParSeq[Interval],
       //grab all the intervals that fit within
       val loop = new Breaks
       loop.breakable {
-        while (index < gps.size) {
-          val intv2:Interval = intvs(index)
+        while (index < graphs.size) {
+          val intv2:Interval = intervals(index)
           if (newIntv.contains(intv2)) {
             firstVRDD = firstVRDD.union(graphs(index).vertices)
             firstERDD = firstERDD.union(graphs(index).edges)
@@ -154,7 +191,8 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: ParSeq[Interval],
         }
       }
 
-      intvs = intvs :+ intv
+      intvs = intvs :+ newIntv
+      println("Next aggregated interval: " + newIntv.toString)
       if (sem == AggregateSemantics.Existential) {
         gps = gps :+ Graph(VertexRDD(firstVRDD.reduceByKey(vAggFunc)), EdgeRDD.fromEdges[ED, VD](firstERDD.map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eAggFunc).map { x =>
           val (k, v) = x
@@ -175,21 +213,29 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: ParSeq[Interval],
       }
     }
 
+    println("after aggregation num of results: " + intvs.size)
+
     new SnapshotGraphParallel(intvs, gps)
   }
 
   override def transform[ED2: ClassTag, VD2: ClassTag](emap: (Edge[ED], Interval) => ED2, vmap: (VertexId, Interval, VD) => VD2): TemporalGraph[VD2, ED2] = {
-    new SnapshotGraphParallel(intervals, graphs.zipWithIndex.map(x => x._1.mapVertices{ (id: VertexId, attr: VD) => vmap(id, intervals(x._2), attr) }.mapEdges{ e: Edge[ED] => emap(e, intervals(x._2))}))
+    new SnapshotGraphParallel(intervals, graphs.zipWithIndex
+      .map(x => (x._1, intervals(x._2)))
+      .map(x => x._1.mapVertices{ (id: VertexId, attr: VD) => vmap(id, x._2, attr) }.mapEdges{ e: Edge[ED] => emap(e, x._2)}))
   }
 
   override def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2)(implicit eq: VD =:= VD2 = null): TemporalGraph[VD2, ED] = {
-    new SnapshotGraphParallel(intervals, graphs.zipWithIndex.map(x =>
-      x._1.mapVertices{ (id: VertexId, attr: VD) => map(id, intervals(x._2), attr) }))
+    new SnapshotGraphParallel(intervals, graphs.zipWithIndex
+      .map(x => (x._1, intervals(x._2)))
+      .map(x =>
+      x._1.mapVertices{ (id: VertexId, attr: VD) => map(id, x._2, attr) }))
   }
 
   override def mapEdges[ED2: ClassTag](map: (Edge[ED], Interval) => ED2): TemporalGraph[VD, ED2] = {
-    new SnapshotGraphParallel(intervals, graphs.zipWithIndex.map(x =>
-      x._1.mapEdges{ e: Edge[ED] => map(e, intervals(x._2))}))
+    new SnapshotGraphParallel(intervals, graphs.zipWithIndex
+      .map(x => (x._1, intervals(x._2)))
+      .map(x =>
+      x._1.mapEdges{ e: Edge[ED] => map(e, x._2)}))
   }
 
   override def outerJoinVertices[U: ClassTag, VD2: ClassTag](other: RDD[(VertexId, Map[Interval, U])])(mapFunc: (VertexId, Interval, VD, Option[U]) => VD2)(implicit eq: VD =:= VD2 = null): TemporalGraph[VD2, ED] = {
@@ -226,7 +272,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: ParSeq[Interval],
     //compute the new intervals
     //because the temporal sequence is consecutive and of the same resolution
     //it is easy to generate from the span
-    var mergedIntervals: ParSeq[Interval] = ParSeq[Interval]()
+    var mergedIntervals: Seq[Interval] = Seq[Interval]()
     var xx:LocalDate = startBound
     while (xx.isBefore(endBound)) {
       val nextInterval = resolution.getInterval(xx)
@@ -239,37 +285,37 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: ParSeq[Interval],
     val gr2IndexStart:Long = resolution.numBetween(startBound, grp2.span.start)
     val gr1Pad:Long = resolution.numBetween(span.end, endBound)
     val gr2Pad:Long = resolution.numBetween(grp2.span.end, endBound)
-    val grseq1:ParSeq[Graph[VD, ED]] = (ParSeq[Graph[VD, ED]]().padTo(gr1IndexStart.toInt, null) ++ graphs).padTo(gr1Pad.toInt, null)
-    val grseq2:ParSeq[Graph[VD, ED]] = (ParSeq[Graph[VD, ED]]().padTo(gr2IndexStart.toInt, null) ++ grp2.graphs).padTo(gr2Pad.toInt, null)
+    val grseq1:ParSeq[Graph[VD, ED]] = (ParSeq[Graph[VD, ED]]().padTo(gr1IndexStart.toInt, Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)) ++ graphs).padTo(gr1Pad.toInt, Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD))
+    val grseq2:ParSeq[Graph[VD, ED]] = (ParSeq[Graph[VD, ED]]().padTo(gr2IndexStart.toInt, Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)) ++ grp2.graphs).padTo(gr2Pad.toInt, Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD))
 
     //then zip them
     val mergedGraphs:ParSeq[Graph[VD, ED]] = grseq1.zip(grseq2).map { twogrs =>
-      twogrs match {
-        case (gr1, gr2) =>
-          if (sem == AggregateSemantics.Existential) {
-            Graph(VertexRDD(gr1.vertices.union(gr2.vertices).reduceByKey(vFunc)), EdgeRDD.fromEdges[ED, VD](gr1.edges.union(gr2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eFunc).map { x =>
-              val (k, v) = x
-              Edge(k._1, k._2, v)
-            }))
-          } else { //universal
-            Graph(gr1.vertices.union(gr2.vertices).map(x => (x._1, (x._2, 1))).reduceByKey((x, y) => (vFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == 2).map {x =>
-              val (k, v) = x
-              (k, v._1)
-            }, EdgeRDD.fromEdges[ED, VD](gr1.edges.union(gr2.edges).map(e => ((e.srcId, e.dstId), (e.attr, 1))).reduceByKey((x, y) => (eFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == 2).map { x =>
-              val (k, v) = x
-              Edge(k._1, k._2, v._1)
-            }))
-          }
-        case (null, gr2) =>
-          if (sem == AggregateSemantics.Existential)
-            gr2
-          else
-            Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
-        case (gr1, null) =>
-          if (sem == AggregateSemantics.Existential)
-            gr1
-          else
-            Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+      val (gr1:Graph[VD,ED],gr2:Graph[VD,ED]) = twogrs
+      if (gr1.vertices.isEmpty) {
+        if (sem == AggregateSemantics.Existential)
+          gr2
+        else
+          Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+      } else if (gr2.vertices.isEmpty) {
+        if (sem == AggregateSemantics.Existential)
+          gr1
+        else
+          Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+      } else {
+        if (sem == AggregateSemantics.Existential) {
+          Graph(VertexRDD(gr1.vertices.union(gr2.vertices).reduceByKey(vFunc)), EdgeRDD.fromEdges[ED, VD](gr1.edges.union(gr2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eFunc).map { x =>
+            val (k, v) = x
+            Edge(k._1, k._2, v)
+          }))
+        } else { //universal
+          Graph(gr1.vertices.union(gr2.vertices).map(x => (x._1, (x._2, 1))).reduceByKey((x, y) => (vFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == 2).map {x =>
+            val (k, v) = x
+            (k, v._1)
+          }, EdgeRDD.fromEdges[ED, VD](gr1.edges.union(gr2.edges).map(e => ((e.srcId, e.dstId), (e.attr, 1))).reduceByKey((x, y) => (eFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == 2).map { x =>
+            val (k, v) = x
+            Edge(k._1, k._2, v._1)
+          }))
+        }
       }
     }
 
@@ -298,7 +344,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: ParSeq[Interval],
       SnapshotGraphParallel.emptyGraph()
     } else {
       //compute the new interval
-      var mergedIntervals: ParSeq[Interval] = ParSeq[Interval]()
+      var mergedIntervals: Seq[Interval] = Seq[Interval]()
       var xx:LocalDate = startBound
       while (xx.isBefore(endBound)) {
         mergedIntervals = mergedIntervals :+ resolution.getInterval(xx)
@@ -314,8 +360,19 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: ParSeq[Interval],
       val grseq2:ParSeq[Graph[VD, ED]] = grp2.graphs.slice(gr2IndexStart, gr2IndexEnd)
 
       //then zip them
-      val mergedGraphs:ParSeq[Graph[VD, ED]] = grseq1.zip(grseq2).map {
-        case (gr1, gr2) =>
+      val mergedGraphs:ParSeq[Graph[VD, ED]] = grseq1.zip(grseq2).map { twogrs =>
+        val (gr1:Graph[VD,ED],gr2:Graph[VD,ED]) = twogrs
+        if (gr1.vertices.isEmpty) {
+          if (sem == AggregateSemantics.Existential)
+            gr2
+          else
+            Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+        } else if (gr2.vertices.isEmpty) {
+          if (sem == AggregateSemantics.Existential)
+            gr1
+          else
+            Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+        } else {
           if (sem == AggregateSemantics.Existential) {
             Graph(VertexRDD(gr1.vertices.union(gr2.vertices).reduceByKey(vFunc)), EdgeRDD.fromEdges[ED, VD](gr1.edges.union(gr2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eFunc).map { x =>
               val (k, v) = x
@@ -330,16 +387,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: ParSeq[Interval],
               Edge(k._1, k._2, v._1)
             }))
           }
-        case (_, gr2) =>
-          if (sem == AggregateSemantics.Existential)
-            gr2
-          else
-            Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
-        case (gr1, _) =>
-          if (sem == AggregateSemantics.Existential)
-            gr1
-          else
-            Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+        }
       }
 
       new SnapshotGraphParallel(mergedIntervals, mergedGraphs)
@@ -466,7 +514,7 @@ object SnapshotGraphParallel extends Serializable {
       maxDate = maxin
     source.close()
 
-    var intvs: ParSeq[Interval] = ParSeq[Interval]()
+    var intvs: Seq[Interval] = Seq[Interval]()
     var gps: ParSeq[Graph[String, Int]] = ParSeq[Graph[String, Int]]()
     var xx:LocalDate = minDate
 
@@ -499,5 +547,5 @@ object SnapshotGraphParallel extends Serializable {
     new SnapshotGraphParallel(intvs, gps)
   }
 
-  def emptyGraph[VD: ClassTag, ED: ClassTag]():SnapshotGraphParallel[VD, ED] = new SnapshotGraphParallel(ParSeq[Interval](), ParSeq[Graph[VD, ED]]())
+  def emptyGraph[VD: ClassTag, ED: ClassTag]():SnapshotGraphParallel[VD, ED] = new SnapshotGraphParallel(Seq[Interval](), ParSeq[Graph[VD, ED]]())
 }

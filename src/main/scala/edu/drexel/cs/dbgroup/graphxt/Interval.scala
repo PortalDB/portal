@@ -13,6 +13,10 @@ class Interval(st: LocalDate, en: LocalDate) extends Ordered[Interval] with Seri
   val start:LocalDate = st
   val end:LocalDate = en
 
+  override def toString():String = {
+    "[" + start.toString + "-" + end.toString + ")"
+  }
+
   def contains(other: Interval):Boolean = {
     if ((other.start.isAfter(start) || other.start.isEqual(start)) && (other.end.isBefore(end) || other.end.isEqual(end)))
       true
@@ -42,7 +46,7 @@ class Interval(st: LocalDate, en: LocalDate) extends Ordered[Interval] with Seri
 
   //if the other interval has any (including complete) overlap in years, return true
   def intersects(other: Interval):Boolean = {
-    if (other.start.isAfter(end) || other.end.isAfter(start))
+    if (other.start.isAfter(end) || other.end.isBefore(start))
       false
     else
       true

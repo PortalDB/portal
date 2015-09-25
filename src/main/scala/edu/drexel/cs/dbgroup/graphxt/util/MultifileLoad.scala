@@ -17,14 +17,15 @@ object MultifileLoad {
   /** this is in the inclusive-inclusive model */
   //TODO: restrict by date properly, not just by year
   def readNodes(path: String, min: LocalDate, max: LocalDate): RDD[(String, String)] = {
-    val nodesPath = path + "/nodes/nodes{" + NumberRangeRegex.generateRegex(min.getYear(), max.getYear()) + "-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01])}.txt"
+    //val nodesPath = path + "/nodes/nodes{" + NumberRangeRegex.generateRegex(min.getYear(), max.getYear()) + "}-{0[1-9],1[012]}-{0[1-9],[12][0-9],3[01]}.txt"
+    val nodesPath = path + "/nodes/nodes{" + NumberRangeRegex.generateRegex(min.getYear(), max.getYear()) + "}-01-01.txt"
     val numParts = estimateParts(nodesPath)
     println("loading with " + numParts + " partitions")
     readTextFiles(nodesPath, numParts)
   }
 
   def readEdges(path: String, min: LocalDate, max: LocalDate): RDD[(String, String)] = {
-    val edgesPath = path + "/edges/edges{" + NumberRangeRegex.generateRegex(min.getYear(), max.getYear()) + "-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01])}.txt"
+    val edgesPath = path + "/edges/edges{" + NumberRangeRegex.generateRegex(min.getYear(), max.getYear()) + "}-01-01.txt"
     val numParts = estimateParts(edgesPath)
     println("loading with " + numParts + " partitions")
     readTextFiles(edgesPath, numParts)
@@ -52,7 +53,6 @@ object MultifileLoad {
     fs = FileSystem.get(conf)
     val pt: Path = new Path(path)
     val len = fs.globStatus(pt).map(_.getLen / 1000000).reduce(_+_)
-    println("total length in Mbytes for path " + path + " is " + len)
 
     if (0 <= len && len < 8)
       2

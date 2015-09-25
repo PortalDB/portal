@@ -9,7 +9,7 @@ import java.time.temporal.ChronoUnit
   * Resolution of a time period, in semantic units,
   * i.e. days, months, weeks, years
   */
-class Resolution(per:Period) {
+class Resolution(per:Period) extends Serializable {
 
   val period:Period = per
 
@@ -21,6 +21,10 @@ class Resolution(per:Period) {
     else
       ChronoUnit.YEARS
   }
+
+  override def toString():String = per.toString
+
+  def isEqual(other:Resolution):Boolean = period.equals(other.period)
 
   def isValid():Boolean = {
     //can only have 1 unit set, i.e. only days or years
@@ -184,4 +188,5 @@ class Resolution(per:Period) {
 object Resolution {
   def between(st:LocalDate, en:LocalDate):Resolution = new Resolution(Period.between(st, en))
   def from(st:String):Resolution = new Resolution(Period.parse(st))
+  def zero():Resolution = new Resolution(Period.ZERO)
 }

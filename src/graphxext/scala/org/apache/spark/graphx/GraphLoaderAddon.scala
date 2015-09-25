@@ -82,7 +82,7 @@ object GraphLoaderAddon {
         }
       }
       Iterator((pid, builder.toEdgePartition))
-    }.persist(edgeStorageLevel).setName("GraphLoader.edgeListFiles - edges (%d)".format(indices.head.toString))
+    }.persist(edgeStorageLevel).setName("GraphLoader.edgeListFiles - edges (%s)".format(indices.head._1.toString))
     edges.count()
 
     GraphImpl.fromEdgePartitions(edges, defaultVertexAttr = 1, edgeStorageLevel = edgeStorageLevel,

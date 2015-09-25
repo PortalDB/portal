@@ -20,7 +20,7 @@ object SnapshotGraphTest {
 
     val sc = new SparkContext("local", "SnapshotGraph Project", 
       System.getenv("SPARK_HOME"),
-      List("target/scala-2.10/snapshot-graph-project_2.10-1.0.jar"))
+      List("target/scala-2.10/temporal-graph-project_2.10-1.0.jar"))
 
     def vaggfunc(a: String, b: String): String = { a + b }
 

@@ -26,15 +26,15 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
   val graphs: Seq[Graph[VD, ED]] = grs
   //TODO: because intervals are consecutive and equally sized,
   //we could store just the start of each one
-  val resolution:Resolution = intvs.head.resolution
+  val resolution:Resolution = if (intvs.size > 0) intvs.head.resolution else Resolution.zero
 
   intvs.foreach { ii =>
-    if (ii.resolution != resolution)
+    if (!ii.resolution.isEqual(resolution))
       throw new IllegalArgumentException("temporal sequence is not valid, intervals are not all of equal resolution")
   }
 
   val intervals: Seq[Interval] = intvs
-  lazy val span: Interval = Interval(intervals.head.start, intervals.last.end)
+  lazy val span: Interval = if (intervals.size > 0) Interval(intervals.head.start, intervals.last.end) else Interval(LocalDate.now, LocalDate.now)
 
   /** Default constructor is provided to support serialization */
   protected def this() = this(Seq[Interval](), Seq[Graph[VD, ED]]())
@@ -42,36 +42,58 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
   override def size(): Int = { graphs.size }
 
   override def vertices: VertexRDD[Map[Interval, VD]] = {
-    VertexRDD(graphs.zipWithIndex.filterNot(x => x._1.vertices.isEmpty).map(x => x._1.vertices.mapValues(y => Map[Interval, VD](intervals(x._2) -> y)))
+    if (size > 0)
+      VertexRDD(graphs.zipWithIndex.filterNot(x => x._1.vertices.isEmpty).map(x => x._1.vertices.mapValues(y => Map[Interval, VD](intervals(x._2) -> y)))
       .reduce((a, b) => VertexRDD(a union b))
       .reduceByKey((a: Map[Interval, VD], b: Map[Interval, VD]) => a ++ b))
+    else {
+      val ret:VertexRDD[Map[Interval,VD]] = VertexRDD(ProgramContext.sc.emptyRDD)
+      ret
+    }
   }
 
   override def verticesFlat: VertexRDD[(Interval, VD)] = {
-    VertexRDD(graphs.zipWithIndex.filterNot(x => x._1.vertices.isEmpty)
+    if (size > 0)
+      VertexRDD(graphs.zipWithIndex.filterNot(x => x._1.vertices.isEmpty)
       .map(x => x._1.vertices.mapValues(y => (intervals(x._2), y)))
       .reduce((a, b) => VertexRDD(a union b)))
+    else {
+      val ret:VertexRDD[(Interval,VD)] = VertexRDD(ProgramContext.sc.emptyRDD)
+      ret
+    }
   }
 
   override def edges: EdgeRDD[Map[Interval, ED]] = {
-    EdgeRDD.fromEdges[Map[Interval, ED], VD](graphs.zipWithIndex.filterNot(x => x._1.edges.isEmpty)
+    if (size > 0)
+      EdgeRDD.fromEdges[Map[Interval, ED], VD](graphs.zipWithIndex.filterNot(x => x._1.edges.isEmpty)
       .map(x => x._1.edges.mapValues(y => Map[Interval, ED](intervals(x._2) -> y.attr)))
       .reduce((a: RDD[Edge[Map[Interval, ED]]], b: RDD[Edge[Map[Interval, ED]]]) => a union b)
       .map(x => ((x.srcId, x.dstId), x.attr))
       .reduceByKey((a: Map[Interval, ED], b: Map[Interval, ED]) => a ++ b)
       .map(x => Edge(x._1._1, x._1._2, x._2))
-    )
+      )
+    else {
+      EdgeRDD.fromEdges[Map[Interval, ED], VD](ProgramContext.sc.emptyRDD)
+    }
   }
 
   override def edgesFlat: EdgeRDD[(Interval, ED)] = {
-    EdgeRDD.fromEdges[(Interval, ED), VD](graphs.zipWithIndex.filterNot(x => x._1.edges.isEmpty).map(x => x._1.edges.mapValues(y => (intervals(x._2),y.attr)))
-      .reduce((a: RDD[Edge[(Interval, ED)]], b: RDD[Edge[(Interval, ED)]]) => a union b))
+    if (size > 0)
+      EdgeRDD.fromEdges[(Interval, ED), VD](graphs.zipWithIndex.filterNot(x => x._1.edges.isEmpty).map(x => x._1.edges.mapValues(y => (intervals(x._2),y.attr)))
+        .reduce((a: RDD[Edge[(Interval, ED)]], b: RDD[Edge[(Interval, ED)]]) => a union b))
+    else
+      EdgeRDD.fromEdges[(Interval, ED), VD](ProgramContext.sc.emptyRDD)
   }
 
   override def degrees: VertexRDD[Map[Interval, Int]] = {
-    VertexRDD(graphs.zipWithIndex.map(x => x._1.degrees.mapValues(deg => Map[Interval, Int](intervals(x._2) -> deg)))
-      .reduce((x,y) => VertexRDD(x union y))
-      .reduceByKey((a: Map[Interval, Int], b: Map[Interval, Int]) => a ++ b))
+    if (size > 0)
+      VertexRDD(graphs.zipWithIndex.map(x => x._1.degrees.mapValues(deg => Map[Interval, Int](intervals(x._2) -> deg)))
+        .reduce((x,y) => VertexRDD(x union y))
+        .reduceByKey((a: Map[Interval, Int], b: Map[Interval, Int]) => a ++ b))
+    else {
+      val ret:VertexRDD[Map[Interval, Int]] = VertexRDD(ProgramContext.sc.emptyRDD)
+      ret
+    }
   }
 
   /** Query operations */
@@ -119,21 +141,26 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
   }
 
   override def select(tpred: Interval => Boolean): TemporalGraph[VD, ED] = {
-    var gps: Seq[Graph[VD, ED]] = Seq[Graph[VD, ED]]()
-    intervals.zipWithIndex.foreach { case (k,v) =>
-      if (tpred(k))
-        gps = gps :+ graphs(v)
-      else
-        gps = gps :+ Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
-    }
-    new SnapshotGraph(intervals, gps)
+    if (size > 0) {
+      var gps: Seq[Graph[VD, ED]] = Seq[Graph[VD, ED]]()
+      intervals.zipWithIndex.foreach { case (k,v) =>
+        if (tpred(k))
+          gps = gps :+ graphs(v)
+        else
+          gps = gps :+ Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+      }
+      new SnapshotGraph(intervals, gps)
+    } else SnapshotGraph.emptyGraph()
   }
 
   override def select(epred: EdgeTriplet[VD,ED] => Boolean, vpred: (VertexId, VD) => Boolean): TemporalGraph[VD, ED] = {
-    new SnapshotGraph(intervals, graphs.map(x => x.subgraph(epred, vpred)))
+    if (size > 0) new SnapshotGraph(intervals, graphs.map(x => x.subgraph(epred, vpred))) else SnapshotGraph.emptyGraph()
   }
 
   override def aggregate(res: Resolution, sem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
+    if (size == 0)
+      return SnapshotGraph.emptyGraph()
+
     var intvs: Seq[Interval] = Seq[Interval]()
     var gps: Seq[Graph[VD, ED]] = Seq[Graph[VD, ED]]()
 
@@ -146,7 +173,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
     var index:Integer = 0
     var num:Integer = 0
 
-    while (index < gps.size) {
+    while (index < graphs.size) {
       val intv:Interval = intervals(index)
       num = 0
       //need to compute the interval start and end based on resolution new units
@@ -161,8 +188,8 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
       //grab all the intervals that fit within
       val loop = new Breaks
       loop.breakable {
-        while (index < gps.size) {
-          val intv2:Interval = intvs(index)
+        while (index < graphs.size) {
+          val intv2:Interval = intervals(index)
           if (newIntv.contains(intv2)) {
             firstVRDD = firstVRDD.union(graphs(index).vertices)
             firstERDD = firstERDD.union(graphs(index).edges)
@@ -174,7 +201,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
         }
       }
 
-      intvs = intvs :+ intv
+      intvs = intvs :+ newIntv
       if (sem == AggregateSemantics.Existential) {
         gps = gps :+ Graph(VertexRDD(firstVRDD.reduceByKey(vAggFunc)), EdgeRDD.fromEdges[ED, VD](firstERDD.map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eAggFunc).map { x =>
           val (k, v) = x
