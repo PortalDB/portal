@@ -27,7 +27,7 @@ import java.time.LocalDate
 
 class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gps: ParSeq[Graph[VD, ED]]) extends TemporalGraph[VD, ED] with Serializable {
   val graphs: ParSeq[Graph[VD, ED]] = gps
-  //TODO: because intervals are consecutive and equally sized,
+  //because intervals are consecutive and equally sized,
   //we could store just the start of each one
   val resolution:Resolution = if (intvs.size > 0) intvs.head.resolution else Resolution.zero
 
@@ -410,11 +410,11 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
         if (grp.edges.isEmpty) {
           Graph[Double, Double](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
         } else {
-          //FIXME: coalesce may not be safe for all sizes
           if (uni)
-            UndirectedPageRank.run(Graph(grp.vertices, grp.edges.coalesce(1, true)), tol, resetProb, numIter)
+            UndirectedPageRank.run(Graph(grp.vertices, grp.edges), tol, resetProb, numIter)
+          else if (numIter < Int.MaxValue)
+            grp.staticPageRank(numIter, resetProb)
           else
-            //FIXME: this doesn't use the numIterations stop condition
             grp.pageRank(tol, resetProb)
         }
       }
@@ -465,20 +465,21 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
   }
 
   override def partitionBy(pst: PartitionStrategyType.Value, runs: Int): TemporalGraph[VD, ED] = {
-    //FIXME: what if the first graph has no edges?
-    partitionBy(pst, runs, graphs.head.edges.partitions.size)
+    partitionBy(pst, runs, 0)
   }
 
   override def partitionBy(pst: PartitionStrategyType.Value, runs: Int, parts: Int): TemporalGraph[VD, ED] = {
-    var numParts = if (parts > 0) parts else graphs.head.edges.partitions.size
-
     if (pst != PartitionStrategyType.None) {
       //not changing the intervals, only the graphs at their indices
       //each partition strategy for SG needs information about the graph
 
       //use that strategy to partition each of the snapshots
       new SnapshotGraphParallel(intervals, graphs.zipWithIndex.map { case (g,i) =>
-        g.partitionBy(PartitionStrategies.makeStrategy(pst, i, graphs.size, runs), numParts) })
+        if (parts > 0)
+          g.partitionBy(PartitionStrategies.makeStrategy(pst, i, graphs.size, runs), parts)
+        else
+          g.partitionBy(PartitionStrategies.makeStrategy(pst, i, graphs.size, runs))
+      })
     } else
       this
   }

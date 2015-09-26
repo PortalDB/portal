@@ -20,8 +20,6 @@ import org.apache.spark.graphx.impl.GraphXPartitionExtension._
 
 import org.apache.spark.graphx._
 import org.apache.spark.graphx.Graph
-//import org.apache.spark.graphx.impl.EdgeRDDImpl
-//import org.apache.spark.graphx.PartitionStrategy
 import org.apache.spark.rdd._
 
 import edu.drexel.cs.dbgroup.graphxt.util.MultifileLoad
@@ -29,7 +27,7 @@ import java.time.LocalDate
 
 class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Map[TimeIndex, VD], (TimeIndex, ED)]) extends TemporalGraph[VD, ED] with Serializable {
   val graphs: Graph[Map[TimeIndex, VD], (TimeIndex, ED)] = grs
-  //TODO: because intervals are consecutive and equally sized,
+  //because intervals are consecutive and equally sized,
   //we could store just the start of each one
   val resolution:Resolution = if (intvs.size > 0) intvs.head.resolution else Resolution.zero
 
@@ -120,6 +118,7 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
   }
 
   override def select(epred: EdgeTriplet[VD,ED] => Boolean, vpred: (VertexId, VD) => Boolean): TemporalGraph[VD, ED] = {
+    //TODO: implement this
       throw new UnsupportedOperationException("this version of select not yet implementet")
   }
 
@@ -397,7 +396,7 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
     if (uni)
       new MultiGraph[Double, Double](intervals, UndirectedPageRank.runCombined(graphs, intervals.size, tol, resetProb, numIter))
     else
-      //TODO: implement this
+      //TODO: implement this using pregel
       throw new UnsupportedOperationException("directed version of pageRank not yet implemented")
   }
   

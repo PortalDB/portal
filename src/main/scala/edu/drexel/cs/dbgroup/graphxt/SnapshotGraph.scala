@@ -24,7 +24,7 @@ import java.time.LocalDate
 
 class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[Graph[VD, ED]]) extends TemporalGraph[VD, ED] {
   val graphs: Seq[Graph[VD, ED]] = grs
-  //TODO: because intervals are consecutive and equally sized,
+  //because intervals are consecutive and equally sized,
   //we could store just the start of each one
   val resolution:Resolution = if (intvs.size > 0) intvs.head.resolution else Resolution.zero
 
@@ -284,7 +284,6 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
 
     //what we want now is to figure out which indices to place the graphs into
     //in the new sequence
-    //TODO: this could be done more efficiently
     val graphBuf: Buffer[Graph[VD, ED]] = Buffer[Graph[VD, ED]]()
     var ii:Int = 0
     for (ii <- 0 to mergedIntervals.size) {
@@ -350,7 +349,6 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
 
       //what we want now is to figure out which indices to place the graphs into
       //in the new sequence
-      //TODO: this could be done more efficiently
       val graphBuf: Buffer[Graph[VD, ED]] = Buffer[Graph[VD, ED]]()
       var ii:Int = 0
       for (ii <- 0 to mergedIntervals.size) {
@@ -405,9 +403,10 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
         gps = gps :+ Graph[Double, Double](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
       } else {
         if (uni)
-          gps = gps :+ UndirectedPageRank.run(Graph(x.vertices, x.edges.coalesce(1, true)), tol, resetProb, numIter)
+          gps = gps :+ UndirectedPageRank.run(Graph(x.vertices, x.edges), tol, resetProb, numIter)
+        else if (numIter < Int.MaxValue)
+          gps = gps :+ x.staticPageRank(numIter, resetProb)
         else
-          //FIXME: this doesn't use the numIterations stop condition
           gps = gps :+ x.pageRank(tol, resetProb)
       }
     }
@@ -475,18 +474,18 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
   }
 
   override def partitionBy(pst: PartitionStrategyType.Value, runs: Int): TemporalGraph[VD, ED] = {
-    //FIXME: what if the first graph has no edges?
-    partitionBy(pst, runs, graphs.head.edges.partitions.size)
+    partitionBy(pst, runs, 0) //0 will make sure that the graph is partitioned with however many partitions it has now
   }
 
   override def partitionBy(pst: PartitionStrategyType.Value, runs: Int, parts: Int): TemporalGraph[VD, ED] = {
-    var numParts = if (parts > 0) parts else graphs.head.edges.partitions.size
-
     if (pst != PartitionStrategyType.None) {
       var gps: Seq[Graph[VD, ED]] = Seq[Graph[VD, ED]]()
 
       graphs.zipWithIndex.foreach { case (k,v) =>
-        gps = gps :+ k.partitionBy(PartitionStrategies.makeStrategy(pst, v, graphs.size, runs), numParts)
+        if (parts > 0)
+          gps = gps :+ k.partitionBy(PartitionStrategies.makeStrategy(pst, v, graphs.size, runs), parts)
+        else
+          gps = gps :+ k.partitionBy(PartitionStrategies.makeStrategy(pst, v, graphs.size, runs))
       }
 
       new SnapshotGraph(intervals, gps)
