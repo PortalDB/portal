@@ -17,6 +17,14 @@ class Interval(st: LocalDate, en: LocalDate) extends Ordered[Interval] with Seri
     "[" + start.toString + "-" + end.toString + ")"
   }
 
+  override def equals(other:Any):Boolean = {
+    other match {
+      case in: Interval => start == in.start && end == in.end
+      case _ => false
+    }
+    
+  }
+
   def contains(other: Interval):Boolean = {
     if ((other.start.isAfter(start) || other.start.isEqual(start)) && (other.end.isBefore(end) || other.end.isEqual(end)))
       true

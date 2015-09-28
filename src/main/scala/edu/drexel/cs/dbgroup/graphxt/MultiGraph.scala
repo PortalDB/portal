@@ -87,14 +87,12 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
     if (span.intersects(bound)) {
       val startBound = if (bound.start.isAfter(span.start)) bound.start else span.start
       val endBound = if (bound.end.isBefore(span.end)) bound.end else span.end
-      val rng = Interval(startBound, endBound)
 
       //compute indices of start and stop
       val selectStart:Int = intervals.indexOf(resolution.getInterval(startBound))
       var selectStop:Int = intervals.indexOf(resolution.getInterval(endBound))
-      if (selectStop < 0) selectStop = intervals.size - 1
 
-      val newIntvs: Seq[Interval] = intervals.slice(selectStart, selectStop)
+      val newIntvs: Seq[Interval] = intervals.slice(selectStart, selectStop+1)
 
       //now select the vertices and edges
       val subg = graphs.subgraph(
@@ -103,7 +101,7 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
 
       //now need to renumber vertex and edge intervals indices
       //indices outside of selected range get dropped
-      val resg = subg.mapVertices((vid,vattr) => vattr.map(x => (x._1 - selectStart -> x._2))).mapEdges(e => (e.attr._1 - selectStart, e.attr._2))
+      val resg = subg.mapVertices((vid,vattr) => vattr.filter{case (k,v) => k >= selectStart && k <= selectStop}.map(x => (x._1 - selectStart -> x._2))).mapEdges(e => (e.attr._1 - selectStart, e.attr._2))
       println("Done with select....")
       new MultiGraph[VD, ED](newIntvs, resg)
 
@@ -493,7 +491,8 @@ object MultiGraph {
       } else None
     }
 
-    val edges = GraphLoaderAddon.edgeListFiles(MultifileLoad.readEdges(dataPath, minDate, intvs.last.start), indices, true).edges
+    val in = MultifileLoad.readEdges(dataPath, minDate, intvs.last.start)
+    val edges = GraphLoaderAddon.edgeListFiles(in, indices, true).edges
 
     val graph: Graph[Map[Int, String], (Int, Int)] = Graph(users, edges, Map[Int,String]())
 

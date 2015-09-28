@@ -104,7 +104,6 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
       //and last interval at/before bound.end
       val startBound = if (bound.start.isAfter(span.start)) bound.start else span.start
       val endBound = if (bound.end.isBefore(span.end)) bound.end else span.end
-      val rng = Interval(startBound, endBound)
 
       var intvs: Seq[Interval] = Seq[Interval]()
       var gps: Seq[Graph[VD, ED]] = Seq[Graph[VD, ED]]()
@@ -120,9 +119,6 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
               numResults = 1
               gps = gps :+ graphs(v)
             } else if (numResults > 0 && k.contains(endBound)) {
-              intvs = intvs :+ k
-              numResults += 1
-              gps = gps :+ graphs(v)
               loop.break
             } else if (numResults > 0) {
               intvs = intvs :+ k

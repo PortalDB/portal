@@ -121,12 +121,11 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
 
     val startBound = if (bound.start.isAfter(span.start)) bound.start else span.start
     val endBound = if (bound.end.isBefore(span.end)) bound.end else span.end
-    val rng = Interval(startBound, endBound)
 
     //compute indices of start and stop
     val selectStart:Int = intervals.indexOf(resolution.getInterval(startBound))
     var selectStop:Int = intervals.indexOf(resolution.getInterval(endBound))
-    if (selectStop < 0) selectStop = intervals.size - 1
+    if (selectStop < 0) selectStop = intervals.size
 
     val newIntvs: Seq[Interval] = intervals.slice(selectStart, selectStop)
     val newGraphs: ParSeq[Graph[VD, ED]] = graphs.slice(selectStart, selectStop)
