@@ -37,6 +37,7 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
   }
 
   val intervals: Seq[Interval] = intvs
+  val broadcastIntervals = ProgramContext.sc.broadcast(intervals)
   lazy val span: Interval = if (intervals.size > 0) Interval(intervals.head.start, intervals.last.end) else Interval(LocalDate.now, LocalDate.now)
 
   /** Default constructor is provided to support serialization */
@@ -45,22 +46,22 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
   override def size(): Int = intervals.size
 
   override def vertices: VertexRDD[Map[Interval, VD]] = {
-    graphs.vertices.mapValues(v => v.map(x => (intervals(x._1) -> x._2)))
+    graphs.vertices.mapValues(v => v.map(x => (broadcastIntervals.value(x._1) -> x._2)))
   }
 
   override def verticesFlat: VertexRDD[(Interval, VD)] = {
-    VertexRDD(graphs.vertices.flatMap(v => v._2.map(x => (v._1, (intervals(x._1), x._2)))))
+    VertexRDD(graphs.vertices.flatMap(v => v._2.map(x => (v._1, (broadcastIntervals.value(x._1), x._2)))))
   }
 
   override def edges: EdgeRDD[Map[Interval, ED]] = {
-    EdgeRDD.fromEdges[Map[Interval, ED], VD](graphs.edges.map(x => ((x.srcId, x.dstId), Map[Interval, ED](intervals(x.attr._1) -> x.attr._2)))
+    EdgeRDD.fromEdges[Map[Interval, ED], VD](graphs.edges.map(x => ((x.srcId, x.dstId), Map[Interval, ED](broadcastIntervals.value(x.attr._1) -> x.attr._2)))
     .reduceByKey((a: Map[Interval, ED], b: Map[Interval, ED]) => a ++ b)
     .map(x => Edge(x._1._1, x._1._2, x._2))
     )
   }
 
   override def edgesFlat: EdgeRDD[(Interval, ED)] = {
-    graphs.edges.mapValues(e => (intervals(e.attr._1), e.attr._2))
+    graphs.edges.mapValues(e => (broadcastIntervals.value(e.attr._1), e.attr._2))
   }
 
   override def degrees: VertexRDD[Map[Interval, Int]] = {
@@ -78,7 +79,7 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
       },
       mergedFunc,
       TripletFields.All)
-    .mapValues(v => v.map(x => (intervals(x._1) -> x._2)))
+    .mapValues(v => v.map(x => (broadcastIntervals.value(x._1) -> x._2)))
   }
 
   override def select(bound: Interval): TemporalGraph[VD, ED] = {
@@ -91,18 +92,19 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
       //compute indices of start and stop
       val selectStart:Int = intervals.indexOf(resolution.getInterval(startBound))
       var selectStop:Int = intervals.indexOf(resolution.getInterval(endBound))
+      if (selectStop < 0) selectStop = intervals.size
 
-      val newIntvs: Seq[Interval] = intervals.slice(selectStart, selectStop+1)
+      val newIntvs: Seq[Interval] = intervals.slice(selectStart, selectStop)
 
       //now select the vertices and edges
       val subg = graphs.subgraph(
-        vpred = (vid, attr) => !attr.filter{ case (k,v) => k >= selectStart && k <= selectStop}.isEmpty,
-        epred = et => et.attr._1 >= selectStart && et.attr._1 <= selectStop)
+        vpred = (vid, attr) => !attr.filter{ case (k,v) => k >= selectStart && k < selectStop}.isEmpty,
+        epred = et => et.attr._1 >= selectStart && et.attr._1 < selectStop)
 
       //now need to renumber vertex and edge intervals indices
       //indices outside of selected range get dropped
-      val resg = subg.mapVertices((vid,vattr) => vattr.filter{case (k,v) => k >= selectStart && k <= selectStop}.map(x => (x._1 - selectStart -> x._2))).mapEdges(e => (e.attr._1 - selectStart, e.attr._2))
-      println("Done with select....")
+      val resg = subg.mapVertices((vid,vattr) => vattr.filter{case (k,v) => k >= selectStart && k < selectStop}.map(x => (x._1 - selectStart -> x._2))).mapEdges(e => (e.attr._1 - selectStart, e.attr._2))
+
       new MultiGraph[VD, ED](newIntvs, resg)
 
     } else
@@ -111,8 +113,8 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
 
   override def select(tpred: Interval => Boolean): TemporalGraph[VD, ED] = {
     new MultiGraph[VD, ED](intervals, graphs.subgraph(
-      vpred = (vid, attr) => !attr.filter{ case (k,v) => tpred(intervals(k))}.isEmpty,
-      epred = et => tpred(intervals(et.attr._1))))
+      vpred = (vid, attr) => !attr.filter{ case (k,v) => tpred(broadcastIntervals.value(k))}.isEmpty,
+      epred = et => tpred(broadcastIntervals.value(et.attr._1))))
   }
 
   override def select(epred: EdgeTriplet[VD,ED] => Boolean, vpred: (VertexId, VD) => Boolean): TemporalGraph[VD, ED] = {
@@ -132,6 +134,7 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
     var index:Integer = 0
     //make a map of old indices to new ones
     val indMap:HashMap[TimeIndex, TimeIndex] = HashMap[TimeIndex, TimeIndex]()
+    val cntMap:scala.collection.mutable.Map[TimeIndex, Int] = HashMap[TimeIndex, Int]().withDefaultValue(0)
 
     while (index < intervals.size) {
       val intv:Interval = intervals(index)
@@ -156,11 +159,9 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
         }
       }
 
+      cntMap(intvs.size) = expected
       intvs = intvs :+ newIntv
     }
-
-    val cntMap:scala.collection.mutable.Map[TimeIndex, Int] = HashMap[TimeIndex, Int]().withDefaultValue(0)
-    indMap.foreach { case (oldin, newin) => cntMap(newin) += 1 }
 
     //for each vertex, make a new list of indices
     //then filter out those vertices that have no indices
@@ -175,13 +176,13 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
 
     var edges: EdgeRDD[(TimeIndex, ED)] = null
     if (sem == AggregateSemantics.Existential) {
-      edges = EdgeRDD.fromEdges[(TimeIndex, ED), VD](wverts.edges.map(x => ((x.srcId, x.dstId, x.attr._1), x.attr._2)).reduceByKey(eAggFunc).map { x =>
+      edges = EdgeRDD.fromEdges[(TimeIndex, ED), VD](wverts.edges.map(x => ((x.srcId, x.dstId, indMap(x.attr._1)), x.attr._2)).reduceByKey(eAggFunc).map { x =>
         val (k, v) = x
         //key is srcid, dstid, resolution, value is attrib
         Edge(k._1, k._2, (k._3, v))
       })
     } else if (sem == AggregateSemantics.Universal) {
-      edges = EdgeRDD.fromEdges[(TimeIndex, ED), VD](wverts.edges.map(x => ((x.srcId, x.dstId, x.attr._1), (x.attr._2, 1))).reduceByKey((x, y) => (eAggFunc(x._1, y._1), x._2 + y._2)).filter { case (k, (attr, cnt)) => cnt == cntMap(k._3) }.map { x =>
+      edges = EdgeRDD.fromEdges[(TimeIndex, ED), VD](wverts.edges.map(x => ((x.srcId, x.dstId, indMap(x.attr._1)), (x.attr._2, 1))).reduceByKey((x, y) => (eAggFunc(x._1, y._1), x._2 + y._2)).filter { case (k, (attr, cnt)) => cnt == cntMap(k._3) }.map { x =>
         val (k, v) = x
         //key is srcid, dstid, resolution, value is attrib and count
         Edge(k._1, k._2, (k._3, v._1))
@@ -192,20 +193,20 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
   }
 
   override def transform[ED2: ClassTag, VD2: ClassTag](emap: (Edge[ED], Interval) => ED2, vmap: (VertexId, Interval, VD) => VD2): TemporalGraph[VD2, ED2] = {
-    new MultiGraph[VD2, ED2](intervals, graphs.mapVertices{ (id: VertexId, attr: Map[TimeIndex, VD]) => attr.map(x => (x._1, vmap(id, intervals(x._1), x._2)))}
-      .mapEdges{ e: Edge[(TimeIndex, ED)] => (e.attr._1, emap(Edge(e.srcId, e.dstId, e.attr._2), intervals(e.attr._1)))})
+    new MultiGraph[VD2, ED2](intervals, graphs.mapVertices{ (id: VertexId, attr: Map[TimeIndex, VD]) => attr.map(x => (x._1, vmap(id, broadcastIntervals.value(x._1), x._2)))}
+      .mapEdges{ e: Edge[(TimeIndex, ED)] => (e.attr._1, emap(Edge(e.srcId, e.dstId, e.attr._2), broadcastIntervals.value(e.attr._1)))})
   }
 
   override def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2)(implicit eq: VD =:= VD2 = null): TemporalGraph[VD2, ED] = {
     new MultiGraph[VD2, ED](intervals, graphs.mapVertices{ (id: VertexId, attr: Map[TimeIndex, VD]) =>
-      attr.map(x => (x._1, map(id, intervals(x._1), x._2)))
+      attr.map(x => (x._1, map(id, broadcastIntervals.value(x._1), x._2)))
     }
     )
   }
 
   override def mapEdges[ED2: ClassTag](map: (Edge[ED], Interval) => ED2): TemporalGraph[VD, ED2] = {
     new MultiGraph[VD, ED2](intervals, graphs.mapEdges{ e: Edge[(TimeIndex, ED)] =>
-      (e.attr._1, map(Edge(e.srcId, e.dstId, e.attr._2), intervals(e.attr._1)))
+      (e.attr._1, map(Edge(e.srcId, e.dstId, e.attr._2), broadcastIntervals.value(e.attr._1)))
     }
     )
   }
@@ -213,13 +214,13 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
   override def outerJoinVertices[U: ClassTag, VD2: ClassTag](other: RDD[(VertexId, Map[Interval, U])])(mapFunc: (VertexId, Interval, VD, Option[U]) => VD2)(implicit eq: VD =:= VD2 = null): TemporalGraph[VD2, ED] = {
     //convert the intervals to corresponding indices
     val in:RDD[(VertexId, Map[TimeIndex, U])] = other.mapValues { attr: Map[Interval, U] =>
-      attr.filterKeys(k => span.contains(k)).map{ case (intvl, attr) => (intervals.indexOf(intvl), attr)}
+      attr.filterKeys(k => span.contains(k)).map{ case (intvl, attr) => (broadcastIntervals.value.indexOf(intvl), attr)}
     }
     new MultiGraph[VD2, ED](intervals, graphs.outerJoinVertices(in){ (id: VertexId, attr1: Map[TimeIndex, VD], attr2: Option[Map[TimeIndex, U]]) =>
       if (attr2.isEmpty)
-        attr1.map(x => (x._1, mapFunc(id, intervals(x._1), x._2, None)))
+        attr1.map(x => (x._1, mapFunc(id, broadcastIntervals.value(x._1), x._2, None)))
       else
-        attr1.map(x => (x._1, mapFunc(id, intervals(x._1), x._2, attr2.get.get(x._1))))
+        attr1.map(x => (x._1, mapFunc(id, broadcastIntervals.value(x._1), x._2, attr2.get.get(x._1))))
     })
   }
 
@@ -471,6 +472,9 @@ object MultiGraph {
       maxDate = maxin
     source.close()
 
+    if (minDate.isAfter(maxDate) || minDate.isEqual(maxDate))
+      throw new IllegalArgumentException("invalid date range")
+
     var intvs: Seq[Interval] = Seq[Interval]()
     val indices: scala.collection.mutable.Map[LocalDate, TimeIndex] = HashMap[LocalDate, TimeIndex]()
     var xx: LocalDate = minDate
@@ -489,7 +493,7 @@ object MultiGraph {
       if (parts.size > 1 && parts.head != "" && indices(dt) > -1) {
         Some((parts.head.toLong, Map(indices(dt) -> parts(1).toString)))
       } else None
-    }
+    }.reduceByKey{ (a:Map[Int, String], b:Map[Int, String]) => a ++ b}
 
     val in = MultifileLoad.readEdges(dataPath, minDate, intvs.last.start)
     val edges = GraphLoaderAddon.edgeListFiles(in, indices, true).edges
