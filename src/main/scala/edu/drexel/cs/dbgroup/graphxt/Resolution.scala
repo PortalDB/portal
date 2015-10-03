@@ -181,8 +181,16 @@ class Resolution(per:Period) extends Serializable {
     * Compute how many intervals fit between two dates with this resolution
     */
   def numBetween(start:LocalDate, end:LocalDate):Long = {
-    start.until(end, unit)
+    start.until(end, unit) / period.get(unit)
   }
+
+  /**
+  *  Get interval that is i-th index from start
+  */
+  def getInterval(start:LocalDate, index:Int):Interval = {
+    Interval(start.plus(index, unit), start.plus(index+1, unit))
+  }
+
 }
 
 object Resolution {

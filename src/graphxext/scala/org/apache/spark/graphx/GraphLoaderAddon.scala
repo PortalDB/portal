@@ -6,6 +6,8 @@ import org.apache.spark.{Logging, SparkContext}
 import org.apache.spark.graphx.impl.{EdgePartitionBuilder, GraphImpl}
 import org.apache.spark.graphx.impl.EdgeRDDImpl
 import java.time.LocalDate
+import java.time.Period
+import java.time.temporal.ChronoUnit
 
 object GraphLoaderAddon {
 
@@ -46,7 +48,6 @@ object GraphLoaderAddon {
       }
       Iterator((pid, builder.toEdgePartition))
     }.persist(edgeStorageLevel).setName("GraphLoader.edgeListFile - edges (%s)".format(path))
-    edges.count()
 
     GraphImpl.fromEdgePartitions(edges, defaultVertexAttr = 1, edgeStorageLevel = edgeStorageLevel,
       vertexStorageLevel = vertexStorageLevel)
@@ -55,7 +56,9 @@ object GraphLoaderAddon {
   //multiple files in parallel
   def edgeListFiles(
       lines: RDD[(String, String)],
-      indices: scala.collection.mutable.Map[LocalDate, Int],
+      res: Period,
+      unit: ChronoUnit,
+      start: LocalDate,
       canonicalOrientation: Boolean = false,
       edgeStorageLevel: StorageLevel = StorageLevel.MEMORY_ONLY,
       vertexStorageLevel: StorageLevel = StorageLevel.MEMORY_ONLY)
@@ -75,15 +78,14 @@ object GraphLoaderAddon {
             attr = lineArray{2}.toInt
           }
           if (canonicalOrientation && srcId > dstId) {
-            builder.add(dstId, srcId, (indices(dt), attr))
+            builder.add(dstId, srcId, ((start.until(dt, unit) / res.get(unit)).toInt, attr))
           } else {
-            builder.add(srcId, dstId, (indices(dt), attr))
+            builder.add(srcId, dstId, ((start.until(dt, unit) / res.get(unit)).toInt, attr))
           }
         }
       }
       Iterator((pid, builder.toEdgePartition))
-    }.persist(edgeStorageLevel).setName("GraphLoader.edgeListFiles - edges (%s)".format(indices.head._1.toString))
-    edges.count()
+    }.persist(edgeStorageLevel).setName("GraphLoader.edgeListFiles - edges (%s)".format(start.toString))
 
     GraphImpl.fromEdgePartitions(edges, defaultVertexAttr = 1, edgeStorageLevel = edgeStorageLevel,
       vertexStorageLevel = vertexStorageLevel)
