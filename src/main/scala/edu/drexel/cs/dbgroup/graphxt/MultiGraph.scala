@@ -265,8 +265,8 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
     }
 
     //renumber the indices of the two graphs
-    val gr1IndexStart:Int = resolution.numBetween(startBound, span.start).toInt
-    val gr2IndexStart:Int = resolution.numBetween(startBound, grp2.span.start).toInt
+    val gr1IndexStart:Int = resolution.numBetween(startBound, span.start)
+    val gr2IndexStart:Int = resolution.numBetween(startBound, grp2.span.start)
     val gr1Edges = if (gr1IndexStart > 0) graphs.edges.mapValues{ e => (e.attr._1 + gr1IndexStart, e.attr._2)  } else graphs.edges
     val gr2Edges = if (gr2IndexStart > 0) grp2.graphs.edges.mapValues{ e => (e.attr._1 + gr2IndexStart, e.attr._2) } else grp2.graphs.edges
     val gr1Verts = if (gr1IndexStart > 0) graphs.vertices.mapValues{ (vid:VertexId,vattr:Map[TimeIndex,VD]) => vattr.map{ case (k,v) => (k + gr1IndexStart, v)} } else graphs.vertices
@@ -493,7 +493,7 @@ object MultiGraph {
       val (filename, line) = x
       val dt = LocalDate.parse(filename.split('/').last.dropWhile(!_.isDigit).takeWhile(_ != '.'))
       val parts = line.split(",")
-      val index = res.numBetween(minDate, dt).toInt
+      val index = res.numBetween(minDate, dt)
       if (parts.size > 1 && parts.head != "" && index > -1) {
         Some((parts.head.toLong, Map(index -> parts(1).toString)))
       } else None
