@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import sys;
-sys.path.insert(0, './driverUtils')
 import os;
 import locale;
 import traceback;
@@ -11,6 +10,7 @@ import configparser;
 import numpy as np;
 import matplotlib;
 matplotlib.use('Agg') #force matplotlib to not use any Xwindows backend
+import re;
 import matplotlib.pyplot as plt;
 from peewee import *;
 
@@ -35,7 +35,14 @@ def gen_line_graphs(saveDir):
         ylabel = chartDesc["ylabel"]
         query = chartDesc["sql"]
 
+        query = re.sub(r"%([^\(])", r"%%\1", query)
+
         res = db.execute_sql(query)
+        
+        if res.rowcount == 0:
+            print "Empty result set for ", chartName
+            continue
+
         resDesc = res.description
         legendTitle = resDesc[0][0]
 
@@ -49,15 +56,25 @@ def gen_line_graphs(saveDir):
         maxValue = -1
         xPoints = []
 
-        #get column headings from res starting at the second column
-        for desc in resDesc[1::]:
-            xPoints.append(int(desc[0]))
-
         print "[status]: Plotting graph for", chartName
+
+        lineYPoints = []
+        for desc in resDesc[1::]:
+            yPoints = []
+            lineYPoints.append(yPoints)
+
         for r in res.fetchall():
-            lineName = r[0] #line name is expected to be the first argument
-            yPoints = r[1::]
+            #the first column is the x value
+            xPoints.append(float(r[0]))
+            print "another x point: " + str(xPoints[-1])
+
+            for idx in range(1, len(r)):
+                lineYPoints[idx-1].append(r[idx])
         
+        for idx, val in enumerate(lineYPoints):
+            lineName = resDesc[idx+1][0]
+            yPoints = val
+
             print "lineName:", lineName, "-- points:", yPoints
           
             groupMax = max(yPoints)
@@ -79,15 +96,21 @@ def gen_line_graphs(saveDir):
         lines = legendKeys.values()
 
         #set legend and axes
-        pltLegend = plt.legend(lines, lineColors, title=legendTitle, fontsize=10)
+        pltLegend = plt.legend(lines, lineColors, loc='best',fancybox=True, framealpha=0.5, title=legendTitle, fontsize=10)
 
-        xtick = 5
-        ytick = 20 #this is in seconds
+        #FIXME: make this work for negative x or y values
+        maxX = max(xPoints)
+        print "max of xpoints is " + str(maxX)
 
-        maxX = max(xPoints) + 3
-        plt.xticks(np.arange(0, 35, xtick))
+        #to set the plot end, determine the number magnitude and then add half that
+        xtick = float(pow(10,len(str(int(maxX)))-1))/2
+        maxX = maxX + xtick
+        print "maxX for plot is " + str(maxX) + " and xtick is " + str(xtick)
+        plt.xticks(np.arange(0, maxX, xtick))
         plt.xlim(0, maxX) 
-        maxY = maxValue + (ytick * 3)
+        ytick = float(pow(10,len(str(int(maxValue)))-1))/2
+        maxY = maxValue + ytick
+        print "maxY is " + str(maxY) + " and ytick is " + str(ytick)
         plt.ylim(0, maxY)
         plt.yticks(np.arange(0, maxY, ytick))
 

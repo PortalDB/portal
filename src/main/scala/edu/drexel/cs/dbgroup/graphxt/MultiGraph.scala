@@ -146,7 +146,7 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
       val intv:Interval = intervals(index)
       //need to compute the interval start and end based on resolution new units
       val newIntv:Interval = res.getInterval(intv.start)
-      val expected:Integer = res.getNumParts(resolution, intv.start)
+      val expected:Integer = resolution.getNumParts(res, intv.start)
 
       indMap(index) = intvs.size
       index += 1

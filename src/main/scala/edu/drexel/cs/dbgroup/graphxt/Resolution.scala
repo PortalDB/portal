@@ -139,14 +139,14 @@ class Resolution(per:Period) extends Serializable {
 
     //if the other resolution is larger, then we can't fit any intervals
     //because it is not valid to go from a larger resolution to smaller
-    if (greater(other))
+    if (this.greater(other))
       return 0
 
     other.unit match {
       case ChronoUnit.DAYS =>
         unit match {
           case ChronoUnit.DAYS =>
-            period.getDays() / other.period.getDays()
+            other.period.getDays() / period.getDays()
           case ChronoUnit.MONTHS =>
             //how many days are in the month of the anchor?
             anchor.lengthOfMonth()
@@ -159,7 +159,7 @@ class Resolution(per:Period) extends Serializable {
       case ChronoUnit.MONTHS =>
         unit match {
           case ChronoUnit.MONTHS =>
-            period.getMonths() / other.period.getMonths()
+            other.period.getMonths() / period.getMonths()
           case ChronoUnit.YEARS =>
             12
           case _ => //shouldn't ever get here
@@ -168,7 +168,7 @@ class Resolution(per:Period) extends Serializable {
       case ChronoUnit.YEARS =>
         unit match {
           case ChronoUnit.YEARS =>
-            period.getYears() / other.period.getYears()
+            other.period.getYears() / period.getYears()
           case _ => //shouldn't ever get here
             0
         }

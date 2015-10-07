@@ -45,55 +45,72 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
   override def size(): Int = graphs.size
 
   override def vertices: VertexRDD[Map[Interval, VD]] = {
-    if (size > 0)
-      VertexRDD(graphs.zipWithIndex
-      .map(x => (x._1, intervals(x._2)))
-      .filterNot(x => x._1.vertices.isEmpty).map(x => x._1.vertices.mapValues(y => Map[Interval, VD](x._2 -> y)))
-      .reduce((a, b) => VertexRDD(a union b))
-      .reduceByKey((a: Map[Interval, VD], b: Map[Interval, VD]) => a ++ b))
-    else {
+    if (size > 0) {
+      val total = graphs.zipWithIndex.map(x => (x._1, intervals(x._2))).filterNot(x => x._1.vertices.isEmpty)
+      if (total.size > 0)
+        VertexRDD(total.map(x => x._1.vertices.mapValues(y => Map[Interval, VD](x._2 -> y)))
+          .reduce((a, b) => VertexRDD(a union b))
+          .reduceByKey((a: Map[Interval, VD], b: Map[Interval, VD]) => a ++ b))
+      else {
+        val ret:VertexRDD[Map[Interval,VD]] = VertexRDD(ProgramContext.sc.emptyRDD)
+        ret
+      }
+    } else {
       val ret:VertexRDD[Map[Interval,VD]] = VertexRDD(ProgramContext.sc.emptyRDD)
       ret
     }
   }
 
   override def verticesFlat: VertexRDD[(Interval, VD)] = {
-    if (size > 0)
-      VertexRDD(graphs.zipWithIndex
-      .map(x => (x._1, intervals(x._2)))
-      .filterNot(x => x._1.vertices.isEmpty)
-      .map(x => x._1.vertices.mapValues(y => (x._2, y)))
-      .reduce((a, b) => VertexRDD(a union b)))
-    else {
+    if (size > 0) {
+      val total = graphs.zipWithIndex
+        .map(x => (x._1, intervals(x._2)))
+        .filterNot(x => x._1.vertices.isEmpty)
+      if (total.size > 0)
+        VertexRDD(total.map(x => x._1.vertices.mapValues(y => (x._2, y)))
+          .reduce((a, b) => VertexRDD(a union b)))
+      else {
+        val ret:VertexRDD[(Interval,VD)] = VertexRDD(ProgramContext.sc.emptyRDD)
+        ret
+      }
+    } else {
       val ret:VertexRDD[(Interval,VD)] = VertexRDD(ProgramContext.sc.emptyRDD)
       ret
     }
   }
 
   override def edges: EdgeRDD[Map[Interval, ED]] = {
-    if (size > 0)
-      EdgeRDD.fromEdges[Map[Interval, ED], VD](graphs.zipWithIndex
-      .map(x => (x._1, intervals(x._2)))
-      .filterNot(x => x._1.edges.isEmpty)
-      .map(x => x._1.edges.mapValues(y => Map[Interval, ED](x._2 -> y.attr)))
-      .reduce((a: RDD[Edge[Map[Interval, ED]]], b: RDD[Edge[Map[Interval, ED]]]) => a union b)
-      .map(x => ((x.srcId, x.dstId), x.attr))
-      .reduceByKey((a: Map[Interval, ED], b: Map[Interval, ED]) => a ++ b)
-      .map(x => Edge(x._1._1, x._1._2, x._2))
-      )
-    else
+    if (size > 0) {
+      val total = graphs.zipWithIndex
+        .map(x => (x._1, intervals(x._2)))
+        .filterNot(x => x._1.edges.isEmpty)
+      if (total.size > 0)
+        EdgeRDD.fromEdges[Map[Interval, ED], VD](total
+          .map(x => x._1.edges.mapValues(y => Map[Interval, ED](x._2 -> y.attr)))
+          .reduce((a: RDD[Edge[Map[Interval, ED]]], b: RDD[Edge[Map[Interval, ED]]]) => a union b)
+          .map(x => ((x.srcId, x.dstId), x.attr))
+          .reduceByKey((a: Map[Interval, ED], b: Map[Interval, ED]) => a ++ b)
+          .map(x => Edge(x._1._1, x._1._2, x._2))
+        )
+      else
+        EdgeRDD.fromEdges[Map[Interval, ED], VD](ProgramContext.sc.emptyRDD)
+    } else
       EdgeRDD.fromEdges[Map[Interval, ED], VD](ProgramContext.sc.emptyRDD)
   }
 
   override def edgesFlat: EdgeRDD[(Interval, ED)] = {
-    if (size > 0)
-      EdgeRDD.fromEdges[(Interval, ED), VD](graphs.zipWithIndex
-      .map(x => (x._1, intervals(x._2)))
-      .filterNot(x => x._1.edges.isEmpty)
-      .map(x => x._1.edges.mapValues(y => (x._2,y.attr)))
-      .reduce((a: RDD[Edge[(Interval, ED)]], b: RDD[Edge[(Interval, ED)]]) => a union b))
-    else
-      EdgeRDD.fromEdges[(Interval, ED), VD](ProgramContext.sc.emptyRDD)
+    if (size > 0) {
+      val total = graphs.zipWithIndex
+        .map(x => (x._1, intervals(x._2)))
+        .filterNot(x => x._1.edges.isEmpty)
+      if (total.size > 0)
+        EdgeRDD.fromEdges[(Interval, ED), VD](total
+          .map(x => x._1.edges.mapValues(y => (x._2,y.attr)))
+          .reduce((a: RDD[Edge[(Interval, ED)]], b: RDD[Edge[(Interval, ED)]]) => a union b))
+      else
+        EdgeRDD.fromEdges[(Interval, ED), VD](ProgramContext.sc.emptyRDD)
+    } else
+        EdgeRDD.fromEdges[(Interval, ED), VD](ProgramContext.sc.emptyRDD)
   }
 
   override def degrees: VertexRDD[Map[Interval, Int]] = {
@@ -167,7 +184,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
       num = 0
       //need to compute the interval start and end based on resolution new units
       val newIntv:Interval = res.getInterval(intv.start)
-      val expected:Integer = res.getNumParts(resolution, intv.start)
+      val expected:Integer = resolution.getNumParts(res, intv.start)
 
       var firstVRDD: RDD[(VertexId, VD)] = graphs(index).vertices
       var firstERDD: RDD[Edge[ED]] = graphs(index).edges
@@ -191,7 +208,6 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
       }
 
       intvs = intvs :+ newIntv
-      println("Next aggregated interval: " + newIntv.toString)
       if (sem == AggregateSemantics.Existential) {
         gps = gps :+ Graph(VertexRDD(firstVRDD.reduceByKey(vAggFunc)), EdgeRDD.fromEdges[ED, VD](firstERDD.map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eAggFunc).map { x =>
           val (k, v) = x
@@ -211,8 +227,6 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
         gps = gps :+ Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
       }
     }
-
-    println("after aggregation num of results: " + intvs.size)
 
     new SnapshotGraphParallel(intvs, gps)
   }

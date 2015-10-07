@@ -37,6 +37,8 @@ object Driver {
           println("Running experiments with SnapshotGraph")
         else if (graphType == "SGP")
           println("Running experiments with parallel SnapshotGraph")
+        else if (graphType == "MGC")
+          println("Running experiments with columnar MultiGraph")
         else {
           println("Invalid graph type, exiting")
           System.exit(1)
@@ -225,6 +227,8 @@ object Driver {
       MultiGraph.loadData(data, from, to)
     } else if (gtype == "SGP") {
       SnapshotGraphParallel.loadData(data, from, to)
+    } else if (gtype == "MGC") {
+      MultiGraphColumn.loadData(data, from, to)
     } else
       null
   }

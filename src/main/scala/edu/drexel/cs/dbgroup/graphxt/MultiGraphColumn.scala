@@ -160,7 +160,7 @@ class MultiGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Gr
       val intv:Interval = intervals(index)
       //need to compute the interval start and end based on resolution new units
       val newIntv:Interval = res.getInterval(intv.start)
-      val expected:Integer = res.getNumParts(resolution, intv.start)
+      val expected:Integer = resolution.getNumParts(res, intv.start)
 
       indMap(index) = intvs.size
       index += 1
@@ -224,7 +224,7 @@ class MultiGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Gr
     //TODO: see if filtering can be done more efficiently
     val attrs = if (sem == AggregateSemantics.Universal) vertexattrs.map{ case (k,v) => ((k._1, broadcastIndMap.value(k._2)), (v, 1))}.reduceByKey((x,y) => (vAggFunc(x._1, y._1), x._2 + y._2)).filter{ case (k, (attr,cnt)) => cnt == cntMap(k._2)}.map{ case (k,v) => (k, v._1)} else vertexattrs.map{ case (k,v) => ((k._1, broadcastIndMap.value(k._2)), v)}.reduceByKey(vAggFunc)
 
-    broadcastIndMap.destroy()
+    //broadcastIndMap.destroy()
 
     new MultiGraphColumn[VD, ED](intvs, Graph(wverts.vertices, edges), attrs)
   }
