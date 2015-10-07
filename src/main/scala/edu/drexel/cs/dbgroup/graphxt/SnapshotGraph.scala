@@ -104,14 +104,29 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
   }
 
   override def degrees: VertexRDD[Map[Interval, Int]] = {
-    if (size > 0)
-      VertexRDD(graphs.zipWithIndex.map(x => x._1.degrees.mapValues(deg => Map[Interval, Int](intervals(x._2) -> deg)))
-        .reduce((x,y) => VertexRDD(x union y))
-        .reduceByKey((a: Map[Interval, Int], b: Map[Interval, Int]) => a ++ b))
-    else {
+    if (size > 0) {
+      val total = graphs.zipWithIndex.filterNot(x => x._1.edges.isEmpty).map(x => x._1.degrees.mapValues(deg => Map[Interval, Int](intervals(x._2) -> deg)))
+      if (total.size > 0)
+        VertexRDD(total.reduce((x,y) => VertexRDD(x union y))
+          .reduceByKey((a: Map[Interval, Int], b: Map[Interval, Int]) => a ++ b))
+      else {
+        val ret:VertexRDD[Map[Interval, Int]] = VertexRDD(ProgramContext.sc.emptyRDD)
+        ret
+      }
+    } else {
       val ret:VertexRDD[Map[Interval, Int]] = VertexRDD(ProgramContext.sc.emptyRDD)
       ret
     }
+  }
+
+  override def getTemporalSequence: Seq[Interval] = intervals
+
+  override def getSnapshot(period: Interval): Graph[VD,ED] = {
+    val index = intervals.indexOf(period)
+    if (index >= 0) {
+      graphs(index)
+    } else
+      Graph[VD,ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
   }
 
   /** Query operations */

@@ -86,6 +86,19 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
     .mapValues(v => v.map(x => (resolution.getInterval(start, x._1) -> x._2)))
   }
 
+  override def getTemporalSequence: Seq[Interval] = intervals
+
+  override def getSnapshot(period: Interval): Graph[VD,ED] = {
+    val index = intervals.indexOf(period)
+    graphs.subgraph(
+      vpred = (vid, attr) => !attr.filter{ case (k,v) => k == index}.isEmpty,
+      epred = et => et.attr._1 == index)
+      .mapVertices((vid,vattr) => vattr.filter{ case (k,v) => k == index}.head._2)
+      .mapEdges(e => e.attr._2)
+  }
+
+  /** Query operations */
+
   override def select(bound: Interval): TemporalGraph[VD, ED] = {
     if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
 

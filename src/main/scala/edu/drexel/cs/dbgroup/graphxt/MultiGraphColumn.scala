@@ -90,6 +90,21 @@ class MultiGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Gr
     .mapValues(v => v.map(x => (resolution.getInterval(start, x._1) -> x._2)))
   }
 
+  override def getTemporalSequence: Seq[Interval] = intervals
+
+  override def getSnapshot(period: Interval): Graph[VD,ED] = {
+    val index = intervals.indexOf(period)
+    val filteredvas = vertexattrs.filter{ case (k,v) => k._2 == index}
+      .map{ case (k,v) => (k._1, v)}
+    graphs.subgraph(
+      vpred = (vid, attr) => attr(index),
+      epred = et => et.attr._1 == index)
+    .outerJoinVertices(filteredvas)((vid, bitst, mp) => mp.get)
+    .mapEdges(e => e.attr._2)
+  }
+
+  /** Query operations */
+
   override def select(bound: Interval): TemporalGraph[VD, ED] = {
     if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
 

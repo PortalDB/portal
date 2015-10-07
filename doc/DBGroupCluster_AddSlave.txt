@@ -72,7 +72,7 @@ For each slave:
   sudo ssh root@<slaveip>
   add-apt-repository ppa:webupd8team/java
   aptitude update
-  aptitude install oracle-java7-installer
+  aptitude install oracle-java8-installer
 
   su - hduser
   export JAVA_HOME=/usr/lib/jvm/java-7-oracle/

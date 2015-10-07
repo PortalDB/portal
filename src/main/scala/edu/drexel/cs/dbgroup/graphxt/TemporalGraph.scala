@@ -47,6 +47,17 @@ abstract class TemporalGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
   def degrees: VertexRDD[Map[Interval, Int]]
 
   /**
+    * Get the temporal sequence for this graph.
+    */
+  def getTemporalSequence: Seq[Interval]
+
+  /**
+    * Get a snapshot for an interval
+    * if the interval is invalid, an empty graph is returned
+    */
+  def getSnapshot(period: Interval):Graph[VD,ED]
+
+  /**
     * Query operations
     */
 
