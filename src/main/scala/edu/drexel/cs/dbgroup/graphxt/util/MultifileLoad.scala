@@ -58,9 +58,9 @@ object MultifileLoad {
     if (0 <= len && len < 8)
       2
     else if (len <= 150)
-      4
+      16
     else
-      scala.math.pow(2, scala.math.round(scala.math.log(-2.901*0.0000001*len*len + 0.027*len + 6.621)/scala.math.log(2))).toInt
+      4 * scala.math.pow(2, scala.math.round(scala.math.log(-2.901*0.0000001*len*len + 0.027*len + 6.621)/scala.math.log(2))).toInt
 
   }
 }
