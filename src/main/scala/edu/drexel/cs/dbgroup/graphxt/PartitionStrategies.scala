@@ -54,7 +54,7 @@ class NaiveTemporalEdgePartitioning(total: Int) extends PartitionStrategyMoreInf
   def getPartition[ED: ClassTag](e:Edge[ED], numParts: PartitionID): PartitionID = {
     //assuming zero-based indexing for both indices and partitions
     //just return the index of the edge as long as there are enough partitions
-    val (atr,ind:Int) = e.attr
+    val (ind:Int,atr) = e.attr
     if (totalIndices <= numParts)
       ind
     else {
@@ -116,7 +116,7 @@ class ConsecutiveTemporalEdgePartitionStrategy(total: Int) extends PartitionStra
   }
 
   override def getPartition[ED: ClassTag](e:Edge[ED], numParts: PartitionID): PartitionID = {
-    val (atr,index:Int) = e.attr
+    val (index:Int,atr) = e.attr
     if (numParts >= totalIndices)
       index
     else {
@@ -162,7 +162,7 @@ class HybridRandomCutEdgePartitionStrategy(ti: Int, rs: Int) extends PartitionSt
   }
 
   override def getPartition[ED: ClassTag](e: Edge[ED], numParts: PartitionID): PartitionID = {
-    val (atr,index:Int) = e.attr
+    val (index:Int,atr) = e.attr
     var numRuns: Int = (math.ceil(totalSnapshots.toDouble / runWidth)).toInt
     if (numRuns > numParts) {
       numRuns = numParts
@@ -217,7 +217,7 @@ class Hybrid2DEdgePartitionStrategy(ti: Int, rs: Int) extends PartitionStrategyM
   }
 
   override def getPartition[ED: ClassTag](e: Edge[ED], numParts: PartitionID): PartitionID = {
-    val (atr,index:Int) = e.attr
+    val (index:Int,atr) = e.attr
 
     var numRuns: Int = (math.ceil(totalSnapshots.toDouble / runWidth)).toInt
     if (numRuns	> numParts) {
