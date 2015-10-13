@@ -132,7 +132,7 @@ object Driver {
 
       } //select operation 
       else if (args(i) == "--select") {
-        val runWidth = 1; //FIXME: is this correct
+        val runWidth = 2; //FIXME: need a number based on reason
         val partSel: Boolean = if (args.length > (i + 3) && args(i + 3) == "-p") true else false
 
         if (partSel) {

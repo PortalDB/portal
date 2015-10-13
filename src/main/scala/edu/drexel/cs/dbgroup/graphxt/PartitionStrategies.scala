@@ -54,13 +54,27 @@ class NaiveTemporalEdgePartitioning(total: Int) extends PartitionStrategyMoreInf
   def getPartition[ED: ClassTag](e:Edge[ED], numParts: PartitionID): PartitionID = {
     //assuming zero-based indexing for both indices and partitions
     //just return the index of the edge as long as there are enough partitions
-    val (ind:Int,atr) = e.attr
-    if (totalIndices <= numParts)
-      ind
-    else {
-      //this is similar to the canonical random vertex cut but only uses the edge index
-      //FIXME? change to straight up CRVC??
-      ind % numParts
+    val (index: Int,atr) = e.attr
+    if (totalIndices == numParts)
+      index
+    else if (totalIndices > numParts) //more snapshots than partitions
+      index % numParts
+    else { //more partitions than snapshots, need to split across partitions
+      //compute over how many partitions to split
+      var partitionsPerRun: Int = numParts / totalIndices
+      val over: Int = numParts % totalIndices
+      val addon: Int = if (index > over) over else index
+      val partitionToRun = index * partitionsPerRun + addon
+      if (index < over) 
+        partitionsPerRun += 1
+      if (partitionsPerRun > 1) { //split using CRVC
+        if (e.srcId < e.dstId)
+          math.abs((e.srcId, e.dstId).hashCode()) % partitionsPerRun + partitionToRun
+        else
+          math.abs((e.dstId, e.srcId).hashCode()) % partitionsPerRun + partitionToRun
+      } else {
+        partitionToRun
+      }
     }
   }
 }
@@ -68,10 +82,7 @@ class NaiveTemporalEdgePartitioning(total: Int) extends PartitionStrategyMoreInf
 //Naive temporal partitioning (NTP) for SG.  Since edges are not
 //labelled with intervals (e.g., 1 = 1995 or 1 = [1995, 1999]), but whole
 //graphs are, need to pass that information on construction.
-//This strategy effectively assigns all edges that have the same interval label to
-//the same partition.  If there are fewer partitions than intervals,
-//then we first partition using NTP, and then partition further using
-//CRVC or EP2D (we should try both).  In the Temporal order among
+//The Temporal order among
 //intervals is ignored here, that is, neighboring time intervals are
 //no more likely to be partitioned together than any two random
 //intervals.
@@ -79,9 +90,29 @@ class NaiveTemporalPartitionStrategy(in: Int, ti: Int) extends PartitionStrategy
   val index: Int = in
   val totalIndices: Int = ti
 
+  //note: numParts here is for the whole TemporalGraph, not just one snapshot
   override def getPartition(src: VertexId, dst: VertexId, numParts: PartitionID): PartitionID = {
-    //FIXME? change to straight up CRVC?
-    index % numParts
+    if (totalIndices == numParts)
+      index
+    else if (totalIndices > numParts) //more snapshots than partitions
+      index % numParts
+    else { //more partitions than snapshots, need to split across partitions
+      //compute over how many partitions to split
+      var partitionsPerRun: Int = numParts / totalIndices
+      val over: Int = numParts % totalIndices
+      val addon: Int = if (index > over) over else index
+      val partitionToRun = index * partitionsPerRun + addon
+      if (index < over) 
+        partitionsPerRun += 1
+      if (partitionsPerRun > 1) { //split using CRVC
+        if (src < dst)
+          math.abs((src, dst).hashCode()) % partitionsPerRun + partitionToRun
+        else
+          math.abs((dst, src).hashCode()) % partitionsPerRun + partitionToRun
+      } else {
+        partitionToRun
+      }
+    }
   }
 }
 
@@ -94,10 +125,32 @@ class ConsecutiveTemporalPartitionStrategy(in: Int, ti: Int) extends PartitionSt
   val totalIndices: Int = ti
 
   override def getPartition(src: VertexId, dst: VertexId, numParts: PartitionID): PartitionID = {
-    if (numParts >= totalIndices)
+    if (totalIndices == numParts)
       index
-    else {
-      index / (math.ceil((totalIndices)/numParts)).toInt
+    else if (totalIndices > numParts) { //more snapshots than partitions
+      val snapshotsPerRun: Int = totalIndices / numParts
+      val over: Int = totalIndices % numParts
+      val even: Int = math.ceil(totalIndices/numParts.toDouble).toInt * over
+      if (index > even)
+        (index - even) / snapshotsPerRun + over
+      else
+        index / math.ceil(totalIndices/numParts.toDouble).toInt
+    } else { //more partitions than snapshots, need to split across partitions
+      //compute over how many partitions to split
+      var partitionsPerRun: Int = numParts / totalIndices
+      val over: Int = numParts % totalIndices
+      val addon: Int = if (index > over) over else index
+      val partitionToRun = index * partitionsPerRun + addon
+      if (index < over) 
+        partitionsPerRun += 1
+      if (partitionsPerRun > 1) { //split using CRVC
+        if (src < dst)
+          math.abs((src, dst).hashCode()) % partitionsPerRun + partitionToRun
+        else
+          math.abs((dst, src).hashCode()) % partitionsPerRun + partitionToRun
+      } else {
+        partitionToRun
+      }
     }
   }
 }
@@ -117,36 +170,63 @@ class ConsecutiveTemporalEdgePartitionStrategy(total: Int) extends PartitionStra
 
   override def getPartition[ED: ClassTag](e:Edge[ED], numParts: PartitionID): PartitionID = {
     val (index:Int,atr) = e.attr
-    if (numParts >= totalIndices)
+    if (totalIndices == numParts)
       index
-    else {
-      index / (math.ceil((totalIndices)/numParts)).toInt
+    else if (totalIndices > numParts) { //more snapshots than partitions
+      val snapshotsPerRun: Int = totalIndices / numParts
+      val over: Int = totalIndices % numParts
+      val even: Int = math.ceil(totalIndices/numParts.toDouble).toInt * over
+      if (index > even)
+        (index - even) / snapshotsPerRun + over
+      else
+        index / math.ceil(totalIndices/numParts.toDouble).toInt
+    } else { //more partitions than snapshots, need to split across partitions
+      //compute over how many partitions to split
+      var partitionsPerRun: Int = numParts / totalIndices
+      val over: Int = numParts % totalIndices
+      val addon: Int = if (index > over) over else index
+      val partitionToRun = index * partitionsPerRun + addon
+      if (index < over) 
+        partitionsPerRun += 1
+      //split using CRVC
+      if (e.srcId < e.dstId)
+        math.abs((e.srcId, e.dstId).hashCode()) % partitionsPerRun + partitionToRun
+      else
+        math.abs((e.dstId, e.srcId).hashCode()) % partitionsPerRun + partitionToRun
     }
   }
 }
 
 //Hybrid (NTP + CRVS). Here, we have to decide ahead of time how many intervals a run should contain.
 class HybridRandomCutPartitionStrategy(in: Int, ti: Int, rs: Int) extends PartitionStrategy {
-  val snapshot: Int = in
+  val index: Int = in
   val totalSnapshots: Int = ti
   var runWidth: Int = rs
 
   override def getPartition(src: VertexId, dst: VertexId, numParts: PartitionID): PartitionID = {
-    var numRuns: Int = (math.ceil(totalSnapshots.toDouble / runWidth)).toInt
-    if (numRuns > numParts) {
-      numRuns = numParts
-      runWidth  = math.ceil(totalSnapshots.toDouble / numRuns).toInt
-    }
-    val partitionsPerRun:Int = (numParts / numRuns).toInt
-    val snapshotToRun:Int = (snapshot / runWidth)
+    val numRuns: Int = math.ceil(totalSnapshots / runWidth.toDouble).toInt
+    if (numRuns < numParts) { //more partitions or same number
+      var partitionsPerRun: Int = numParts / numRuns
+      val over: Int = numParts % numRuns
+      val run: Int = index / runWidth
+      val addon: Int = if (run > over) over else run
+      val partitionToRun = run * partitionsPerRun + addon
+      if (run < over)
+        partitionsPerRun += 1
 
-    var	partitionWithinRun: Int	= 0
-    if (src < dst) {
-       partitionWithinRun = math.abs((src, dst).hashCode()) % partitionsPerRun
-    } else {
-       partitionWithinRun = math.abs((dst, src).hashCode()) % partitionsPerRun
+      if (src < dst)
+        math.abs((src, dst).hashCode()) % partitionsPerRun + partitionToRun
+      else
+        math.abs((dst, src).hashCode()) % partitionsPerRun + partitionToRun
+    } else {  //more runs than partitions
+      val run: Int = index / runWidth
+      val over: Int = numRuns % numParts
+      val even: Int = math.ceil(numRuns/numParts.toDouble).toInt * over
+      if (run > even)
+        (run - even) / (numRuns / numParts) + over
+      else
+        run / math.ceil(numRuns/numParts.toDouble).toInt
     }
-    snapshotToRun * partitionsPerRun + partitionWithinRun
   }
 }
 
@@ -163,46 +243,65 @@ class HybridRandomCutEdgePartitionStrategy(ti: Int, rs: Int) extends PartitionSt
 
   override def getPartition[ED: ClassTag](e: Edge[ED], numParts: PartitionID): PartitionID = {
     val (index:Int,atr) = e.attr
-    var numRuns: Int = (math.ceil(totalSnapshots.toDouble / runWidth)).toInt
-    if (numRuns > numParts) {
-      numRuns = numParts
-      runWidth  = math.ceil(totalSnapshots.toDouble / numRuns).toInt
-    }
-    val partitionsPerRun:Int = (numParts / numRuns).toInt
-    val snapshotToRun:Int = (index / runWidth)
+    val numRuns: Int = math.ceil(totalSnapshots.toDouble / runWidth).toInt
+    if (numRuns < numParts) { //more partitions or same number
+      var partitionsPerRun: Int = numParts / numRuns
+      val over: Int = numParts % numRuns
+      val run: Int = index / runWidth
+      val addon: Int = if (run > over) over else run
+      val partitionToRun = run * partitionsPerRun + addon
+      if (run < over)
+        partitionsPerRun += 1
 
-    var	partitionWithinRun: Int	= 0
-    if (e.srcId < e.dstId) {
-       partitionWithinRun = math.abs((e.srcId, e.dstId).hashCode()) % partitionsPerRun
-    } else {
-       partitionWithinRun = math.abs((e.dstId, e.srcId).hashCode()) % partitionsPerRun
+      if (e.srcId < e.dstId)
+        math.abs((e.srcId, e.dstId).hashCode()) % partitionsPerRun + partitionToRun
+      else
+        math.abs((e.dstId, e.srcId).hashCode()) % partitionsPerRun + partitionToRun
+    } else {  //more runs than partitions
+      val run: Int = index / runWidth
+      val over: Int = numRuns % numParts
+      val even: Int = math.ceil(numRuns/numParts.toDouble).toInt * over
+      if (run > even)
+        (run - even) / (numRuns / numParts) + over
+      else
+        run / math.ceil(numRuns/numParts.toDouble).toInt
     }
-    snapshotToRun * partitionsPerRun + partitionWithinRun
   }
 }
 
 class Hybrid2DPartitionStrategy(in: Int, ti: Int, rs: Int) extends PartitionStrategy {
-  val snapshot: Int = in
+  val index: Int = in
   val totalSnapshots: Int = ti
   var runWidth: Int = rs
 
   override def getPartition(src: VertexId, dst: VertexId, numParts: PartitionID): PartitionID = {
-    var numRuns : Int = (math.ceil(totalSnapshots.toDouble / runWidth)).toInt
-    if (numRuns	> numParts) {
-      numRuns = numParts
-      runWidth = math.ceil(totalSnapshots.toDouble / numRuns).toInt
+    var numRuns : Int = math.ceil(totalSnapshots.toDouble / runWidth).toInt
+    if (numRuns < numParts) { //more partitions or same number
+      val mixingPrime: VertexId = 1125899906842597L
+      var partitionsPerRun: Int = numParts / numRuns
+      val over: Int = numParts % numRuns
+      val run: Int = index / runWidth
+      val addon: Int = if (run > over) over else run
+      val partitionToRun = run * partitionsPerRun + addon
+      if (run < over)
+        partitionsPerRun += 1
+
+      val ceilSqrtNumParts: Int = math.ceil(math.sqrt(partitionsPerRun)).toInt
+      val col: PartitionID = (math.abs(src * mixingPrime) % ceilSqrtNumParts).toInt
+      val row: PartitionID = (math.abs(dst * mixingPrime) % ceilSqrtNumParts).toInt
+
+      val partitionWithinRun: Int = (col * ceilSqrtNumParts + row) % partitionsPerRun
+      partitionToRun + partitionWithinRun
+
+    } else {  //more runs than partitions
+      val run: Int = index / runWidth
+      val over: Int = numRuns % numParts
+      val even: Int = math.ceil(numRuns/numParts.toDouble).toInt * over
+      if (run > even)
+        (run - even) / (numRuns / numParts) + over
+      else
+        run / math.ceil(numRuns/numParts.toDouble).toInt
     }
-
-    val	partitionsPerRun : Int = (numParts / numRuns)
-    val	snapshotToRun: Int	= (snapshot / runWidth)
-    val ceilSqrtNumParts: PartitionID = math.ceil(math.sqrt(partitionsPerRun)).toInt
-    val mixingPrime: VertexId = 1125899906842597L
-
-    val col: PartitionID = (math.abs(src * mixingPrime) % ceilSqrtNumParts).toInt
-    val row: PartitionID = (math.abs(dst * mixingPrime) % ceilSqrtNumParts).toInt
-    val partitionWithinRun: Int = (col * ceilSqrtNumParts + row) % partitionsPerRun
-
-    snapshotToRun * partitionsPerRun + partitionWithinRun
   }
 }
 
@@ -218,22 +317,32 @@ class Hybrid2DEdgePartitionStrategy(ti: Int, rs: Int) extends PartitionStrategyM
 
   override def getPartition[ED: ClassTag](e: Edge[ED], numParts: PartitionID): PartitionID = {
     val (index:Int,atr) = e.attr
+    var numRuns : Int = math.ceil(totalSnapshots.toDouble / runWidth).toInt
+    if (numRuns < numParts) { //more partitions or same number
+      val mixingPrime: VertexId = 1125899906842597L
+      var partitionsPerRun: Int = numParts / numRuns
+      val over: Int = numParts % numRuns
+      val run: Int = index / runWidth
+      val addon: Int = if (run > over) over else run
+      val partitionToRun = run * partitionsPerRun + addon
+      if (run < over)
+        partitionsPerRun += 1
 
-    var numRuns: Int = (math.ceil(totalSnapshots.toDouble / runWidth)).toInt
-    if (numRuns	> numParts) {
-      numRuns = numParts
-      runWidth = math.ceil(totalSnapshots.toDouble / numRuns).toInt
+      val ceilSqrtNumParts: Int = math.ceil(math.sqrt(partitionsPerRun)).toInt
+      val col: PartitionID = (math.abs(e.srcId * mixingPrime) % ceilSqrtNumParts).toInt
+      val row: PartitionID = (math.abs(e.dstId * mixingPrime) % ceilSqrtNumParts).toInt
+
+      val partitionWithinRun: Int = (col * ceilSqrtNumParts + row) % partitionsPerRun
+      partitionToRun + partitionWithinRun
+
+    } else {  //more runs than partitions
+      val run: Int = index / runWidth
+      val over: Int = numRuns % numParts
+      val even: Int = math.ceil(numRuns/numParts.toDouble).toInt * over
+      if (run > even)
+        (run - even) / (numRuns / numParts) + over
+      else
+        run / math.ceil(numRuns/numParts.toDouble).toInt
     }
-
-    val	partitionsPerRun: Int = (numParts / numRuns)
-    val	snapshotToRun: Int = (index / runWidth)
-    val ceilSqrtNumParts: PartitionID = math.ceil(math.sqrt(partitionsPerRun)).toInt
-    val mixingPrime: VertexId = 1125899906842597L
-
-    val col: PartitionID = (math.abs(e.srcId * mixingPrime) % ceilSqrtNumParts).toInt
-    val row: PartitionID = (math.abs(e.dstId * mixingPrime) % ceilSqrtNumParts).toInt
-    val partitionWithinRun: Int = (col * ceilSqrtNumParts + row) % partitionsPerRun
-
-    snapshotToRun * partitionsPerRun + partitionWithinRun
   }
 }

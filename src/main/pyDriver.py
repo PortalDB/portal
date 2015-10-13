@@ -70,7 +70,7 @@ def collect_args(query):
     for i in range (0, len(line)):
         if line[i] == "--agg":
             opType = "Aggregate"
-            arg1 = runW = int(line[i+1])
+            arg1 = runW = int(line[i+1][1:][:-1])
             arg2 = get_agg_type(line[i+2]) 
             partS = numParts = None
 
@@ -81,8 +81,8 @@ def collect_args(query):
     
         if line[i] == "--select":
             opType = "Select"
-            arg1 = int(line[i+1])
-            arg2 = int(line[i+2])
+            arg1 = int(line[i+1].replace("-", ""))
+            arg2 = int(line[i+2].replace("-", ""))
             partS = runW = numParts = None
 
             if (len(line) > i+3) and (line[i+3] == "-p"):

@@ -502,12 +502,11 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
       //not changing the intervals, only the graphs at their indices
       //each partition strategy for SG needs information about the graph
 
+      val numParts: Int = if (parts > 0) parts else numPartitions()
+
       //use that strategy to partition each of the snapshots
       new SnapshotGraphParallel(intervals, graphs.zipWithIndex.map { case (g,i) =>
-        if (parts > 0)
-          g.partitionBy(PartitionStrategies.makeStrategy(pst, i, graphs.size, runs), parts)
-        else
-          g.partitionBy(PartitionStrategies.makeStrategy(pst, i, graphs.size, runs))
+        g.partitionBy(PartitionStrategies.makeStrategy(pst, i, graphs.size, runs), numParts)
       })
     } else
       this

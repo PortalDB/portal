@@ -511,11 +511,10 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
     if (pst != PartitionStrategyType.None) {
       var gps: Seq[Graph[VD, ED]] = Seq[Graph[VD, ED]]()
 
+      val numParts: Int = if (parts > 0) parts else numPartitions()
+      //we partition all snapshots individually here but we should use the total number of partitions as the number
       graphs.zipWithIndex.foreach { case (k,v) =>
-        if (parts > 0)
-          gps = gps :+ k.partitionBy(PartitionStrategies.makeStrategy(pst, v, graphs.size, runs), parts)
-        else
-          gps = gps :+ k.partitionBy(PartitionStrategies.makeStrategy(pst, v, graphs.size, runs))
+        gps = gps :+ k.partitionBy(PartitionStrategies.makeStrategy(pst, v, graphs.size, runs), numParts)
       }
 
       new SnapshotGraph(intervals, gps)
