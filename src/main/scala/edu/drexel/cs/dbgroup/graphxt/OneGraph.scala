@@ -418,8 +418,8 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Map[
 
       val degrees: VertexRDD[Map[TimeIndex,Int]] = graphs.aggregateMessages[Map[TimeIndex, Int]](
         ctx => {
-          ctx.sendToSrc(ctx.attr.mapValues(x => 1))
-          ctx.sendToDst(ctx.attr.mapValues(x => 1))
+          ctx.sendToSrc(ctx.attr.mapValues(x => 1).map(identity))
+          ctx.sendToDst(ctx.attr.mapValues(x => 1).map(identity))
         },
         mergeFunc, TripletFields.All)
 
