@@ -31,17 +31,20 @@ object Driver {
     for (i <- 0 until args.length) {
       if (args(i) == "--type") {
         graphType = args(i + 1)
-        if (graphType == "MG")
-          println("Running experiments with MultiGraph")
-        else if (graphType == "SG")
-          println("Running experiments with SnapshotGraph")
-        else if (graphType == "SGP")
-          println("Running experiments with parallel SnapshotGraph")
-        else if (graphType == "MGC")
-          println("Running experiments with columnar MultiGraph")
-        else {
-          println("Invalid graph type, exiting")
-          System.exit(1)
+        graphType match {
+          case "MG" =>
+            println("Running experiments with MultiGraph")
+          case "SG" =>
+            println("Running experiments with SnapshotGraph")
+          case "SGP" =>
+            println("Running experiments with parallel SnapshotGraph")
+          case "MGC" =>
+            println("Running experiments with columnar MultiGraph")
+          case "OG" =>
+            println("Running experiments with OneGraph")
+          case _ =>
+            println("Invalid graph type, exiting")
+            System.exit(1)
         }
       } else if (args(i) == "--strategy") {
         strategy = args(i + 1)
@@ -221,15 +224,19 @@ object Driver {
   }
 
   def loadData(data: String, sc: SparkContext, gtype: String, from: LocalDate, to: LocalDate): TemporalGraph[String, Int] = {
-    if (gtype == "SG") {
-      SnapshotGraph.loadData(data, from, to)
-    } else if (gtype == "MG") {
-      MultiGraph.loadData(data, from, to)
-    } else if (gtype == "SGP") {
-      SnapshotGraphParallel.loadData(data, from, to)
-    } else if (gtype == "MGC") {
-      MultiGraphColumn.loadData(data, from, to)
-    } else
-      null
+    gtype match {
+      case "SG" =>
+        SnapshotGraph.loadData(data, from, to)
+      case "MG" =>
+        MultiGraph.loadData(data, from, to)
+      case "SGP" =>
+        SnapshotGraphParallel.loadData(data, from, to)
+      case "MGC" =>
+        MultiGraphColumn.loadData(data, from, to)
+      case "OG" =>
+        OneGraph.loadData(data, from, to)
+      case _ =>
+        null
+    }
   }
 }
