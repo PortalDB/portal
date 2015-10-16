@@ -113,13 +113,13 @@ object Driver {
         var aggStart = System.currentTimeMillis()
         if (changedType) {
           if (partAgg) {
-            runWidth = resolution.getNumParts(result2.resolution, LocalDate.now())
+            runWidth = result2.resolution.getNumParts(resolution, LocalDate.now())
             result2 = result2.partitionBy(partitionType, runWidth, numParts)
           }
           result2 = result2.aggregate(resolution, sem, aggFunc2, aggFunc2)
         } else {
           if (partAgg) {
-            runWidth = resolution.getNumParts(result.resolution, LocalDate.now())
+            runWidth = result.resolution.getNumParts(resolution, LocalDate.now())
             result = result.partitionBy(partitionType, runWidth, numParts)
           }
           result = result.aggregate(resolution, sem, vAggFunc, eAggFunc)
