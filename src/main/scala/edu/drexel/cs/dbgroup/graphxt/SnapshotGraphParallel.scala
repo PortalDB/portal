@@ -22,6 +22,7 @@ import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
 
 import edu.drexel.cs.dbgroup.graphxt.util.MultifileLoad
+import edu.drexel.cs.dbgroup.graphxt.util.NumberRangeRegex
 
 import java.time.LocalDate
 
@@ -566,6 +567,72 @@ object SnapshotGraphParallel extends Serializable {
       if (fs.exists(ept) && fs.getFileStatus(ept).getLen > 0) {
         //uses extended version of Graph Loader to load edges with attributes
         edges = GraphLoaderAddon.edgeListFile(ProgramContext.sc, dataPath + "/edges/edges" + xx.toString() + ".txt", true, numEdgeParts).edges
+      }
+      
+      intvs = intvs :+ res.getInterval(xx)
+      gps = gps :+ Graph(users, edges)
+      xx = intvs.last.end
+    }
+    
+    new SnapshotGraphParallel(intvs, gps)
+  }
+
+  final def loadWithPartition(dataPath: String, start: LocalDate, end: LocalDate, strategy: PartitionStrategyType.Value): SnapshotGraphParallel[String, Int] = {
+    var minDate: LocalDate = start
+    var maxDate: LocalDate = end
+
+    var source: scala.io.Source = null
+    var fs: FileSystem = null
+
+    val pt: Path = new Path(dataPath + "/Span.txt")
+    val conf: Configuration = new Configuration()
+    if (System.getenv("HADOOP_CONF_DIR") != "") {
+      conf.addResource(new Path(System.getenv("HADOOP_CONF_DIR") + "/core-site.xml"))
+    }
+    fs = FileSystem.get(conf)
+    source = scala.io.Source.fromInputStream(fs.open(pt))
+
+    val lines = source.getLines
+    val minin = LocalDate.parse(lines.next)
+    val maxin = LocalDate.parse(lines.next)
+    val res = Resolution.from(lines.next)
+
+    if (minin.isAfter(start)) 
+      minDate = minin
+    if (maxin.isBefore(end)) 
+      maxDate = maxin
+    source.close()
+
+    var intvs: Seq[Interval] = Seq[Interval]()
+    var gps: ParSeq[Graph[String, Int]] = ParSeq[Graph[String, Int]]()
+    var xx:LocalDate = minDate
+
+    val total = res.numBetween(minDate, maxDate)
+    val totalParts = MultifileLoad.estimateParts(dataPath + "/nodes/edges{" + NumberRangeRegex.generateRegex(minDate.getYear(), maxDate.getYear()) + "}-{*}.txt")
+
+    while (xx.isBefore(maxDate)) {
+      var nodesPath = dataPath + "/nodes/nodes" + xx.toString() + ".txt"
+      var edgesPath = dataPath + "/edges/edges" + xx.toString() + ".txt"
+      var numNodeParts = MultifileLoad.estimateParts(nodesPath) 
+      var numEdgeParts = MultifileLoad.estimateParts(edgesPath) 
+      
+      val users: RDD[(VertexId, String)] = ProgramContext.sc.textFile(dataPath + "/nodes/nodes" + xx.toString() + ".txt", numNodeParts).map(line => line.split(",")).map { parts =>
+        if (parts.size > 1 && parts.head != "")
+          (parts.head.toLong, parts(1).toString)
+        else
+          (0L, "Default")
+      }
+      
+      var edges: EdgeRDD[Int] = EdgeRDD.fromEdges(ProgramContext.sc.emptyRDD)
+
+      val ept: Path = new Path(dataPath + "/edges/edges" + xx.toString() + ".txt")
+      if (fs.exists(ept) && fs.getFileStatus(ept).getLen > 0) {
+        //uses extended version of Graph Loader to load edges with attributes
+        var g = GraphLoaderAddon.edgeListFile(ProgramContext.sc, dataPath + "/edges/edges" + xx.toString() + ".txt", true, numEdgeParts)
+        if (strategy != PartitionStrategyType.None) {
+          g = g.partitionBy(PartitionStrategies.makeStrategy(strategy, intvs.size + 1, total, 2), totalParts)
+        }
+        edges = g.edges
       }
       
       intvs = intvs :+ res.getInterval(xx)

@@ -72,18 +72,23 @@ object Driver {
 
     var from: LocalDate = LocalDate.MIN
     var to: LocalDate = LocalDate.MAX
+    var str: PartitionStrategyType.Value = PartitionStrategyType.None
     //if there is a select in the query and it comes before others, use it to selectively load
     val loop = new Breaks
     loop.breakable {
       for (i <- 0 until args.length) {
         args(i) match {
-          case "--select" => from = LocalDate.parse(args(i + 1)); to = LocalDate.parse(args(i + 2))
+          case "--select" => 
+            from = LocalDate.parse(args(i + 1))
+            to = LocalDate.parse(args(i + 2))
+            if (args(i + 3) == "-p")
+              str = PartitionStrategyType.withName(args(i + 4))
           case "--agg" | "--pagerank" | "--count" => loop.break
 	  case _ =>
         }
       }
     }
-    var result: TemporalGraph[String, Int] = loadData(data, sc, graphType, from, to)
+    var result: TemporalGraph[String, Int] = loadData(data, sc, graphType, from, to, str)
     result.persist()
     var result2: TemporalGraph[Double, Double] = null
     var argNum = 1 //to keep track of the order of arguments passed
@@ -223,14 +228,14 @@ object Driver {
     sc.stop
   }
 
-  def loadData(data: String, sc: SparkContext, gtype: String, from: LocalDate, to: LocalDate): TemporalGraph[String, Int] = {
+  def loadData(data: String, sc: SparkContext, gtype: String, from: LocalDate, to: LocalDate, strategy: PartitionStrategyType.Value): TemporalGraph[String, Int] = {
     gtype match {
       case "SG" =>
         SnapshotGraph.loadData(data, from, to)
       case "MG" =>
         MultiGraph.loadData(data, from, to)
       case "SGP" =>
-        SnapshotGraphParallel.loadData(data, from, to)
+        SnapshotGraphParallel.loadWithPartition(data, from, to, strategy)
       case "MGC" =>
         MultiGraphColumn.loadData(data, from, to)
       case "OG" =>
