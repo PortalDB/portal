@@ -141,7 +141,7 @@ object Driver {
       } //select operation 
       else if (args(i) == "--select") {
         val runWidth = 2; //FIXME: need a number based on reason
-        val partSel: Boolean = if (args.length > (i + 3) && args(i + 3) == "-p") true else false
+        val partSel: Boolean = false //if (args.length > (i + 3) && args(i + 3) == "-p") true else false
 
         if (partSel) {
           partitionType = PartitionStrategyType.withName(args(i + 4))
@@ -233,13 +233,13 @@ object Driver {
       case "SG" =>
         SnapshotGraph.loadData(data, from, to)
       case "MG" =>
-        MultiGraph.loadData(data, from, to)
+        MultiGraph.loadWithPartition(data, from, to, strategy)
       case "SGP" =>
         SnapshotGraphParallel.loadWithPartition(data, from, to, strategy)
       case "MGC" =>
-        MultiGraphColumn.loadData(data, from, to)
+        MultiGraphColumn.loadWithPartition(data, from, to, strategy)
       case "OG" =>
-        OneGraph.loadData(data, from, to)
+        OneGraph.loadWithPartition(data, from, to, strategy)
       case _ =>
         null
     }

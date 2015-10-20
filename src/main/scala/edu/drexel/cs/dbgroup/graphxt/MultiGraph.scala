@@ -522,6 +522,68 @@ object MultiGraph {
     new MultiGraph[String, Int](intvs, graph.persist())
   }
 
+  final def loadWithPartition(dataPath: String, start: LocalDate, end: LocalDate, strategy: PartitionStrategyType.Value): MultiGraph[String, Int] = {
+    var minDate: LocalDate = start
+    var maxDate: LocalDate = end
+
+    var source: scala.io.Source = null
+    var fs: FileSystem = null
+
+    val pt: Path = new Path(dataPath + "/Span.txt")
+    val conf: Configuration = new Configuration()    
+    if (System.getenv("HADOOP_CONF_DIR") != "") {
+      conf.addResource(new Path(System.getenv("HADOOP_CONF_DIR") + "/core-site.xml"))
+    }
+    fs = FileSystem.get(conf)
+    source = scala.io.Source.fromInputStream(fs.open(pt))
+
+    val lines = source.getLines
+    val minin = LocalDate.parse(lines.next)
+    val maxin = LocalDate.parse(lines.next)
+    val res = Resolution.from(lines.next)
+
+    if (minin.isAfter(start)) 
+      minDate = minin
+    if (maxin.isBefore(end)) 
+      maxDate = maxin
+    source.close()
+
+    if (minDate.isAfter(maxDate) || minDate.isEqual(maxDate))
+      throw new IllegalArgumentException("invalid date range")
+
+    var intvs: Seq[Interval] = Seq[Interval]()
+    var xx: LocalDate = minDate
+    var count:Int = 0
+    while (xx.isBefore(maxDate)) {
+      intvs = intvs :+ res.getInterval(xx)
+      count += 1
+      xx = intvs.last.end
+    }
+
+    var users: RDD[(VertexId,Map[Int,String])] = MultifileLoad.readNodes(dataPath, minDate, intvs.last.start).flatMap{ x => 
+      val (filename, line) = x
+      val dt = LocalDate.parse(filename.split('/').last.dropWhile(!_.isDigit).takeWhile(_ != '.'))
+      val parts = line.split(",")
+      val index = res.numBetween(minDate, dt)
+      if (parts.size > 1 && parts.head != "" && index > -1) {
+        Some((parts.head.toLong, Map(index -> parts(1).toString)))
+      } else None
+    }.reduceByKey{ (a:Map[Int, String], b:Map[Int, String]) => a ++ b}
+
+    val in = MultifileLoad.readEdges(dataPath, minDate, intvs.last.start)
+    var edges = GraphLoaderAddon.edgeListFiles(in, res.period, res.unit, minDate, true)
+
+    if (strategy != PartitionStrategyType.None) {
+      edges = edges.partitionBy(PartitionStrategies.makeStrategy(strategy, 0, intvs.size, 2))
+    }
+
+    val graph: Graph[Map[Int, String], (Int, Int)] = Graph(users, edges.edges, Map[Int,String]())
+
+    edges.unpersist()
+
+    new MultiGraph[String, Int](intvs, graph.persist())
+  }
+
   def emptyGraph[VD: ClassTag, ED: ClassTag]():MultiGraph[VD, ED] = new MultiGraph(Seq[Interval](), Graph[Map[TimeIndex, VD],(TimeIndex, ED)](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD))
 
 }

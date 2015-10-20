@@ -519,7 +519,6 @@ class MultiGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Gr
     val newattrs = resultGraph.vertices.flatMap{ case (vid,vattr) => vattr.map{ case (k,v) => ((vid,k), v._1)}}
 
     new MultiGraphColumn[Double,Double](intervals, resultGraph.outerJoinVertices(graphs.vertices)((vid, vl, bt) => bt.get), newattrs)
-
   }
 
   //run connected components on each interval
@@ -740,6 +739,70 @@ object MultiGraphColumn {
     val verts: RDD[(VertexId, BitSet)] = users.map{ case (k,v) => (k._1, BitSet(k._2))}.reduceByKey((a,b) => a union b )
 
     val graph: Graph[BitSet, (Int, Int)] = Graph(verts, edges, BitSet())
+
+    edges.unpersist()
+
+    new MultiGraphColumn[String, Int](intvs, graph, users)
+  }
+
+  final def loadWithPartition(dataPath: String, start: LocalDate, end: LocalDate, strategy: PartitionStrategyType.Value): MultiGraphColumn[String, Int] = {
+    var minDate: LocalDate = start
+    var maxDate: LocalDate = end
+
+    var source: scala.io.Source = null
+    var fs: FileSystem = null
+
+    val pt: Path = new Path(dataPath + "/Span.txt")
+    val conf: Configuration = new Configuration()    
+    if (System.getenv("HADOOP_CONF_DIR") != "") {
+      conf.addResource(new Path(System.getenv("HADOOP_CONF_DIR") + "/core-site.xml"))
+    }
+    fs = FileSystem.get(conf)
+    source = scala.io.Source.fromInputStream(fs.open(pt))
+
+    val lines = source.getLines
+    val minin = LocalDate.parse(lines.next)
+    val maxin = LocalDate.parse(lines.next)
+    val res = Resolution.from(lines.next)
+
+    if (minin.isAfter(start)) 
+      minDate = minin
+    if (maxin.isBefore(end)) 
+      maxDate = maxin
+    source.close()
+
+    if (minDate.isAfter(maxDate) || minDate.isEqual(maxDate))
+      throw new IllegalArgumentException("invalid date range")
+
+    var intvs: Seq[Interval] = Seq[Interval]()
+    var xx: LocalDate = minDate
+    var count:Int = 0
+    while (xx.isBefore(maxDate)) {
+      intvs = intvs :+ res.getInterval(xx)
+      count += 1
+      xx = intvs.last.end
+    }
+
+    val users: RDD[((VertexId,TimeIndex),String)] = MultifileLoad.readNodes(dataPath, minDate, intvs.last.start).flatMap{ x =>
+      val (filename, line) = x
+      val dt = LocalDate.parse(filename.split('/').last.dropWhile(!_.isDigit).takeWhile(_ != '.'))
+      val parts = line.split(",")
+      val index = res.numBetween(minDate, dt)
+      if (parts.size > 1 && parts.head != "" && index > -1) {
+        Some((parts.head.toLong, index), parts(1).toString)
+      } else None
+    }
+
+    val in = MultifileLoad.readEdges(dataPath, minDate, intvs.last.start)
+    var edges = GraphLoaderAddon.edgeListFiles(in, res.period, res.unit, minDate, true)
+
+    if (strategy != PartitionStrategyType.None) {
+      edges = edges.partitionBy(PartitionStrategies.makeStrategy(strategy, 0, intvs.size, 2))
+    }
+
+    val verts: RDD[(VertexId, BitSet)] = users.map{ case (k,v) => (k._1, BitSet(k._2))}.reduceByKey((a,b) => a union b )
+
+    val graph: Graph[BitSet, (Int, Int)] = Graph(verts, edges.edges, BitSet())
 
     edges.unpersist()
 

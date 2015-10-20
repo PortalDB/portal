@@ -215,6 +215,7 @@ def run(configFile):
     mesosConf = parser['configs']['mesosConfig']
     localConf = parser['configs']['localConfig']
     ec2Conf = parser['configs']['ec2Config']
+    standConf = parser['configs']['standaloneConfig']
     cConf = parser['configs']['clusterConfig']
     buildN = int(parser['configs']['buildNum'])
     sType = int(parser['configs']['warm'])
@@ -239,6 +240,8 @@ def run(configFile):
         envConf = ec2Conf
     elif env == 'mesos':
         envConf = mesosConf    
+    elif env == 'standalone':
+        envConf = standConf
  
     #run with warm start
     if sType == 1:
@@ -274,6 +277,13 @@ def run(configFile):
             #set cluster config
             #FIXME: find ram of slaves
             cConf = str(slaves) + "s_" + str(cores) + "c_" + str(ram) + "g"  
+        elif env == "standalone":
+            #TODO: consume this info from http://master:8081
+            slaves = 4
+            cores = 2
+            ram = 8
+            cConf = str(slaves) + "s_" + str(cores) + "c_" + str(ram) + "g"
+            
                 
         for q in queries: 
             classArg = q + dataParam + data + gtypeParam + gType + warm
