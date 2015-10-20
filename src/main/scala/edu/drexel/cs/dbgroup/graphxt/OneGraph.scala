@@ -487,7 +487,6 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Map[
 
     graphs.staticPageRank(numIter, resetProb)
     new OneGraph[Double,Double](intervals, Graph[Map[TimeIndex,Double], Map[TimeIndex,Double]](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD))
-
     } else {
       //TODO: implement this using pregel
       throw new UnsupportedOperationException("directed version of pageRank not yet implemented")
