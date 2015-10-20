@@ -78,7 +78,7 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Map[
         ctx.sendToDst(ctx.attr.mapValues(x => 1))
       },
       mergedFunc,
-      TripletFields.All)
+      TripletFields.None)
     .mapValues(v => v.map(x => (resolution.getInterval(start, x._1) -> x._2)))
   }
 
@@ -412,6 +412,7 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Map[
   //run pagerank on each interval
   override def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): TemporalGraph[Double, Double] = {
     if (uni) {
+/*
       def mergeFunc(a:Map[TimeIndex,Int], b:Map[TimeIndex,Int]): Map[TimeIndex,Int] = {
         a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) }
       }
@@ -482,6 +483,11 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Map[
       .mapVertices((vid,attr) => attr.mapValues(x => x._1))
 
       new OneGraph[Double, Double](intervals, newgraph)
+ */
+
+    graphs.staticPageRank(numIter, resetProb)
+    new OneGraph[Double,Double](intervals, Graph[Map[TimeIndex,Double], Map[TimeIndex,Double]](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD))
+
     } else {
       //TODO: implement this using pregel
       throw new UnsupportedOperationException("directed version of pageRank not yet implemented")
@@ -595,6 +601,92 @@ object OneGraph {
     val graph: Graph[Map[Int, String], Map[Int, Int]] = Graph(users, edges, Map[Int,String]())
 
     edges.unpersist()
+
+    new OneGraph[String, Int](intvs, graph.persist())
+  }
+
+  final def loadWithPartition(dataPath: String, start: LocalDate, end: LocalDate, strategy: PartitionStrategyType.Value): OneGraph[String, Int] = {
+    var minDate: LocalDate = start
+    var maxDate: LocalDate = end
+
+    var source: scala.io.Source = null
+    var fs: FileSystem = null
+
+    val pt: Path = new Path(dataPath + "/Span.txt")
+    val conf: Configuration = new Configuration()    
+    if (System.getenv("HADOOP_CONF_DIR") != "") {
+      conf.addResource(new Path(System.getenv("HADOOP_CONF_DIR") + "/core-site.xml"))
+    }
+    fs = FileSystem.get(conf)
+    source = scala.io.Source.fromInputStream(fs.open(pt))
+
+    val lines = source.getLines
+    val minin = LocalDate.parse(lines.next)
+    val maxin = LocalDate.parse(lines.next)
+    val res = Resolution.from(lines.next)
+
+    if (minin.isAfter(start)) 
+      minDate = minin
+    if (maxin.isBefore(end)) 
+      maxDate = maxin
+    source.close()
+
+    if (minDate.isAfter(maxDate) || minDate.isEqual(maxDate))
+      throw new IllegalArgumentException("invalid date range")
+
+    var intvs: Seq[Interval] = Seq[Interval]()
+    var xx: LocalDate = minDate
+    var count:Int = 0
+    while (xx.isBefore(maxDate)) {
+      intvs = intvs :+ res.getInterval(xx)
+      count += 1
+      xx = intvs.last.end
+    }
+
+    var users: RDD[(VertexId,Map[Int,String])] = MultifileLoad.readNodes(dataPath, minDate, intvs.last.start).flatMap{ x => 
+      val (filename, line) = x
+      val dt = LocalDate.parse(filename.split('/').last.dropWhile(!_.isDigit).takeWhile(_ != '.'))
+      val parts = line.split(",")
+      val index = res.numBetween(minDate, dt)
+      if (parts.size > 1 && parts.head != "" && index > -1) {
+        Some((parts.head.toLong, Map(index -> parts(1).toString)))
+      } else None
+    }.reduceByKey{ (a:Map[Int, String], b:Map[Int, String]) => a ++ b}
+
+    val in = MultifileLoad.readEdges(dataPath, minDate, intvs.last.start)
+    var g = GraphLoaderAddon.edgeListFiles(in, res.period, res.unit, minDate, true).mapEdges{e => Map(e.attr._1 -> e.attr._2)}
+
+    if (strategy != PartitionStrategyType.None) {
+      g = g.partitionBy(PartitionStrategies.makeStrategy(strategy, 0, intvs.size, 2))
+    }    
+
+    val edges = g.edges.map(e => ((e.srcId, e.dstId), e.attr))
+      .reduceByKey{ (a, b) => a ++ b}
+      .map{ case (k,v) => Edge(k._1, k._2, v)}
+
+    println("some edges: " + edges.take(30).mkString("\n"))
+
+    val graph: Graph[Map[Int, String], Map[Int, Int]] = Graph(users, edges, Map[Int,String]())
+
+    edges.unpersist()
+
+    //compute some statistics
+    println("total vertices: " + graph.numVertices)
+    val deg = graph.degrees
+    println("num vertices with no edges: " + (graph.numVertices - deg.count))
+    println("num vertices with degree 1-500: " + deg.filter{ case (vid,attr) => attr > 0 && attr < 501}.count)
+    println("num vertices with degree 501-1000: " + deg.filter{ case (vid,attr) => attr > 500 && attr < 1001}.count)
+    println("num vertices with degree 1001-2000: " + deg.filter{ case (vid,attr) => attr > 1000 && attr < 2001}.count)
+    println("num vertices with degree 2001-5000: " + deg.filter{ case (vid,attr) => attr > 2000 && attr < 50001}.count)
+    println("num vertices with degree 5001-1000: " + deg.filter{ case (vid,attr) => attr > 5000 && attr < 10001}.count)
+    println("num vertices with degree 10001-20000: " + deg.filter{ case (vid,attr) => attr > 10000 && attr < 20001}.count)
+    println("num vertices with degree 20001-30000: " + deg.filter{ case (vid,attr) => attr > 20000 && attr < 30001}.count)
+    println("num vertices with degree 30001-40000: " + deg.filter{ case (vid,attr) => attr > 30000 && attr < 40001}.count)
+    println("num vertices with degree 40001-50000: " + deg.filter{ case (vid,attr) => attr > 40000 && attr < 50001}.count)
+    println("num vertices with degree 50001-60000: " + deg.filter{ case (vid,attr) => attr > 50000 && attr < 60001}.count)
+    println("num vertices with degree 60001-70000: " + deg.filter{ case (vid,attr) => attr > 60000 && attr < 70001}.count)
+    println("num vertices with degree 70001-80000: " + deg.filter{ case (vid,attr) => attr > 70000 && attr < 80001}.count)
+    println("num vertices with degree 80001-90000: " + deg.filter{ case (vid,attr) => attr > 80000 && attr < 90001}.count)
 
     new OneGraph[String, Int](intvs, graph.persist())
   }

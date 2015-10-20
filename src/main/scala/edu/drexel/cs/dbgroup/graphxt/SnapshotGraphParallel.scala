@@ -608,7 +608,7 @@ object SnapshotGraphParallel extends Serializable {
     var xx:LocalDate = minDate
 
     val total = res.numBetween(minDate, maxDate)
-    val totalParts = MultifileLoad.estimateParts(dataPath + "/nodes/edges{" + NumberRangeRegex.generateRegex(minDate.getYear(), maxDate.getYear()) + "}-{*}.txt")
+    val numParts = MultifileLoad.estimateParts(dataPath + "/edges/edges{" + NumberRangeRegex.generateRegex(minDate.getYear(), maxDate.getYear()) + "}-{*}.txt")
 
     while (xx.isBefore(maxDate)) {
       var nodesPath = dataPath + "/nodes/nodes" + xx.toString() + ".txt"
@@ -630,7 +630,7 @@ object SnapshotGraphParallel extends Serializable {
         //uses extended version of Graph Loader to load edges with attributes
         var g = GraphLoaderAddon.edgeListFile(ProgramContext.sc, dataPath + "/edges/edges" + xx.toString() + ".txt", true, numEdgeParts)
         if (strategy != PartitionStrategyType.None) {
-          g = g.partitionBy(PartitionStrategies.makeStrategy(strategy, intvs.size + 1, total, 2), totalParts)
+          g = g.partitionBy(PartitionStrategies.makeStrategy(strategy, intvs.size + 1, total, 2), numParts)
         }
         edges = g.edges
       }
