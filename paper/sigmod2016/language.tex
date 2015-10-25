@@ -1,10 +1,12 @@
-\section{Query Language}
+\section{TGraph Algebra}
 \label{sec:lang}
 
-The query language \ql supports unary and binary operations that take
-\tgs as input and produce a \tg as output.  Thus, the language is
-fully compositional.  We will use the graph in Figure~\ref{fig:sg} to
-illustrate query language operators.
+The \ql query language is declarative.  We illustrated the syntax of
+\ql in Section~\ref{sec:example}.  In this section we present
+algebraic operators that implement \ql.  We support unary and binary
+operators that take \tgs as input and produce a \tg as output.  Thus,
+the language is fully compositional.  We will use the graph in
+Figure~\ref{fig:sg} to illustrate query language operators.
 
 \paragraph*{T-Select} The unary operation \tsel{T}{c}, where $T$ is
  a \tg and $c$ is a {\em temporal predicate}, returns a \tg $T'$

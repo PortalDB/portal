@@ -1,2 +1,29 @@
 \section{Experimental Evaluation}
 \label{sec:exp}
+
+{\bf Data and evaluation methods.}  We evaluate performance of our
+framework on three real open-source datasets.  
+
+\begin{enumerate}
+
+\item DBLP\footnote{\url{dblp.uni-trier.de/xml}} contains co-authorship
+  information from 1936 through 2015, with over 1.5 million author
+  nodes and over 6 million undirected co-authorship edges.  
+
+\item nGrams\footnote{\url{storage.googleapis.com/books/ngrams/books/datasetsv2.html}}
+  contains word co-occurrence information from 1520 through 2008, with
+  over 1.5 million word nodes and over 65 million undirected
+  co-occurrence edges.
+
+\item
+  DELIS\footnote{\url{law.di.unimi.it/webdata/uk-union-2006-06-2007-05}}
+  contains monthly snapshots, from 05/2006 through 05/2007, of a
+  portion of the Web graph focusing on the .uk domains, with a total
+  of over 133 million nodes and over 5.5 billion directed
+  edges~\cite{BSVLTAG}.
+
+\end{enumerate}
+
+Our evaluation focuses on efficiency of implementation. Experiments
+are conducted on an in-house 8-node Hadoop cluster built with Open
+Stack. \reminder{Additional details about nodes, distribution.}
