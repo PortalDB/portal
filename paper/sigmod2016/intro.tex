@@ -6,22 +6,33 @@ plethora of domains, and are central to many applications, both
 commercial and scientific.  Networks are represented by graphs, and
 considerable research and engineering effort is being devoted to
 developing effective and efficient graph representations and
-analytics.  This is particularly important as networks are becoming
-ever larger, and as analytics are becoming more sophisticated.
-
-As of late, efficient graph abstractions and analytics for {\em static
-  graphs} have become available in scope of open source platforms such
-as Apache Spark (through the GraphX API) and GraphLab (through the
-PowerGraph library).  This in turn makes sophisticated graph analysis
-methods available and accessible to researchers and practitioners,
-facilitating their widespread adoption.  Further, because these
-systems are open source, this encourages development and dissemination
-of new graph analysis methods, and of more efficient implementations
-of existing methods.
+analytics. (We will use the terms ``network'' and ``graph''
+interchangeably.) As of late, efficient graph abstractions and
+analytics for {\em static graphs} have become available in scope of
+open source platforms such as Apache Spark (through the GraphX API)
+and GraphLab (through the PowerGraph library).  This in turn makes
+sophisticated graph analysis methods available and accessible to
+researchers and practitioners, facilitating their widespread adoption.
+Further, because these systems are open source, this encourages
+development and dissemination of new graph analysis methods, and of
+more efficient implementations of existing methods.
 
 Arguably the most interesting and important questions one can ask
 about networks have to do with their evolution, rather than with their
-static state.  Let us consider a few examples of such questions.
+static state.  Analysis of {\em evolving graphs} has been receiving
+increasing attention, with most progress taking place in the last
+decade, see~\cite{DBLP:journals/csur/AggarwalS14} for a recent survey.
+{\em Yet, systematic support for scalable querying and analytics over
+  evolving graphs still lacks}.  This support is urgently needed, due
+first and foremost to the scalability and efficiency challenges
+inherent in evolving graph analysis, but also to considerations of
+usability and ease of dissemination. {\em In this paper we present
+  \ql, a declarative query language, and its implementation in an
+  open-source distributed framework, that fills this gap.}
+
+To further motivate our work, let us consider several categories of
+questions one may ask about evolving networks, as part of exploratory
+analysis.
 
 {\em Which network nodes are showing an increasing popularity trend,
   or have increasing influence, and which are on a downward spiral?}
@@ -60,18 +71,6 @@ an integral part of exploratory analysis.
   of graphs, or in different portions of the same graph?}
 \reminder{This or another argument for temporal union and
   intersection.}
-
-Beyond static graphs, analysis of {\em evolving graphs} has been
-receiving increasing attention, with most progress taking place in the
-last decade, see~\cite{DBLP:journals/csur/AggarwalS14} for a recent
-survey of the relevant data mining literature.  {\em Yet, systematic
-  support for scalable querying and analytics over evolving graphs
-  still lacks}.  This support is urgently needed, due first and
-foremost to the scalability and efficiency challenges inherent in
-evolving graph analysis, but also to considerations of usability and
-ease of dissemination. {\em In this paper we present a declarative
-  query language, and its implementation in an open-source distributed
-  framework, that fills this gap.}
 
 {\bf Contributions.} In this paper we develop \ql, a declarative query
 language for efficient querying and exploratory analysis of evolving
