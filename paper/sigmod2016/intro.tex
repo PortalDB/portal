@@ -55,22 +55,27 @@ collaboration across domains.  Here, again, connectivity can be
 quantified as, e.g., pair-wise distance, length of shortest path
 between communities or graph density.
 
-{\em At what time scale can interesting trends be observed?} It is not
-easy to answer this question at the time when data is being recorded.
-For example, changes in node centrality in a social network may be
-observable on the scale of weeks, but not months (coarser).  On the
-Web, periodic events may change popularity of websites, with
-observable trends on the scale of days, but not hours (finer) or
-months (coarser).  Furhtermore, the same network may show different
-kinds of trends at different time scales, e.g., node popularity may be
-changing at a different rate than over-all network density.
-Understanding at what temporal scale to consider network evolution is
-an integral part of exploratory analysis.
+{\em At what time scale can interesting trends be observed?} The
+answer to this question may not be known apriori, at the time when
+graph evolution data is being recorded.  For example, changes in node
+centrality in a social network may be observable on the scale of
+weeks, but not months (coarser).  On the Web, periodic events may
+change popularity of websites, with observable trends on the scale of
+days, but not hours (finer) or months (coarser).  Furhtermore, the
+same network may show different kinds of trends at different time
+scales, e.g., node popularity may be changing at a different rate, and
+thus be observable on a different scale, than over-all network
+density.  Understanding at what temporal scale to consider network
+evolution is an integral part of exploratory analysis.
 
-{\em Are there differences in evolutionary trends among a collection
-  of graphs, or in different portions of the same graph?}
-\reminder{This or another argument for temporal union and
-  intersection.}
+{\em How can multiple data sources be used jointly, to complement or
+  corroborate information about graph evolution?}  It may be the case
+that multiple datasets are avaiable, each describing a series of
+crawls of different, but possibly overlapping, portions of the Web
+graph.  Further, network states may be recorded at different, possily
+overlapping, time periods, or even at different temporal scales.  Can
+these datasets be unified, in a principled way, to support analysis or
+meta-analysis of network evolution trends? 
 
 {\bf Contributions.} In this paper we develop \ql, a declarative query
 language for efficient querying and exploratory analysis of evolving
