@@ -574,7 +574,8 @@ object MultiGraph {
     var edges = GraphLoaderAddon.edgeListFiles(in, res.period, res.unit, minDate, true)
 
     if (strategy != PartitionStrategyType.None) {
-      edges = edges.partitionBy(PartitionStrategies.makeStrategy(strategy, 0, intvs.size, 2))
+      val numParts = edges.edges.partitions.size
+      edges = edges.partitionByExt(PartitionStrategies.makeStrategy(strategy, 0, intvs.size, 2),numParts)
     }
 
     val graph: Graph[Map[Int, String], (Int, Int)] = Graph(users, edges.edges, Map[Int,String]())

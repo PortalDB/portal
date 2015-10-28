@@ -50,7 +50,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
       val total = graphs.zipWithIndex.map(x => (x._1, intervals(x._2))).filterNot(x => x._1.vertices.isEmpty)
       if (total.size > 0)
         VertexRDD(total.map(x => x._1.vertices.mapValues(y => Map[Interval, VD](x._2 -> y)))
-          .reduce((a, b) => VertexRDD(a union b))
+          .reduce((a: RDD[(VertexId,Map[Interval,VD])], b: RDD[(VertexId,Map[Interval,VD])]) => a union b)
           .reduceByKey((a: Map[Interval, VD], b: Map[Interval, VD]) => a ++ b))
       else {
         val ret:VertexRDD[Map[Interval,VD]] = VertexRDD(ProgramContext.sc.emptyRDD)
@@ -639,7 +639,7 @@ object SnapshotGraphParallel extends Serializable {
       gps = gps :+ Graph(users, edges)
       xx = intvs.last.end
     }
-    
+
     new SnapshotGraphParallel(intvs, gps)
   }
 
