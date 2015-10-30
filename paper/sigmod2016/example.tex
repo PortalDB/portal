@@ -62,9 +62,9 @@ popular Pregel API. \reminder{Is what I'm saying true?  What other
   analytics do we support? How difficult is it to provide an API to
   support custom local / Pregel-style analytics?}
 
-{\bf Temporal aggregation}, the next important operation in \ql, is
-illustrated by query $Q3$, which, when executed on \insql{T} from
-Figure~\ref{fig:tg} computes the \tg in Figure~\ref{fig:tg_any}.
+{\bf Temporal aggregation} is illustrated by query $Q3$, which, when
+executed on \insql{T} from Figure~\ref{fig:tg}, computes the \tg in
+Figure~\ref{fig:tg_any}.
 
 \begin{verbatim}
 Q3: TSelect   Any V ; Any E 
@@ -154,7 +154,7 @@ support grouping by non-key attributes, i.e., structural aggregation
 of snapshots.  Further, we will define an API to allow developers to
 specify custom aggregation operators.
 
-{\bf Temporal intersection and union.}
+{\bf Temporal intersection and union.} 
 
 \begin{verbatim}
 TSelect   Any V; Any E
