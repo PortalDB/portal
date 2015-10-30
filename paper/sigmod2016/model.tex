@@ -14,12 +14,14 @@ pairs of nodes from $V$, with schema $(\underline{vid_1},
 \label{def:sg} 
 \end{definition}
 
+\eat{
 \begin{figure}
 \includegraphics[width=3.2in]{figs/snapshot.pdf}
 \caption{Snapshot of DBLP co-authorship graph for 1940, with a single
   string node attribute $name$ and no edge attributes.}
 \label{fig:sg}
 \end{figure}
+}
 
 Attributes of vertices and of edges are not restricted to be of atomic
 types, but may, e.g., be maps or tuples. However it is required that
@@ -35,10 +37,10 @@ $E''$ are union-compatible.
 
 This is the standard union compatibility definition, which requires
 that vertex schema $V$ and edge schema $E$ be the same for $G'$ and
-$G''$.  For example, the snapshot in Figure~\ref{fig:sg} is only
+$G''$.\eat{  For example, the snapshot in Figure~\ref{fig:sg} is only
 compatible with other snapshots where vertices have one non-key string
-attribute $name$ and no non-key edge attributes.
-
+attribute $name$ and no non-key edge attributes.}
+%
 $G$ may represent a directed or an undirected graph.  For undirected
 graphs we choose a canonical representation of an edge, with $vid_1
 \leq vid_2$ (self-loops are allowed).
@@ -111,9 +113,7 @@ $P^{\epsilon}.end=null$, and  $P^{\epsilon}.size=0$.
         resolution. By definition it is of size 0.}}
 
 We next define union-compatibility for temporal sequences, and present
-two basic operations on temporal sequences, which we will use as
-building blocks when we define our query language in
-Section~\ref{sec:lang}.
+two basic operations on temporal sequences.
 
 \begin{definition} [Temporal Union-Compatibility]
 Temporal sequences $P'$ and $P''$ are union-compatible if they have
@@ -140,13 +140,14 @@ while $P_2.res = 1 year$.  $P_1$ and $P_3$ are not union-compatible
 because, while $P_1.res = P_3.res = 2 years$, it is not possible to
 construct a valid temporal sequence with $P.start=\tpy{2001}$,
 $P.end=\tpy{2014}$ and $P.res=2 years$.  Finally, $P_3$, $P_4$ and
-$P_5$ are pair-wise union-compatible.  As our example illustrates, a
-pair of union-compatible sequences may or may not overlap, and may not
-even be consecutive.
+$P_5$ are pair-wise union-compatible.  
 \label{ex:ex1}
 \end{example}
 
-\begin{definition} [Temporal Intersection]
+As our example illustrates, a pair of union-compatible sequences may
+or may not overlap, and may not even be consecutive.
+
+\begin{definition} [Temporal Intersection] 
 Intersection of union-compatible sequences $P'$ and $P''$, denoted $P'
 \cap P''$, is a sequence $P$, containing intervals that are in common
 to $P'$ and $P''$.  If no intervals are in common to $P'$ and $P''$,
@@ -174,6 +175,18 @@ and is not itself time-aware.  Temporal evolution of a graph is
 represented by a sequence of snapshots, called {\em temporal graphs}
 in our formalism.
 
+\begin{figure}
+\includegraphics[width=3.2in]{figs/6snaps.pdf}
+\caption{\tg \insql{T} with 6 snapshots.} 
+\label{fig:tg}
+\end{figure}
+
+\begin{figure}
+\includegraphics[width=3.5in]{figs/2VE.pdf}
+\caption{Vertices and edges of 2 snapshots of \insql{T}.}
+\label{fig:2ve}
+\end{figure}
+
 \begin{definition} [TGraph]
 A {\em temporal graph} (or a {\em \tg}) $T = (G_1, \ldots, G_n; P)$
   associates a sequence of $n$ structurally union-compatible snapshots
@@ -182,18 +195,20 @@ A {\em temporal graph} (or a {\em \tg}) $T = (G_1, \ldots, G_n; P)$
 \end{definition}
 
 Snapshot graphs in the sequence define the {\em structural schema} of
-$T$, while $P$ specifies the {\em temporal schema} of $T$.
+$T$, while $P$ specifies the {\em temporal schema} of $T$.  
 
-Importantly, identity of a vertex persists across snapshots in a \tg,
-and across \tgs.  For example, in Figure~\ref{fig:tgraph} vertex with
-id 3 represents the same author W. V. Quine, who published in both
-1940 and 1952.
+An example of a \tg is given in Figure~\ref{fig:tg}.  Importantly,
+identity of a vertex persists across snapshots in a \tg, and across
+\tgs.  For example, vertex with id $3$ represents the same entity in
+all snapshots in Figure~\ref{fig:tg} in which it occurs.
 
+\eat{
 \begin{figure}
 \includegraphics[width=3.2in]{figs/temporalgraph.pdf}
 \caption{A \tg of VLDB co-authorship over the period from \tpy{1940} to \tpy{1953}.}
 \label{fig:tgraph}
 \end{figure}
+}
 
 To conclude this section, we define union-compatibility for \tgs.
 
@@ -207,8 +222,7 @@ union-compatible (per Definition~\ref{def:tcompat}).
 The \tg of Definition~\ref{def:tgraph} is the basic element in our
 model.  In what follows, we assume that a relation in our database
 corresponds to a single \tg, not to a collection of \tgs.  In the next
-section we will define algebraic operators that take a single \tg or a
-pair of \tgs as inputn, and produce a \tg as output.
+section we will present the \ql query langauge that operates on \tgs.
 
 
 
