@@ -109,7 +109,7 @@ a particular month.
 
 Note the use of the modifier \insql{Any} in the \insql{TSelect} clause
 of $Q3$.  This modifier specifies semantics of {\em structural
-  aggregation}, namely, that the output will contain a union of the
+  aggregation}, namely, that the output will contain the union of the
 vertices (resp. edges) from the snapshots being aggregated.  In our
 example, the snapshot $[2010, 2012)$ in the result s computed from
   snapshots $[2010, 2011)$ and $[2011, 2012)$ in the input and
@@ -132,16 +132,16 @@ Q4: TSelect All V [vid, any(name), max(salary)] ;
 \end{verbatim}
 
 The main difference between $Q4$ and $Q3$ is the \insql{All} modifier
-associated with vertices in the \insql{TSelect} clause of $Q4$.  In
-other words, $Q4$ has different structural aggregation behavior than
-$Q3$.  Specifically, \insql{All V} states that the vertices in the
-result correspond to the intersection of the vertices being
-aggregated.  \insql{Any E} states that the edges in the result
-correspond to the union of the edges connecting the vertices.  As our
-example illustrates, \insql{Any} and \insql{All} modifiers are
-associated with vertices and edges and are orthogonal, subject to the
-constraint that an edge can only be present in a snapshot if both
-vertices it connects are present.
+associated with vertices in the \insql{TSelect} clause of $Q4$.  That
+is, $Q4$ has different structural aggregation behavior than $Q3$.
+Specifically, \insql{All V} states that the vertices in the result
+correspond to the intersection of the vertices being aggregated.
+\insql{Any E} states that the edges in the result correspond to the
+union of the edges connecting the vertices.  As our example
+illustrates, \insql{Any} and \insql{All} modifiers are associated with
+vertices and edges and are orthogonal, subject to the constraint that
+an edge can only be present in a snapshot if both vertices it connects
+are present.
 
 \begin{figure}
 \includegraphics[width=3.2in]{figs/TGroupAllAny.pdf}
@@ -179,71 +179,106 @@ In the current version of \ql, temporal aggregation always groups
 \insql{V} and \insql{E} by their respective key attributes, and values
 of all other attributes are aggregated with one of the provided
 operators (\insql{any} being the default).  In the future we will
-support grouping by non-key attributes, i.e., structural aggregation
-of snapshots.  Further, we will define an API to allow developers to
-specify custom aggregation operators.
+support grouping by non-key attributes.  Further, we will define an
+API to allow developers to specify custom aggregation operators.
 
 {\bf Temporal intersection and union.} We will now present two binary
-operators of \ql, and will illustrate them using \insql{T1} from
-Figure~\ref{fig:tg} and \insql{T2} from Figure~\ref{fig:tg+t2}.  Query
-$Q5$ computes temporal union of \insql{T1} and \insql{T2}.  We require
-that \insql{T1} and \insql{T2} be union-compatible, as per
-Definition~\ref{def:tuc}.
+operators of \ql, and will illustrate them using \insql{T1}
+(Figure~\ref{fig:tg}) and \insql{T2} (Figure~\ref{fig:tg_t2}).  Query
+$Q5$ computes temporal intersection of \insql{T1} and \insql{T2}.  We
+require that \insql{T1} and \insql{T2} be union-compatible, as per
+Definition~\ref{def:tuc}.  The result of this query is in
+Figure~\ref{fig:q5}.
 
 \begin{verbatim}
 Q5:  TSelect   Any V; Any E
-     From      T1 TOr T2
+     From      T1 TAnd T2
 \end{verbatim}
 
+\begin{figure}
+\centering
+\includegraphics[width=2.3in]{figs/q5.pdf}
+\caption{Result of query Q5.}
+\label{fig:q5}
+\end{figure}
+
 Temporal schema of the result is computed according to
-Definition~\ref{def:tseqor}, and corresponds to a sequence with
-$P.start = 2008$, $P.end=2016$ and $P.size=8$.  Note the use of
+Definition~\ref{def:tseqand}, and corresponds to a sequence with
+$P.start = 2010$, $P.end=2014$ and $P.size=4$.  Note the use of
 \insql{Any V} and \insql{Any E} in the \insql{TSelect} clause.  These
 modifiers have the same semantics here as in temporal aggregation,
 specifying that, a vertex (resp. edge) will be present in a snapshot
 in the result if it is present in at least one corresponding snapshot
-of \insql{T1} or \insql{T2}.  Recall from our discussion of temporal
-aggregation that \insql{TSelect Any V; Any E } is short-hand for
-\insql{TSelect Any V [vid, any(name), any(salary)]; Any E [vid1, vid2,
-    any(cnt)]}.
+of \insql{T1} or \insql{T2}.  Also recall from our discussion of
+temporal aggregation that \insql{TSelect Any V; Any E } is short-hand
+for \insql{TSelect Any V [vid, any(name), any(salary)]; Any E [vid1,
+    vid2, any(cnt)]}.
 
-Consider next query $Q6$ that computes temporal intersection of
-\insql{T1} and \insql{T2}.
+Let us briefly revisit {\bf structural aggregation}, which is
+specified with \insql{Any} and \insql{All}, and has the same semantics
+in all \ql operators that map multiple input snapshots into one
+snapshot in the result. These operations are temporal aggregation,
+temporal union and temporal intersection.  In all these operations,
+the use of \insql{Any} and \insql{All} for vertices and edges is
+orthogonal, subject to the constraint that an edge is only be present
+in the result if both vertices connected by the edge are present.
+
+Consider next query $Q6$ that computes temporal union of \insql{T1}
+and \insql{T2}.  The result of this query is listed in
+Figure~\ref{fig:q6}.
 
 \begin{verbatim}
-Q6:  TSelect   Any V[vid, pagerank() as pr; 
-               All E[vid1, vid2, sum(cnt)]
-     From      T1 TAnd T2
+Q6:  TSelect   All V[vid, pagerank() as pr; 
+               Any E[vid1, vid2, sum(cnt)]
+     From      T1 TOr T2
 \end{verbatim}
 
+\begin{figure}
+\centering
+\includegraphics[width=3.3in]{figs/q6.pdf}
+\caption{Result of query Q6.}
+\label{fig:q6}
+\end{figure}
+
 Temporal schema of the result is computed according to
-Definition~\ref{def:tseqand}, and corresponds to a sequence with
-$P.start = 2010$, $P.end=2014$ and $P.size=4$.  Further, observe the
+Definition~\ref{def:tseqor}, and corresponds to a sequence with
+$P.start = 2008$, $P.end=2016$ and $P.size=8$.  Further, observe the
 use of projection (non-key attributes of \insql{V} are not retained),
 of an analytic function \insql{pagerank} and of the aggregation
-operation \insql{sum} applied to the edge attribute \insql{cnt}.  
+operation \insql{sum} applied to the edge attribute \insql{cnt}.
 
-\insql{Any} and \insql{All} are supported by both temporal union and
-temporal intersection.  As with temporal aggregation, the use of
-\insql{Any} and \insql{All} for vertices and edges is orthogonal,
-subject to the constraint that an edge will only be present in the
-result if both vertices connected by the edge are in the result.
-
-So far we illustrated individual operators of \ql.  In what follows,
-we will show how multiple operators can be combined in a single query.
-
-{\bf Combining operators.}  Consider $Q7$ below, with result shown in
+{\bf Combining operators.}  So far we illustrated individual operators
+of \ql.  Now we will show how multiple operators can be combined in a
+single query.  Consider $Q7$ below, with result shown in
 Figure~\ref{fig:q7}. This query computes temporal intersection of
 \insql{T1} and \insql{T2} and then temporally aggregates the resulting
 \tg.
 
 \begin{verbatim}
-Q7:  TSelect   Any V [vid, pagerank() as pr]; 
+Q7:  TSelect   Any V [vid, any(name)] ;
                Any E [id1, id2]
      From      T1 TAnd T2
-     Start     2010 End 2012
+     Start     2012 End 2014
      TGroup    by 2 years
 \end{verbatim}
+
+\begin{figure}
+\centering
+\begin{minipage}{1.6in}
+  \centering
+  \includegraphics[width=1in]{figs/q7.pdf}
+  \caption{Result of Q7.}{}
+  \label{fig:q7}
+\end{minipage}%
+\begin{minipage}{1.6in}
+  \centering
+  \includegraphics[width=1in]{figs/q8.pdf}
+  \caption{Result of Q8.}{}
+  \label{fig:q8}
+\end{minipage}
+%\caption{Results of queries Q7 and Q8.}
+%\label{fig:q7q8}
+\end{figure}
 
 We make several observations.  First, \insql{TAnd} and \insql{TGroup}
 use the same specification in the \insql{TSelect} clause, that is, we
@@ -264,13 +299,12 @@ Figure~\ref{fig:q8}.  Observe that $Q8$ explicitly pushes temporal
 selection and intersection below temporal aggregation.
 
 \begin{verbatim}
-Q8:  TSelect   Any V [vid, pagerank() as pr]; 
-               Any E [id1, id2]
-     From      (TSelect All V [vid] ; 
-                        All E [vid1, vid2]
-                From    T1 TAnd T2
-                Start   2010 End 2012
-               )
+Q8:  TSelect   All V [vid, any{name)];
+               All E [id1, id2]
+     From      ( TSelect Any V [vid, any(name)] ; 
+                          Any E [vid1, vid2]
+                  From    T1 TAnd T2
+                  Start   2012 End 2014 )
      TGroup    by 2 years
 \end{verbatim}
 
