@@ -71,7 +71,7 @@ Q2: TSelect  V [vid, pagerank() as pr];
 This query illustrates how the \insql{TSelect} clause can be used to
 specify the structural schema of the result, which in this case is
 V(\underline{vid}:int, pr:float) ; E(\underline{vid1}:int,
-\underline{vid2}:int, score:float).  We msy use the \insql{TSelect}
+\underline{vid2}:int, score:float).  We may use the \insql{TSelect}
 clause to project out non-key columns of \insql{V} and \insql{E}, or
 to add columns with computed values.  Data types of computed
 attributes \insql{pr} and \insql{score} are determined by the return
@@ -247,7 +247,7 @@ Q7:  TSelect   Any V [vid, pagerank() as pr];
 
 We make several observations.  First, \insql{TAnd} and \insql{TGroup}
 use the same specification in the \insql{TSelect} clause, that is, we
-cannnot decouple structural aggregation behavior of the two
+cannot decouple structural aggregation behavior of the two
 operations. Second, when the query is evaluated, the order of
 \insql{TAnd}, \insql{TGroup} and temporal selection is
 interchangeable, but may result in vastly different performance.  We
