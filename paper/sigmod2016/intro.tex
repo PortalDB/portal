@@ -77,9 +77,19 @@ overlapping, time periods, or even at different temporal scales.  Can
 these datasets be unified, in a principled way, to support analysis or
 meta-analysis of network evolution trends? 
 
-\reminder{Example of an interesting query goes here.}  In the
-remainder of this paper we will explain precisely what this query
-computes, and how it computes its result.
+As a preview of the development of this paper, consider the following
+query.
+
+\begin{verbatim}
+TSelect   Any V [vid, any(name), pagerank() as pr]; 
+          Any E [id1, id2, sum(cnt)]
+From      T1 TAnd T2
+Start     2010 End 2012
+TGroup    by 2 years
+\end{verbatim}
+
+In the remainder of this paper we will explain precisely what this
+query computes, and how it computes its result.
 
 {\bf Contributions.} In this paper we develop \ql, a declarative query
 language for efficient querying and exploratory analysis of evolving
