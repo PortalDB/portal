@@ -46,7 +46,7 @@ in our examples.
 
 \begin{verbatim}
 Q1: TSelect  V; E
-    From     T
+    From     T1
     Start    2010 End 2014
 \end{verbatim}
 
@@ -75,22 +75,22 @@ V(\underline{vid}:int, pr:float) ; E(\underline{vid1}:int,
 clause to project out non-key columns of \insql{V} and \insql{E}, or
 to add columns with computed values.  Data types of computed
 attributes \insql{pr} and \insql{score} are determined by the return
-type of the expression that computes them.  Note that key columns of
+type of the expressions that compute them.  Note that key columns of
 \insql{V} and \insql{E} must be present in the result.
 
 The value of the attribute \insql{pr} in $Q2$ is computed using the
-analytic function \insql{pagerank()}.  In addition to PageRank, \ql
-supports a variety of analytic functions, including degree, shortest
-path and connected component.  We provide an API that allows
-developers to implement custom analytics that can either be computed
-locally at a vertex, like degree, or that can be expressed in the
-popular Pregel API. \reminder{Is what I'm saying true?  What other
-  analytics do we support? How difficult is it to provide an API to
-  support custom local / Pregel-style analytics?}
+analytic function \insql{pagerank()}.  \ql supports a variety of
+analytic functions, including degree, shortest path and connected
+component.  We provide an API that allows developers to implement
+custom analytics that can either be computed locally at a vertex, like
+degree, or that can be expressed in the popular Pregel
+API. \reminder{Is what I'm saying true?  What other analytics do we
+  support? How difficult is it to provide an API to support custom
+  local / Pregel-style analytics?}
 
 {\bf Temporal aggregation} is illustrated by query $Q3$, which, when
 executed with \insql{T1} from Figure~\ref{fig:tg} as input, computes
-the \tg in Figure~\ref{fig:tg_any}.
+the \tg in Figure~\ref{fig:q3}.
 
 \begin{verbatim}
 Q3: TSelect   Any V ; Any E 
@@ -110,15 +110,14 @@ a particular month.
 Note the use of the modifier \insql{Any} in the \insql{TSelect} clause
 of $Q3$.  This modifier specifies semantics of {\em structural
   aggregation}, namely, that the output will contain the union of the
-vertices (resp. edges) from the snapshots being aggregated.  In our
-example, the snapshot $[2010, 2012)$ in the result s computed from
-  snapshots $[2010, 2011)$ and $[2011, 2012)$ in the input and
-      contains 5 vertices and 6 edges.
+vertices (resp. edges) from the snapshots being aggregated.  For
+example, snapshot $[2010, 2012)$ in Figure~\ref{fig:q3} is computed
+  from snapshots $[2010, 2011)$ and $[2011, 2012)$ in \insql{T1}.
 
 \begin{figure}
 \includegraphics[width=3.2in]{figs/TGroupAny.pdf}
 \caption{Result of query Q3 on T1.}
-\label{fig:tg_any}
+\label{fig:q3}
 \end{figure}
 
 Consider next query $Q4$, and its result in
@@ -157,17 +156,15 @@ following aggregation operations available: \insql{any},
 
 To illustrate, consider vertex and edge relations in
 Figure~\ref{fig:2ve}, which correspond to the first two snapshots of
-\insql{T1}.  
-
-Vertex 1 is present in both $[2010, 2011)$ and $[2011, 2012)$ in
-\insql{T1}, and so is present in the snapshot $[2010, 2012)$ of the
-result of $Q4$.  Vertex 1 has \insql{name='Cathy'} in both
-snapshots, but different values for \insql{salary} in $[2010, 2011)$
-and $[2011, 2012)$.  Therefore, taking any value of \insql{name} and
-the maximum \insql{salary} may be appropriate.  Operations
-\insql{first} and \insql{last} return the value corresponding to the
-earliest (resp. latest) occurrence of the attribute, while
-\insql{list} returns a collection of all attribute values.
+\insql{T1}.  Vertex 1 is present in both $[2010, 2011)$ and $[2011,
+    2012)$ in \insql{T1}, and so is present in the snapshot $[2010,
+      2012)$ of the result of $Q4$.  Vertex 1 has \insql{name='Cathy'}
+      in both snapshots, but different values for \insql{salary}.
+      Therefore, taking any value of \insql{name} and the maximum
+      \insql{salary} may be appropriate.  Operations \insql{first} and
+      \insql{last} return the value corresponding to the earliest
+      (resp. latest) occurrence of an attribute, while \insql{list}
+      returns a collection of all attribute values.
 
 Returning to query $Q3$, when aggregation of attribute values is not
 specified explicitly, \insql{any} is used as the default for non-key
@@ -220,7 +217,7 @@ in all \ql operators that map multiple input snapshots into one
 snapshot in the result. These operations are temporal aggregation,
 temporal union and temporal intersection.  In all these operations,
 the use of \insql{Any} and \insql{All} for vertices and edges is
-orthogonal, subject to the constraint that an edge is only be present
+orthogonal, subject to the constraint that an edge is only present
 in the result if both vertices connected by the edge are present.
 
 Consider next query $Q6$ that computes temporal union of \insql{T1}
@@ -244,7 +241,7 @@ Temporal schema of the result is computed according to
 Definition~\ref{def:tseqor}, and corresponds to a sequence with
 $P.start = 2008$, $P.end=2016$ and $P.size=8$.  Further, observe the
 use of projection (non-key attributes of \insql{V} are not retained),
-of an analytic function \insql{pagerank} and of the aggregation
+of an analytic function \insql{pagerank()} and of the aggregation
 operation \insql{sum} applied to the edge attribute \insql{cnt}.
 
 {\bf Combining operators.}  So far we illustrated individual operators
@@ -252,7 +249,7 @@ of \ql.  Now we will show how multiple operators can be combined in a
 single query.  Consider $Q7$ below, with result shown in
 Figure~\ref{fig:q7}. This query computes temporal intersection of
 \insql{T1} and \insql{T2} and then temporally aggregates the resulting
-\tg.
+\tg by 2 years.
 
 \begin{verbatim}
 Q7:  TSelect   Any V [vid, any(name)] ;
@@ -282,9 +279,9 @@ Q7:  TSelect   Any V [vid, any(name)] ;
 
 We make several observations.  First, \insql{TAnd} and \insql{TGroup}
 use the same specification in the \insql{TSelect} clause, that is, we
-cannot decouple structural aggregation behavior of the two
-operations. Second, when the query is evaluated, the order of
-\insql{TAnd}, \insql{TGroup} and temporal selection is
+cannot decouple structural aggregation behavior of the two operations
+in a query of this kind. Second, when the query is evaluated, the
+order of \insql{TAnd}, \insql{TGroup} and temporal selection is
 interchangeable, but may result in vastly different performance.  We
 will discuss this further in Section~\ref{sec:sys}.
 
@@ -308,5 +305,34 @@ Q8:  TSelect   All V [vid, any{name)];
      TGroup    by 2 years
 \end{verbatim}
 
-{\bf Loading data.  Inspecting results.}
+{\bf Loading filesystem data.  Referring to query results.}
+
+Queries $Q1$ through $Q8$ referred to \tg variables in the
+\insql{From} clause.  The value of a \tg variable is assigned by the
+\insql{Into} clause.  This value may be computed by any \ql query
+query, or it may be loaded from the file system.  This is illustrated
+by queries $Q9$ and $Q10$.
+
+\begin{verbatim}
+Q9:   TSelect V[vid:int, name:str, salary:int]; 
+              E[vid1:int, vid2:int, cnt:int]
+      From    path/to/directory
+      Into    T3
+\end{verbatim}
+
+\begin{verbatim}
+Q10:  TSelect V; E
+      From    T1
+      Into    T4
+      Start   2010  End 2014
+\end{verbatim}
+
+Note that when data is loaded from the file system as in $Q9$, the
+\insql{TSelect} clause must specify the structural schema.  On the
+other hand, when a \tg variable takes on a value computed by a query,
+as is the case with \insql{T4} in query $Q10$, its structural schema
+is determined by the query result.  That is, the structural schema of
+\insql{T4} is the same as that of \insql{T1}.
+
+{\bf Inspecting results.}
 
