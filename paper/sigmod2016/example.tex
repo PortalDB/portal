@@ -2,12 +2,18 @@
 \label{sec:example}
 
 In this section we illustrate the salient features of \ql, a
-declarative query language for evolving graphs.  We will discuss how
-\ql queries are evaluated in Section~\ref{sec:sys}.  We will use \tgs
-\insql{T1} and \insql{T2} of Figures~\ref{fig:tg} and~\ref{fig:tg_t2},
-both with the structural schema V(\underline{vid}:int, name:str,
-salary:int); E(\underline{vid1}:int, \underline{vid2}:int, cnt:int),
-in our examples.
+declarative query language for evolving graphs. \ql uses SQL-like
+syntax, and has the form \insql{TSelect} \ldots \insql{From} \ldots
+\insql{TWhere} \ldots \insql{TGroup}.  We prefix temporal keywords
+with \insql{T}, to make the distinction between \ql and SQL operations
+explicit.
+
+We will discuss how \ql queries are evaluated in
+Section~\ref{sec:sys}.  We will use \tgs \insql{T1} and \insql{T2} of
+Figures~\ref{fig:tg} and~\ref{fig:tg_t2}, both with the structural
+schema V(\underline{vid}:int, name:str, salary:int);
+E(\underline{vid1}:int, \underline{vid2}:int, cnt:int), in our
+examples.
 
 \begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/6snaps.pdf}
@@ -49,29 +55,40 @@ in our examples.
 \begin{verbatim}
 Q1: TSelect  V; E
     From     T1
-    Start    2010 End 2014
+    TWhere   Start >= 2010 And End <= 2014
 \end{verbatim}
 
 $Q1$ performs temporal selection --- its result is a \tg that contains
-a consecutive subset of the snapshots of \insql{T1}, namely, $[2010,
-  2011)$ through $[2013, 2014)$, and has the same structural schema as
-    \insql{T1}.  \insql{Start} $t_1$ \insql{End} $t_2$ specifies a
-    closed-open period $[t_1, t_2)$.  Its time unit must match, or be
-      coarser than, the time unit of \insql{T1}.
+a consecutive subset of the snapshots of \insql{T1} that fall within
+the interval specified by the \insql{TWhere} clause, namely, $[2010,
+  2011)$ through $[2013, 2014)$.  The result of $Q1$ is a \tg with the
+    same structural schema as \insql{T1}. The \insql{Start} or the
+    \insql{End} portion of the \insql{TWhere} clause may be
+    omitted. 
 
-If $t_1 < P.start$, we rewrite the query, setting $t_1 = P.start$.
-Similarly, if $t_2 > P.end$, we rewrite the query, setting $t_2 =
-P.end$.  If $t_1$ does not fall on an interval boundary in the input
-\tg, we rewrite the query, setting $t_1$ to the {\em beginning} of the
-interval in which it falls.  If $t_2$ does not fall on the interval
-bounday, we rewrite the query, setting $t_2$ to the {\em end} of the
-interval in which it falls.
+More generally, the \insql{TWhere} clause supports a variety of
+predicates based on which it is determined, for each snapshot in \tg,
+whether that snapshot is to be retained or discarded.  For example,
+\insql{TWhere month(Start) like '\%R\%'} will retain all snapshots
+that start during a month in which it is safe to eat oysters (these
+are months with the letter 'R' in their name), while \insql{TWhere
+  year(End) \% 4 = 0} will retain snapshots that end in a leap year,
+and discard all others.  However, recall from
+Definition~\ref{sec:tseq} that a temporal sequence, which constitutes
+the temporal schema of a \tg, cannot have any gaps.  We enforce this
+by never discarding a time interval in the middle of a sequence, but
+rather replacing its snapshot with an empty graph $G(V=\emptyset;
+E=\emptyset)$.  
 
-\eat{ \reminder{What do we do if start or end falls within a snapshot,
-    i.e., is not at the boundary?}\vera{Response: it dilates, meaning
-    the resulting selection will start with the interval that contains
-    the specified start date and end with the interval that contains
-    the specified end date.}}
+\eat{\insql{Start} $t_1$ \insql{End} $t_2$ specifies a closed-open
+  period $[t_1, t_2)$.  Its time unit must match, or be coarser than,
+    the time unit of \insql{T1}.  If $t_1 < P.start$, we rewrite the
+    query, setting $t_1 = P.start$.  Similarly, if $t_2 > P.end$, we
+    rewrite the query, setting $t_2 = P.end$.  If $t_1$ does not fall
+    on an interval boundary in the input \tg, we rewrite the query,
+    setting $t_1$ to the {\em beginning} of the interval in which it
+    falls.  If $t_2$ does not fall on the interval bounday, we rewrite
+    the query, setting $t_2$ to the {\em end} of the interval in which}
 
 {\bf Specifying the structural schema of the result.  Analytics.}
 Next, consider query $Q2$ below.
@@ -123,6 +140,10 @@ that we can aggregate an input \tg that has day as its unit into a \tg
 with month as its time unit, by simply specifying \insql{TGroup by 1
   month}, and without having to worry about how many days there are in
 a particular month.
+
+We may use \insql{TGroup by Size} to specify that all snapshots of the
+input \tg be aggregated into a 1-snapshot \tg.  This notation will be
+useful when we discuss trend analytics later in this section.
 
 Note the use of the modifier \insql{Any} in the \insql{TSelect} clause
 of $Q3$.  This modifier specifies semantics of {\em structural
@@ -263,17 +284,31 @@ operation \insql{sum} applied to the edge attribute \insql{cnt}.
 
 {\bf Combining operators.}  So far we illustrated individual operators
 of \ql.  Now we will show how multiple operators can be combined in a
-single query.  Consider $Q7$ below, with result shown in
-Figure~\ref{fig:q7}. This query computes temporal intersection of
-\insql{T1} and \insql{T2} and then temporally aggregates the resulting
-\tg by 2 years.
+single query.  The semantics of a \ql query without nesting is such
+that the \insql{From} clause (\insql{TAnd} and \insql{TOr}) is
+evaluated first, followed by \insql{TWhere}, then by \insql{TGroup},
+and finally by aggregate and analytic functions in \insql{TSelect}.
+
+While the logical order of operations is predetermined, we will see in
+Section~\ref{sec:sys} that some operators can be reordered without
+affecting the result (but with potential differences in performance),
+while others cannot.  Specifically, while temporal selection can
+always be pushed below temporal intersection, it is sometimes, but not
+always, the case that selection and intersection, and intersection and
+aggregation, can be reordered.
+
+Consider $Q7$ below, with result shown in Figure~\ref{fig:q7}. $Q7$
+computes temporal intersection of \insql{T1} and \insql{T2}, restricts
+the result to $[2010, 2014)$, and temporally aggregates the resulting
+  \tg by 2 years.  Finally, \insql{pagerank()} is computed for each
+  vertex in the result.
 
 \begin{verbatim}
-Q7:  TSelect   Any V [vid, any(name)] ;
-               Any E [id1, id2]
-     From      T1 TAnd T2
-     Start     2012 End 2014
-     TGroup    by 2 years
+Q7:  TSelect Any V [vid, any(name), pagerank() as pr] ; 
+             Any E [id1, id2] 
+     From    T1 TAnd T2 
+     TWhere  Start >= 2010 And End <= 2014 
+     TGroup by 2 years
 \end{verbatim}
 
 \begin{figure}
@@ -294,17 +329,10 @@ Q7:  TSelect   Any V [vid, any(name)] ;
 %\label{fig:q7q8}
 \end{figure}
 
-We make several observations.  First, \insql{TAnd} and \insql{TGroup}
-use the same specification in the \insql{TSelect} clause, that is, we
-cannot decouple structural aggregation behavior of the two operations
-in a query of this kind. Second, when the query is evaluated, the
-order of \insql{TAnd}, \insql{TGroup} and temporal selection is
-interchangeable, but may result in vastly different performance.  We
-will discuss this further in Section~\ref{sec:sys}.
-
-\reminder{Discuss what happens when Start or End falls inside a
-  group. Check that the order of these three operations is in fact
-  interchangeable.}\vera{It is interchangeable in this example but is not in general. For example, if graph is in [2010,2016) and you want to agg by 2 and select 2013 to 2015, if agg is done first, the final result is 2 snapshots, but if select is done first, then only 1.}
+Observe that \insql{TAnd} and \insql{TGroup} use the same
+specification in the \insql{TSelect} clause, that is, we cannot
+decouple structural aggregation behavior of the two operations in a
+query of this kind.
 
 Consider next query $Q8$ that is similar to $Q7$, but uses nesting to
 decouple structural aggregation of \insql{TSelect} from that of
@@ -313,41 +341,64 @@ Figure~\ref{fig:q8}.  Observe that $Q8$ explicitly pushes temporal
 selection and intersection below temporal aggregation.
 
 \begin{verbatim}
-Q8:  TSelect   All V [vid, any{name)];
+Q8:  TSelect   All V [vid, any{name), pagerank() as pr];
                All E [id1, id2]
      From      ( TSelect Any V [vid, any(name)] ; 
                           Any E [vid1, vid2]
                   From    T1 TAnd T2
-                  Start   2012 End 2014 )
+                  TWhere  Start >= 2010 And End <= 2014 )
      TGroup    by 2 years
 \end{verbatim}
 
-{\bf Loading filesystem data.  Views.}  Queries $Q1$ through $Q8$
-referred to \tg variables in the \insql{From} clause.  The value of a
-\tg variable is assigned by the \insql{Into} clause.  This value may
-be loaded from the file system, as in query $Q9$, or it may correspond
-to a view, as in query $Q10$.
+{\bf Trend analytics.} We argued in the introduction that it is
+important to support analysis of trends in evolving graphs.  The
+features of \ql presented so far make this sophisticated analysis
+possible, as illustrated by query $Q9$ below.
 
 \begin{verbatim}
-Q9:   TSelect V[vid:int, name:str, salary:int]; 
+Q9:   TSelect All V[vid, trend(pr) as pr_trend];
+              All E[vid1, vid2]  
+      From    ( TSelect V[vid, pagerank() as pr]; 
+                        E[vid1, vid2]
+                From    T1 )
+     TGroup   by Size
+\end{verbatim}
+
+Recall from our discussion of temporal aggregation that \insql{TGroup
+  by Size} produces a 1-snapshot \tg.  Next, consider the use of the
+analytic function \insql{trend(pr)}, which aggregates \insql{pagerank}
+scores of each vertex.  We implement \insql{trend()} using the
+standard definition in~\cite{}.  We also provide an API that allows
+developers to implement custom trend functions and make them available
+through the \ql framework.
+
+{\bf Loading filesystem data.  Views.}  Queries $Q1$ through $Q9$
+refer to \tg variables in the \insql{From} clause.  The value of a \tg
+variable is assigned by the \insql{Into} clause.  This value may be
+loaded from the file system, as in query $Q10$, or it may correspond to
+a view, as in query $Q11$.
+
+\begin{verbatim}
+Q10:  TSelect V[vid:int, name:str, salary:int]; 
               E[vid1:int, vid2:int, cnt:int]
       From    path/to/directory
       Into    T3
 \end{verbatim}
 
 \begin{verbatim}
-Q10:  TSelect V; E
+Q11:  TSelect V; E
       From    T1
       Into    T4
-      Start   2010  End 2014
+      TWhere  Start >=  2010 
 \end{verbatim}
 
 Note that when data is loaded into a \tg variable from the file
-system, as in $Q9$, the \insql{TSelect} clause must specify the
+system, as in $Q10$, the \insql{TSelect} clause must specify the
 structural schema.  When a \tg variable takes on a value computed by a
 query, its structural schema is determined by the query result.  In
-$Q10$, the structural schema of the view \insql{T4} is the same as
+$Q11$, the structural schema of the view \insql{T4} is the same as
 that of \insql{T1}.
 
-{\bf Inspecting results.}
+{\bf Inspecting results with SQL.}  
+
 
