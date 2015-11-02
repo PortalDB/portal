@@ -8,9 +8,29 @@ GraphX~\cite{DBLP:conf/osdi/GonzalezXDCFS14}.
 
 Our work shares motivation with recent work by Miao et
 al.~\cite{DBLP:journals/tos/MiaoHLWYZPCC15}, who developed an
-in-memory execution engine for temporal graph analytics.  Unlike Miao
-et al., who focus on in-memory layout and locality-aware scheduling
-mechanisms, we work in a distributed storage and processing
-environment.  
+in-memory execution engine for temporal graph analytics.  Immortal
+Graph distinguishes between queries that do one-time random-storage IO
+and repeated graph traversals in memory such as analytics.  For
+random-storage IO retrievals, physical data layout is important.  The
+snapshot group method used by the authors is very similar to what
+Khurana~\cite{} did for temporal graph storage.  We, in contrast, do
+not worry about physical data layout on disk and just deal with
+snapshots of saved resolution.  However, our file format favors SGP
+while MG and OG have to do expensive group-by operations.  Immortal
+graph instead just keeps different type replicas on disk and picks the
+better one for the type of query requested.  Also, another benefit of
+this approach to physical storage is that it can support an arbitrary
+resolution, while we can only support resolutions no smaller than the
+ones at which snapshots are taken.
+
+The batched approach to analytics in this paper relies on the
+observation that most realworld graphs have a high unchanged ratio -
+the ratio of edges that each snapshot inherits from its immediate
+predecessor.  This observation may not hold at different levels of
+aggregation, especially with universal semantics.
 
 Amol's work: snapshot retrieval and anything else that is relevant.
+
+The only work on defining a query language for evolving graphs:~\cite{Kan2009}.
+
+Pattern mining work by Borgward~\cite{Borgwardt2006}, Chan~\cite{Chan2008}.

@@ -122,7 +122,7 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Map[
       new OneGraph[VD, ED](newIntvs, resg)
 
     } else
-      OneGraph.emptyGraph()
+      OneGraph.emptyGraph[VD,ED]()
   }
 
   override def select(tpred: Interval => Boolean): TemporalGraph[VD, ED] = {
@@ -317,7 +317,7 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Map[
     val startBound = if (span.start.isBefore(grp2.span.start)) grp2.span.start else span.start
     val endBound = if (span.end.isAfter(grp2.span.end)) grp2.span.end else span.end
     if (startBound.isAfter(endBound) || startBound.isEqual(endBound)) {
-      OneGraph.emptyGraph()
+      OneGraph.emptyGraph[VD,ED]()
     } else {
       //we are taking a temporal subset of both graphs
       //and then doing the structural part

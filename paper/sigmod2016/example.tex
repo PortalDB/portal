@@ -50,14 +50,14 @@ Q1: TSelect  V; E
     Start    2010 End 2014
 \end{verbatim}
 
-$Q1$ performs temporal selection --- it's result is a \tg that
+$Q1$ performs temporal selection --- its result is a \tg that
 contains a consecutive subset of the snapshots of \insql{T1}, namely,
 $[2010, 2011)$ through $[2013, 2014)$, and has the same structural
 schema as \insql{T1}.  The time period specified by the \insql{Start}
 \ldots \insql{End} clause is a closed-open period.  Its time unit must
 match, or be coarser than, the time unit of \insql{T1}. \reminder{What
   do we do if start or end falls within a snapshot, i.e., is not at
-  the boundary?}
+  the boundary?}\vera{Response: it dilates, meaning the resulting selection will start with the interval that contains the specified start date and end with the interval that contains the specified end date.}
 
 {\bf Specifying the structural schema of the result.  Analytics.}
 Next, consider query $Q2$ below.
@@ -86,7 +86,10 @@ custom analytics that can either be computed locally at a vertex, like
 degree, or that can be expressed in the popular Pregel
 API. \reminder{Is what I'm saying true?  What other analytics do we
   support? How difficult is it to provide an API to support custom
-  local / Pregel-style analytics?}
+  local / Pregel-style analytics?}\vera{Yes, our api supports degrees,
+  connected components, shortest paths, pagerank, and defining any
+  pregel operation. The remaining question is how to tie that into the
+  language which is not api-based.}
 
 {\bf Temporal aggregation} is illustrated by query $Q3$, which, when
 executed with \insql{T1} from Figure~\ref{fig:tg} as input, computes
@@ -215,7 +218,7 @@ Let us briefly revisit {\bf structural aggregation}, which is
 specified with \insql{Any} and \insql{All}, and has the same semantics
 in all \ql operators that map multiple input snapshots into one
 snapshot in the result. These operations are temporal aggregation,
-temporal union and temporal intersection.  In all these operations,
+temporal union, and temporal intersection.  In all these operations,
 the use of \insql{Any} and \insql{All} for vertices and edges is
 orthogonal, subject to the constraint that an edge is only present
 in the result if both vertices connected by the edge are present.
@@ -225,7 +228,7 @@ and \insql{T2}.  The result of this query is listed in
 Figure~\ref{fig:q6}.
 
 \begin{verbatim}
-Q6:  TSelect   All V[vid, pagerank() as pr; 
+Q6:  TSelect   All V[vid, pagerank() as pr]; 
                Any E[vid1, vid2, sum(cnt)]
      From      T1 TOr T2
 \end{verbatim}
@@ -287,7 +290,7 @@ will discuss this further in Section~\ref{sec:sys}.
 
 \reminder{Discuss what happens when Start or End falls inside a
   group. Check that the order of these three operations is in fact
-  interchangeable.}
+  interchangeable.}\vera{It is interchangeable in this example but is not in general. For example, if graph is in [2010,2016) and you want to agg by 2 and select 2013 to 2015, if agg is done first, the final result is 2 snapshots, but if select is done first, then only 1.}
 
 Consider next query $Q8$ that is similar to $Q7$, but uses nesting to
 decouple structural aggregation of \insql{TSelect} from that of

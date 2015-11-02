@@ -1,2 +1,28 @@
 \section{Conclusions and Future Work}
 \label{sec:conc}
+
+While the Portal language is extensive, it is by no means complete. We
+recognize that there are a number of operations that are currently not
+supported but would be useful to potential users:
+
+\begin{enumerate}
+\item Temporal pattern matching.  While aggregation provides an
+  ability to detect some patters, a more general temporal-structural
+  pattern mining is needed.  Work on specifying structural patterns in
+  graphs is ongoing, however, at the time of this writing we are not
+  aware of a general approach for specifying structural patterns that
+  also have a time dimension.  For example, how should the user
+  specify that he/she is looking for small strongly connected
+  components that exhibit consistent growth over a period of time?
+  Some work on this front has been done by Chan et
+  al~\cite{Chan2008,Kan2009}.
+\item Structural select (subgraph).  \vera{we have this in the api but
+  not in the language.}
+\item Other kinds of temporal select besides by interval, such as with
+  predicates, similar to snapshot selection support
+  in~\cite{Khurana2013}. \vera{again, we have this in the api but not
+    in the language.}
+\item Across-time analytics (unlike spanshot-based analytics,
+  e.g. pagerank) like the centrality metric for dynamic networks,
+  where influence of a vertex propagates through time.
+\end{enumerate}
