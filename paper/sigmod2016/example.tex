@@ -27,6 +27,7 @@ in our examples.
 \label{fig:2ve}
 \end{figure}
 
+\eat{
 \begin{table}
  \label{tab:terms}
  \begin{tabular}{l|l}
@@ -34,13 +35,14 @@ in our examples.
    \hline
    temporal selection &  \insql{Start} \ldots \insql{End} \\ 
    temporal aggregation & \insql{TGroup by 2 years} \\
-   structural aggregation & \insql{Any V[vid, sum(salary)] } \\
-   structural union & \insql{T1 TOr T2}  \\
-   structural intersection & \insql{T1 TAnd T2}  \\
+%   structural aggregation & \insql{Any V[vid, sum(salary)] } \\
+   temporal union & \insql{T1 TOr T2}  \\
+   temporal intersection & \insql{T1 TAnd T2}  \\
    \hline
   \end{tabular}
   \caption{Summary of \ql operations, with corresponding query fragments.}
 \end{table}
+}
 
 {\bf Temporal selection.}  Consider query $Q1$ below.  
 
@@ -50,14 +52,26 @@ Q1: TSelect  V; E
     Start    2010 End 2014
 \end{verbatim}
 
-$Q1$ performs temporal selection --- its result is a \tg that
-contains a consecutive subset of the snapshots of \insql{T1}, namely,
-$[2010, 2011)$ through $[2013, 2014)$, and has the same structural
-schema as \insql{T1}.  The time period specified by the \insql{Start}
-\ldots \insql{End} clause is a closed-open period.  Its time unit must
-match, or be coarser than, the time unit of \insql{T1}. \reminder{What
-  do we do if start or end falls within a snapshot, i.e., is not at
-  the boundary?}\vera{Response: it dilates, meaning the resulting selection will start with the interval that contains the specified start date and end with the interval that contains the specified end date.}
+$Q1$ performs temporal selection --- its result is a \tg that contains
+a consecutive subset of the snapshots of \insql{T1}, namely, $[2010,
+  2011)$ through $[2013, 2014)$, and has the same structural schema as
+    \insql{T1}.  \insql{Start} $t_1$ \insql{End} $t_2$ specifies a
+    closed-open period $[t_1, t_2)$.  Its time unit must match, or be
+      coarser than, the time unit of \insql{T1}.
+
+If $t_1 < P.start$, we rewrite the query, setting $t_1 = P.start$.
+Similarly, if $t_2 > P.end$, we rewrite the query, setting $t_2 =
+P.end$.  If $t_1$ does not fall on an interval boundary in the input
+\tg, we rewrite the query, setting $t_1$ to the {\em beginning} of the
+interval in which it falls.  If $t_2$ does not fall on the interval
+bounday, we rewrite the query, setting $t_2$ to the {\em end} of the
+interval in which it falls.
+
+\eat{ \reminder{What do we do if start or end falls within a snapshot,
+    i.e., is not at the boundary?}\vera{Response: it dilates, meaning
+    the resulting selection will start with the interval that contains
+    the specified start date and end with the interval that contains
+    the specified end date.}}
 
 {\bf Specifying the structural schema of the result.  Analytics.}
 Next, consider query $Q2$ below.
@@ -80,16 +94,16 @@ type of the expressions that compute them.  Note that key columns of
 
 The value of the attribute \insql{pr} in $Q2$ is computed using the
 analytic function \insql{pagerank()}.  \ql supports a variety of
-analytic functions, including degree, shortest path and connected
-component.  We provide an API that allows developers to implement
+analytic functions, including degree, shortest paths and connected
+components.  We provide an API that allows developers to implement
 custom analytics that can either be computed locally at a vertex, like
-degree, or that can be expressed in the popular Pregel
-API. \reminder{Is what I'm saying true?  What other analytics do we
-  support? How difficult is it to provide an API to support custom
-  local / Pregel-style analytics?}\vera{Yes, our api supports degrees,
-  connected components, shortest paths, pagerank, and defining any
-  pregel operation. The remaining question is how to tie that into the
-  language which is not api-based.}
+degree, or that can be expressed in the popular Pregel API.\eat{
+  \reminder{Is what I'm saying true?  What other analytics do we
+    support? How difficult is it to provide an API to support custom
+    local / Pregel-style analytics?}\vera{Yes, our api supports
+    degrees, connected components, shortest paths, pagerank, and
+    defining any pregel operation. The remaining question is how to
+    tie that into the language which is not api-based.}}
 
 {\bf Temporal aggregation} is illustrated by query $Q3$, which, when
 executed with \insql{T1} from Figure~\ref{fig:tg} as input, computes
@@ -308,13 +322,11 @@ Q8:  TSelect   All V [vid, any{name)];
      TGroup    by 2 years
 \end{verbatim}
 
-{\bf Loading filesystem data.  Referring to query results.}
-
-Queries $Q1$ through $Q8$ referred to \tg variables in the
-\insql{From} clause.  The value of a \tg variable is assigned by the
-\insql{Into} clause.  This value may be computed by any \ql query
-query, or it may be loaded from the file system.  This is illustrated
-by queries $Q9$ and $Q10$.
+{\bf Loading filesystem data.  Views.}  Queries $Q1$ through $Q8$
+referred to \tg variables in the \insql{From} clause.  The value of a
+\tg variable is assigned by the \insql{Into} clause.  This value may
+be loaded from the file system, as in query $Q9$, or it may correspond
+to a view, as in query $Q10$.
 
 \begin{verbatim}
 Q9:   TSelect V[vid:int, name:str, salary:int]; 
@@ -330,12 +342,12 @@ Q10:  TSelect V; E
       Start   2010  End 2014
 \end{verbatim}
 
-Note that when data is loaded from the file system as in $Q9$, the
-\insql{TSelect} clause must specify the structural schema.  On the
-other hand, when a \tg variable takes on a value computed by a query,
-as is the case with \insql{T4} in query $Q10$, its structural schema
-is determined by the query result.  That is, the structural schema of
-\insql{T4} is the same as that of \insql{T1}.
+Note that when data is loaded into a \tg variable from the file
+system, as in $Q9$, the \insql{TSelect} clause must specify the
+structural schema.  When a \tg variable takes on a value computed by a
+query, its structural schema is determined by the query result.  In
+$Q10$, the structural schema of the view \insql{T4} is the same as
+that of \insql{T1}.
 
 {\bf Inspecting results.}
 
