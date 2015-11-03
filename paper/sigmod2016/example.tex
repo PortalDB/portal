@@ -52,11 +52,13 @@ examples.
 
 {\bf Temporal selection.}  Consider query $Q1$ below.  
 
+\begin{small}
 \begin{verbatim}
 Q1: TSelect  V; E
     From     T1
     TWhere   Start >= 2010 And End <= 2014
 \end{verbatim}
+\end{small}
 
 $Q1$ performs temporal selection --- its result is a \tg that contains
 a consecutive subset of the snapshots of \insql{T1} that fall within
@@ -90,14 +92,16 @@ E=\emptyset)$.
     falls.  If $t_2$ does not fall on the interval bounday, we rewrite
     the query, setting $t_2$ to the {\em end} of the interval in which}
 
-{\bf Specifying the structural schema of the result.  Analytics.}
-Next, consider query $Q2$ below.
+{\bf Specifying the structural schema of the result.  Snapshot
+  analytics.}  Next, consider query $Q2$ below.
 
+\begin{small}
 \begin{verbatim}
 Q2: TSelect  V [vid, pagerank() as pr]; 
              E [vid1, vid2, cnt * 0.001 as score]
     From     T1
 \end{verbatim}
+\end{small}
 
 This query illustrates how the \insql{TSelect} clause can be used to
 specify the structural schema of the result, which in this case is
@@ -109,28 +113,25 @@ attributes \insql{pr} and \insql{score} are determined by the return
 type of the expressions that compute them.  Note that key columns of
 \insql{V} and \insql{E} must be present in the result.
 
-The value of the attribute \insql{pr} in $Q2$ is computed using the
-analytic function \insql{pagerank()}.  \ql supports a variety of
-analytic functions, including degree, shortest paths and connected
-components.  We provide an API that allows developers to implement
-custom analytics that can either be computed locally at a vertex, like
-degree, or that can be expressed in the popular Pregel API.\eat{
-  \reminder{Is what I'm saying true?  What other analytics do we
-    support? How difficult is it to provide an API to support custom
-    local / Pregel-style analytics?}\vera{Yes, our api supports
-    degrees, connected components, shortest paths, pagerank, and
-    defining any pregel operation. The remaining question is how to
-    tie that into the language which is not api-based.}}
+The value of the attribute \insql{pr} in $Q2$ is computed using a
+snapshot analytic function \insql{pagerank()}.  \ql supports a variety
+of snapshot analytics --- functions whose values are computed
+w.r.t. each snapshot of a \tg --- including degree, shortest paths and
+connected components.  We provide an API that allows developers to
+implement custom analytics that can either be computed locally at a
+vertex, like degree, or be expressed in the popular Pregel API.
 
 {\bf Temporal aggregation} is illustrated by query $Q3$, which, when
 executed with \insql{T1} from Figure~\ref{fig:tg} as input, computes
 the \tg in Figure~\ref{fig:q3}.
 
+\begin{small}
 \begin{verbatim}
 Q3: TSelect   Any V ; Any E 
     From      T1
     TGroup    by 2 years
 \end{verbatim}
+\end{small}
 
 Temporal aggregation maps one or several consecutive snapshots from
 the input to a single snapshot in the output.  How many input
@@ -161,12 +162,14 @@ example, snapshot $[2010, 2012)$ in Figure~\ref{fig:q3} is computed
 Consider next query $Q4$, and its result in
 Figure~\ref{fig:tg_all_any}.
 
+\begin{small}
 \begin{verbatim}
 Q4: TSelect All V [vid, any(name), max(salary)] ; 
             Any E [vid1, vid2, sum(cnt)] 
     From T1 
     TGroup by 2 years
 \end{verbatim}
+\end{small}
 
 The main difference between $Q4$ and $Q3$ is the \insql{All} modifier
 associated with vertices in the \insql{TSelect} clause of $Q4$.  That
@@ -187,10 +190,11 @@ are present.
 \end{figure}
 
 $Q4$ illustrates another important feature of \ql, namely, aggregation
-of values of non-key attributes of vertices and edges.  We make the
-following aggregation operations available: \insql{any},
-\insql{first}, \insql{last}, \insql{min}, \insql{max}, \insql{sum},
-\insql{count}, and \insql{list}.
+of values of non-key attributes of vertices and edges, which happens
+as part of structural aggregation.  We make the following aggregation
+operations available: \insql{any}, \insql{first}, \insql{last},
+\insql{min}, \insql{max}, \insql{sum}, \insql{count}, and
+\insql{list}.
 
 To illustrate, consider vertex and edge relations in
 Figure~\ref{fig:2ve}, which correspond to the first two snapshots of
@@ -225,10 +229,12 @@ require that \insql{T1} and \insql{T2} be union-compatible, as per
 Definition~\ref{def:tuc}.  The result of this query is in
 Figure~\ref{fig:q5}.
 
+\begin{small}
 \begin{verbatim}
 Q5:  TSelect   Any V; Any E
      From      T1 TAnd T2
 \end{verbatim}
+\end{small}
 
 \begin{figure}
 \centering
@@ -262,11 +268,13 @@ Consider next query $Q6$ that computes temporal union of \insql{T1}
 and \insql{T2}.  The result of this query is listed in
 Figure~\ref{fig:q6}.
 
+\begin{small}
 \begin{verbatim}
 Q6:  TSelect   All V[vid, pagerank() as pr]; 
                Any E[vid1, vid2, sum(cnt)]
      From      T1 TOr T2
 \end{verbatim}
+\end{small}
 
 \begin{figure}
 \centering
@@ -303,13 +311,15 @@ the result to $[2010, 2014)$, and temporally aggregates the resulting
   \tg by 2 years.  Finally, \insql{pagerank()} is computed for each
   vertex in the result.
 
+\begin{small}
 \begin{verbatim}
-Q7:  TSelect Any V [vid, any(name), pagerank() as pr] ; 
+Q7:  TSelect Any V [vid, pagerank() as pr] ; 
              Any E [id1, id2] 
      From    T1 TAnd T2 
      TWhere  Start >= 2010 And End <= 2014 
      TGroup by 2 years
 \end{verbatim}
+\end{small}
 
 \begin{figure}
 \centering
@@ -340,37 +350,62 @@ decouple structural aggregation of \insql{TSelect} from that of
 Figure~\ref{fig:q8}.  Observe that $Q8$ explicitly pushes temporal
 selection and intersection below temporal aggregation.
 
+\begin{small}
 \begin{verbatim}
-Q8:  TSelect   All V [vid, any{name), pagerank() as pr];
+Q8:  TSelect   All V [vid, pagerank() as pr];
                All E [id1, id2]
-     From      ( TSelect Any V [vid, any(name)] ; 
+     From      ( TSelect Any V [vid] ; 
                           Any E [vid1, vid2]
                   From    T1 TAnd T2
-                  TWhere  Start >= 2010 And End <= 2014 )
+                  TWhere  Start >= 2010 
+                  And     End <= 2014 )
      TGroup    by 2 years
 \end{verbatim}
+\end{small}
 
 {\bf Trend analytics.} We argued in the introduction that it is
-important to support analysis of trends in evolving graphs.  The
-features of \ql presented so far make this sophisticated analysis
-possible, as illustrated by query $Q9$ below.
+important to support analysis of trends in evolving graphs.  The \ql
+query language makes this sophisticated analysis possible.  Query $Q9$
+illustrates this; it invokes the snapshot analytic \insql{pagerank()}
+on \insql{T1}, and then computes the trend in these values across all
+snapshots.
 
+\begin{small}
 \begin{verbatim}
-Q9:   TSelect All V[vid, trend(pr) as pr_trend];
-              All E[vid1, vid2]  
-      From    ( TSelect V[vid, pagerank() as pr]; 
-                        E[vid1, vid2]
-                From    T1 )
+Q9:  TSelect Any V[vid, trend(pr) as tr, max(pr) as mx];
+             Any E[vid1, vid2]  
+     From    ( TSelect V[vid, pagerank() as pr];   
+                       E[vid1, vid2]
+               From    T1 )
      TGroup   by Size
 \end{verbatim}
+\end{small}
 
-Recall from our discussion of temporal aggregation that \insql{TGroup
-  by Size} produces a 1-snapshot \tg.  Next, consider the use of the
-analytic function \insql{trend(pr)}, which aggregates \insql{pagerank}
-scores of each vertex.  We implement \insql{trend()} using the
-standard definition in~\cite{}.  We also provide an API that allows
-developers to implement custom trend functions and make them available
-through the \ql framework.
+Consider the use of the {\em trend analytic} function
+\insql{trend(pr)}, which aggregates the sequence of \insql{pagerank}
+scores of each vertex.  In our implementation we use a common
+definition of \insql{trend()}: compute the slope of the least squares
+line using linear regression, making an adjustment when a vertex value
+is missing.  While this is the only trend analytic we currently
+support, we are working on an API that will allow developers to
+implement custom trend analytics, taking attributes of both atomic and
+complex type as input, and computing a value of either an atomic or a
+complex type.
+
+We invoke \insql{trend(pr)} alongside \insql{max(pr)} in $Q9$, to
+highlight the difference between a trend analytic and value
+aggregation.  Syntactically, the two look the same, but the difference
+is that \insql{max(pr)} does not account for the temporal order of
+values being aggregated, while \insql{trend(pr)} does.  Based on this
+distinction, it is not meaningful to invoke a trend analytic when
+structural aggregation is due to temporal intersection (\insql{TAnd})
+or union (\insql{TOr}), but only as part of a query that does temporal
+aggregation (as in \insql{TGroup}).
+
+Finally, recall from our discussion of temporal aggregation that
+\insql{TGroup by Size} produces a 1-snapshot \tg.  It is convenient,
+although not required, to use this feature in a query such as $Q9$,
+since a temporal trend may be computed over a window of any size.
 
 {\bf Loading filesystem data.  Views.}  Queries $Q1$ through $Q9$
 refer to \tg variables in the \insql{From} clause.  The value of a \tg
@@ -378,19 +413,23 @@ variable is assigned by the \insql{Into} clause.  This value may be
 loaded from the file system, as in query $Q10$, or it may correspond to
 a view, as in query $Q11$.
 
+\begin{small}
 \begin{verbatim}
 Q10:  TSelect V[vid:int, name:str, salary:int]; 
               E[vid1:int, vid2:int, cnt:int]
       From    path/to/directory
       Into    T3
 \end{verbatim}
+\end{small}
 
+\begin{small}
 \begin{verbatim}
 Q11:  TSelect V; E
       From    T1
       Into    T4
       TWhere  Start >=  2010 
 \end{verbatim}
+\end{small}
 
 Note that when data is loaded into a \tg variable from the file
 system, as in $Q10$, the \insql{TSelect} clause must specify the
@@ -399,6 +438,19 @@ query, its structural schema is determined by the query result.  In
 $Q11$, the structural schema of the view \insql{T4} is the same as
 that of \insql{T1}.
 
-{\bf Inspecting results with SQL.}  
+{\bf Inspecting results with SQL.}  Suppose that the result of query
+$Q9$ is assigned to \insql{T5}.  \ql supports vertex and edge
+transformation methods that expose the contents of a \tg as vertex and
+edge collections.  These methods are \insql{vertices()},
+\insql{verticesflat()}, \insql{edges()}, and \insql{edgesFlat()}.
 
+\begin{small}
+\begin{verbatim}
+Q12:  Select   vid, pagerank_trend
+      From     T5.edgesFlat()
+      Order by pagerank_trend
+      Limit    20
+\end{verbatim}
+\end{small}
 
+\reminder{I'm not happy with this syntax, will work on this more.}
