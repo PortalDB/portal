@@ -1,2 +1,79 @@
 \section{Experimental Evaluation}
 \label{sec:exp}
+
+{\bf Experimental environment.} All experiments in this section are
+conducted on an 8-node cluster.  \reminder{More details here:
+  parameters of each slave instance, and that each instance is on a
+  separate node.  Stand-alone Spark.}
+
+All experiments are executed with a cold start, with
+\insql{materialize} as the final statement.  Each experiment is
+conducted 5 times, we report the average running time and some measure
+of result variability. \reminder{how exactly do we measure
+  variability?}
+
+{\bf Data and evaluation methods.}  We evaluate performance of our
+framework on three real open-source datasets.  
+
+\begin{enumerate}
+
+\item DBLP\footnote{\url{dblp.uni-trier.de/xml}} contains co-authorship
+  information from 1936 through 2015, with over 1.5 million author
+  nodes and over 6 million undirected co-authorship edges.  
+
+\item nGrams\footnote{\url{storage.googleapis.com/books/ngrams/books/datasetsv2.html}}
+  contains word co-occurrence information from 1520 through 2008, with
+  over 1.5 million word nodes and over 65 million undirected
+  co-occurrence edges.
+
+\item
+  DELIS\footnote{\url{law.di.unimi.it/webdata/uk-union-2006-06-2007-05}}
+  contains monthly snapshots, from 05/2006 through 05/2007, of a
+  portion of the Web graph focusing on the .uk domains, with a total
+  of over 133 million nodes and over 5.5 billion directed
+  edges~\cite{BSVLTAG}.
+
+\end{enumerate}
+
+Our evaluation focuses on efficiency of implementation. Experiments
+are conducted on an in-house 8-node Hadoop cluster built with Open
+Stack. \reminder{Additional details about nodes, distribution.}
+
+{\bf Outline.}
+
+\reminder{Vera, please write each of these out as \ql queries.  Also
+  write what we are keeping fixed in each experiment, and what we are
+  varying.}
+
+\begin{enumerate}
+
+\item \insql{TSelect}, to understand the number of
+  partitions with which to load for SPG, MG, MGC and OG, as a function
+  of data size.
+
+\item \insql{TSelect} + transform (e.g., $a * a$, where $a$ is a
+  scalar vertex attribute), to understand the overhead of computing a
+  simple transformation operation, with the best settings in
+  Experiment 1.  Probably no need for a full experiment,
+  let's get a few data points to see whether the overhead is
+  noticeable.
+
+\item \insql{TSelect} with \insql{TGroup}, with
+  \insql{Any} and \insql{All}.  We will run this experiment for each
+  SPG, MG, MGC and OG, with the best setting as determined in
+  Experiment 1.  We will then see whether re-partitioning improves
+  performance, and will try different partitioning strategies.
+
+\item \insql{TAnd} and \insql{All}, \insql{TOr} with \insql{Any}.  The
+  same experiment as Experiment 3.
+
+\item \insql{TSelect} with \insql{pagerank()}. The same
+  experiment as Experiment 3.
+
+\item \insql{pagerank()} with \insql{trend()}.  Run only for the best
+  data structure of Experiment 5.
+
+\item \insql{TSelect} with \insql{degree()}, only if we have time. The
+  same experiment as Experiment 3.
+
+\end{enumerate}

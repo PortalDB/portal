@@ -162,11 +162,11 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
       }
 
       if (numResults == 0)
-        SnapshotGraph.emptyGraph()
+        SnapshotGraph.emptyGraph[VD,ED]()
       else
         new SnapshotGraph(intvs, gps)
     } else
-      SnapshotGraph.emptyGraph()
+      SnapshotGraph.emptyGraph[VD,ED]()
   }
 
   override def select(tpred: Interval => Boolean): TemporalGraph[VD, ED] = {
@@ -179,16 +179,16 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
           gps = gps :+ Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
       }
       new SnapshotGraph(intervals, gps)
-    } else SnapshotGraph.emptyGraph()
+    } else SnapshotGraph.emptyGraph[VD,ED]()
   }
 
   override def select(epred: EdgeTriplet[VD,ED] => Boolean, vpred: (VertexId, VD) => Boolean): TemporalGraph[VD, ED] = {
-    if (size > 0) new SnapshotGraph(intervals, graphs.map(x => x.subgraph(epred, vpred))) else SnapshotGraph.emptyGraph()
+    if (size > 0) new SnapshotGraph(intervals, graphs.map(x => x.subgraph(epred, vpred))) else SnapshotGraph.emptyGraph[VD,ED]()
   }
 
   override def aggregate(res: Resolution, sem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
     if (size == 0)
-      return SnapshotGraph.emptyGraph()
+      return SnapshotGraph.emptyGraph[VD,ED]()
 
     var intvs: Seq[Interval] = Seq[Interval]()
     var gps: Seq[Graph[VD, ED]] = Seq[Graph[VD, ED]]()
@@ -367,7 +367,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
      val startBound = if (span.start.isBefore(grp2.span.start)) grp2.span.start else span.start
     val endBound = if (span.end.isAfter(grp2.span.end)) grp2.span.end else span.end
     if (startBound.isAfter(endBound) || startBound.isEqual(endBound)) {
-      SnapshotGraph.emptyGraph()
+      SnapshotGraph.emptyGraph[VD,ED]()
     } else {
       //compute the new interval
       var mergedIntervals: Seq[Interval] = Seq[Interval]()

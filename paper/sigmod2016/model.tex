@@ -14,13 +14,6 @@ pairs of nodes from $V$, with schema $(\underline{vid_1},
 \label{def:sg} 
 \end{definition}
 
-\begin{figure}
-\includegraphics[width=3.2in]{figs/snapshot.pdf}
-\caption{Snapshot of VLDB co-authorship graph for 1940, with a single
-  string node attribute $name$ and no edge attributes.}
-\label{fig:sg}
-\end{figure}
-
 Attributes of vertices and of edges are not restricted to be of atomic
 types, but may, e.g., be maps or tuples. However it is required that
 all vertices (resp. edges) of $G$ have the same schema, i.e., $V$ and
@@ -35,10 +28,10 @@ $E''$ are union-compatible.
 
 This is the standard union compatibility definition, which requires
 that vertex schema $V$ and edge schema $E$ be the same for $G'$ and
-$G''$.  For example, the snapshot in Figure~\ref{fig:sg} is only
+$G''$.\eat{  For example, the snapshot in Figure~\ref{fig:sg} is only
 compatible with other snapshots where vertices have one non-key string
-attribute $name$ and no non-key edge attributes.
-
+attribute $name$ and no non-key edge attributes.}
+%
 $G$ may represent a directed or an undirected graph.  For undirected
 graphs we choose a canonical representation of an edge, with $vid_1
 \leq vid_2$ (self-loops are allowed).
@@ -50,32 +43,31 @@ times starting from and including the start time, continuing to but
 excluding the end time.
 
 \begin{definition}[Time period]
-A {\em time period} \\$p = [start, end)$ is an interval on the timeline,
-  subject to the constraint $start < end$.  We refer to the length of
-  time covered by $p$ as its {\em resolution}.
+A {\em time period} \\$p = [start, end)$ is an interval on the
+  timeline, subject to the constraint $start < end$.  We refer to the
+  length of time covered by $p$ as its {\em resolution}, which is
+  explicitly associated with a {\em unit of time}.
 \label{def:period} 
 \end{definition}
 
-Unless otherwise noted, we take {\em day} to be the unit of time.
-However, sometimes we will work with time periods where {\em month} or
-{\em year} are the units of time.  Unit of time will be stated
-explicitly where not clear from context.  Examples of time periods are
-$p_1=[\tpy{2000},\tpy{2001})$ (a 1-year period),
-  $p_2=[\tpym{2000}{12},\tpym{2001}{03})$ (a 3-month period) and
-    $p_2=[\tpymd{2000}{12}{01},\tpymd{2001}{03}{01})$ (an 90-day period).
+Examples of time periods are $p_1=[\tpy{2000},\tpy{2001})$ (a 1-year
+  period), $p_2=[\tpym{2000}{12},\tpym{2001}{03})$ (a 3-month period)
+    and $p_2=[\tpymd{2000}{12}{01},\tpymd{2001}{03}{01})$ (a 90-day
+      period).  The unit of time is application-dependent, and will be
+      stated explicitly where not clear from context.
 
-We focus on {\em valid time}, represented by {\em application-time
-  period} in SQL:2011 --- the time period during which data is
-regarded as correctly reflecting reality.  This is in contrast to {\em
-  transaction time} (or {\em system-time period}), which refers to the
-time period during which a row is committed to the database.  Our goal
-in this work is to support complex analytics over evolving graphs,
-under the assumption that all historical data is available in the
-database and is read-only.
+Our goal in this work is to support complex analytics over evolving
+graphs, under the assumption that all historical data is available in
+the database and is read-only.  For this reason we focus on {\em valid
+  time}, represented by {\em application-time period} in SQL:2011 ---
+the time period during which data is regarded as correctly reflecting
+reality.  This is in contrast to {\em transaction time} (or {\em
+  system-time period}), which refers to the time period during which a
+row is committed to the database.
 
-We represent graph evolution by associating a sequence of snapshots,
-which are not themselves time-aware, with a a sequence of time
-periods.  This is stated formally next.
+We represent graph evolution by associating a sequence of snapshots
+(Def.~\ref{def:sg}), which are not themselves time-aware, with a
+sequence of time periods.  We now formally define temporal sequences.
 
 \begin{definition} [Temporal Sequence]
 A {\em temporal sequence} $P = (p_1, \ldots, p_n)$ is a
@@ -92,8 +84,9 @@ resolution, with no gaps.  That is,
 $P$ may be equivalently described by any 2 of the following 3 values:
 the start of the earliest period $P.start = p_1.start$, the end of the
 latest period $P.end = p_n.end$, and the resolution of any period
-$P.res = p_1.end - p_1.start$. For convenience, we refer to the number
-of periods in the sequence as $P.size$.
+$P.res = p_1.end - p_1.start$, specified in appropriate time
+units. For convenience, we refer to the number of periods in the
+sequence as $P.size$.
 
 For example, $P=([\tpy{1940},\tpy{1945}), \ldots,
   [\tpy{2010},\tpy{2015}))$ represents a temporal sequence with
@@ -111,9 +104,7 @@ $P^{\epsilon}.end=null$, and  $P^{\epsilon}.size=0$.
         resolution. By definition it is of size 0.}}
 
 We next define union-compatibility for temporal sequences, and present
-two basic operations on temporal sequences, which we will use as
-building blocks when we define our query language in
-Section~\ref{sec:lang}.
+two basic operations on temporal sequences.
 
 \begin{definition} [Temporal Union-Compatibility]
 Temporal sequences $P'$ and $P''$ are union-compatible if they have
@@ -125,30 +116,35 @@ with any temporal sequence.
 \end{definition}
 
 \begin{example}
-Consider the following time sequences, with year as the unit of time.
-\begin{itemize}
-\item $P_1=([\tpy{2001},\tpy{2003}),[\tpy{2003},\tpy{2005}))$
-\item $P_2=([\tpy{2009},\tpy{2010}),[\tpy{2010},\tpy{2011}))$
-\item $P_3=([\tpy{2008},\tpy{2010}),[\tpy{2010},\tpy{2012}),[\tpy{2012},\tpy{2014}))$
-\item $P_4=([\tpy{2012},\tpy{2014}),[\tpy{2014},\tpy{2016}))$
-\item $P_5=([\tpy{2020},\tpy{2022}))$
-\end{itemize}
-
-$P_1$ and $P_2$ are not union-compatible because $P_1.res=2$, while
-$P_2.res = 1$.  $P_1$ and $P_3$ are not union-compatible because,
-while $P_1.res = P_3.res = 2$, it is not possible to construct a valid
-temporal sequence with $P.start=1$, $P.end=14$ and $P.res=2$.
-Finally, $P_3$, $P_4$ and $P_5$ are pair-wise union-compatible.  As
-our example illustrates, a pair of union-compatible sequences may or
-may not overlap, and may not even be consecutive.
 \label{ex:ex1}
+Consider the following temporal sequences, with year as the unit of
+time.
+
+\begin{eqnarray*}
+P_1 & = & ([\tpy{2001},\tpy{2003}),[\tpy{2003},\tpy{2005}))\\
+P_2 & = & ([\tpy{2009},\tpy{2010}),[\tpy{2010},\tpy{2011})) \\
+P_3 & = & ([\tpy{2008},\tpy{2010}),[\tpy{2010},\tpy{2012}),[\tpy{2012},\tpy{2014}))\\
+P_4 & = & ([\tpy{2012},\tpy{2014}),[\tpy{2014},\tpy{2016}))\\
+P_5 & = & ([\tpy{2020},\tpy{2022})) \\
+\end{eqnarray*}
+
+$P_1$ and $P_2$ are not union-compatible because the resolution of
+  $P_1$ is 1 year, while the resolution of $P_2$ is 2 years.  $P_1$
+  and $P_3$ are not union-compatible because, while their resolution
+  is the same, it is not possible to construct a valid temporal
+  sequence with $P.start=\tpy{2001}$, $P.end=\tpy{2014}$ and a 2-year
+  resolution.  Finally, $P_3$, $P_4$ and $P_5$ are pair-wise
+  union-compatible.
 \end{example}
 
-\begin{definition} [Temporal Intersection]
-Intersection of union-compatible sequences $P'$ and $P''$, denoted $P'
-\cap P''$, is a time sequence $P$, containing intervals that are in
-common to $P'$ and $P''$.  If no intervals are in common to $P'$ and
-$P''$, this operation returns $P^{\epsilon}$.
+As our example illustrates, a pair of union-compatible sequences may
+or may not overlap, and may not even be consecutive.
+
+\begin{definition} [Temporal Intersection] 
+Inter-\\section of union-compatible sequences $P'$ and $P''$, denoted $P'
+\cap P''$, is a sequence $P$, containing intervals that are in common
+to $P'$ and $P''$.  If no intervals are in common to $P'$ and $P''$,
+this operation returns $P^{\epsilon}$.
 \label{def:tseqand}
 \end{definition}
 
@@ -162,8 +158,7 @@ P''.start)$, $P.end = max(P'.end, P''.end)$, and $P.res = P'.res$.
 \label{def:tseqor}
 \end{definition}
 
-Note that $P.size \geq P'.size + P''.size$. In Example~\ref{ex:ex1},
-$P_3 \cup P_4 =
+In Example~\ref{ex:ex1}, $P_3 \cup P_4 =
 ([\tpy{2008},\tpy{2010}),\ldots,[\tpy{2014},\tpy{2016}))$ and $P_3
     \cup P_5 = ([\tpy{2008},\tpy{2010}), \ldots,
       [\tpy{2020},\tpy{2022}))$.
@@ -181,23 +176,14 @@ A {\em temporal graph} (or a {\em \tg}) $T = (G_1, \ldots, G_n; P)$
 \end{definition}
 
 Snapshot graphs in the sequence define the {\em structural schema} of
-$T$, while $P$ specifies the {\em temporal schema} of $T$.
+$T$, while $P$ specifies the {\em temporal schema} of $T$.  
 
-Importantly, identity of a vertex persists across snapshots in a
-\tg, and across \tgs.  For example, in Figure~\ref{fig:tgraph}
-vertex with id 3 represents the same author W. V. Quine, who published
-both in 1940 and in 1952.
-
-\begin{figure}
-\includegraphics[width=3.2in]{figs/temporalgraph.pdf}
-\caption{A \tg of VLDB co-authorship over the period from \tpy{1940} to \tpy{1953}.}
-\label{fig:tgraph}
-\end{figure}
-
-\julia{Please make Figure~\ref{fig:tgraph} more concrete, list names
-  of people as node attributes in addition to, or instead of, ids.
-  Also, let's extend this example, so we can use it motivate our
-  langauge in the intro, and to illustrate query language predicates.}
+An example of a \tg is given in Figure~\ref{fig:tg}, and instances of
+vertex and edge relations for 2 snapshots of this graph are given in
+Figure~\ref{fig:2ve}.  Importantly, identity of a vertex persists
+across snapshots in a \tg, and across \tgs.  For example, vertex with
+id $3$ represents the same entity in all snapshots in
+Figure~\ref{fig:tg} in which it occurs.
 
 To conclude this section, we define union-compatibility for \tgs.
 
@@ -211,9 +197,7 @@ union-compatible (per Definition~\ref{def:tcompat}).
 The \tg of Definition~\ref{def:tgraph} is the basic element in our
 model.  In what follows, we assume that a relation in our database
 corresponds to a single \tg, not to a collection of \tgs.  In the next
-section we will define the temporal graph query language \ql, in which
-operators take as input a single \tg or a pair of \tgs, and produce a
-\tg as output.
+section we will present the \ql query language that operates on \tgs.
 
 
 
