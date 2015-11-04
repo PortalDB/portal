@@ -292,7 +292,7 @@ def run(configFile):
 
             if m:  
                 totalCores = int(m.group(1))
-                numCores = totalCores / numWorkers
+                numCores = totalCores / totalWorkers
                 
             #set cluster config
             #FIXME: find ram of slaves
