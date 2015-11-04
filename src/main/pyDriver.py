@@ -6,6 +6,7 @@ import traceback;
 import models, connect;
 import subprocess;
 import configparser;
+import xml.etree.ElementTree as ET
 from peewee import *;
 from subprocess import Popen, PIPE;
 
@@ -263,28 +264,47 @@ def run(configFile):
             #run sbt assembly
             Popen('sbt assembly', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
             #get cluster config
-            p2 = Popen('curl http://master:5050/slaves', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+            p2 = Popen('curl http://master:8081', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
             out = p2.communicate()[0];
-            slaves = out.count("\"active\":true")
-            cores = 2 #default num cores
-            ram = 8 #default ram
+    
+            out = out.replace(' ', '') 
+            out = out.replace('\s', '') 
+            out = out.replace('\t', '') 
+            out = out.replace('\r', '') 
+            out = out.replace('\n', '') 
+
+            totalWorkers = numWorkers = totalCores = numCores = 0;
+            ram = 16; #fixme: get actual ram 
             cConf = None
 
-            r = re.compile('"cpus":(.*?),').search(out)
-            if r:
-                cores = int(r.group(1))
+            #collect slave info
+            r = re.compile('Workers:</strong>(.*?)</li>')
+            m = r.search(out)
+
+            if m:
+                totalWorkers = int(m.group(1))            
+                numDead = out.count('<td>DEAD</td>')    
+                numWorkers = totalWorkers - numDead
+
+            #collect cores info
+            r = re.compile('Cores:</strong>(.*?)Total')
+            m = r.search(out)
+
+            if m:  
+                totalCores = int(m.group(1))
+                numCores = totalCores / numWorkers
                 
             #set cluster config
             #FIXME: find ram of slaves
-            cConf = str(slaves) + "s_" + str(cores) + "c_" + str(ram) + "g"  
+            cConf = str(numWorkers) + "s_" + str(numCores) + "c_" + str(ram) + "g"  
+ 
         elif env == "standalone":
             #TODO: consume this info from http://master:8081
-            slaves = 4
-            cores = 2
+            numWorkers = 4
+            numCores = 2
             ram = 8
-            cConf = str(slaves) + "s_" + str(cores) + "c_" + str(ram) + "g"
-            
-                
+            cConf = str(numWorkers) + "s_" + str(numCores) + "c_" + str(ram) + "g"
+
         for q in queries: 
             classArg = q + dataParam + data + gtypeParam + gType + warm
             querySaved = False;
