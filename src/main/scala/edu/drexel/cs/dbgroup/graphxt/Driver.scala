@@ -83,7 +83,7 @@ object Driver {
             to = LocalDate.parse(args(i + 2))
             if (args(i + 3) == "-p")
               str = PartitionStrategyType.withName(args(i + 4))
-          case "--agg" | "--pagerank" | "--count" => loop.break
+          case "--agg" | "--pagerank" | "--materialize" => loop.break
 	  case _ =>
         }
       }
@@ -194,7 +194,7 @@ object Driver {
         println(f"PageRank Runtime: $total%dms ($argNum%d)")
         argNum += 1
 
-      } else if (args(i) == "--count") {
+      } else if (args(i) == "--materialize") {
         val runWidth = 1; //FIXME: is this correct
         val partCount: Boolean = if (args.length > (i + 1) && args(i + 1) == "-p") true else false;
 
@@ -208,16 +208,16 @@ object Driver {
           if (partCount) {
             result2 = result2.partitionBy(partitionType, runWidth, numParts)
           }
-          println("Total edges across all snapshots: " + result2.edges.count)
+          result2.materialize
         } else {
           if (partCount) {
             result = result.partitionBy(partitionType, runWidth, numParts)
           }
-          println("Total edges across all snapshots: " + result.edges.count)
+          result.materialize
         }
         var ctEnd = System.currentTimeMillis()
         var total = ctEnd - ctStart
-        println(f"Count Runtime: $total%dms ($argNum%d)")
+        println(f"Materialize Runtime: $total%dms ($argNum%d)")
         argNum += 1
       }
     }

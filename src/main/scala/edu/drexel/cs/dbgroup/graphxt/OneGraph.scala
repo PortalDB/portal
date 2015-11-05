@@ -45,6 +45,11 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Map[
 
   override def size(): Int = intervals.size
 
+  override def materialize() = {
+    graphs.numVertices
+    graphs.numEdges
+  }
+
   override def vertices: VertexRDD[Map[Interval, VD]] = {
     val start = span.start
     graphs.vertices.mapValues(v => v.map(x => (resolution.getInterval(start, x._1) -> x._2)))

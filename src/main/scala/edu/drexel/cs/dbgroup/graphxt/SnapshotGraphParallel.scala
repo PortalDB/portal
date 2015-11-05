@@ -45,6 +45,13 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
 
   override def size(): Int = graphs.size
 
+  override def materialize() = {
+    graphs.foreach { x =>
+      x.numEdges
+      x.numVertices
+    }
+  }
+
   override def vertices: VertexRDD[Map[Interval, VD]] = {
     if (size > 0) {
       val total = graphs.zipWithIndex.map(x => (x._1, intervals(x._2))).filterNot(x => x._1.vertices.isEmpty)

@@ -46,6 +46,11 @@ class MultiGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Gr
 
   override def size(): Int = intervals.size
 
+  override def materialize() = {
+    graphs.numVertices
+    graphs.numEdges
+  }
+
   override def vertices: VertexRDD[Map[Interval, VD]] = {
     val start = span.start
     VertexRDD(vertexattrs.map{ case (k,v) => (k._1, Map[Interval,VD](resolution.getInterval(start, k._2) -> v))}
