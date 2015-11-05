@@ -131,7 +131,7 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
       new MultiGraph[VD, ED](newIntvs, resg)
 
     } else
-      MultiGraph.emptyGraph()
+      MultiGraph.emptyGraph[VD,ED]()
   }
 
   override def select(tpred: Interval => Boolean): TemporalGraph[VD, ED] = {
@@ -334,7 +334,7 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
     val startBound = if (span.start.isBefore(grp2.span.start)) grp2.span.start else span.start
     val endBound = if (span.end.isAfter(grp2.span.end)) grp2.span.end else span.end
     if (startBound.isAfter(endBound) || startBound.isEqual(endBound)) {
-      MultiGraph.emptyGraph()
+      MultiGraph.emptyGraph[VD,ED]()
     } else {
       //we are taking a temporal subset of both graphs
       //and then doing the structural part

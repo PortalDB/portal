@@ -91,7 +91,7 @@ class MultiGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Gr
         ctx.sendToDst(Map(ctx.attr._1 -> 1))
       },
       mergedFunc,
-      TripletFields.All)
+      TripletFields.None)
     .mapValues(v => v.map(x => (resolution.getInterval(start, x._1) -> x._2)))
   }
 
@@ -139,7 +139,7 @@ class MultiGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Gr
       new MultiGraphColumn[VD, ED](newIntvs, resg, attrs)
 
     } else
-      MultiGraphColumn.emptyGraph()
+      MultiGraphColumn.emptyGraph[VD,ED]()
   }
 
   override def select(tpred: Interval => Boolean): TemporalGraph[VD, ED] = {
@@ -357,7 +357,7 @@ class MultiGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Gr
      val startBound = if (span.start.isBefore(grp2.span.start)) grp2.span.start else span.start
     val endBound = if (span.end.isAfter(grp2.span.end)) grp2.span.end else span.end
     if (startBound.isAfter(endBound) || startBound.isEqual(endBound)) {
-      MultiGraphColumn.emptyGraph()
+      MultiGraphColumn.emptyGraph[VD,ED]()
     } else {
       //we are taking a temporal subset of both graphs
       //and then doing the structural part
@@ -665,11 +665,13 @@ class MultiGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Gr
   override def persist(newLevel: StorageLevel = MEMORY_ONLY): TemporalGraph[VD, ED] = {
     //just persist the graph itself
     graphs.persist(newLevel)
+    vertexattrs.persist(newLevel)
     this
   }
 
   override def unpersist(blocking: Boolean = true): TemporalGraph[VD, ED] = {
     graphs.unpersist(blocking)
+    vertexattrs.unpersist(blocking)
     this
   }
 

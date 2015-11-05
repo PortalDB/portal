@@ -157,7 +157,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
     if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
 
     if (!span.intersects(bound)) {
-      return SnapshotGraphParallel.emptyGraph()
+      return SnapshotGraphParallel.emptyGraph[VD,ED]()
     }
 
     val startBound = if (bound.start.isAfter(span.start)) bound.start else span.start
@@ -189,7 +189,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
 
   override def aggregate(res: Resolution, sem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
     if (size == 0)
-      return SnapshotGraphParallel.emptyGraph()
+      return SnapshotGraphParallel.emptyGraph[VD,ED]()
 
     var intvs: Seq[Interval] = Seq[Interval]()
     var gps: ParSeq[Graph[VD, ED]] = ParSeq[Graph[VD, ED]]()
@@ -378,7 +378,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
      val startBound = if (span.start.isBefore(grp2.span.start)) grp2.span.start else span.start
     val endBound = if (span.end.isAfter(grp2.span.end)) grp2.span.end else span.end
     if (startBound.isAfter(endBound) || startBound.isEqual(endBound)) {
-      SnapshotGraphParallel.emptyGraph()
+      SnapshotGraphParallel.emptyGraph[VD,ED]()
     } else {
       //compute the new interval
       var mergedIntervals: Seq[Interval] = Seq[Interval]()

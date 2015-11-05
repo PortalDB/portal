@@ -4,13 +4,119 @@
 In this paper We will build upon, and non-trivially extend, the graph
 processing abstractions of Apache Spark, a popular open-source
 distributed data processing engine, and specifically of
-GraphX~\cite{DBLP:conf/osdi/GonzalezXDCFS14}.  
+GraphX~\cite{DBLP:conf/osdi/GonzalezXDCFS14}.  GraphX provides an API
+for working with regular graphs (snapshots), without the time
+dimension.  As described in~\ref{sec:system}, we build our TGraph data
+structures on top of GraphX Graph, and provide a Portal language
+interpreter in addition to scala API.  In order to provide better
+performance, we modified GraphX graph loading code to enable
+concurrent distributed multi-file loading with tuned number of
+partitions.  Default number of partitions used to read in graphs, in
+contrast, is slow and, for large graphs, leads to OOM errors. \vera{I
+  know we don't want to mention it but single different number of
+  partitions is better for different operations, a dynamic intelligent
+  repartitioning is called for - something spark in general does not
+  provide.}
+
+The work related to our Portal system is in the areas of efficient
+evolving graph representation, on disk or in memory, queries for
+evolving graphs, and graph partitioning.
+
+Efficient retrieval of dynamic/temporal graphs is addressed by Khurana
+and Deshpande~\cite{Khurana2003}, with the specific focus on snapshot
+retrieval for snapshot-based queries and analytics in a centralized
+and a distributed environment.  The primary focus of this work is on
+efficient physical representation and retrieval using deltas, which
+provides an ability to support an arbitrary tgraph resolution.  Our
+basic building block is a snapshot with the limitation that only
+resolutions no smaller than the ones at which snapshots are taken can
+be computed.  It would be fairly easy, however, to modify our system
+to store data as deltas rather than snapshots, using Khurana's
+approach.  There are two other areas of his work that are relevant to
+ours.  The GraphPool in-memory graph storage maintains a single graph
+representing all retrieved snapshots, and is thus similar to our
+MultiGraph and OneGraph data structures.  The GraphPool goes further
+and stores only dependencies from a materialized snapshot in those
+cases where the deltas between two snapshots are small.  Our
+implementation does not take that step because evaluation of queries
+involving multiple snapshots, such as TGroup, requires fully
+materialized views in memory.
+
+Another aspect relevant to our work is that of data skew and
+differential functions.  In DeltaGraph, a differential function
+specifies how the desired snapshot should be constructed from its
+children.  Depending on the nature of the graph evolution over time,
+different differential functions provide the best performance.  For
+example, for a growing-only graph, a mixed function provides better
+performance than Intersection.  This insight is useful for temporal
+graph partitioning, as allocating equal-sized partitions to each
+temporal interval could similarly lead to subpar performance.  In order
+to optimize performance, we need to precompute graph evolution
+statistics such as rate of change.  We leave this for future
+work. \vera{Too detailed?}
 
 Our work shares motivation with recent work by Miao et
 al.~\cite{DBLP:journals/tos/MiaoHLWYZPCC15}, who developed an
-in-memory execution engine for temporal graph analytics.  Unlike Miao
-et al., who focus on in-memory layout and locality-aware scheduling
-mechanisms, we work in a distributed storage and processing
-environment.  
+in-memory execution engine for temporal graph analytics.  Immortal
+Graph distinguishes between queries that do one-time random-storage IO
+and repeated graph traversals in memory such as analytics.  For
+random-storage IO retrievals, physical data layout is important.  The
+snapshot group method used by the authors is very similar to what
+Khurana~\cite{Khurana2013} did for temporal graph storage.  Immortal
+graph keeps different type replicas on disk and picks the better one
+for the type of query requested.  Since our focus in this work is on
+in-memory query evaluation and optimization, the physical data layout
+is of less importance.  Also observe that since different data
+structures and partition strategies provide the best performance
+depending on the operation, the on-disk data representation is less
+critical. 
 
-Amol's work: snapshot retrieval and anything else that is relevant.
+The batched approach to analytics in this paper relies on the
+observation that most realworld graphs have a high unchanged ratio -
+the ratio of edges that each snapshot inherits from its immediate
+predecessor.  This observation may not hold at different levels of
+aggregation, especially with universal semantics, as we showed
+in~\ref{sec:experiments}.
+
+Boldi et al.~\cite{Boldi2008} presents a space-efficient approach for
+storing a large evolving web graph that they harvested.  Their
+approach for encoding the presence or absence of nodes/edges at each
+time interval using bits is similar to our MGC data structure and use
+of BitSets.  The primary difference is that their work represents
+purely topological information and does not address vertex and edge
+attributes, which still need to be represented and accessed by some of
+the operations such as tgroup.
+
+Ren, et al.~\cite{Ren2011} propose an evolving graph query processing
+framework based on the Find-Verify-and-Fix approach similar to
+iterative methods.  Graph snapshots are clustered and representative
+graphs computed for each cluster.  These representative graphs are
+equal to our All and Any TGroup query results, which can then be used
+to more efficiently compute shortest path queries.  This serves as
+further validation of the necessity of the TGroup operation in Portal.
+This paper also considers different storage models.  The main approach
+is to store representative graphs in memory for each cluster rather
+than all the snapshots, and to store deltas from representative graphs
+to each snapshot if access to an individual snapshot is required.  A
+further optimization is to store deltas to only the first snapshot in
+the cluster, and then changes to successive snapshots from the first
+instead of deltas.  This is similar to the approach that Khurana and
+Deshponde~\cite{Khurana2013} use with their change trees, although for
+on-disk storage rather than in-memory like Ren.  With a further
+optimization of exploring inter-cluster similarity, the total storage
+savings are large (reported only 0.86\% of a raw dataset needed in one
+example).  The OneGraph data structure we employ can be thought of as
+a representative graph for the whole selected time period.  In the
+future, we will expore whether a hybrid MG-SGP approach could provide
+some benefits since it naturally supports many of the Portal
+operations, topographically speaking.
+
+The only work on defining a query
+language for evolving graphs:~\cite{Kan2009}.
+
+Pattern mining work by Borgward~\cite{Borgwardt2006}, Chan~\cite{Chan2008}.
+
+This work is different than work on query processing of dynamic graphs
+(e.g., ~\cite{Mondal2012}), where the history of changes is not
+important, and the focus is on updating the results as the graph
+undergoes changes.

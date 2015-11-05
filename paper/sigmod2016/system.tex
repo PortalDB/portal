@@ -1,2 +1,16 @@
 \section{System}
 \label{sec:sys}
+
+A \ql query is rewritten into a sequence of algebraic operators, a
+particular execution method is selected for each operator, and the
+query is executed.  All language operators are also available through
+the public API of the \ql library, and may be used like any other
+library in an Apache Spark application.
+
+The order of operators within a \ql statement is determined at
+execution time, based on a combination of rule-based and cost-based
+considerations.  Further, we implement a variety of \tg
+representations and partitioning strategies.  Which representation and
+which partitioning strategies are used is determined by a combination
+of rule-based and cost-based considerations.
+
