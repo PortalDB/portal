@@ -14,32 +14,32 @@ object LinearTrendEstimate {
       val numPoints = points.size;
       
       // compute average of x and y; xbar and ybar
-      val sumx = points.foldLeft(0.0)((sum,kv) => sum + kv._2);
-      val sumy = points.foldLeft(0)((sum,kv) => sum + kv._1);
+      val sumx = points.foldLeft(0)((sum,kv) => sum + kv._1);
+      val sumy = points.foldLeft(0.0)((sum,kv) => sum + kv._2);
       val xbar = sumx / numPoints;
       val ybar = sumy / numPoints;
       
       // compute slope and intercept stats
-      var xxbar = 0.0;
-      var yybar = 0.0;
-      var xybar = 0.0;
+      val nxy = numPoints * xbar * ybar;
+      val nxsqr = numPoints * sqr(xbar); 
+      var sumxy = 0.0;
+      var sumxsqr = 0;
       
       points.foreach{ point =>
-        val (y, x) = point;
+        val (x, y) = point;
         val xdev = x - xbar;
         val ydev = y - ybar;
        
-        xxbar += sqr(xdev);
-        yybar += sqr(ydev);
-        xybar += xdev * ydev;
+        sumxy += x * y;
+        sumxsqr += sqr(x);
        
       };
       
-      val beta1 = xybar / xxbar;
+      val beta1 = ((numPoints * sumxy) - (sumx * sumy)) / ((numPoints * sumxsqr) - sqr(sumx));
       val beta0 = (sumy - (beta1 * sumx)) / numPoints;
       
-      //println("Resulting intercept: " + roundAt(beta0, ));
-      return roundAt(beta1, 10);
+      //println("Resulting intercept: " + roundAt(beta0, 6));
+      return roundAt(beta1, 6);
   };
   
   def sqr(x: Int) = x * x;
