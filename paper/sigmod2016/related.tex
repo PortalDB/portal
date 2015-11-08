@@ -1,6 +1,11 @@
 \section{Related Work}
 \label{sec:related}
 
+The research related to our Portal system is in the areas of efficient
+evolving graph representation, on disk or in memory, queries for
+evolving graphs, and graph partitioning, with the majority of work in
+efficiently storing and retrieving graph snapshots.
+
 In this paper We will build upon, and non-trivially extend, the graph
 processing abstractions of Apache Spark, a popular open-source
 distributed data processing engine, and specifically of
@@ -12,36 +17,56 @@ interpreter in addition to scala API.  In order to provide better
 performance, we modified GraphX graph loading code to enable
 concurrent distributed multi-file loading with tuned number of
 partitions.  Default number of partitions used to read in graphs, in
-contrast, is slow and, for large graphs, leads to OOM errors. \vera{I
-  know we don't want to mention it but single different number of
-  partitions is better for different operations, a dynamic intelligent
-  repartitioning is called for - something spark in general does not
-  provide.}
+contrast, is slow and, for large graphs, leads to OOM errors. 
 
-The research related to our Portal system is in the areas of efficient
-evolving graph representation, on disk or in memory, queries for
-evolving graphs, and graph partitioning, with the majority of work in
-efficiently storing and retrieving graph snapshots.
+Distributed graph computation requires balanced graph partitioning
+dependent on the nature of the operation being applied to the graph.
+There are two basic types of graph partitions: edge-cut and
+vertex-cut.  An edge-cut approach distributed vertices across the
+available machines and replicates the edges as necessary.  A
+vertex-cut approach does the opposite.  Based on extensive theoretical
+and experimental~\cite{Gonzalez2012} studies, SparkX chose the
+vertex-cut approach, which minimizes the communication overhead.  The
+GraphX paper~\cite{DBLP:conf/osdi/GonzalezXDCFS14} provides an
+in-depth explanation of how this is supported.  One of the built-in
+partition strategies, Edge 2D, provides a performance guarantee as a
+maximum number of replications of a vertex.  We developed additional
+partition strategies (all vertex-cut) based on the temporal dimension
+as well as hybrids of structural and temporal.
 
-Efficient retrieval of dynamic/temporal graphs is addressed by Khurana
-and Deshpande~\cite{Khurana2003}, with the specific focus on snapshot
-retrieval for snapshot-based queries and analytics in a centralized
-and a distributed environment.  The primary focus of this work is on
-efficient physical representation and retrieval using deltas, which
-provides an ability to support an arbitrary tgraph resolution.  Our
-basic building block is a snapshot with the limitation that only
-resolutions no smaller than the ones at which snapshots are taken can
-be computed.  It would be fairly easy, however, to modify our system
-to store data as deltas rather than snapshots, using Khurana's
-approach.  There are two other areas of his work that are relevant to
-ours.  The GraphPool in-memory graph storage maintains a single graph
-representing all retrieved snapshots, and is thus similar to our
-MultiGraph and OneGraph data structures.  The GraphPool goes further
-and stores only dependencies from a materialized snapshot in those
-cases where the deltas between two snapshots are small.  Our
-implementation does not take that step because evaluation of queries
-involving multiple snapshots, such as TGroup, requires fully
-materialized views in memory.
+Another framework build on top of Spark is Shark (now
+SparkSQL)~\cite{Xin2013}.  Shark provides mid-query optimization of
+the distributed execution plan in addition to other optimizations over
+spark such as better data representation.  Query optimization is one
+of our goals for the Portal system, starting with dynamic adjustment
+of the number of partitions and the partition strategy, but that work
+is still in its infancy and we do not report on it here.  One
+immediately relevant aspect of the Shark work is in partitioning.
+Namely, in Shark tables can be copartitioned on a particular key at
+creation time which facilitates much more efficient joins.  This is
+similar to what some of our partition strategies do for tgroup and
+union/intersection operations to reduce communication overhead.
+
+In the area of dealing specifically with evolving graphs, there are
+several relevant works.  Efficient retrieval of dynamic/temporal
+graphs is addressed by Khurana and Deshpande~\cite{Khurana2003}, with
+the specific focus on snapshot retrieval for snapshot-based queries
+and analytics in a centralized and a distributed environment.  The
+primary focus of this work is on efficient physical representation and
+retrieval using deltas, which provides an ability to support an
+arbitrary tgraph resolution.  Our basic building block is a snapshot
+with the limitation that only resolutions no smaller than the ones at
+which snapshots are taken can be computed.  It would be fairly easy,
+however, to modify our system to store data as deltas rather than
+snapshots, using Khurana's approach.  There are two other areas of his
+work that are relevant to ours.  The GraphPool in-memory graph storage
+maintains a single graph representing all retrieved snapshots, and is
+thus similar to our MultiGraph and OneGraph data structures.  The
+GraphPool goes further and stores only dependencies from a
+materialized snapshot in those cases where the deltas between two
+snapshots are small.  Our implementation does not take that step
+because evaluation of queries involving multiple snapshots, such as
+TGroup, requires fully materialized views in memory.
 
 Another aspect relevant to our work is that of data skew and
 differential functions.  In DeltaGraph, a differential function
@@ -157,6 +182,3 @@ the graph undergoes changes.  Similarly, work on querying evolving
 graphs is different than the problem of mining evolving graph streams
 (e.g., ~\cite{Liu2010}), where the focus is on discovery of
 significant changes over a small window of consecutive graphs.
-
-\vera{I addressed works on representation and querying, but only a
-  little on partitioning.}
