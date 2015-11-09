@@ -41,7 +41,9 @@ social networks, it can be used for content recommendation and
 advertisement targeting.  In semantic knowledge bases this information
 can be used to capture the dynamics of zeitgeist.  Here, node
 popularity can be quantified in a number of ways including, e.g., node
-degree, centrality or PageRank score.
+degree, centrality or PageRank score.  \ql supports efficient
+computation of node popularity with {\em snapshot and trend
+  analytics}.
 
 {\em Have any changes in network connectivity been observed, either
   suddenly or gradually over time?}  For networks describing
@@ -53,7 +55,8 @@ another exogenous event.  In a co-authorship network, increasing
 connectivity among topical communities indicates stronger
 collaboration across domains.  Here, again, connectivity can be
 quantified as, e.g., pair-wise distance, length of shortest path
-between communities or graph density.
+between communities or graph density.  \ql supports this kind of
+analysis with {\em snapshot and trend analytics}.
 
 {\em At what time scale can interesting trends be observed?} The
 answer to this question may not be known apriori, at the time when
@@ -66,7 +69,22 @@ same network may show different kinds of trends at different time
 scales, e.g., node popularity may be changing at a different rate, and
 thus be observable on a different scale, than over-all network
 density.  Understanding at what temporal scale to consider network
-evolution is an integral part of exploratory analysis.
+evolution is an integral part of exploratory analysis.  This
+exploratory analysis is supported in \ql with {\em temporal
+  aggregation}.
+
+{\em Can information about graph evolution be used to make graph
+  analytics more stable, or representative?}  Algorithms that compute
+website popularily can be vulnerable to link spam, which is a
+persistent phenomenon on the Web, but the identity of spammers is
+transient~\cite{DBLP:conf/cikm/YangQZGL07}.  This suggests that
+persistence vs. transience of a node, edge, or, more generally, of a
+subgraph, is a meaningful aspect of quality.  Stable or representative
+subgraphs have also been used to improve performance of iterative
+computations, e.g., computing shortest paths~\cite{Ren2011}.  The {\em
+  temporal aggregation} operation in \ql, available in several
+interesting variants, can be used to find a representative subgraph of
+an evolving graph.
 
 {\em How can multiple data sources be used jointly, to complement or
   corroborate information about graph evolution?}  It may be the case
@@ -75,21 +93,10 @@ crawls of different, but possibly overlapping, portions of the Web
 graph.  Further, network states may be recorded at different, possibly
 overlapping, time periods, or even at different temporal scales.  Can
 these datasets be unified, in a principled way, to support analysis or
-meta-analysis of network evolution trends? 
+meta-analysis of network evolution trends?  \ql supports several
+interesting variants of the {\em temporal join operator} in support of
+this kind of analysis.
 
-As a preview of the development of this paper, consider the following
-query.
-
-\begin{verbatim}
-TSelect   Any V [vid, any(name), pagerank() as pr]; 
-          Any E [id1, id2, sum(cnt)]
-From      T1 TAnd T2
-Start     2010 End 2012
-TGroup    by 2 years
-\end{verbatim}
-
-In the remainder of this paper we will explain precisely what this
-query computes, and how it computes its result.
 
 {\bf Contributions.} In this paper we develop \ql, a declarative query
 language for efficient querying and exploratory analysis of evolving
@@ -104,11 +111,9 @@ locality.  We experimentally demonstrate that good performance can be
 achieved with careful engineering.
 
 {\bf Roadmap.}  We present our model in Section~\ref{sec:model}.  We
-illustrate the salient features of the \ql query language by example
-in Section~\ref{sec:example}, and describe the algebraic operators of
-in Section~\ref{sec:lang}.  \ql is fully implemented in an open-source
-prototype, which is presented in Section~\ref{sec:sys}.
-Section~\ref{sec:exp} describes our extensive experimental evaluation
-on a variety of real datasets.  We discuss related work in
-Section~\ref{sec:related}.  Future work and conclusions are given in
-Section~\ref{sec:conc}.
+describe the \ql query langauge in Section~\ref{sec:example}, and
+describe its implementation in an open-source prototype in
+Section~\ref{sec:sys}.  Section~\ref{sec:exp} describes our extensive
+experimental evaluation on a variety of real datasets.  We discuss
+related work in Section~\ref{sec:related}.  Future work and
+conclusions are given in Section~\ref{sec:conc}.
