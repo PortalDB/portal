@@ -81,10 +81,10 @@ transient~\cite{DBLP:conf/cikm/YangQZGL07}.  This suggests that
 persistence vs. transience of a node, edge, or, more generally, of a
 subgraph, is a meaningful aspect of quality.  Stable or representative
 subgraphs have also been used to improve performance of iterative
-computations, e.g., computing shortest paths~\cite{Ren2011}.  The {\em
-  temporal aggregation} operation in \ql, available in several
-interesting variants, can be used to find a representative subgraph of
-an evolving graph.
+computations in evolving graphs, e.g., computing shortest
+paths~\cite{Ren2011}.  The {\em temporal aggregation} operation in
+\ql, available in several interesting variants, can be used to find a
+representative subgraph of an evolving graph.
 
 {\em How can multiple data sources be used jointly, to complement or
   corroborate information about graph evolution?}  It may be the case
@@ -94,14 +94,13 @@ graph.  Further, network states may be recorded at different, possibly
 overlapping, time periods, or even at different temporal scales.  Can
 these datasets be unified, in a principled way, to support analysis or
 meta-analysis of network evolution trends?  \ql supports several
-interesting variants of the {\em temporal join operator} in support of
+interesting variants of the {\em temporal join operator} to enable
 this kind of analysis.
-
 
 {\bf Contributions.} In this paper we develop \ql, a declarative query
 language for efficient querying and exploratory analysis of evolving
 graphs. Our language supports novel operations including temporal
-aggregation, union and intersection, and a rich class of analytics.
+selection, join and aggregation, and a rich class of analytics.
 Further, we provide a scalable and extensible open-source
 implementation of \ql in scope of Apache Spark, an open-source
 distributed data processing framework.  We develop several novel
@@ -112,7 +111,7 @@ achieved with careful engineering.
 
 {\bf Roadmap.}  We present our model in Section~\ref{sec:model}.  We
 describe the \ql query langauge in Section~\ref{sec:example}, and
-describe its implementation in an open-source prototype in
+discuss its implementation in an open-source prototype in
 Section~\ref{sec:sys}.  Section~\ref{sec:exp} describes our extensive
 experimental evaluation on a variety of real datasets.  We discuss
 related work in Section~\ref{sec:related}.  Future work and
