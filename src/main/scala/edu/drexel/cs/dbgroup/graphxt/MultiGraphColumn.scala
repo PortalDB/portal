@@ -752,7 +752,7 @@ object MultiGraphColumn {
     new MultiGraphColumn[String, Int](intvs, graph, users)
   }
 
-  final def loadWithPartition(dataPath: String, start: LocalDate, end: LocalDate, strategy: PartitionStrategyType.Value): MultiGraphColumn[String, Int] = {
+  final def loadWithPartition(dataPath: String, start: LocalDate, end: LocalDate, strategy: PartitionStrategyType.Value, runWidth: Int): MultiGraphColumn[String, Int] = {
     var minDate: LocalDate = start
     var maxDate: LocalDate = end
 
@@ -805,7 +805,7 @@ object MultiGraphColumn {
 
     if (strategy != PartitionStrategyType.None) {
       val numParts = edges.edges.partitions.size
-      edges = edges.partitionByExt(PartitionStrategies.makeStrategy(strategy, 0, intvs.size, 2), numParts)
+      edges = edges.partitionByExt(PartitionStrategies.makeStrategy(strategy, 0, intvs.size, runWidth), numParts)
     }
 
     val verts: RDD[(VertexId, BitSet)] = users.map{ case (k,v) => (k._1, BitSet(k._2))}.reduceByKey((a,b) => a union b )

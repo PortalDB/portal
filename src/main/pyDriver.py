@@ -17,7 +17,7 @@ numParts = []
 
 def collect_time(output):
     ftime = -1
-    op_list = ["Aggregation", "Selection", "PageRank", "Count", "GetSnapshot"] #append to this list for new opearations
+    op_list = ["Aggregation", "Selection", "PageRank", "Materialize", "GetSnapshot"] #append to this list for new opearations
     time_dict = {}
     
     #collect final runtime
@@ -104,9 +104,9 @@ def collect_args(query):
                 numParts = int(line[i+4])
             addOp = True
 
-        if line[i] == "--count":
-            opType = "Count"
-            arg1 = arg2 = None # no args for count
+        if line[i] == "--materialize":
+            opType = "Materialize"
+            arg1 = arg2 = None # no args for materialize
             partS = runW = numParts = None            
 
             if (len(line) > i+1) and (line[i+1] == "-p"):
@@ -182,7 +182,7 @@ def genRepetitions(query):
                 gen = True;
                 replaceIndex = i+2;
 
-        if line[i] == "--count":
+        if line[i] == "--materialize":
             if (len(line) > i+1) and (line[i+1] == "-r"):
                 gen = True;
                 replaceIndex = i+1;
@@ -300,9 +300,9 @@ def run(configFile):
  
         elif env == "standalone":
             #TODO: consume this info from http://master:8081
-            numWorkers = 4
-            numCores = 2
-            ram = 8
+            numWorkers = 8
+            numCores = 4
+            ram = 16
             cConf = str(numWorkers) + "s_" + str(numCores) + "c_" + str(ram) + "g"
 
         for q in queries: 

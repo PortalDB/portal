@@ -510,10 +510,9 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
       //not changing the intervals, only the graphs at their indices
       //each partition strategy for SG needs information about the graph
 
-      val numParts: Int = if (parts > 0) parts else numPartitions()
-
       //use that strategy to partition each of the snapshots
       new SnapshotGraphParallel(intervals, graphs.zipWithIndex.map { case (g,i) =>
+        val numParts: Int = if (parts > 0) parts else g.edges.partitions.size
         g.partitionBy(PartitionStrategies.makeStrategy(pst, i, graphs.size, runs), numParts)
       })
     } else
@@ -584,7 +583,7 @@ object SnapshotGraphParallel extends Serializable {
     new SnapshotGraphParallel(intvs, gps)
   }
 
-  final def loadWithPartition(dataPath: String, start: LocalDate, end: LocalDate, strategy: PartitionStrategyType.Value): SnapshotGraphParallel[String, Int] = {
+  final def loadWithPartition(dataPath: String, start: LocalDate, end: LocalDate, strategy: PartitionStrategyType.Value, runWidth: Int): SnapshotGraphParallel[String, Int] = {
     var minDate: LocalDate = start
     var maxDate: LocalDate = end
 
@@ -637,7 +636,7 @@ object SnapshotGraphParallel extends Serializable {
         //uses extended version of Graph Loader to load edges with attributes
         var g = GraphLoaderAddon.edgeListFile(ProgramContext.sc, dataPath + "/edges/edges" + xx.toString() + ".txt", true, numEdgeParts)
         if (strategy != PartitionStrategyType.None) {
-          g = g.partitionBy(PartitionStrategies.makeStrategy(strategy, intvs.size + 1, total, 2), numParts)
+          g = g.partitionBy(PartitionStrategies.makeStrategy(strategy, intvs.size + 1, total, runWidth), numParts)
         }
         edges = g.edges
       }
