@@ -1,19 +1,15 @@
 \section{Portal by Example}
 \label{sec:example}
 
-In this section we illustrate the salient features of \ql, a
-declarative query language for evolving graphs. \ql uses SQL-like
-syntax, and has the form \insql{TSelect} \ldots \insql{From} \ldots
-\insql{TWhere} \ldots \insql{TGroup}.  We prefix temporal keywords
-with \insql{T}, to make the distinction between \ql and SQL operations
-explicit.
-
-We will discuss how \ql queries are evaluated in
-Section~\ref{sec:sys}.  We will use \tgs \insql{T1} and \insql{T2} of
-Figures~\ref{fig:tg} and~\ref{fig:tg_t2}, both with the structural
-schema V(\underline{vid}:int, name:str, salary:int);
-E(\underline{vid1}:int, \underline{vid2}:int, cnt:int), in our
-examples.
+In this section we present \ql, a declarative query language for
+evolving graphs. \ql uses SQL-like syntax, and has the form
+\insql{TSelect} \ldots \insql{From} \ldots \insql{TWhere} \ldots
+\insql{TGroup}.  We prefix temporal keywords with \insql{T}, to make
+the distinction between \ql and SQL operations explicit.  We will use
+\tgs \insql{T1} and \insql{T2} of Figures~\ref{fig:tg}
+and~\ref{fig:tg_t2}, both with the structural schema
+V(\underline{vid}:int, name:str, salary:int); E(\underline{vid1}:int,
+\underline{vid2}:int, cnt:int), in our examples.
 
 \begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/6snaps.pdf}
@@ -191,10 +187,10 @@ are present.
 
 $Q4$ illustrates another important feature of \ql, namely, aggregation
 of values of non-key attributes of vertices and edges, which happens
-as part of structural aggregation.  We make the following aggregation
-operations available: \insql{any}, \insql{first}, \insql{last},
-\insql{min}, \insql{max}, \insql{sum}, \insql{count}, and
-\insql{list}.
+as part of structural aggregation.  \ql makes the following
+aggregation operations available: \insql{any}, \insql{first},
+\insql{last}, \insql{min}, \insql{max}, \insql{sum}, \insql{count},
+and \insql{list}.
 
 To illustrate, consider vertex and edge relations in
 Figure~\ref{fig:2ve}, which correspond to the first two snapshots of
@@ -438,19 +434,23 @@ query, its structural schema is determined by the query result.  In
 $Q11$, the structural schema of the view \insql{T4} is the same as
 that of \insql{T1}.
 
-{\bf Inspecting results with SQL.}  Suppose that the result of query
-$Q9$ is assigned to \insql{T5}.  \ql supports vertex and edge
-transformation methods that expose the contents of a \tg as vertex and
-edge collections.  These methods are \insql{vertices()},
-\insql{verticesflat()}, \insql{edges()}, and \insql{edgesFlat()}.
+{\bf Inspecting results with SQL.}  Suppose that the result of $Q9$ is
+assigned to \insql{T5}, with the structural schema
+V(\underline{vid}:int, tr:float, mx:float) ; E(\underline{vid1}:int,
+\underline{vid2}:int).
+
+\ql supports vertex and edge transformation methods that expose the
+contents of a \tg as vertex and edge collections.  These methods are
+\insql{vertices()}, \insql{verticesFlat()}, \insql{edges()}, and
+\insql{edgesFlat()}.
 
 \begin{small}
 \begin{verbatim}
-Q12:  Select   vid, pagerank_trend
-      From     T5.edgesFlat()
-      Order by pagerank_trend
+Q12:  Select   vid, tr
+      From     (  Output V [vid, tr] 
+                  From   T5 ) 
+      Order by tr
       Limit    20
 \end{verbatim}
 \end{small}
 
-\reminder{I'm not happy with this syntax, will work on this more.}
