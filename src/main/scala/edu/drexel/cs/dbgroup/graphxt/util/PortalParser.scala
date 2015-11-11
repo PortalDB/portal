@@ -7,7 +7,9 @@ import java.time.LocalDate
 import edu.drexel.cs.dbgroup.graphxt._
 
 object PortalParser extends StandardTokenParsers with PackratParsers {
-  lexical.reserved += ("select", "union", "intersection", "min", "max", "sum", "any", "universal", "existential", "directed", "undirected", "vertices", "edges", "group", "by", "with", "return", "compute", "pagerank", "components", "count", "id", "attr", "year", "month", "day", "start", "stop", "where", "and")
+  lexical.reserved += ("select", "from", "union", "intersection", "min", "max", "sum", "any", "universal", "existential", "directed", "undirected", "vertices", "edges", "group", "by", "with", "return", "compute", "pagerank", "components", "count", "id", "attr", "trend", "year", "month", "day", "start", "end", "where", "and", 
+    //these are for debugging and testing
+    "materialize")
   lexical.delimiters ++= List("-", "=", ".")
 
   def parse(input: String) = {
@@ -22,11 +24,12 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
 
   lazy val query: PackratParser[Query] = ( expr ~ "return" ~ entity ~ opt(attrStr) ^^ { case g ~ _ ~ e ~ Some(astr) => Return(g, e, astr) 
     case g ~ _ ~ e ~ _ => Return(g, e, Attr()) }
+    | expr ~ "materialize" ^^ { case g ~ _ => Materialize(g)}
   )
 
-  lazy val expr: PackratParser[Expression] = ( select ^^ { case sel => PlainSelect(sel)}
-    | select ~ "union" ~ "with" ~ semantics ~ function ~ select ^^ { case g1 ~ _ ~ _ ~ sem ~ func ~ g2 => Union(g1, g2, sem, func)}
+  lazy val expr: PackratParser[Expression] = ( select ~ "union" ~ "with" ~ semantics ~ function ~ select ^^ { case g1 ~ _ ~ _ ~ sem ~ func ~ g2 => Union(g1, g2, sem, func)}
     | select ~ "intersection" ~ "with" ~ semantics ~ function ~ select ^^ { case g1 ~ _ ~ _ ~ sem ~ func ~ g2 => Intersect(g1, g2, sem, func)}
+    | select ^^ { case sel => PlainSelect(sel)}
   )
 
   lazy val entity = ( "vertices" ^^^ Vertices()
@@ -36,6 +39,7 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
   lazy val attrStr = ( "." <~ "count" ^^^ Count()
     | "." <~ "id" ^^^ Id()
     | "." <~ "attr" ^^^ Attr()
+    | "." <~ "trend" ^^^ Trend()
   )
 
   lazy val select: PackratParser[Select] = ("select" ~> opt(compute) ~ "from" ~ stringLit ~ opt(where) ~ opt(groupby) ^^ {
@@ -54,8 +58,10 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
     | "existential" ^^^ Existential()
   )
 
-  lazy val compute = ( "compute" ~> "pagerank" ~> dir ~ numericLit ~ numericLit ~ numericLit ^^ { case dir ~ tol ~ reset ~ numIter => Pagerank(dir, tol, reset, numIter)}
+  lazy val compute = ( "compute" ~> "pagerank" ~> dir ~ doubleLit ~ doubleLit ~ numericLit ^^ { case dir ~ tol ~ reset ~ numIter => Pagerank(dir, tol, reset, numIter)}
   )
+
+  lazy val doubleLit = ( numericLit ~ "." ~ numericLit ^^ { case num1 ~ _ ~ num2 => (num1 + "." + num2).toDouble} )
 
   lazy val where = ("where" ~> datecond ~ opt("and" ~> datecond) ^^ { 
     case datec ~ Some(datec2) => new Where(datec, datec2)
@@ -73,9 +79,9 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
 
   lazy val groupby = ("group" ~> "by" ~> numericLit ~ period ~ "with" ~ semantics ~ function ^^ { case num ~ per ~ _ ~ sem ~ func => new GroupBy(num, per, sem, func)})
 
-  lazy val period = ("years" ^^^ Years()
-    | "months" ^^^ Months()
-    | "days" ^^^ Days()
+  lazy val period = ("year" ^^^ Years()
+    | "month" ^^^ Months()
+    | "day" ^^^ Days()
   )
 
   lazy val dir = ( "directed" ^^^ Directed()
@@ -95,6 +101,17 @@ object Interpreter {
 
   def parseQuery(q: Query) {
     q match {
+      case Materialize(graph) =>
+        val intRes = parseExpr(graph) match {
+          case Left(x) => x
+          case Right(x) => x
+        }
+        val materializeStart = System.currentTimeMillis()
+        intRes.materialize
+        val materializeEnd = System.currentTimeMillis()
+        val total = materializeEnd - materializeStart
+        println(f"Materialize Runtime: $total%dms ($argNum%d)")
+        argNum += 1
       case Return(graph, entity, attr) =>
         val intRes = parseExpr(graph) match {
           case Left(x) => x
@@ -115,6 +132,18 @@ object Interpreter {
               case a: Attr =>
                 println("Vertices with attributes:\n" + intRes.vertices.collect.mkString("\n"))
                 op = "Attrs"
+              case t: Trend =>
+                val intervals = intRes.getTemporalSequence
+                val trendy: TemporalGraph[Double,Double] = intRes match {
+                  case te: TemporalGraph[Double,Double] => te
+                  case _ => throw new IllegalArgumentException("trying to get trend on a non-analytic")
+                }
+                println("Vertices with trend:")
+                println(trendy.vertices.collect
+                  .map(x => (x._1, x._2.map(y => (intervals.indexOf(y._1),y._2))))
+                  .map(x => (x._1, LinearTrendEstimate.calculateSlope(x._2)))
+                  mkString("\n"))
+                op = "Trend"
             }
           case e: Edges =>
             attr match {
@@ -128,6 +157,9 @@ object Interpreter {
               case a: Attr =>
                 println("Edges with attributes:\n" + intRes.edges.collect.mkString("\n"))
                 op = "Attrs"
+              case t: Trend =>
+                println("TODO")
+                op = "Trend"
             }
         }
         val countEnd = System.currentTimeMillis()
@@ -246,13 +278,18 @@ object Interpreter {
   }
 
   def parseSelect(sel: Select): Either[TemporalGraph[String,Int], TemporalGraph[Double,Double]] = {
-    var res: TemporalGraph[String, Int] = GraphLoader.loadData(sel.dataset, sel.start,sel.end)
+    val selStart = System.currentTimeMillis()
+    var res: TemporalGraph[String, Int] = GraphLoader.loadData(sel.dataset, sel.start,sel.end).persist()
+    val selEnd = System.currentTimeMillis()
+    val total = selEnd - selStart
+    println(f"Select Runtime: $total%dms ($argNum%d)")
     //if there is both group and compute, group comes first
     if (sel.doGroupby) {
       val aggStart = System.currentTimeMillis()
+      val func:Function = sel.groupClause.func
 
       def fun1(s1:String, s2:String): String = {
-        sel.groupClause.func match {
+        func match {
           case su: SumFunc => s1 + s2
           case mi: MinFunc => if (s1.length() > s2.length()) s2 else s1
           case ma: MaxFunc => if (s1.length() < s2.length()) s2 else s1
@@ -260,7 +297,7 @@ object Interpreter {
         }
       }
       def fun2(in1:Int, in2:Int): Int = {
-        sel.groupClause.func match {
+        func match {
           case su: SumFunc => in1 + in2
           case mi: MinFunc => math.min(in1, in2)
           case ma: MaxFunc => math.max(in1, in2)
@@ -268,7 +305,8 @@ object Interpreter {
         }
       }
 
-      res = res.aggregate(Resolution.from(sel.groupClause.period), sel.groupClause.semantics.value, fun1, fun2)
+      val semant:AggregateSemantics.Value = sel.groupClause.semantics.value
+      res = res.aggregate(Resolution.from(sel.groupClause.period), semant, fun1, fun2)
       val aggEnd = System.currentTimeMillis()
       val total = aggEnd - aggStart
       println(f"Aggregation Runtime: $total%dms ($argNum%d)")
@@ -284,30 +322,31 @@ object Interpreter {
     com match {
       case Pagerank(dir, tol, res, numIter) => {
         val prStart = System.currentTimeMillis()
-        val result = gr.pageRank(dir.value, tol.toDouble, res.toDouble, numIter.toInt)
+        val result = gr.pageRank(dir.value, tol, res, numIter.toInt)
         val prEnd = System.currentTimeMillis()
         val total = prEnd - prStart
         println(f"PageRank Runtime: $total%dms ($argNum%d)")
         argNum += 1
         result
       }
-/*
-      case ConnectedComponents() => {
-        val conStart = System.currentTimeMillis()
-        val result = gr.connectedComponents()
+        /*
+         case ConnectedComponents() => {
+         val conStart = System.currentTimeMillis()
+         val result = gr.connectedComponents()
         val conEnd = System.currentTimeMillis()
         val total = conEnd - conStart
         println(f"ConnectedComponents Runtime: $total%dms ($argNum%d)")
         argNum += 1
         result
-      }
- */
+         }
+         */
     }
   }
 }
 
 sealed abstract class Query
 case class Return(graph: Expression, ent: Entity, attr: AttrStr) extends Query
+case class Materialize(graph: Expression) extends Query
 
 sealed abstract class Expression
 case class PlainSelect(sel: Select) extends Expression
@@ -322,6 +361,7 @@ sealed abstract class AttrStr
 case class Count extends AttrStr
 case class Id extends AttrStr
 case class Attr extends AttrStr
+case class Trend extends AttrStr
 
 class Select(data: String) {
   val dataset: String = data
@@ -397,7 +437,7 @@ case class Existential extends Semantics {
 }
 
 sealed abstract class Compute
-case class Pagerank(dir: Direction, tol: String, reset: String, numIter: String) extends Compute
+case class Pagerank(dir: Direction, tol: Double, reset: Double, numIter: String) extends Compute
 
 class Where(datec: Datecond) {
   var start: LocalDate = datec match { 
@@ -459,7 +499,7 @@ case class Undirected extends Direction {
   def value() = false
 }
 
-sealed abstract class Function
+sealed abstract class Function extends Serializable
 case class MaxFunc extends Function
 case class MinFunc extends Function
 case class SumFunc extends Function

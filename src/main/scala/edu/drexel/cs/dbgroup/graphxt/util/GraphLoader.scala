@@ -6,10 +6,14 @@ import java.time.LocalDate
 object GraphLoader {
   private var dataPath = ""
   private var graphType = "MG"
+  private var strategy = PartitionStrategyType.None
+  private var runWidth = 2
 
   //This is the general path, not for a specific dataset
   def setPath(path: String):Unit = dataPath = path
   def setGraphType(tp: String):Unit = graphType = tp
+  def setStrategy(str: PartitionStrategyType.Value):Unit = strategy = str
+  def setRunWidth(rw: Int):Unit = runWidth = rw
 
   def loadData(set: String, from: LocalDate, to: LocalDate):TemporalGraph[String,Int] = {
     //FIXME: make this not hard-coded but read from somewhere
@@ -19,16 +23,16 @@ object GraphLoader {
       case "ukdelis" => dataPath + "/ukDelis"
     }
     graphType match {
-      case "SG" =>
-        SnapshotGraph.loadData(path, from, to)
       case "MG" =>
-        MultiGraph.loadData(path, from, to)
+        MultiGraph.loadWithPartition(path, from, to, strategy, runWidth)
       case "SGP" =>
-        SnapshotGraphParallel.loadData(path, from, to)
+        SnapshotGraphParallel.loadWithPartition(path, from, to, strategy, runWidth)
       case "MGC" =>
-        MultiGraphColumn.loadData(path, from, to)
+        MultiGraphColumn.loadWithPartition(path, from, to, strategy, runWidth)
       case "OG" =>
-        OneGraph.loadData(path, from, to)
+        OneGraph.loadWithPartition(path, from, to, strategy, runWidth)
+      case "OGC" =>
+        OneGraphColumn.loadWithPartition(path, from, to, strategy, runWidth)
     }
   }
 }

@@ -322,8 +322,13 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
     val gr2IndexStart:Long = resolution.numBetween(startBound, grp2.span.start)
     val gr1Pad:Long = resolution.numBetween(span.end, endBound)
     val gr2Pad:Long = resolution.numBetween(grp2.span.end, endBound)
-    val grseq1:ParSeq[Graph[VD, ED]] = (ParSeq[Graph[VD, ED]]().padTo(gr1IndexStart.toInt, Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)) ++ graphs).padTo(gr1Pad.toInt, Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD))
-    val grseq2:ParSeq[Graph[VD, ED]] = (ParSeq[Graph[VD, ED]]().padTo(gr2IndexStart.toInt, Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)) ++ grp2.graphs).padTo(gr2Pad.toInt, Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD))
+    val grseq1start:ParSeq[Graph[VD, ED]] = ParSeq.fill(gr1IndexStart.toInt){Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)}
+    val grseq1pad:ParSeq[Graph[VD, ED]] = ParSeq.fill(gr1Pad.toInt){Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)}
+    val grseq1:ParSeq[Graph[VD, ED]] =  grseq1start ++ graphs ++ grseq1pad
+
+    val grseq2start:ParSeq[Graph[VD, ED]] = ParSeq.fill(gr2IndexStart.toInt){Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)}
+    val grseq2pad:ParSeq[Graph[VD, ED]] = ParSeq.fill(gr2Pad.toInt){Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)}
+    val grseq2:ParSeq[Graph[VD, ED]] = grseq2start ++ grp2.graphs ++ grseq2pad
 
     //then zip them
     val mergedGraphs:ParSeq[Graph[VD, ED]] = grseq1.zip(grseq2).map { twogrs =>

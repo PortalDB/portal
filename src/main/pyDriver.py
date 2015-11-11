@@ -13,11 +13,10 @@ from subprocess import Popen, PIPE;
 #database = None;
 #dbconnect = None;
 strats = []
-numParts = []
 
 def collect_time(output):
     ftime = -1
-    op_list = ["Aggregation", "Selection", "PageRank", "Materialize", "GetSnapshot"] #append to this list for new opearations
+    op_list = ["Aggregation", "Select", "PageRank", "Materialize", "Trend", "Union", "Intersection"] #append to this list for new opearations
     time_dict = {}
     
     #collect final runtime
@@ -61,7 +60,7 @@ def create_op(oT, a1, a2, pS, nP, rW):
         runWidth = rW )
     return op
 
-def collect_args(query):
+def collect_args(query, strat, run):
     line = query.split(" ");
     opDict = {} #dictionary of all operations in the query
     seqNum = 1
@@ -69,63 +68,40 @@ def collect_args(query):
     addOp = False
 
     for i in range (0, len(line)):
-        if line[i] == "--agg":
+        if line[i] == "group":
             opType = "Aggregate"
-            arg1 = runW = int(line[i+1][1:][:-1])
-            arg2 = get_agg_type(line[i+2]) 
+            arg1 = runW = int(line[i+2])
+            arg2 = get_agg_type(line[i+5]) 
             partS = numParts = None
 
-            if (len(line) > i+3) and (line[i+3] == "-p"):
-                partS = line[i+4]
-                numParts = int(line[i+5])
             addOp = True
     
-        if line[i] == "--select":
+        if line[i] == "where":
             opType = "Select"
-            arg1 = int(line[i+1].replace("-", ""))
-            arg2 = int(line[i+2].replace("-", ""))
-            partS = runW = numParts = None
+            arg1 = int(line[i+1][6:].replace("-", ""))
+            arg2 = int(line[i+3][4:].replace("-", ""))
+            partS = strat
+            runW = run
+            numParts = 0
 
-            if (len(line) > i+3) and (line[i+3] == "-p"):
-                runW = 1 #FIXME: what is runW for selection??
-                partS = line[i+4]
-                numParts = int(line[i+5])
+            #FIXME: need to put partition strategy here
             addOp = True
 
-        if line[i] == "--pagerank":
+        if line[i] == "pagerank":
             opType = "PageRank"
-            arg1 = int(line[i+1])
-            arg2 = 1 #FIXME: what is arg2 for pr??
+            arg1 = int(line[i+4])
+            arg2 = 1
             partS = runW = numParts = None
 
-            if (len(line) > i+2) and (line[i+2] == "-p"):
-                runW = 1 #FIXME: what is runW for pr??
-                partS = line[i+3]
-                numParts = int(line[i+4])
             addOp = True
 
-        if line[i] == "--materialize":
+        if line[i] == "materialize":
             opType = "Materialize"
-            arg1 = arg2 = None # no args for materialize
+            arg1 = arg2 = None # no args for this
             partS = runW = numParts = None            
 
-            if (len(line) > i+1) and (line[i+1] == "-p"):
-                runW = 1 #FIXME: what is runW for count?
-                partS = line[i+2]
-                numParts = int(line[i+3]) 
             addOp = True
         
-        if line[i] == "--getsnapshot":
-            opType = "GetSnapshot"
-            arg1 = int(line[i+1])
-            arg2 = partS = runW = numParts = None
-
-            if (len(line) > i+2) and (line[i+2] == "-p"):
-                runW = 1  #FIXME: what is runW for gs??
-                partS = line[i+3]
-                numParts = int(line[i+4])
-            addOp = True
-
         #create new operation
         if addOp == True:
             newOp = create_op(opType, arg1, arg2, partS, numParts, runW)
@@ -139,73 +115,24 @@ def collect_args(query):
 
 def genQueries(line, replaceIndex):
     #partitionS = ["CanonicalRandomVertexCut", "EdgePartition2D", "NaiveTemporal", "ConsecutiveTemporal", "HybridRandomTemporal", "Hybrid2DTemporal"]
-    #numParts = [8,16,32]
     queries = []
     query = line[:]
 
-    for part in numParts:
-        for strat in strats:
-            newStrat = "-r" #default if no partitioning, -r is replaced with empty string before returning
+    for strat in strats:
+        if (strat != "None"):
+            newStrat = "-p " + strat + " " +  str(part)
             
-            if (strat != "None"):
-                newStrat = "-p " + strat + " " +  str(part)
-
             query[replaceIndex] = newStrat
             newQuery = (" ".join(query)).replace(" -r", "")
             
             #prevent duplicates
             if not newQuery in queries: 
                 queries.append(newQuery)
-
+                
     return queries;
-
-# repeats query for all partition strategies and all numParts when -r is passed to an operation
-def genRepetitions(query):
-    line = query.split(" ");
-    queries = []
-    gen = False;
-    replaceIndex = -1;
-    
-    for i in range (0, len(line)):
-        if line[i] == "--agg":
-            if (len(line) > i+3) and (line[i+3] == "-r"):
-                gen = True;
-                replaceIndex = i+3;
-    
-        if line[i] == "--select":
-            if (len(line) > i+3) and (line[i+3] == "-r"):
-                gen = True;
-                replaceIndex = i+3;
-
-        if line[i] == "--pagerank":
-            if (len(line) > i+2) and (line[i+2] == "-r"):
-                gen = True;
-                replaceIndex = i+2;
-
-        if line[i] == "--materialize":
-            if (len(line) > i+1) and (line[i+1] == "-r"):
-                gen = True;
-                replaceIndex = i+1;
- 
-        if line[i] == "--getsnapshot":
-            if (len(line) > i+2) and (line[i+2] == "-r"):
-                gen = True;
-                replaceIndex = i+2;
-
-        #add generated queries to the list of queries to run
-        if(gen == True):
-            newQ = genQueries(line, replaceIndex)
-            queries.extend(newQ)
-            gen = False
-
-    if(len(queries) == 0):
-        queries.append((" ".join(line)).replace(" -r", "")) 
-    
-    return queries
 
 def run(configFile):
     global strats;
-    global numParts;
 
     parser = configparser.ConfigParser()
     parser.read(configFile)
@@ -219,13 +146,12 @@ def run(configFile):
     standConf = parser['configs']['standaloneConfig']
     cConf = parser['configs']['clusterConfig']
     buildN = int(parser['configs']['buildNum'])
-    sType = int(parser['configs']['warm'])
     itr = int(parser['configs']['iterations'])
     gType = parser['configs']['type']
     data = parser['configs']['data']
     dataset = parser['configs']['dataset']
     strats.extend(parser['configs']['strategy'].split(","))
-    numParts.extend(parser['configs']['numParts'].split(","))
+    runw = parser['configs']['runwidth']
 
     #read queries
     c = parser['test_queries']['Queries'].split("\n")
@@ -233,8 +159,9 @@ def run(configFile):
 
     gtypeParam = " --type "
     dataParam = "--data "
+    stratParam = " --strategy "
+    widthParam = " --runWidth "
     sparkSubmit = "$SPARK_HOME/bin/spark-submit --class "
-    warm = ""
     envConf = localConf #set to local environment by default
 
     if env == "ec2":
@@ -244,10 +171,6 @@ def run(configFile):
     elif env == 'standalone':
         envConf = standConf
  
-    #run with warm start
-    if sType == 1:
-        warm = " --warmstart"    
-                
     #get git revision number and save build information
     p1 = Popen('cat ../../.git/refs/heads/master', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     gitRev = p1.communicate()[0];
@@ -257,7 +180,6 @@ def run(configFile):
         line = ln.split(" ");
         qname = line[0]
         query = " ".join(line[1:-1]) + " " + line[-1].strip("\n") + " "
-        queries = genRepetitions(query)
 
         #get cluster information when running on mesos cluster            
         if env == "mesos":
@@ -317,15 +239,14 @@ def run(configFile):
             #set cluster config
             #FIXME: find ram of slaves
             cConf = str(numWorkers) + "s_" + str(numCores) + "c_" + str(ram) + "g"  
- 
-        for q in queries: 
-            classArg = q + dataParam + data + gtypeParam + gType + warm
+
+        for strat in strats: 
+            classArg = dataParam + data + gtypeParam + gType + stratParam + strat + widthParam + runw + " --query " + query
             querySaved = False;
             qRef = None;
             op_dict = id_dict = {}
             sparkCommand = sparkSubmit + mainc + " " + envConf + " " + classArg + " | tee -a log.out"           
 
- 
             print "sparkCommand:", sparkCommand
             print "cluster Config:", cConf
             print "[STATUS]: running the spark-submit command against dataset and collect results..."
@@ -349,13 +270,13 @@ def run(configFile):
                 #only run this once for each query
                 if querySaved == False:
                     qRef = dbconnect.persist_query() #persist to Query table
-                    op_dict = collect_args(q);
-                    id_dict = dbconnect.persist_ops(op_dict) #persist to Operation table
+                    op_dict = collect_args(query, strat, runw);
+                     id_dict = dbconnect.persist_ops(op_dict) #persist to Operation table
                     dbconnect.persist_query_ops(qRef, id_dict) #persist tp Query_Op_Map table            
                     querySaved = True        
  
                 bRef = dbconnect.persist_buildRef(buildN, gitRev.strip("\n"))
-                eRef = dbconnect.persist_exec(time_dict, qRef, gType, sType, cConf, rTime, i, bRef, dataset)
+                eRef = dbconnect.persist_exec(time_dict, qRef, gType, 0, cConf, rTime, i, bRef, dataset)
                 dbconnect.persist_time_op(eRef, qRef, id_dict, time_dict) 
                 print "[STATUS]: finished running iteration", i, "of current query..\n" 
     print "***  Done with executions." 
