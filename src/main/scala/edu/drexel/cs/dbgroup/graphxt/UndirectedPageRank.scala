@@ -104,27 +104,27 @@ object UndirectedPageRank {
         ctx.sendToDst(Map(ctx.attr._1 -> 1)) 
       },
       mergedFunc,
-      TripletFields.All)
-  
+      TripletFields.None)
+
     // Initialize the pagerankGraph with each edge attribute
     // having weight 1/degree and each vertex with attribute 1.0.
     val pagerankGraph: Graph[Map[TimeIndex,(Double,Double)], (TimeIndex,Double,Double)] = graph
       // Associate the degree with each vertex for each interval
       .outerJoinVertices(degrees) {
       case (vid, vdata, Some(deg)) => deg
-      case (vid, vdata, None) => Map[TimeIndex,Int]()
+      case (vid, vdata, None) => vdata.mapValues(x => 0).map(identity)
       }
       // Set the weight on the edges based on the degree of that interval
       .mapTriplets( e => (e.attr._1, 1.0 / e.srcAttr(e.attr._1), 1.0 / e.dstAttr(e.attr._1)) )
       // Set the vertex attributes to (initalPR, delta = 0) for each interval
-      .mapVertices( (id, attr) => attr.mapValues { x => (0.0,0.0) } )
+      .mapVertices( (id, attr) => attr.mapValues { x => (0.0,0.0) }.map(identity) )
       .cache()
 
     // Define the three functions needed to implement PageRank in the GraphX
     // version of Pregel
     def vertexProgram(id: VertexId, attr: Map[TimeIndex,(Double, Double)], msg: Map[TimeIndex,Double]): Map[TimeIndex,(Double, Double)] = {
       //need to compute new values for each interval
-      //each edge carries a message for one interval,
+     //each edge carries a message for one interval,
       //which are combined by the combiner into a hash
       //for each interval in the msg hash, update
       var vals = attr
@@ -158,7 +158,7 @@ object UndirectedPageRank {
      (a.keySet ++ b.keySet).map { i =>
         val count1Val:Double = a.getOrElse(i, 0.0)
         val count2Val:Double = b.getOrElse(i, 0.0)
-        i -> (count1Val + count2Val)
+        (i,(count1Val + count2Val))
       }.toMap
      }
 

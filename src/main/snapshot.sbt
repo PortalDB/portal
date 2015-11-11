@@ -8,8 +8,8 @@ settings(
     mainClass in (Compile, packageBin) := Some("edu.drexel.cs.dbgroup.graphxt.Driver"),
     mainClass in (Compile, run) := Some("edu.drexel.cs.dbgroup.graphxt.Driver"),
     assemblyJarName in assembly := "tgraph-assembly-1.0.jar",
-    libraryDependencies += "org.apache.spark" %% "spark-core" % "1.5.1" % "provided",
-    libraryDependencies += "org.apache.spark" %% "spark-graphx" % "1.5.1" % "provided",
+    libraryDependencies += "org.apache.spark" %% "spark-core" % "1.4.0" % "provided",
+    libraryDependencies += "org.apache.spark" %% "spark-graphx" % "1.4.0" % "provided",
     libraryDependencies += "org.apache.hadoop" % "hadoop-client" % "2.6.0" % "provided",
     dependencyOverrides += "org.apache.hadoop" % "hadoop-client" % "2.6.0"
 )

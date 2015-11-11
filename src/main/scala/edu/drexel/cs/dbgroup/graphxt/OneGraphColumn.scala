@@ -50,6 +50,11 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
 
   override def size(): Int = intervals.size
 
+  override def materialize() = {
+    graphs.numVertices
+    graphs.numEdges
+  }
+
   override def vertices: VertexRDD[Map[Interval, VD]] = {
     val start = span.start
     VertexRDD(vertexattrs.map{ case (k,v) => (k._1, Map[Interval,VD](resolution.getInterval(start, k._2) -> v))}
@@ -565,10 +570,10 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
 
 object OneGraphColumn {
   final def loadData(dataPath: String, start: LocalDate, end: LocalDate): OneGraphColumn[String, Int] = {
-    loadWithPartition(dataPath, start, end, PartitionStrategyType.None)
+    loadWithPartition(dataPath, start, end, PartitionStrategyType.None, 1)
   }
 
-  final def loadWithPartition(dataPath: String, start: LocalDate, end: LocalDate, strategy: PartitionStrategyType.Value): OneGraphColumn[String, Int] = {
+  final def loadWithPartition(dataPath: String, start: LocalDate, end: LocalDate, strategy: PartitionStrategyType.Value, runWidth: Int): OneGraphColumn[String, Int] = {
     var minDate: LocalDate = start
     var maxDate: LocalDate = end
 
@@ -642,7 +647,7 @@ object OneGraphColumn {
     var graph: Graph[BitSet,BitSet] = Graph(verts, edges, BitSet())
 
     if (strategy != PartitionStrategyType.None) {
-      graph = graph.partitionBy(PartitionStrategies.makeStrategy(strategy, 0, intvs.size, 2))
+      graph = graph.partitionBy(PartitionStrategies.makeStrategy(strategy, 0, intvs.size, runWidth))
     }    
 
     new OneGraphColumn[String, Int](intvs, graph.persist(), users, links)

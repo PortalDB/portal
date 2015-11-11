@@ -18,6 +18,11 @@ abstract class TemporalGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
   def size(): Int
 
   /**
+    *  The call to materialize the data structure
+    */
+  def materialize(): Unit
+
+  /**
     * An RDD containing the vertices and their associated attributes.
     * @return an RDD containing the vertices in this graph, across all intervals.
     * The vertex attributes are in a Map of TimeIndex->value.

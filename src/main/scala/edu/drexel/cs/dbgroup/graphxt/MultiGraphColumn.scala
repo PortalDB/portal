@@ -46,6 +46,11 @@ class MultiGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Gr
 
   override def size(): Int = intervals.size
 
+  override def materialize() = {
+    graphs.numVertices
+    graphs.numEdges
+  }
+
   override def vertices: VertexRDD[Map[Interval, VD]] = {
     val start = span.start
     VertexRDD(vertexattrs.map{ case (k,v) => (k._1, Map[Interval,VD](resolution.getInterval(start, k._2) -> v))}
@@ -747,7 +752,7 @@ object MultiGraphColumn {
     new MultiGraphColumn[String, Int](intvs, graph, users)
   }
 
-  final def loadWithPartition(dataPath: String, start: LocalDate, end: LocalDate, strategy: PartitionStrategyType.Value): MultiGraphColumn[String, Int] = {
+  final def loadWithPartition(dataPath: String, start: LocalDate, end: LocalDate, strategy: PartitionStrategyType.Value, runWidth: Int): MultiGraphColumn[String, Int] = {
     var minDate: LocalDate = start
     var maxDate: LocalDate = end
 
@@ -799,7 +804,8 @@ object MultiGraphColumn {
     var edges = GraphLoaderAddon.edgeListFiles(in, res.period, res.unit, minDate, true)
 
     if (strategy != PartitionStrategyType.None) {
-      edges = edges.partitionBy(PartitionStrategies.makeStrategy(strategy, 0, intvs.size, 2))
+      val numParts = edges.edges.partitions.size
+      edges = edges.partitionByExt(PartitionStrategies.makeStrategy(strategy, 0, intvs.size, runWidth), numParts)
     }
 
     val verts: RDD[(VertexId, BitSet)] = users.map{ case (k,v) => (k._1, BitSet(k._2))}.reduceByKey((a,b) => a union b )

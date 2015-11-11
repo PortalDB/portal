@@ -63,7 +63,7 @@ class Interval(st: LocalDate, en: LocalDate) extends Ordered[Interval] with Seri
   def isEmpty():Boolean = start == end
 
   def isUnionCompatible(other:Interval):Boolean = {
-    if (resolution.equals(other.resolution)) {
+    if (resolution.isEqual(other.resolution)) {
       var st:LocalDate = start
       var en:LocalDate = end
       if (start.isBefore(other.start)) {

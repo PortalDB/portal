@@ -42,6 +42,8 @@ object Driver {
             println("Running experiments with columnar MultiGraph")
           case "OG" =>
             println("Running experiments with OneGraph")
+          case "OGC" =>
+            println("Running experiments with columnar OneGraph")
           case _ =>
             println("Invalid graph type, exiting")
             System.exit(1)
@@ -73,6 +75,7 @@ object Driver {
     var from: LocalDate = LocalDate.MIN
     var to: LocalDate = LocalDate.MAX
     var str: PartitionStrategyType.Value = PartitionStrategyType.None
+    var runw: Int = 1
     //if there is a select in the query and it comes before others, use it to selectively load
     val loop = new Breaks
     loop.breakable {
@@ -83,12 +86,15 @@ object Driver {
             to = LocalDate.parse(args(i + 2))
             if (args(i + 3) == "-p")
               str = PartitionStrategyType.withName(args(i + 4))
-          case "--agg" | "--pagerank" | "--count" => loop.break
+          case "--agg" =>
+            //this is a hack until we have proper query optimization
+            runw = args(i + 1).drop(1).dropRight(1).toInt
+          //case "--pagerank" | "--materialize" => loop.break
 	  case _ =>
         }
       }
     }
-    var result: TemporalGraph[String, Int] = loadData(data, sc, graphType, from, to, str)
+    var result: TemporalGraph[String, Int] = loadData(data, sc, graphType, from, to, str, runw)
     result.persist()
     var result2: TemporalGraph[Double, Double] = null
     var argNum = 1 //to keep track of the order of arguments passed
@@ -194,7 +200,7 @@ object Driver {
         println(f"PageRank Runtime: $total%dms ($argNum%d)")
         argNum += 1
 
-      } else if (args(i) == "--count") {
+      } else if (args(i) == "--materialize") {
         val runWidth = 1; //FIXME: is this correct
         val partCount: Boolean = if (args.length > (i + 1) && args(i + 1) == "-p") true else false;
 
@@ -208,16 +214,16 @@ object Driver {
           if (partCount) {
             result2 = result2.partitionBy(partitionType, runWidth, numParts)
           }
-          println("Total edges across all snapshots: " + result2.edges.count)
+          result2.materialize
         } else {
           if (partCount) {
             result = result.partitionBy(partitionType, runWidth, numParts)
           }
-          println("Total edges across all snapshots: " + result.edges.count)
+          result.materialize
         }
         var ctEnd = System.currentTimeMillis()
         var total = ctEnd - ctStart
-        println(f"Count Runtime: $total%dms ($argNum%d)")
+        println(f"Materialize Runtime: $total%dms ($argNum%d)")
         argNum += 1
       }
     }
@@ -228,18 +234,21 @@ object Driver {
     sc.stop
   }
 
-  def loadData(data: String, sc: SparkContext, gtype: String, from: LocalDate, to: LocalDate, strategy: PartitionStrategyType.Value): TemporalGraph[String, Int] = {
+  def loadData(data: String, sc: SparkContext, gtype: String, from: LocalDate, to: LocalDate, strategy: PartitionStrategyType.Value, runWidth: Int): TemporalGraph[String, Int] = {
+    println("Loading data with " + gtype + " data structure, using " + strategy.toString + " strategy and " + runWidth + " runWidth")
     gtype match {
       case "SG" =>
         SnapshotGraph.loadData(data, from, to)
       case "MG" =>
-        MultiGraph.loadWithPartition(data, from, to, strategy)
+        MultiGraph.loadWithPartition(data, from, to, strategy, runWidth)
       case "SGP" =>
-        SnapshotGraphParallel.loadWithPartition(data, from, to, strategy)
+        SnapshotGraphParallel.loadWithPartition(data, from, to, strategy, runWidth)
       case "MGC" =>
-        MultiGraphColumn.loadWithPartition(data, from, to, strategy)
+        MultiGraphColumn.loadWithPartition(data, from, to, strategy, runWidth)
       case "OG" =>
-        OneGraph.loadWithPartition(data, from, to, strategy)
+        OneGraph.loadWithPartition(data, from, to, strategy, runWidth)
+      case "OGC" =>
+        OneGraphColumn.loadWithPartition(data, from, to, strategy, runWidth)
       case _ =>
         null
     }

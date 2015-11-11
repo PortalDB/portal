@@ -44,6 +44,11 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
 
   override def size(): Int = intervals.size
 
+  override def materialize() = {
+    graphs.numVertices
+    graphs.numEdges
+  }
+
   override def vertices: VertexRDD[Map[Interval, VD]] = {
     val start = span.start
     graphs.vertices.mapValues(v => v.map(x => (resolution.getInterval(start, x._1) -> x._2)))
@@ -522,7 +527,7 @@ object MultiGraph {
     new MultiGraph[String, Int](intvs, graph.persist())
   }
 
-  final def loadWithPartition(dataPath: String, start: LocalDate, end: LocalDate, strategy: PartitionStrategyType.Value): MultiGraph[String, Int] = {
+  final def loadWithPartition(dataPath: String, start: LocalDate, end: LocalDate, strategy: PartitionStrategyType.Value, runWidth: Int): MultiGraph[String, Int] = {
     var minDate: LocalDate = start
     var maxDate: LocalDate = end
 
@@ -574,7 +579,8 @@ object MultiGraph {
     var edges = GraphLoaderAddon.edgeListFiles(in, res.period, res.unit, minDate, true)
 
     if (strategy != PartitionStrategyType.None) {
-      edges = edges.partitionBy(PartitionStrategies.makeStrategy(strategy, 0, intvs.size, 2))
+      val numParts = edges.edges.partitions.size
+      edges = edges.partitionByExt(PartitionStrategies.makeStrategy(strategy, 0, intvs.size, runWidth),numParts)
     }
 
     val graph: Graph[Map[Int, String], (Int, Int)] = Graph(users, edges.edges, Map[Int,String]())

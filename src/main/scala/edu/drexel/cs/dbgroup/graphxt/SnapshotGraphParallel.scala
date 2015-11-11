@@ -45,12 +45,19 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
 
   override def size(): Int = graphs.size
 
+  override def materialize() = {
+    graphs.foreach { x =>
+      x.numEdges
+      x.numVertices
+    }
+  }
+
   override def vertices: VertexRDD[Map[Interval, VD]] = {
     if (size > 0) {
       val total = graphs.zipWithIndex.map(x => (x._1, intervals(x._2))).filterNot(x => x._1.vertices.isEmpty)
       if (total.size > 0)
         VertexRDD(total.map(x => x._1.vertices.mapValues(y => Map[Interval, VD](x._2 -> y)))
-          .reduce((a, b) => VertexRDD(a union b))
+          .reduce((a: RDD[(VertexId,Map[Interval,VD])], b: RDD[(VertexId,Map[Interval,VD])]) => a union b)
           .reduceByKey((a: Map[Interval, VD], b: Map[Interval, VD]) => a ++ b))
       else {
         val ret:VertexRDD[Map[Interval,VD]] = VertexRDD(ProgramContext.sc.emptyRDD)
@@ -315,8 +322,13 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
     val gr2IndexStart:Long = resolution.numBetween(startBound, grp2.span.start)
     val gr1Pad:Long = resolution.numBetween(span.end, endBound)
     val gr2Pad:Long = resolution.numBetween(grp2.span.end, endBound)
-    val grseq1:ParSeq[Graph[VD, ED]] = (ParSeq[Graph[VD, ED]]().padTo(gr1IndexStart.toInt, Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)) ++ graphs).padTo(gr1Pad.toInt, Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD))
-    val grseq2:ParSeq[Graph[VD, ED]] = (ParSeq[Graph[VD, ED]]().padTo(gr2IndexStart.toInt, Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)) ++ grp2.graphs).padTo(gr2Pad.toInt, Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD))
+    val grseq1start:ParSeq[Graph[VD, ED]] = ParSeq.fill(gr1IndexStart.toInt){Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)}
+    val grseq1pad:ParSeq[Graph[VD, ED]] = ParSeq.fill(gr1Pad.toInt){Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)}
+    val grseq1:ParSeq[Graph[VD, ED]] =  grseq1start ++ graphs ++ grseq1pad
+
+    val grseq2start:ParSeq[Graph[VD, ED]] = ParSeq.fill(gr2IndexStart.toInt){Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)}
+    val grseq2pad:ParSeq[Graph[VD, ED]] = ParSeq.fill(gr2Pad.toInt){Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)}
+    val grseq2:ParSeq[Graph[VD, ED]] = grseq2start ++ grp2.graphs ++ grseq2pad
 
     //then zip them
     val mergedGraphs:ParSeq[Graph[VD, ED]] = grseq1.zip(grseq2).map { twogrs =>
@@ -503,10 +515,9 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
       //not changing the intervals, only the graphs at their indices
       //each partition strategy for SG needs information about the graph
 
-      val numParts: Int = if (parts > 0) parts else numPartitions()
-
       //use that strategy to partition each of the snapshots
       new SnapshotGraphParallel(intervals, graphs.zipWithIndex.map { case (g,i) =>
+        val numParts: Int = if (parts > 0) parts else g.edges.partitions.size
         g.partitionBy(PartitionStrategies.makeStrategy(pst, i, graphs.size, runs), numParts)
       })
     } else
@@ -577,7 +588,7 @@ object SnapshotGraphParallel extends Serializable {
     new SnapshotGraphParallel(intvs, gps)
   }
 
-  final def loadWithPartition(dataPath: String, start: LocalDate, end: LocalDate, strategy: PartitionStrategyType.Value): SnapshotGraphParallel[String, Int] = {
+  final def loadWithPartition(dataPath: String, start: LocalDate, end: LocalDate, strategy: PartitionStrategyType.Value, runWidth: Int): SnapshotGraphParallel[String, Int] = {
     var minDate: LocalDate = start
     var maxDate: LocalDate = end
 
@@ -630,7 +641,7 @@ object SnapshotGraphParallel extends Serializable {
         //uses extended version of Graph Loader to load edges with attributes
         var g = GraphLoaderAddon.edgeListFile(ProgramContext.sc, dataPath + "/edges/edges" + xx.toString() + ".txt", true, numEdgeParts)
         if (strategy != PartitionStrategyType.None) {
-          g = g.partitionBy(PartitionStrategies.makeStrategy(strategy, intvs.size + 1, total, 2), numParts)
+          g = g.partitionBy(PartitionStrategies.makeStrategy(strategy, intvs.size + 1, total, runWidth), numParts)
         }
         edges = g.edges
       }
@@ -639,7 +650,7 @@ object SnapshotGraphParallel extends Serializable {
       gps = gps :+ Graph(users, edges)
       xx = intvs.last.end
     }
-    
+
     new SnapshotGraphParallel(intvs, gps)
   }
 

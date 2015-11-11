@@ -41,6 +41,14 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
 
   override def size(): Int = { graphs.size }
 
+  override def materialize() = {
+    //just call count on all vertices and edges
+    graphs.foreach { x =>
+      x.numEdges
+      x.numVertices
+    }
+  }
+
   override def vertices: VertexRDD[Map[Interval, VD]] = {
     if (size > 0) {
       val total = graphs.zipWithIndex.filterNot(x => x._1.vertices.isEmpty).map(x => x._1.vertices.mapValues(y => Map[Interval, VD](intervals(x._2) -> y)))
