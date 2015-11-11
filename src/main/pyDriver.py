@@ -258,9 +258,29 @@ def run(configFile):
         qname = line[0]
         query = " ".join(line[1:-1]) + " " + line[-1].strip("\n") + " "
         queries = genRepetitions(query)
-            
-        #get cluster information when running on mesos cluster    
+
+        #get cluster information when running on mesos cluster            
         if env == "mesos":
+            #run sbt assembly
+            Popen('sbt assembly', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+            #get cluster config
+            p2 = Popen('curl http://master:5050/slaves', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+            out = p2.communicate()[0];
+            numWorkers = out.count("\"active\":true")
+            numCores = 2 #default num cores
+            ram = 8 #default ram
+            cConf = None
+
+            r = re.compile('"cpus":(.*?),').search(out)
+            if r:
+                numCores = int(r.group(1))
+                
+            #set cluster config
+            #FIXME: find ram of slaves
+            cConf = str(numWorkers) + "s_" + str(numCores) + "c_" + str(ram) + "g"
+    
+        #get cluster information when running on standalone cluster    
+        elif env == "standalone":
             #run sbt assembly
             Popen('sbt assembly', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
             #get cluster config
@@ -298,13 +318,6 @@ def run(configFile):
             #FIXME: find ram of slaves
             cConf = str(numWorkers) + "s_" + str(numCores) + "c_" + str(ram) + "g"  
  
-        elif env == "standalone":
-            #TODO: consume this info from http://master:8081
-            numWorkers = 8
-            numCores = 4
-            ram = 16
-            cConf = str(numWorkers) + "s_" + str(numCores) + "c_" + str(ram) + "g"
-
         for q in queries: 
             classArg = q + dataParam + data + gtypeParam + gType + warm
             querySaved = False;
