@@ -346,7 +346,7 @@ the result to $[2010, 2014)$, and temporally aggregates the resulting
 \begin{small}
 \begin{verbatim}
 Q7:  TSelect Any V [vid, pagerank() as pr] ; 
-             Any E [id1, id2] 
+             Any E [vid1, vid2] 
      From    T1 TAnd T2 
      TWhere  Start >= 2010 And End <= 2014 
      TGroup by 2 years
@@ -385,7 +385,7 @@ selection and intersection below temporal aggregation.
 \begin{small}
 \begin{verbatim}
 Q8:  TSelect   All V [vid, pagerank() as pr];
-               All E [id1, id2]
+               All E [vid1, vid2]
      From      ( TSelect Any V [vid] ; 
                           Any E [vid1, vid2]
                   From    T1 TAnd T2
