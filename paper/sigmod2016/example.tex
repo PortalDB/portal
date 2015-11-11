@@ -7,9 +7,12 @@ evolving graphs. \ql uses SQL-like syntax, and has the form
 \insql{TGroup}.  We prefix temporal keywords with \insql{T}, to make
 the distinction between \ql and SQL operations explicit.  We will use
 \tgs \insql{T1} and \insql{T2} of Figures~\ref{fig:tg}
-and~\ref{fig:tg_t2}, both with the structural schema
-V(\underline{vid}:int, name:str, salary:int); E(\underline{vid1}:int,
-\underline{vid2}:int, cnt:int), in our examples.
+and~\ref{fig:tg_t2}, with structural schema V(\underline{vid}:int,
+name:str, salary:int); E(\underline{vid1}:int, \underline{vid2}:int,
+cnt:int), in our examples.
+
+\subsection{Portal Basics}
+\label{sec:example:basics}
 
 \begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/6snaps.pdf}
@@ -59,20 +62,19 @@ Q1: TSelect  V; E
 $Q1$ performs temporal selection --- its result is a \tg that contains
 a consecutive subset of the snapshots of \insql{T1} that fall within
 the interval specified by the \insql{TWhere} clause, namely, $[2010,
-  2011)$ through $[2013, 2014)$.  The result of $Q1$ is a \tg with the
-    same structural schema as \insql{T1}. The \insql{Start} or the
-    \insql{End} portion of the \insql{TWhere} clause may be
-    omitted. 
+  2011)$ through $[2013, 2014)$.  The result of $Q1$ has the same
+    structural schema as \insql{T1}. The \insql{Start} or the
+    \insql{End} portions of the \insql{TWhere} clause may be omitted.
 
 More generally, the \insql{TWhere} clause supports a variety of
 predicates based on which it is determined, for each snapshot in \tg,
 whether that snapshot is to be retained or discarded.  For example,
-\insql{TWhere month(Start) like '\%R\%'} will retain all snapshots
+\insql{TWhere month(Start) like '\%r\%'} will retain all snapshots
 that start during a month in which it is safe to eat oysters (these
-are months with the letter 'R' in their name), while \insql{TWhere
+are months with the letter 'r' in their name), while \insql{TWhere
   year(End) \% 4 = 0} will retain snapshots that end in a leap year,
 and discard all others.  However, recall from
-Definition~\ref{sec:tseq} that a temporal sequence, which constitutes
+Definition~\ref{def:tseq} that a temporal sequence, which constitutes
 the temporal schema of a \tg, cannot have any gaps.  We enforce this
 by never discarding a time interval in the middle of a sequence, but
 rather replacing its snapshot with an empty graph $G(V=\emptyset;
@@ -88,8 +90,8 @@ E=\emptyset)$.
     falls.  If $t_2$ does not fall on the interval bounday, we rewrite
     the query, setting $t_2$ to the {\em end} of the interval in which}
 
-{\bf Specifying the structural schema of the result.  Snapshot
-  analytics.}  Next, consider query $Q2$ below.
+{\bf Specifying structural schema of the result.  Snapshot analytics.}
+Next, consider query $Q2$ below.
 
 \begin{small}
 \begin{verbatim}
@@ -117,6 +119,9 @@ connected components.  We provide an API that allows developers to
 implement custom analytics that can either be computed locally at a
 vertex, like degree, or be expressed in the popular Pregel API.
 
+\subsection{Temporal Aggregation and Join}
+\label{sec:example:groupjoin}
+
 {\bf Temporal aggregation} is illustrated by query $Q3$, which, when
 executed with \insql{T1} from Figure~\ref{fig:tg} as input, computes
 the \tg in Figure~\ref{fig:q3}.
@@ -129,25 +134,26 @@ Q3: TSelect   Any V ; Any E
 \end{verbatim}
 \end{small}
 
-Temporal aggregation maps one or several consecutive snapshots from
-the input to a single snapshot in the output.  How many input
-snapshots are mapped to one snapshot in the output is specified in the
-\insql{TGroup} clause.  Temporal aggregation in \ql is semantic, in
-that we can aggregate an input \tg that has day as its unit into a \tg
-with month as its time unit, by simply specifying \insql{TGroup by 1
-  month}, and without having to worry about how many days there are in
-a particular month.
+Temporal aggregation is a two-step operation.  First, temporal schema
+of the output is computed according to Definition~\ref{def:tgroup}.
+Then structural aggregation of Definition~\ref{def:sgroup} is used
+over snapshots in the same temporal group.  Note the use of \insql{Any
+  V} and \insql{Any E} in the \insql{TSelect} clause of $Q3$,
+specifying that $\gamma^{V}$ and $\gamma^{E}$ operate over unions of
+vertices and edges.  For an example consider snapshot $[2010, 2012)$
+  in Figure~\ref{fig:q3}, which is computed from snapshots $[2010,
+    2011)$ and $[2011, 2012)$ of \insql{T1} in Figure~\ref{fig:tg}.
+
+\eat{
+Recall that temporal aggregation in \ql is semantic, in that we can
+aggregate an input \tg that has day as its unit into a \tg with month
+as its time unit, by simply specifying \insql{TGroup by 1 month}, and
+without having to worry about how many days there are in a particular
+month.}
 
 We may use \insql{TGroup by Size} to specify that all snapshots of the
 input \tg be aggregated into a 1-snapshot \tg.  This notation will be
 useful when we discuss trend analytics later in this section.
-
-Note the use of the modifier \insql{Any} in the \insql{TSelect} clause
-of $Q3$.  This modifier specifies semantics of {\em structural
-  aggregation}, namely, that the output will contain the union of the
-vertices (resp. edges) from the snapshots being aggregated.  For
-example, snapshot $[2010, 2012)$ in Figure~\ref{fig:q3} is computed
-  from snapshots $[2010, 2011)$ and $[2011, 2012)$ in \insql{T1}.
 
 \begin{figure}
 \includegraphics[width=3.2in]{figs/TGroupAny.pdf}
@@ -168,16 +174,16 @@ Q4: TSelect All V [vid, any(name), max(salary)] ;
 \end{small}
 
 The main difference between $Q4$ and $Q3$ is the \insql{All} modifier
-associated with vertices in the \insql{TSelect} clause of $Q4$.  That
-is, $Q4$ has different structural aggregation behavior than $Q3$.
-Specifically, \insql{All V} states that the vertices in the result
-correspond to the intersection of the vertices being aggregated.
-\insql{Any E} states that the edges in the result correspond to the
-union of the edges connecting the vertices.  As our example
-illustrates, \insql{Any} and \insql{All} modifiers are associated with
-vertices and edges and are orthogonal, subject to the constraint that
-an edge can only be present in a snapshot if both vertices it connects
-are present.
+associated with vertices in the \insql{TSelect} clause of $Q4$,
+meaning that $\gamma^{V}_{vid, any(name), max(salary)}(\bigcap_{G_i
+  \in {\cal G}} V(G_i))$ (Definition~\ref{def:sgroup}) is used to
+aggregate vertices of snapshots in each 2-year group.  \insql{Any E}
+states that the edges in the result correspond to the union of the
+edges connecting the vertices.  As our example illustrates,
+\insql{Any} and \insql{All} modifiers are associated with vertices and
+edges and are orthogonal, subject to the constraint that an edge can
+only be present in a snapshot if both vertices it connects are
+present.
 
 \begin{figure}
 \includegraphics[width=3.2in]{figs/TGroupAllAny.pdf}
@@ -187,10 +193,15 @@ are present.
 
 $Q4$ illustrates another important feature of \ql, namely, aggregation
 of values of non-key attributes of vertices and edges, which happens
-as part of structural aggregation.  \ql makes the following
-aggregation operations available: \insql{any}, \insql{first},
-\insql{last}, \insql{min}, \insql{max}, \insql{sum}, \insql{count},
-and \insql{list}.
+as part of structural aggregation.  We left specifics of available
+operations unspecified in Definition~\ref{def:sgroup}, so as to keep
+structural aggregation generic.  
+
+When used in scope of \insql{TGroup}, structural aggregation operates
+over an ordered collection of snapshots.  \ql makes the following
+aggregation operations available for ordered snapshot collections:
+\insql{any}, \insql{first}, \insql{last}, \insql{min}, \insql{max},
+\insql{sum}, \insql{count}, and \insql{list}.
 
 To illustrate, consider vertex and edge relations in
 Figure~\ref{fig:2ve}, which correspond to the first two snapshots of
@@ -210,20 +221,21 @@ attributes.  That is, the \insql{TSelect} clause of $Q3$ is short-hand
 for \insql{TSelect Any V[vid, any(name), any(salary)] ;} 
 \insql{Any E[vid1, vid2, any(cnt)]}.
 
+\eat{
 In the current version of \ql, temporal aggregation always groups
 \insql{V} and \insql{E} by their respective key attributes, and values
 of all other attributes are aggregated with one of the provided
 operators (\insql{any} being the default).  In the future we will
 support grouping by non-key attributes.  Further, we will define an
-API to allow developers to specify custom aggregation operators.
+API to allow developers to specify custom aggregation operators.}
 
-{\bf Temporal intersection and union.} We will now present two binary
-operators of \ql, and will illustrate them using \insql{T1}
-(Figure~\ref{fig:tg}) and \insql{T2} (Figure~\ref{fig:tg_t2}).  Query
-$Q5$ computes temporal intersection of \insql{T1} and \insql{T2}.  We
-require that \insql{T1} and \insql{T2} be union-compatible, as per
-Definition~\ref{def:tuc}.  The result of this query is in
-Figure~\ref{fig:q5}.
+{\bf Temporal join.} We will now present two binary operators of \ql
+that join together \tg relations, and will illustrate them using
+\insql{T1} (Figure~\ref{fig:tg}) and \insql{T2}
+(Figure~\ref{fig:tg_t2}).  Query $Q5$ computes temporal intersection
+of \insql{T1} and \insql{T2}.  We require that \insql{T1} and
+\insql{T2} be union-compatible, as per Definition~\ref{def:tuc}.  The
+result of this query is in Figure~\ref{fig:q5}.
 
 \begin{small}
 \begin{verbatim}
@@ -242,23 +254,37 @@ Q5:  TSelect   Any V; Any E
 Temporal schema of the result is computed according to
 Definition~\ref{def:tseqand}, and corresponds to a sequence with
 $P.start = 2010$, $P.end=2014$ and $P.size=4$.  Note the use of
-\insql{Any V} and \insql{Any E} in the \insql{TSelect} clause.  These
-modifiers have the same semantics here as in temporal aggregation,
-specifying that, a vertex (resp. edge) will be present in a snapshot
-in the result if it is present in at least one corresponding snapshot
-of \insql{T1} or \insql{T2}.  Also recall from our discussion of
-temporal aggregation that \insql{TSelect Any V; Any E } is short-hand
-for \insql{TSelect Any V [vid, any(name), any(salary)]; Any E [vid1,
-    vid2, any(cnt)]}.
+\insql{Any V} and \insql{Any E} in the \insql{TSelect} clause.  This
+is another example of structural aggregation
+(Definition~\ref{def:sgroup}, now as part of \insql{TAnd}.  The
+modifiers \insql{Any} and \insql{All} have the same meaning here as
+for \insql{TGroup}, specifying that, a vertex (resp. edge) will be
+present in a snapshot in the result if it is present in at least one
+corresponding snapshot of \insql{T1} or \insql{T2}.  
 
-Let us briefly revisit {\bf structural aggregation}, which is
-specified with \insql{Any} and \insql{All}, and has the same semantics
-in all \ql operators that map multiple input snapshots into one
-snapshot in the result. These operations are temporal aggregation,
-temporal union, and temporal intersection.  In all these operations,
-the use of \insql{Any} and \insql{All} for vertices and edges is
-orthogonal, subject to the constraint that an edge is only present
-in the result if both vertices connected by the edge are present.
+An important difference is that, for \insql{TAnd} and \insql{TOr},
+structural aggregation operates on unordered collections of snapshots,
+with at most two snapshots per group.  \ql makes the following
+aggregation operations available for unordered snapshot collections:
+\insql{any}, \insql{min}, \insql{max}, \insql{sum}, \insql{count}, and
+\insql{list}.  Note that \insql{first} and \insql{last} are
+unavailable here, and that \insql{any} is still the default.
+
+\eat{
+Also recall from our discussion of temporal aggregation that
+\insql{TSelect Any V; Any E } is short-hand for \insql{TSelect Any V
+  [vid, any(name), any(salary)]; Any E [vid1, vid2, any(cnt)]}.}
+
+
+\eat{ Let us briefly revisit {\bf structural aggregation}, which is
+  specified with \insql{Any} and \insql{All}, and has the same
+  semantics in all \ql operators that map multiple input snapshots
+  into one snapshot in the result. These operations are temporal
+  aggregation, temporal union, and temporal intersection.  In all
+  these operations, the use of \insql{Any} and \insql{All} for
+  vertices and edges is orthogonal, subject to the constraint that an
+  edge is only present in the result if both vertices connected by the
+  edge are present.}
 
 Consider next query $Q6$ that computes temporal union of \insql{T1}
 and \insql{T2}.  The result of this query is listed in
@@ -286,12 +312,22 @@ use of projection (non-key attributes of \insql{V} are not retained),
 of an analytic function \insql{pagerank()} and of the aggregation
 operation \insql{sum} applied to the edge attribute \insql{cnt}.
 
-{\bf Combining operators.}  So far we illustrated individual operators
+\subsection{Complex queries}
+\label{sec:example:complex}
+
+{\bf Order of operators.} So far we illustrated individual operators
 of \ql.  Now we will show how multiple operators can be combined in a
-single query.  The semantics of a \ql query without nesting is such
-that the \insql{From} clause (\insql{TAnd} and \insql{TOr}) is
-evaluated first, followed by \insql{TWhere}, then by \insql{TGroup},
-and finally by aggregate and analytic functions in \insql{TSelect}.
+single query.  The logical order of evaluation of a \ql query without
+nesting is as follows:
+
+\begin{enumerate}
+\item Temporal join (\insql{TAnd} and \insql{TOr}) in the \insql{From}
+  clause;
+\item Temporal selection in the \insql{TWhere} clause;
+\item Temporal aggregation in the \insql{TGroup} clause;
+\item Projection, computation of attribute aggregates and analytic
+  functions.
+\end{enumerate}
 
 While the logical order of operations is predetermined, we will see in
 Section~\ref{sec:sys} that some operators can be reordered without
@@ -403,6 +439,9 @@ Finally, recall from our discussion of temporal aggregation that
 although not required, to use this feature in a query such as $Q9$,
 since a temporal trend may be computed over a window of any size.
 
+\subsection{Loading data and inspecting results}
+\label{sec:example:loadshow}
+
 {\bf Loading filesystem data.  Views.}  Queries $Q1$ through $Q9$
 refer to \tg variables in the \insql{From} clause.  The value of a \tg
 variable is assigned by the \insql{Into} clause.  This value may be
@@ -434,23 +473,40 @@ query, its structural schema is determined by the query result.  In
 $Q11$, the structural schema of the view \insql{T4} is the same as
 that of \insql{T1}.
 
-{\bf Inspecting results with SQL.}  Suppose that the result of $Q9$ is
-assigned to \insql{T5}, with the structural schema
-V(\underline{vid}:int, tr:float, mx:float) ; E(\underline{vid1}:int,
-\underline{vid2}:int).
-
-\ql supports vertex and edge transformation methods that expose the
-contents of a \tg as vertex and edge collections.  These methods are
-\insql{vertices()}, \insql{verticesFlat()}, \insql{edges()}, and
-\insql{edgesFlat()}.
+{\bf Inspecting results.}  Suppose that the result of $Q9$ is assigned
+to \insql{T5}, with the structural schema V(\underline{vid}:int,
+tr:float, mx:float) ; E(\underline{vid1}:int, \underline{vid2}:int).
+Consider the statement below, which shows \insql{vid} and \insql{tr}
+values of 20 vertices with the most significantly increasing
+\insql{pagerank} trend.
 
 \begin{small}
 \begin{verbatim}
-Q12:  Select   vid, tr
-      From     (  Output V [vid, tr] 
-                  From   T5 ) 
+      Output V [vid, tr]  
+      From   T5 
       Order by tr
       Limit    20
 \end{verbatim}
 \end{small}
+
+An \insql{Output} statement of this kind is used to inspect results,
+and is similar to \insql{Describe} in SQL.  It does not produce a \tg
+as output, and so cannot be considered a query, since its result
+cannot be composed with \ql operators.
+
+The \insql{Output} statement allows the user to inspect vertices or
+edges of a \tg as a single homogeneous collection.  Vertices and edges
+are handled similarly, and we focus on vertices in this example.  The
+optional \insql{Order by} clause can be used to sort results on one or
+several scalar attributes, like in SQL.  At most 100 results are
+presented to the user by default; this default may be overridden using
+the \insql{Limit} clause.
+
+The \ql API supports vertex and edge transformation methods that
+expose the contents of a \tg as vertex and edge collections.  These
+methods are \insql{vertices()}, \insql{verticesFlat()},
+\insql{edges()}, and \insql{edgesFlat()}.  \insql{Output} produces
+collections computed by \insql{vertices()} or
+\insql{edges()}. \reminder{Return types for each.  Explain why we
+  don't need to flatten here.}
 

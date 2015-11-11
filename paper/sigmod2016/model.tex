@@ -2,10 +2,11 @@
 \label{sec:model}
 
 The basic element of our model is a \tg, which represents a graph that
-evolves over time.  We start by formally defining snapshots of an
-evolving graph in Section~\ref{sec:model:structure}.  Then in
-Section~\ref{sec:model:time} we show how graph evolution is
-represented by assigning temporal meaning to sequences of snapshots.
+evolves over time.  We define snapshots of an evolving graph in
+Section~\ref{sec:model:structure}.  We then formalize the temporal
+aspect of our model in Section~\ref{sec:model:time}.  Finally, in
+Section~\ref{sec:model:tg} we show how graph evolution is represented
+by assigning temporal meaning to sequences of snapshots.
 
 \subsection{Snapshots}
 \label{sec:model:structure}
@@ -16,41 +17,73 @@ A state of an evolving graph is represented by a snapshot.
 A {\em snapshot} $G$ is a pair\\ $(V; E)$, where $V$ is a finite set of
 nodes with schema\\ $(\underline{vid}, a_1, \ldots, a_n)$, and $E$ is a
 finite set of edges connecting pairs of nodes from $V$, with schema
-$(\underline{vid_1}, \underline{vid_2}, a_1, \ldots, a_m)$.
+$(\underline{vid_1}, \underline{vid_2}, b_1, \ldots, b_m)$.
 \label{def:sg} 
 \end{definition}
 
 Attributes of vertices and of edges are not restricted to be of atomic
-types, but may, e.g., be maps or tuples. However it is required that
-all vertices (resp. edges) of $G$ have the same schema, i.e., $V$ and
-$E$ are homogeneous sets. $G$ may represent a directed or an
-undirected graph.  For undirected graphs we choose a canonical
-representation of an edge, with $vid_1 \leq vid_2$ (self-loops are
-allowed).
+types, but may, e.g., be maps or tuples. However, we require that all
+vertices (resp. edges) of $G$ have the same schema, i.e., $V$ and $E$
+are homogeneous sets. $G$ may represent a directed or an undirected
+graph.  For undirected graphs we choose a canonical representation of
+an edge, with $vid_1 \leq vid_2$ (self-loops are allowed).
 
 \begin{definition} [Structural union-compatibility]
-Snapshots $G_1 = (V_1, E_1)$ and $G_2 = (V_2, E_2)$ are
-union-compatible if $V_1$ and $V_2$ are union-compatible, and $E_1$
-and $E_2$ are union-compatible.
+Snapshots $G' = (V', E')$ and $G'' = (V'', E'')$ are
+union-compatible if $V'$ and $V''$ are union-compatible, and $E'$
+and $E''$ are union-compatible.
 \label{def:scompat}
 \end{definition}
 
 This is the standard union compatibility definition, which requires
-that vertex schema $V$ and edge schema $E$ be the same for $G_1$ and
-$G_2$.
+that vertex schema $V$ and edge schema $E$ be the same for $G'$ and
+$G''$.
 
 Several operations of our query language will combine two or more
 snapshots into a single snapshot. This will be done using structural
 aggregation, defined next.  
 
-\begin{definition} [Structural aggregation]  Consider a collection 
-of $n$ union-compatible snapshots $\cal{G} = \{G_1 \ldots G_n\}$.
-$\gamma = (\gamma^{V}, \gamma^{E})$ maps $\cal{G}$ to a snapshot $G$.
+\begin{definition} [Structural aggregation]  
+A pair of operators $(\gamma^{V}, \gamma^{E}) : {\cal G} \rightarrow
+G$ map a collection of snapshots $\cal{G}$ to a snapshot $G$.
 $\gamma^{V}$ and $\gamma^{E}$ specify aggregation behavior for the
-vertices and for the edges, respectively.  For each, we define two
-variants.  $\gamma^{V} = $ 
+vertices and for the edges, respectively.  For each, we support two
+variants.
+
+%\begin{itemize}
+%\item $V(G) = \gamma^{V}_{vid, L}(V_1 \cup \ldots \cup V_k)$.
+\insql{[Any V]} $V(G) = \gamma^{V}_{vid, L}(\bigcup_{G_i \in {\cal G}} V(G_i))$.
+Vertices in the resulting snapshot, $G$, are present in {\em any
+  snapshot} in ${\cal G}$.
+
+%\item $V(G) = \gamma^{V}_{vid,L}(V_1 \cap \ldots \cap V_k)$. Vertice
+\insql{[All V]} $V(G) = \gamma^{V}_{vid, L}(\bigcap_{G_i \in {\cal G}} V(G_i))$.
+Vertices in $G$ are presensent in {\em all snapshots} in ${\cal G}$.
+
+%\item $E(G) = \gamma^{E}_{vid_1,vid_2,L}(E_1 \cup \ldots \cup E_k)$.
+\insql{[Any E]} $E(G) = \gamma^{V}_{vid_1,vid_2, L}(\bigcup_{G_i \in {\cal G}} E(G_i))$.
+  Edges in $G$ are in {\em any snapshot} in ${\cal G}$,
+  subject to $vid_1, vid_2 \in V(G)$.
+
+%\item $E(G) = \gamma^{E}_{vid_1,vid_2,L}(E_1 \cap \ldots \cap E_k)$.
+\insql{[All E]} $E(G) = \gamma^{V}_{vid_1,vid_2, L}(\bigcap_{G_i \in
+  {\cal G}} E(G_i))$.  Edges in $G$ are in {\em all snapshots} in
+${\cal G}$, subject to $vid_1, vid_2 \in V(G)$.
+
+%\end{itemize}
 \label{def:sgroup}
 \end{definition}
+
+Note that both $\gamma^{V}$ and $\gamma^{E}$ group the respective
+collections by their key attributes.  Note also that the choice of
+union (\insql{Any}) vs. intersection (\insql{All}) for vertices and
+for edges is orthogonal, subject to the constraint that an edge is
+present in the result only if both vertices it connects are present.
+Finally, note that we did not specify (i) whether ${\cal G}$ is an
+ordered collection of snapshots, and (ii) which aggregation operations
+are available for non-key attributes of vertices and edges.  We will
+address both points in Section~\ref{sec:example}, when we discuss
+query language operations that use structural aggregation.
 
 \subsection{Temporal sequences}
 \label{sec:model:time}
@@ -84,9 +117,7 @@ reality.  This is in contrast to {\em transaction time} (or {\em
   system-time period}), which refers to the time period during which a
 row is committed to the database.
 
-We represent graph evolution by associating a sequence of snapshots
-(Def.~\ref{def:sg}), which are not themselves time-aware, with a
-sequence of time periods.  We now formally define temporal sequences.
+We now formally define temporal sequences.
 
 \begin{definition} [Temporal Sequence]
 A {\em temporal sequence} $P = (p_1, \ldots, p_n)$ is a
@@ -100,7 +131,7 @@ resolution, with no gaps.  That is,
 \label{def:tseq} 
 \end{definition}
 
-$P$ may be equivalently described by any 2 of the following 3 values:
+$P$ may be equivalently described by any two of the following three values:
 the start of the earliest period $P.start = p_1.start$, the end of the
 latest period $P.end = p_n.end$, and the resolution of any period
 $P.res = p_1.end - p_1.start$, specified in appropriate time
@@ -122,25 +153,23 @@ $P^{\epsilon}.end=null$, and  $P^{\epsilon}.size=0$.
       by the $[p.start,p.end)$ time interval regardless of the
         resolution. By definition it is of size 0.}}
 
+\eat{
 \begin{definition} [Temporal Selection]
-
+Operator $\sigma_c P$ returns a temporal sequence $P'$ with $P'.start
+\geq P.start$, $P'.end \leg P.end$, and $P',res = P.res$.
 \label{def:tsel}
 \end{definition}
-
-\begin{definition} [Temporal Aggregation]
-
-\label{def:tgroup}
-\end{definition}
+}
 
 We next define union-compatibility for temporal sequences, and present
-two basic operations on temporal sequences.
+two binary operations on temporal sequences.
 
 \begin{definition} [Temporal Union-Compatibility]
 Temporal sequences $P'$ and $P''$ are union-compatible if they have
-the same resolution, and if we can construct a valid temporal sequence
-$P$ with $P.start = min(P'.start, P''.start)$, $P.end = max(P'.end,
-P''.end)$, and $P.res = P'.res$.  $P^{\epsilon}$ is union-compatible
-with any temporal sequence.
+the same resolution, and if we can construct a valid sequence $P$ with
+$P.start = min(P'.start, P''.start)$, $P.end = max(P'.end, P''.end)$,
+and $P.res = P'.res$.  $P^{\epsilon}$ is union-compatible with any
+temporal sequence.
 \label{def:tcompat} 
 \end{definition}
 
@@ -192,37 +221,48 @@ In Example~\ref{ex:ex1}, $P_3 \cup P_4 =
     \cup P_5 = ([\tpy{2008},\tpy{2010}), \ldots,
       [\tpy{2020},\tpy{2022}))$.
 
-Recall that a snapshot represents a single state of an evolving graph,
-and is not itself time-aware.  Temporal evolution of a graph is
-represented by a sequence of snapshots, called {\em temporal graphs}
-in our formalism, or \tgs for short.  We conclude this section by
-defining \tgs and \tg operations.
+Finally, we define temporal aggregation, a coarsening operation for sequences.
+
+\begin{definition} [Temporal Aggregation] Operator $\gamma_w(P)$, 
+with $w \geq P.res$, returns a temporal sequence $P'$ such that
+$P.start = P'.start$, $P.end = P'.end$ and $P'.res = w$, or
+$P^{\epsilon}$ if a valid sequence cannot be contructed.
+\label{def:tgroup}
+\end{definition}
+
+Temporal aggregation is semantic, in that an input sequence that has
+day as its unit, and 1-day resolution, can be coarsened into a
+sequence with month as its time unit, by specifying $w = 1$ month.
 
 \subsection{TGraphs}
 \label{sec:model:tg}
 
+A snapshot represents a single state of an evolving graph, and is not
+itself time-aware.  Temporal evolution of a graph is represented by a
+sequence of snapshots, which we call a {\em temporal graph}, or \tg
+for short.
+
 \begin{definition} [TGraph]
-A {\em temporal graph} (or a {\em \tg}) $T = (G_1, \ldots, G_n; P)$
-  associates a sequence of $n$ structurally union-compatible snapshots
-  with a temporal sequence $P$, such that $P.size = n$.
+A {\em temporal graph} $T = (G_1, \ldots, G_n; P)$ associates a
+sequence of $n$ structurally union-compatible snapshots with a
+temporal sequence $P$, such that $P.size = n$.
 \label{def:tgraph} 
 \end{definition}
 
-Snapshot graphs in the sequence define the {\em structural schema} of
-$T$, while $P$ specifies the {\em temporal schema} of $T$.  
+Snapshots define the {\em structural schema} of $T$, while $P$
+specifies the {\em temporal schema} of $T$.
 
-An example of a \tg is given in Figure~\ref{fig:tg}, and instances of
-vertex and edge relations for 2 snapshots of this graph are given in
-Figure~\ref{fig:2ve}.  Importantly, identity of a vertex persists
-across snapshots in a \tg, and across \tgs.  For example, vertex with
-id $3$ represents the same entity in all snapshots in
-Figure~\ref{fig:tg} in which it occurs.
+An example of a \tg is given in Figure~\ref{fig:tg}, with instances of
+vertex and edge relations for 2 snapshots in Figure~\ref{fig:2ve}.
+Importantly, identity of a vertex persists across snapshots in a \tg,
+and across \tgs.  For example, vertex with id $3$ represents the same
+entity in all snapshots in Figure~\ref{fig:tg} in which it occurs.
 
 To conclude this section, we define union-compatibility for \tgs.
 
 \begin{definition} [\tg Union-Compatibility]
 \label{def:tuc} 
-$T_1$ and $T_2$ are union-compatible \tgs if they are both
+$T'$ and $T''$ are union-compatible \tgs if they are both
 structurally union-compatible (per Definition~\ref{def:scompat}) and
 temporally union-compatible (per Definition~\ref{def:tcompat}).
 \end{definition}
