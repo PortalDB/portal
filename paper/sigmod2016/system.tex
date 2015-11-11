@@ -1,12 +1,19 @@
 \section{System}
 \label{sec:sys}
 
-Our \ql system implementation builds on Apache Spark's
-GraphX~\ref{fig:arch}.  A \ql query is rewritten into a sequence of
-operators, a particular data structure and execution method are
+Our \ql system implementation builds on Apache Spark's GraphX as
+depicted in Figure~\ref{fig:arch}.  Green boxes indicate built-in
+components while blue are those we added for Portal.  We selected
+Spark because of its in-memory processing approach and its popularity.
+However, the system description here is mostly general and can be
+applied within another distributed architecture.
+
+The \ql system includes an interactive shell for exporatory data
+analysis and a query parser.  A \ql query is rewritten into a sequence
+of operators, a particular data structure and execution method are
 selected, and the query is executed.  The evolving graph snapshots are
 read from a distributed file system and processed by Workers, with the
-tasks assigned and managed by the task Master.  \eat{The order of
+tasks assigned and managed by the runtime.  \eat{The order of
   operators within a \ql statement is determined at execution time,
   based on a combination of rule-based and cost-based considerations.}
 Further, we implement a variety of \tg representations and
@@ -17,9 +24,11 @@ through the public API of the \ql library, and may be used like any
 other library in an Apache Spark application.
 
 \begin{figure}[t!]
-\includegraphics[width=2.3in]{figs/architecture.pdf}
-\caption{Portal system architecture, including currently implemented
-  components and those in progress.}
+\includegraphics[height=1.5in]{figs/architecture.pdf}
+\caption{Portal system architecture includes Apache Spark runtime and
+  GraphX as well as Portal-specific data structures, an interactive
+  shell for exploratory analysis, a query parser, and runtime
+  components. }
 \label{fig:arch}
 \end{figure}
 
@@ -31,15 +40,15 @@ and support of different query operators.  The data structures
 represent a continuum of replication, from the SnapshotGraph to
 OneGraph and are described here in more detail.
 
-{\bf Snapshot Graph}. The simplest way to represent an evolving graph
-is by representing each snapshot individually, a direct translation of
-our logical data model.  We call this data structure SnapshotGraph and
-an example is depicted in Figure~\ref{fig:sgp}.  SnapshotGraph is a
-collection of snapshot graphs, where vertices and edges store the
-attribute values for the specific time interval.  A TSelect operation
-on this representation is simply a slice of the graph collection,
-while TGroup and the structural unions require a group by key
-operation within each aggregate set.
+{\bf SnapshotGraph (SG).} The simplest way to represent an evolving
+graph is by representing each snapshot individually, a direct
+translation of our logical data model.  We call this data structure
+SnapshotGraph and an example is depicted in Figure~\ref{fig:sgp}.
+SG is a collection of snapshot graphs, where vertices and
+edges store the attribute values for the specific time interval.  A
+TSelect operation on this representation is simply a slice of the
+graph collection, while TGroup and the structural joins require a
+group by key operation within each aggregate set.
 
 While this representation is simple, it is obviously not compact,
 considering that in many real-world evolving graphs there is a 80\% or
@@ -48,7 +57,7 @@ snapshots~\cite{DBLP:journals/tos/MiaoHLWYZPCC15}.  In a distributed
 architecture, however, this data structure provides some
 benefits as it can be easily parallelized by assigning different
 snapshots to different workers with improved temporal locality for
-snapshot-based analytics.  SnapshotGraph edges can be partitioned
+snapshot-based analytics.  SG edges can be partitioned
 using temporal or structural criteria.  \eat{Furthermore, due to Spark's
 lazy evaluation, operations such as TSelect are very efficient, since
 only those snapshots involved in the operation are loaded.  While
@@ -57,57 +66,61 @@ in query optimization can compensate equally well.}
 
 \begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/sgp.pdf}
-\caption{SnapshotGraph representing T1 from Figure~\ref{fig:tg}}
+\caption{SnapshotGraph representing T1 from
+  Figure~\ref{fig:tg}.  Vertex attributes are the name and salary of
+  each person, the edge attribute is count.}
 \label{fig:sgp}
 \end{figure}
 
-{\bf MultiGraph.}  To take advantage of high similarity between
+{\bf MultiGraph (MG).}  To take advantage of high similarity between
 snapshots, we developed another data structure called MultiGraph
-(Figure~\ref{fig:mg}).  MultiGraph stores the evolving graph as a
-single graph, with one vertex for all time periods, but one edge per
-period where it exists.  Because our goal is to represent both
-topoligical and attribute information, we need to store not only
-vertex presence or absence (which can be easily accomplished by an
-existence string, like in~\cite{Kan2009}, or bit sets), but also the
-values of the vertex attribute at each time period it existed.
-MultiGraph vertex attribute, thus, is a map of time indices, which are
-easily converted to intervals, and corresponding values.  Edge
-attributes are tuples of the time index and the value at that time
-period.  Vertices historically change less frequently than
-edges~\cite{?}, so the space savings on storing each vertex once are
-about ?? \% in our experimental data sets.  Some of these savings,
-however, are taken up by the storage of a more complex map data
-structure compared to a simple single attribute like in the
-SnapshotGraph.  Partition of the MultiGraph edges can be either
-temporal or structural, which lead to different rates of vertex
-replication between partitions.
+(Figure~\ref{fig:mg}).  MG stores the evolving graph as a single
+graph, with one vertex for all time periods, but one edge per period
+where it exists.  Because our goal is to represent both topoligical
+and attribute information, we need to store not only vertex presence
+or absence (which can be easily accomplished by an existence string,
+like in~\cite{Kan2009}, or bit sets), but also the values of the
+vertex attribute at each time period it existed.  MG vertex attribute,
+thus, is a map of time indices, which are easily converted to
+intervals, and corresponding values.  Edge attributes are tuples of
+the time index and the value at that time period.  Vertices
+historically change less frequently than edges~\cite{?}, so the space
+savings on storing each vertex once are about ?? \% in our
+experimental data sets.  Some of these savings, however, are taken up
+by the storage of a more complex map data structure compared to a
+simple single attribute like in the SG.  Partition of the MG edges can
+be either temporal or structural, which lead to different rates of
+vertex replication between partitions.
 
 \begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/mg.pdf}
-\caption{MultiGraph representing T1 from Figure~\ref{fig:tg}}
+\caption{MultiGraph representing T1 from Figure~\ref{fig:tg}.  Each
+  vertex attribute is a map from time intervals to values for each
+  attribute (here, name and salary) at that time, and each edge
+  attribute is a time interval and value (here, count) at that time.}
 \label{fig:mg}
 \end{figure}
 
-The implementation of some of the Portal operations in MultiGraph is
-more complex.  Selection, for example, is a subgraph operation that
-operates on all vertices and edges.  TGroup on vertices is a
-combination of transform and filter operations since the vertices are
-already aggregated across the whole time period, but the edges, like
-in SnapshotGraph, are grouped by key within their respective sets.
-Implementation of snapshot analytics like pagerank is done in a batch
-mode, similar to~\cite{DBLP:journals/tos/MiaoHLWYZPCC15}, by computing
-the values and sending messages between vertices for all time periods
-at once.  This data structure should also be more amenable to
-cross-time analytics and pattern mining, which we intend to explore in
-the future.
+The implementation of some of the Portal operations in MG is more
+complex.  TSelect, for example, is a subgraph operation that operates
+on all vertices and edges.  TGroup on vertices is a combination of
+transform and filter operations since the vertices are already
+aggregated across the whole time period, but the edges, like in SG,
+are grouped by key within their respective sets.  Implementation of
+snapshot analytics like pagerank is done in a batch mode, similar
+to~\cite{DBLP:journals/tos/MiaoHLWYZPCC15}, by computing the values
+and sending messages between vertices for all time periods at once.
+This data structure should also be more amenable to cross-time
+analytics and pattern mining, which we intend to explore in the
+future.
 
 Note that for a large subset of queries, the attribute information is
 not used, and only the topology is important.  Thus, we can store the
 vertex attributes in a separate collection (column store), removing
 the attribute map and replacing it with existence bitsets instead.
 This is the essence of the special case of Multigraph, called {\bf
-  MultiGraphColumn}, depicted in Figure~\ref{fig:mgc}.  This kind of
-representation allows storage of an arbitrary number of vertex
+  MultiGraphColumn (MGC)}, depicted in Figure~\ref{fig:mgc}.  This
+kind of representation allows storage of an arbitrary number of vertex
 attributes without using complex per-vertex lists, read from disk only
 as needed.  Further compression can be achieved by storing vertex
 attributes only once across all time periods where they are the same,
@@ -118,33 +131,40 @@ operation.
 
 \begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/mgc.pdf}
-\caption{Column MultiGraph representing T1 from Figure~\ref{fig:tg}}
+\caption{Column MultiGraph representing T1 from Figure~\ref{fig:tg}.
+  Like in the MG, edge attribute is a a time interval and value (here,
+  count) at that time.  Vertex attribute is a BitSet of time periods
+  when the vertex is present.  The vertex attribute values for the
+  time periods are stored in a separate collection, not depicted
+  here.}
 \label{fig:mgc}
 \end{figure}
 
-{\bf OneGraph.}  The most compact, topologically, representation is to
-store each vertex {\em and} edge only once for the whole evolving
-graph, by taking a union of the snpashot vertex and edge sets.  The
-OneGraph data structure uses this representation in our system.
-Similar to MultiGraph, the vertex and edge attributes are stored in
+{\bf OneGraph (OG).}  The most compact, topologically, representation
+is to store each vertex {\em and} edge only once for the whole
+evolving graph, by taking a union of the snpashot vertex and edge
+sets.  The OneGraph data structure uses this representation in our
+system.  Similar to MG, the vertex and edge attributes are stored in
 maps with time index - attribute value pairs (Figure~\ref{fig:og}).
-Compared to MultiGraph or SnapshotGraph, this leads to ?? \% storage
-savings.  This data structure provides some benefits in addition to
-compactness, since it reduces the total communication between vertices
-in Pregel-based analytics in batch mode.  The drawback is that
-OneGraph cannot be partitioned temporally and is much denser than
-individual snapshots (average vertex degree ??  for our nGrams
-dataset).  Like in MultiGraph, TSelect is a subgraph operation, and
-TGroup is a transform and filter operation -- both for vertices and
-edges.
+Compared to the MG or SG, this leads to ?? \% storage savings.  This
+data structure provides some benefits in addition to compactness,
+since it reduces the total communication between vertices in
+Pregel-based analytics in batch mode.  The drawback is that OG cannot
+be partitioned temporally and is much denser than individual snapshots
+(average vertex degree ??  for our nGrams dataset).  As with
+the MG, TSelect is a subgraph operation, and TGroup is a transform
+and filter operation -- both for vertices and edges.
 
 \begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/og.pdf}
-\caption{OneGraph representing T1 from~\ref{fig:tg}}
+\caption{OneGraph representing T1 from~\ref{fig:tg}.  Similar to MG, a
+  vertex attribute is a map from time intervals to values for each
+  attribute (here, name and salary) at that time, and a similar map is
+  used for edge attributes.}
 \label{fig:og}
 \end{figure}
 
-Finally, similar to MultiGraphColumn, {\bf OneGraphColumn} uses a single
+Finally, similar to MGC, {\bf OneGraphColumn (OGC)} uses a single
 graph to represent the union of vertices and edges, with BitSets for
 presence information, while the attribute information is stored
 separately.  This is not as compact as storing attributes within the
