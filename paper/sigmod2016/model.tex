@@ -58,7 +58,7 @@ Vertices in the resulting snapshot, $G$, are present in {\em any
 
 %\item $V(G) = \gamma^{V}_{vid,L}(V_1 \cap \ldots \cap V_k)$. Vertice
 \insql{[All V]} $V(G) = \gamma^{V}_{vid, L}(\bigcap_{G_i \in {\cal G}} V(G_i))$.
-Vertices in $G$ are presensent in {\em all snapshots} in ${\cal G}$.
+Vertices in $G$ are present in {\em all snapshots} in ${\cal G}$.
 
 %\item $E(G) = \gamma^{E}_{vid_1,vid_2,L}(E_1 \cup \ldots \cup E_k)$.
 \insql{[Any E]} $E(G) = \gamma^{V}_{vid_1,vid_2, L}(\bigcup_{G_i \in {\cal G}} E(G_i))$.
@@ -226,7 +226,7 @@ Finally, we define temporal aggregation, a coarsening operation for sequences.
 \begin{definition} [Temporal Aggregation] Operator $\gamma_w(P)$, 
 with $w \geq P.res$, returns a temporal sequence $P'$ such that
 $P.start = P'.start$, $P.end = P'.end$ and $P'.res = w$, or
-$P^{\epsilon}$ if a valid sequence cannot be contructed.
+$P^{\epsilon}$ if a valid sequence cannot be constructed.
 \label{def:tgroup}
 \end{definition}
 
