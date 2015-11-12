@@ -1,0 +1,33 @@
+\subsection{Query Optimization}
+\label{sec:sys:optimization}
+
+The operations are generally applied in the following order: tselect,
+tgroup, tunion, and finally, analytics and projection.  In some cases,
+an equivalent result can be achieved by processing tunion prior to
+tgroup.  For example, an intersection of two evolving graphs with a
+small temporal overlap, followed by a tgroup, will usually lead to a
+more efficient execution.  \vera{if we have time, we could show this
+  experimentally.}  The difficulty is that this change of order can lead
+to incorrect result, and thus should be applied in such as a way as to
+assure correctness (or not applied at all).
+
+In addition to selecting the most efficient order of operations, we
+select the best data structure for the query.  Our analysis of data
+structures' effectiveness for each individual operation is shown in
+the next section.  Switching between data structures from operation to
+operation is possible but computationally inefficient.  Instead, we
+pick the structure that provides the best compromise for the query
+operations by associating costs with each operation and picking the
+least expensive one.  \vera{I made that up but it sounds possible.}
+
+In our experience, the partitioning of the data affects the
+performance more than the data structure choice itself.  A poor
+partition strategy, in terms of the correct number of partitions and
+the allocation of edges to partitions, can be 10x times slower than a
+good one, as we show in the next section.  We evaluated different
+strategies and partition numbers experimentally and this serves as a
+basis of a second dimension of the cost model.
+
+Other criteria that can affect the query performance are data skew,
+change rate between snapshots, and data size.  We continue to evaluate
+these aspects and will incorporate them into the query optimization.
