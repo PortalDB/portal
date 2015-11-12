@@ -14,42 +14,29 @@ cnt:int), in our examples.
 \subsection{Portal Basics}
 \label{sec:example:basics}
 
-\begin{figure}[t!]
-\includegraphics[width=3.2in]{figs/6snaps.pdf}
-\caption{\tg \insql{T1} with 6 snapshots.} 
-\label{fig:tg}
-\end{figure}
+\begin{figure*}[th!]
+\centering
+\begin{minipage}{3.3in}
+  \centering
+  \includegraphics[width=3in]{figs/6snaps.pdf}
+  \caption{\tg \insql{T1} with 6 snapshots.}{}
+  \label{fig:tg}
+\end{minipage}%
+\begin{minipage}{3.3in}
+  \centering
+  \includegraphics[width=3in]{figs/t2.pdf}
+  \caption{\tg \insql{T2} with 6 snapshots.}{}
+  \label{fig:tg_t2}
+\end{minipage}
+\end{figure*}
 
-\begin{figure}[t!]
-\includegraphics[width=3.2in]{figs/t2.pdf}
-\caption{\tg \insql{T2} with 6 snapshots.} 
-\label{fig:tg_t2}
-\end{figure}
+{\bf Temporal selection.}  Consider query $Q1$ below.  
 
 \begin{figure}
 \includegraphics[width=3.5in]{figs/2VE.pdf}
 \caption{Vertices and edges of 2 snapshots of \insql{T1}.}
 \label{fig:2ve}
 \end{figure}
-
-\eat{
-\begin{table}
- \label{tab:terms}
- \begin{tabular}{l|l}
-   {\bf term} & {\bf example} \\
-   \hline
-   temporal selection &  \insql{Start} \ldots \insql{End} \\ 
-   temporal aggregation & \insql{TGroup by 2 years} \\
-%   structural aggregation & \insql{Any V[vid, sum(salary)] } \\
-   temporal union & \insql{T1 TOr T2}  \\
-   temporal intersection & \insql{T1 TAnd T2}  \\
-   \hline
-  \end{tabular}
-  \caption{Summary of \ql operations, with corresponding query fragments.}
-\end{table}
-}
-
-{\bf Temporal selection.}  Consider query $Q1$ below.  
 
 \begin{small}
 \begin{verbatim}
@@ -179,11 +166,11 @@ meaning that $\gamma^{V}_{vid, any(name), max(salary)}(\bigcap_{G_i
   \in {\cal G}} V(G_i))$ (Definition~\ref{def:sgroup}) is used to
 aggregate vertices of snapshots in each 2-year group.  \insql{Any E}
 states that the edges in the result correspond to the union of the
-edges connecting the vertices.  As our example illustrates,
+edges connecting the vertices.\eat{  As our example illustrates,
 \insql{Any} and \insql{All} modifiers are associated with vertices and
 edges and are orthogonal, subject to the constraint that an edge can
 only be present in a snapshot if both vertices it connects are
-present.
+present.}
 
 \begin{figure}
 \includegraphics[width=3.2in]{figs/TGroupAllAny.pdf}
@@ -192,11 +179,11 @@ present.
 \end{figure}
 
 $Q4$ illustrates another important feature of \ql, namely, aggregation
-of values of non-key attributes of vertices and edges, which happens
+of values of non-key attributes of vertices and edges, which takes place
 as part of structural aggregation.  We left specifics of available
 operations unspecified in Definition~\ref{def:sgroup}, so as to keep
 structural aggregation generic.  
-
+%
 When used in scope of \insql{TGroup}, structural aggregation operates
 over an ordered collection of snapshots.  \ql makes the following
 aggregation operations available for ordered snapshot collections:
@@ -235,7 +222,8 @@ that join together \tg relations, and will illustrate them using
 (Figure~\ref{fig:tg_t2}).  Query $Q5$ computes temporal intersection
 of \insql{T1} and \insql{T2}.  We require that \insql{T1} and
 \insql{T2} be union-compatible, as per Definition~\ref{def:tuc}.  The
-result of this query is in Figure~\ref{fig:q5}.
+result of this query is in Figure~\ref{fig:q5}. \reminder{Make figure
+  1 line to save space.}
 
 \begin{small}
 \begin{verbatim}
@@ -256,7 +244,7 @@ Definition~\ref{def:tseqand}, and corresponds to a sequence with
 $P.start = 2010$, $P.end=2014$ and $P.size=4$.  Note the use of
 \insql{Any V} and \insql{Any E} in the \insql{TSelect} clause.  This
 is another example of structural aggregation
-(Definition~\ref{def:sgroup}, now as part of \insql{TAnd}.  The
+(Definition~\ref{def:sgroup}), now as part of \insql{TAnd}.  The
 modifiers \insql{Any} and \insql{All} have the same meaning here as
 for \insql{TGroup}, specifying that, a vertex (resp. edge) will be
 present in a snapshot in the result if it is present in at least one
@@ -321,27 +309,27 @@ single query.  The logical order of evaluation of a \ql query without
 nesting is as follows:
 
 \begin{enumerate}
+\item Temporal selection in the \insql{TWhere} clause;
 \item Temporal join (\insql{TAnd} and \insql{TOr}) in the \insql{From}
   clause;
-\item Temporal selection in the \insql{TWhere} clause;
 \item Temporal aggregation in the \insql{TGroup} clause;
 \item Projection, computation of attribute aggregates and analytic
   functions.
 \end{enumerate}
 
 While the logical order of operations is predetermined, we will see in
-Section~\ref{sec:sys} that some operators can be reordered without
-affecting the result (but with potential differences in performance),
-while others cannot.  Specifically, while temporal selection can
-always be pushed below temporal intersection, it is sometimes, but not
-always, the case that selection and intersection, and intersection and
-aggregation, can be reordered.
+Section~\ref{sec:sys:optimization} that some operators can be
+reordered without affecting the result (but with potential differences
+in performance), while others cannot.  
 
 Consider $Q7$ below, with result shown in Figure~\ref{fig:q7}. $Q7$
-computes temporal intersection of \insql{T1} and \insql{T2}, restricts
-the result to $[2010, 2014)$, and temporally aggregates the resulting
-  \tg by 2 years.  Finally, \insql{pagerank()} is computed for each
-  vertex in the result.
+first executes temporal selection on each \insql{T1} and \insql{T2}.
+(Note that when temporal conditions in the \insql{TWhere} clause are
+not qualified, they are applied to all \tgs in the \insql{From}
+clause.)  Next, $Q7$ computes temporal intersection of \insql{T1} and
+\insql{T2}, the result to $[2010, 2014)$, and then temporally
+  aggregates the resulting \tg by 2 years.  Finally,
+  \insql{pagerank()} is computed for each vertex in the result.
 
 \begin{small}
 \begin{verbatim}
@@ -379,8 +367,8 @@ query of this kind.
 Consider next query $Q8$ that is similar to $Q7$, but uses nesting to
 decouple structural aggregation of \insql{TSelect} from that of
 \insql{TGroup}. The result of executing $Q8$ is shown in
-Figure~\ref{fig:q8}.  Observe that $Q8$ explicitly pushes temporal
-selection and intersection below temporal aggregation.
+Figure~\ref{fig:q8}.\eat{  Observe that $Q8$ explicitly pushes temporal
+selection and intersection below temporal aggregation.}
 
 \begin{small}
 \begin{verbatim}
@@ -430,9 +418,9 @@ aggregation.  Syntactically, the two look the same, but the difference
 is that \insql{max(pr)} does not account for the temporal order of
 values being aggregated, while \insql{trend(pr)} does.  Based on this
 distinction, it is not meaningful to invoke a trend analytic when
-structural aggregation is due to temporal intersection (\insql{TAnd})
-or union (\insql{TOr}), but only as part of a query that does temporal
-aggregation (as in \insql{TGroup}).
+structural aggregation is due solely to join (\insql{TAnd}) or 
+(\insql{TOr}), but only as part of a query that does temporal
+aggregation (\insql{TGroup}).
 
 Finally, recall from our discussion of temporal aggregation that
 \insql{TGroup by Size} produces a 1-snapshot \tg.  It is convenient,
@@ -473,40 +461,33 @@ query, its structural schema is determined by the query result.  In
 $Q11$, the structural schema of the view \insql{T4} is the same as
 that of \insql{T1}.
 
-{\bf Inspecting results.}  Suppose that the result of $Q9$ is assigned
-to \insql{T5}, with the structural schema V(\underline{vid}:int,
-tr:float, mx:float) ; E(\underline{vid1}:int, \underline{vid2}:int).
-Consider the statement below, which shows \insql{vid} and \insql{tr}
-values of 20 vertices with the most significantly increasing
-\insql{pagerank} trend.
+{\bf Inspecting results with SQL.}  Suppose that the result of $Q9$ is
+assigned to \insql{T5}, with the structural schema
+V(\underline{vid}:int, tr:float, mx:float) ; E(\underline{vid1}:int,
+\underline{vid2}:int).  Consider the SQL query below, which shows
+\insql{vid} and \insql{tr} values of 20 vertices with the most
+significantly increasing \insql{pagerank} trend. 
 
 \begin{small}
 \begin{verbatim}
-      Output V [vid, tr]  
-      From   T5 
+Q12:  Select   VF.vid, VF.tr  
+      From     T5.toVerticesFlat() as VF
       Order by tr
       Limit    20
 \end{verbatim}
 \end{small}
 
-An \insql{Output} statement of this kind is used to inspect results,
-and is similar to \insql{Describe} in SQL.  It does not produce a \tg
-as output, and so cannot be considered a query, since its result
-cannot be composed with \ql operators.
+The important part of \insql{Q12} is the use of
+\insql{T5.toVerticesFlat()} in the \insql{From} clause.  This is a
+multi-step operation provided by the \ql framework, which starts by
+collecting all vertices in the union of snapshots of \insql{T5} into a
+single nested vertex collection, and associating \underline{vid} with
+a time-indexed map of vertex attributes.  Next, the nested collection
+is flattened into \insql{VF} (\underline{vid}:int,
+\underline{start}:date, \underline{end}:date, tr:float, mx:float).
+\insql{VF} can be used in SQL queries.  The \ql framework also
+provides an operation that returns a flattened collection of edges,
+called \insql{toEdgesFlat()}.
 
-The \insql{Output} statement allows the user to inspect vertices or
-edges of a \tg as a single homogeneous collection.  Vertices and edges
-are handled similarly, and we focus on vertices in this example.  The
-optional \insql{Order by} clause can be used to sort results on one or
-several scalar attributes, like in SQL.  At most 100 results are
-presented to the user by default; this default may be overridden using
-the \insql{Limit} clause.
 
-The \ql API supports vertex and edge transformation methods that
-expose the contents of a \tg as vertex and edge collections.  These
-methods are \insql{vertices()}, \insql{verticesFlat()},
-\insql{edges()}, and \insql{edgesFlat()}.  \insql{Output} produces
-collections computed by \insql{vertices()} or
-\insql{edges()}. \reminder{Return types for each.  Explain why we
-  don't need to flatten here.}
 
