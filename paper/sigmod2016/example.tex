@@ -473,40 +473,52 @@ query, its structural schema is determined by the query result.  In
 $Q11$, the structural schema of the view \insql{T4} is the same as
 that of \insql{T1}.
 
-{\bf Inspecting results.}  Suppose that the result of $Q9$ is assigned
-to \insql{T5}, with the structural schema V(\underline{vid}:int,
-tr:float, mx:float) ; E(\underline{vid1}:int, \underline{vid2}:int).
-Consider the statement below, which shows \insql{vid} and \insql{tr}
-values of 20 vertices with the most significantly increasing
-\insql{pagerank} trend.
+{\bf Inspecting results with SQL.}  Suppose that the result of $Q9$ is
+assigned to \insql{T5}, with the structural schema
+V(\underline{vid}:int, tr:float, mx:float) ; E(\underline{vid1}:int,
+\underline{vid2}:int).  Consider the \insql{SQ} query below, which
+shows \insql{vid} and \insql{tr} values of 20 vertices with the most
+significantly increasing \insql{pagerank} trend.  Vertices and edges
+are handled similarly, and we focus on vertices in this example. 
 
 \begin{small}
 \begin{verbatim}
-      Output V [vid, tr]  
-      From   T5 
+Q12:  Select   VF.vid, VF.tr  
+      From     T5.toVertices() as VF
       Order by tr
       Limit    20
 \end{verbatim}
 \end{small}
 
+The important part of \insql{Q12} is the use of
+\insql{T5.toVertices()} in the \insql{From} clause.  This is a
+multi-step operation provided by the \ql framework, which startd by
+collecting all vertices in the union of snapshots of \insql{T5} into a
+single nested vertex collection, and associating \underline{vid}:int
+with a time-indexed map of vertex attributes.  Next, the nested
+collection is flattened into \insql{VF} (vertices flat) with the schema
+VF (\underline{vid}:int, \underline{start}:date, \underline{end}:date,
+tr:float, mx:float).  
+
+\eat{
 An \insql{Output} statement of this kind is used to inspect results,
 and is similar to \insql{Describe} in SQL.  It does not produce a \tg
 as output, and so cannot be considered a query, since its result
-cannot be composed with \ql operators.
+cannot be composed with \ql operators.}
 
-The \insql{Output} statement allows the user to inspect vertices or
+\eat{The \insql{Output} statement allows the user to inspect vertices or
 edges of a \tg as a single homogeneous collection.  Vertices and edges
 are handled similarly, and we focus on vertices in this example.  The
 optional \insql{Order by} clause can be used to sort results on one or
 several scalar attributes, like in SQL.  At most 100 results are
 presented to the user by default; this default may be overridden using
-the \insql{Limit} clause.
+the \insql{Limit} clause.}
 
+\eat{
 The \ql API supports vertex and edge transformation methods that
 expose the contents of a \tg as vertex and edge collections.  These
 methods are \insql{vertices()}, \insql{verticesFlat()},
 \insql{edges()}, and \insql{edgesFlat()}.  \insql{Output} produces
 collections computed by \insql{vertices()} or
-\insql{edges()}. \reminder{Return types for each.  Explain why we
-  don't need to flatten here.}
+\insql{edges()}. }
 
