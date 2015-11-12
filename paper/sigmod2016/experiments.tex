@@ -72,39 +72,137 @@ all subsequent experiments.
 \label{fig:partsfit}
 \end{figure}
 
-{\bf Outline.}
+\subsection{\insql{TSelect}}
 
-\reminder{Vera, please write each of these out as \ql queries.  Also
-  write what we are keeping fixed in each experiment, and what we are
-  varying.}
+To understand how different data structures perform as a function of
+data size, we ran a simple TSelect query:
 
-\begin{enumerate}
+\begin{small}
+\begin{verbatim}
+      TSelect V; E
+      From    ngrams
+      TWhere  Start >= x and End <= y
+\end{verbatim}
+\end{small}
 
-\item \insql{TSelect}, to understand the number of
-  partitions with which to load for SPG, MG, MGC and OG, as a function
-  of data size.
+where \insql{x} and \insql{y} parameters were varied to achieve
+approximate desired data sizes for edge files.  Our file format is a
+node file and an edge file per snapshot, with a node/edge per line,
+respectively.  This format favors the SG data structure because no
+data transformation, such as aggregation, is required.  This is
+substantiated experimentally, as can be seen in
+Figure~\ref{fig:tselect}.  In the nGrams dataset, SG is the fastest
+data structure for simple data loading, although all structures
+exhibit a linear increase as a function of data size.  We observed the
+same trend in all three datasets and are not including the additional
+graphs here. \vera{Remove this claim if it cannot be verified in
+  time.}  The significant influence of data format on data structure
+performance has been shown
+previously~\cite{DBLP:journals/tos/MiaoHLWYZPCC15}.  Given the
+significant difference at size (3-5x) between SGP and the other data
+structures, an alternative file format for aggregated data structures
+is warranted.  Because the load/materialize time varies so
+significantly between different data structures, all subsequent
+experiments are reported with a warm start, with application of a
+desired partition strategy included during the loading process.
 
-\item \insql{TSelect} + transform (e.g., $a * a$, where $a$ is a
+\begin{figure}[t!]
+\includegraphics[width=3.2in]{figs/tselect.pdf}
+\caption{All data structures exhibit linear increase in total load
+  time as a function of data size in the nGrams dataset.}
+\label{fig:tselect}
+\end{figure}
+
+\subsection{\insql{TSelect} with projection}
+
+\insql{TSelect} + transform (e.g., $a * a$, where $a$ is a
   scalar vertex attribute), to understand the overhead of computing a
   simple transformation operation, with the best settings in
   Experiment 1.  Probably no need for a full experiment,
   let's get a few data points to see whether the overhead is
   noticeable.
 
-\item \insql{TSelect} with \insql{TGroup}, with
-  \insql{Any} and \insql{All}.  We will run this experiment for each
-  SPG, MG, MGC and OG, with the best setting as determined in
-  Experiment 1.  We will then see whether re-partitioning improves
-  performance, and will try different partitioning strategies.
+TODO or remove if no time left
 
-\item \insql{TAnd} and \insql{All}, \insql{TOr} with \insql{Any}.  The
-  same experiment as Experiment 3.
+\subsection{\insql{TSelect} with \insql{TGroup}}
 
-\item \insql{TSelect} with \insql{pagerank()}. The same
-  experiment as Experiment 3.
+To investigate the comparative performance of different data
+structures and partition strategies on the TGroup operation, we used
+the following query:
 
-\item \insql{pagerank()} with \insql{trend()}.  Run only for the best
-  data structure of Experiment 5.
+\begin{small}
+\begin{verbatim}
+      TSelect Any V[vid, any(word)];
+              Any E[vid1, vid2, sum(cnt) as score]
+      From    nGrams
+      TWhere  Start >= x And End <= y
+      TGroup  by 8 years
+\end{verbatim}
+\end{small}
+
+We kept the aggregation time window constant (8 years) and varied the
+total number of snapshots (indicated as \insql{x} and \insql{y}) in
+powers of 2.  Each snapshot was 200-250 MB in edge file size.
+
+Recollect that \insql{TGroup} requires a union and group by operation
+in SG, combination of transform with filter and group by for MG, and
+transform with filter for OG.  MGC, due its compactness, generally
+outperforms MG and OGC -- OG, and here we include only the better
+performing variant of each.  As expected, because OGC is an already
+aggregated data structure, it outperforms MGC and SGP for the TGroup
+operation by two orders of magnitude in the largest size
+(Figure~\ref{fig:tgroupe}).
+
+\begin{figure}[t!]
+\includegraphics[width=3.2in]{figs/tgroupe_warm.pdf}
+\caption{All data structures and partition strategies show linear
+  increase in Any-type aggregation time as the number of snapshots
+  grows.  OGC, an already aggregated data structure, vastly
+  outperforms the other variants.}
+\label{fig:tgroupe}
+\end{figure}
+
+Note that partition strategies can improve performance for the MGC
+data structure on this operation -- all outperform the default
+partitioning case by 20\% or greater.  This can be explained by the
+group by operation that is performed on the edges.  E2D always places
+two edges with the same key in the same partition, which theoretically
+leads to least cross-partition communication during aggregation.
+Hybrid strategies use the aggregation window as the width of the run,
+also placing the edges that are to be grouped in the same set of
+partitions.  The difference between E2D and the hybrid strategies for
+the MGC data structure are not statistically significant.
+Partitioning of the SG is also beneficial, but the gains are smaller
+than for the MGC.  We observed the same trend for the TGroup query
+with All semantics -- see Appendix.
+
+To demonstrate why we use warm start, consider
+Figure~\ref{fig:tgroupe_cold}.  When we consider the total time for
+the same query, including graph loading, partitioning, aggregation,
+and materialization, the loading time dominates.  Based on this graph
+in isolation, one can conclude that partitioning is not beneficial
+(because it takes additional non-trivial time) and that SG is the most
+effective data structure.  However, recal from experiment 1 that the
+file format favors SG, and no conclusions should be drawn from cold
+start total time alone.
+
+\begin{figure}[t!]
+\includegraphics[width=3.2in]{figs/tgroupe_cold.pdf}
+\caption{The graph loading and partitioning time dominates the overall
+  runtime and prevents individual operation evaluation.}
+\label{fig:tgroupe_cold}
+\end{figure}
+
+\vera{If we get to run the version where we vary the aggregation
+  window, include it here.}
+
+\subsection{\insql{TAnd} with \insql{All}}
+
+\subsection{\insql{TSelect} with \insql{trend(pagerank())}}
+
+{\bf Outline.}
+
+\begin{enumerate}
 
 \item \insql{TSelect} with \insql{degree()}, only if we have time. The
   same experiment as Experiment 3.
