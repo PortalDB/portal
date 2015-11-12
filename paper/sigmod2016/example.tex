@@ -478,27 +478,28 @@ assigned to \insql{T5}, with the structural schema
 V(\underline{vid}:int, tr:float, mx:float) ; E(\underline{vid1}:int,
 \underline{vid2}:int).  Consider the \insql{SQ} query below, which
 shows \insql{vid} and \insql{tr} values of 20 vertices with the most
-significantly increasing \insql{pagerank} trend.  Vertices and edges
-are handled similarly, and we focus on vertices in this example. 
+significantly increasing \insql{pagerank} trend.  
 
 \begin{small}
 \begin{verbatim}
 Q12:  Select   VF.vid, VF.tr  
-      From     T5.toVertices() as VF
+      From     T5.toVerticesFlat() as VF
       Order by tr
       Limit    20
 \end{verbatim}
 \end{small}
 
-The important part of \insql{Q12} is the use of
-\insql{T5.toVertices()} in the \insql{From} clause.  This is a
-multi-step operation provided by the \ql framework, which startd by
-collecting all vertices in the union of snapshots of \insql{T5} into a
-single nested vertex collection, and associating \underline{vid}:int
-with a time-indexed map of vertex attributes.  Next, the nested
-collection is flattened into \insql{VF} (vertices flat) with the schema
-VF (\underline{vid}:int, \underline{start}:date, \underline{end}:date,
-tr:float, mx:float).  
+The important part of $Q12$ is the use of \insql{T5.toVerticesFlat()}
+in the \insql{From} clause.  This is a multi-step operation provided
+by the \ql framework, which starts by collecting all vertices in the
+union of snapshots of \insql{T5} into a single nested vertex
+collection, and associating \underline{vid}:int with a time-indexed
+map of vertex attributes.  Next, the nested collection is flattened
+into \insql{VF} with the schema VF (\underline{vid}:int,
+\underline{start}:date, \underline{end}:date, tr:float, mx:float).
+\insql{VF} can be used in \insql{SQL} queries.  The \ql framework also
+provides an operation that returns a flattened collection of edges,
+called \insql{toEdgesFlat()}.
 
 \eat{
 An \insql{Output} statement of this kind is used to inspect results,
