@@ -198,6 +198,48 @@ start total time alone.
 
 \subsection{\insql{TAnd} with \insql{All}}
 
+\insql{TAnd} is a binary operation, and thus co-partitioning of the
+two evolving graphs should play a role in performance.  Similarly to
+\insql{TGroup} above, we look at the warm start performance of each
+data structure and partition strategy, using the following query:
+
+\begin{small}
+\begin{verbatim}
+      TSelect All V[vid, max(word)];
+              All E[vid1, vid2, max(cnt) as score]
+      From    ( TSelect V; E
+                From nGrams
+                TWhere  Start >= x And End <= y )
+              TAnd
+              ( TSelect V; E
+                From nGrams
+                TWhere  Start >= n And End <= m )      
+\end{verbatim}
+\end{small}
+
+We are selecting the two graphs from the same dataset and varying the
+amount of temporal overlap (\insql{n - m}) between them to investigate
+the worst-case performance.  This query is a good example where
+pushing selection would lead to some performance improvement, since
+only the \insql{n} to \insql{y} snapshots are relevant to the
+operation.  In this experiment the query was not optimized in this
+fashion and executed directly as specified.
+
+\insql{TAnd} requires a join operation for each snapshot pair in SG,
+and a single graph join in all other data structures.  As the temporal
+overlap between the two graphs increases, we expect OGC to outperform
+SG, and this can be shown experimentally (Figure~\ref{fig:tandall}).
+
+\begin{figure}[t!]
+\includegraphics[width=3.2in]{figs/tand_all_warm.pdf}
+\caption{As the temporal overlap increases, so does the TAnd time, for
+  all data structures and partition strategies.  OG outperforms the
+  other data structures.}
+\label{fig:tandall}
+\end{figure}
+
+MORE HERE
+
 \subsection{\insql{TSelect} with \insql{trend(pagerank())}}
 
 {\bf Outline.}
