@@ -280,9 +280,13 @@ object Interpreter {
   def parseSelect(sel: Select): Either[TemporalGraph[String,Int], TemporalGraph[Double,Double]] = {
     val selStart = System.currentTimeMillis()
     var res: TemporalGraph[String, Int] = GraphLoader.loadData(sel.dataset, sel.start,sel.end).persist()
+    //FIXME: this is a hack for the experiment
+    res.materialize
     val selEnd = System.currentTimeMillis()
     val total = selEnd - selStart
     println(f"Select Runtime: $total%dms ($argNum%d)")
+    argNum += 1
+
     //if there is both group and compute, group comes first
     if (sel.doGroupby) {
       val aggStart = System.currentTimeMillis()

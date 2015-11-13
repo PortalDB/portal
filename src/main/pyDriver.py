@@ -102,6 +102,22 @@ def collect_args(query, strat, run):
 
             addOp = True
         
+        if line[i] == "intersection":
+            opType = "Intersection"
+            arg1 = get_agg_type(line[i+2])
+            arg2 = None
+            partS = runW = numParts = None            
+
+            addOp = True
+
+        if line[i] == "union":
+            opType = "Union"
+            arg1 = get_agg_type(line[i+2])
+            arg2 = None
+            partS = runW = numParts = None            
+
+            addOp = True
+
         #create new operation
         if addOp == True:
             newOp = create_op(opType, arg1, arg2, partS, numParts, runW)
@@ -271,7 +287,7 @@ def run(configFile):
                 if querySaved == False:
                     qRef = dbconnect.persist_query() #persist to Query table
                     op_dict = collect_args(query, strat, runw);
-                     id_dict = dbconnect.persist_ops(op_dict) #persist to Operation table
+                    id_dict = dbconnect.persist_ops(op_dict) #persist to Operation table
                     dbconnect.persist_query_ops(qRef, id_dict) #persist tp Query_Op_Map table            
                     querySaved = True        
  
