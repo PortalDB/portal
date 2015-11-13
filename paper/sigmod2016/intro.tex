@@ -3,10 +3,10 @@
 
 The importance of networks cannot be overstated. Networks arise in a
 plethora of domains, and are central to many applications, both
-commercial and scientific.  Networks are represented by graphs, and
-considerable research and engineering effort is being devoted to
-developing effective and efficient graph representations and
-analytics. (We will use the terms ``network'' and ``graph''
+commercial and scientific.  Networks are commonly represented by
+graphs, and considerable research and engineering effort is being
+devoted to developing effective and efficient graph representations
+and analytics. (We will use the terms ``network'' and ``graph''
 interchangeably.) As of late, efficient graph abstractions and
 analytics for {\em static graphs} have become available in scope of
 open source platforms such as Apache Spark (through the GraphX API)
@@ -36,12 +36,12 @@ analysis.
 
 {\em Which network nodes are showing an increasing popularity trend,
   or have increasing influence, and which are on a downward spiral?}
-On the Web graph this information can help prioritize crawling.  In
+In the Web graph this information can help prioritize crawling.  In
 social networks, it can be used for content recommendation and
 advertisement targeting.  In semantic knowledge bases this information
 can be used to capture the dynamics of zeitgeist.  Here, node
 popularity can be quantified in a number of ways including, e.g., node
-degree, centrality or PageRank score.  \ql supports efficient
+degree, centrality, or PageRank score.  \ql supports efficient
 computation of node popularity with {\em snapshot and trend
   analytics}.
 
@@ -100,7 +100,7 @@ this kind of analysis.
 {\bf Contributions.} In this paper we develop \ql, a declarative query
 language for efficient querying and exploratory analysis of evolving
 graphs. Our language supports a variety of operations including
-temporal selection, join and aggregation, and a rich class of
+temporal selection, join, and aggregation, and a rich class of
 analytics.  Further, we provide a scalable and extensible open-source
 implementation of \ql in scope of Apache Spark, an open-source
 distributed data processing framework.  We develop several novel

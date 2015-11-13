@@ -47,8 +47,10 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
 
   override def materialize() = {
     graphs.foreach { x =>
-      x.numEdges
-      x.numVertices
+      if (!x.edges.isEmpty)
+        x.numEdges
+      if (!x.vertices.isEmpty)
+        x.numVertices
     }
   }
 
