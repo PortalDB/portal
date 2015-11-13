@@ -57,7 +57,7 @@ graphs.
 The basic building block in \ql is a snapshot, which naturally limits
 the resolution at which changes can be retrieved. This deliberate
 choice is in contrast with delta-based
-approaches~\cite{Khurana2013,Koloniari2012,DBLP:journals/tos/MiaoHLWYZPCC15}.`
+approaches~\cite{Khurana2013,Koloniari2012,DBLP:journals/tos/MiaoHLWYZPCC15}.
 
 Khurana and Deshpande~\cite{Khurana2013} investigate efficient
 physical representations using deltas to support snapshot retrieval.
@@ -68,7 +68,7 @@ materialized snapshot when deltas are small.  We do not take
 this step because evaluation of queries involving multiple snapshots,
 such as \insql{TGroup}, requires fully materialized views in memory.
 The snapshot group method of~\cite{DBLP:journals/tos/MiaoHLWYZPCC15}
-is similar to GraphPool in~\cite{Khurana2013}.
+is similar to DeltaGraph in~\cite{Khurana2013}.
 
 Ren et al.~\cite{Ren2011} develop an in-memory representation of
 evolving graphs based on computing and storing representative graphs
@@ -76,8 +76,11 @@ for sets of snapshots, and recording deltas from representative graphs
 to individual snapshots.  Note that representative snapshots can be
 computed using structural aggregation in \ql, and so this work
 provides additional motivation for our temporal aggregation and join
-operators.  Furthermore, our OneGraph can be thought of as a
-representative graph for the whole selected time period.
+operators.  Our OneGraph can be thought of as a representative graph
+for the whole selected time period.  In the future we may consider a
+hybrid approach similar to~\cite{Ren2011}, materializing multiple
+OneGraphs for different sets of snapshots if a single representation
+becomes too dense.
 
 Semertzidis et al.~\cite{Semertzidis2015} develop a version graph,
 where each node and edge are annotated with the set of time intervals
@@ -104,26 +107,21 @@ locality.  \eat{However, our focus is on in-memory query evaluation and not
 on on-disk layout.}
 
 {\bf Distributed frameworks, partitioning.}  In this paper we build
-upon, and non-trivially extend, the graph processing abstractions of
-Apache Spark, a popular open-source distributed data processing
-engine, and specifically of
-GraphX~\cite{DBLP:conf/osdi/GonzalezXDCFS14}.  GraphX provides an API
-for working with regular graphs (snapshots), without the time
-dimension.  As described in~\ref{sec:sys}, we build our \tgs on top
-of GraphX Graph.  To improve performance, we modified the GraphX graph
-loading code, enabling concurrent distributed multi-file loading with
-a tuned number of partitions.  
+upon GraphX~\cite{DBLP:conf/osdi/GonzalezXDCFS14}, which provides an
+API for working with regular graphs (snapshots) in Apache Spark, but
+without the time dimension.  To improve performance, we modified the
+GraphX graph loading code, enabling concurrent distributed multi-file
+loading with a tuned number of partitions.
 
 Distributed graph computation requires balanced graph partitioning,
 dependent on the nature of the operation being applied to the graph.
-There are two basic types of graph partitioning strategies: edge-cut
-and vertex-cut.  An edge-cut approach distributes vertices across the
-available machines and replicates the edges as necessary.  A
-vertex-cut approach does the opposite.  Based on extensive theoretical
-and experimental studies~\cite{Gonzalez2012}, GraphX chose the
-vertex-cut approach.  We use built-in GraphX partitioning and develop
-additional vertex-cut strategies that incorporate the temporal
-dimension.
+There are two basic types of graph partitioning strategies.  Edge-cut
+distributes vertices across the available machines and replicates the
+edges as necessary, while vertex-cut does the opposite.  Based on
+extensive theoretical and experimental studies~\cite{Gonzalez2012},
+GraphX chose the vertex-cut approach.  We use built-in GraphX
+partitioning and develop additional vertex-cut strategies that
+incorporate the temporal dimension.
 
 Another relevant framework is SparkSQL~\cite{Xin2013}, which provides
 mid-query optimization of distributed execution.  Mid-query
