@@ -3,8 +3,13 @@
 
 The research related to our \ql system is in the areas of queries for
 evolving graphs, efficient evolving graph representation, on disk or
-in memory, and graph partitioning, with the majority of work in
-efficiently storing and retrieving graph snapshots.
+in memory, and graph partitioning.
+
+{\bf Querying and analytics.}  There has been much recent activity in
+developing analytics for evolving graphs, see~\cite{} for a recent
+survey.  This work is synergistic with ours, in that we build a
+platform that supports efficient execution of a variety of existing
+analytics.
 
 \ql is the first proposed declarative query language for evolving
 graphs.  Several researchers have proposed individual queries, without
@@ -29,22 +34,21 @@ inputs: a temporal pattern and an arbitrary predicate.  \eat{The
   attributes, which are not modeled here.} Semertzidis, et
 al. ~\cite{Semertzidis2015} also provide querying of evolving graphs,
 with the focus on building indexes to support historical reachability
-queries.  The most extensive system
-to date for querying of evolving graphs is
-ImmortalGraph~\cite{DBLP:journals/tos/MiaoHLWYZPCC15}, an in-memory
-execution engine for temporal graph analytics.  Immortal Graph
-distinguishes between queries that do one-time random-storage IO
-(query vertex/edge and query vertex/edge changes) and repeated graph
-traversals in memory such as analytics.  \eat{For random-storage IO
-  retrievals, physical data layout is important.  The snapshot group
-  method used by the authors is very similar to what
-  Khurana~\cite{Khurana2013} did for temporal graph storage.  Graph
-  partitioning is also explored in this work, mainly exploring the
-  tradeoff of temporal and spatial co-location, albeit on disk.  It is
-  shown that some queries benefit from temporal partitioning, while
-  others from spatial one.  As a result, the Immortal graph keeps
-  different type replicas on disk and picks the better one for the
-  type of query requested.  Since our focus in this work is on
+queries.  The most extensive system to date for querying of evolving
+graphs is ImmortalGraph~\cite{DBLP:journals/tos/MiaoHLWYZPCC15}, an
+in-memory execution engine for temporal graph analytics.
+ImmortalGraph distinguishes between queries that do one-time
+random-storage IO (query vertex/edge and query vertex/edge changes)
+and repeated graph traversals in memory such as analytics.  \eat{For
+  random-storage IO retrievals, physical data layout is important.
+  The snapshot group method used by the authors is very similar to
+  what Khurana~\cite{Khurana2013} did for temporal graph storage.
+  Graph partitioning is also explored in this work, mainly exploring
+  the tradeoff of temporal and spatial co-location, albeit on disk.
+  It is shown that some queries benefit from temporal partitioning,
+  while others from spatial one.  As a result, the Immortal graph
+  keeps different type replicas on disk and picks the better one for
+  the type of query requested.  Since our focus in this work is on
   in-memory query evaluation and optimization, the physical data
   layout is of less importance, but we also explore the tradeoffs of
   spatial and temporal partitioning, as well as hybrid strategies.
@@ -61,14 +65,23 @@ implementation-independent declarative language to support both
 iterative analytics and building-block operations such as joins and
 aggregations.
 
-Another important area of research is efficient storage, retrieval,
-and in-memory representation of evolving graphs.  Various variants of
-delta-based storage have been investigated in the
-literature~\cite{Khurana2003, DBLP:journals/tos/MiaoHLWYZPCC15,
-  Koloniari2012} and a combination of deltas with selected
-materialized snapshots appears to provide the best balance of
-performance and compactness.  Most notably, Khurana and
-Deshpande~\cite{Khurana2003} investigate efficient physical
+There are other areas that are related to our work but not closely.
+For example, this work is different than work on query processing of
+dynamic graphs (e.g., ~\cite{Mondal2012}), where the history of
+changes is not important, and the focus is on updating the results as
+the graph undergoes changes.  Similarly, work on querying evolving
+graphs is different than the problem of mining evolving graph streams
+(e.g., ~\cite{Liu2010}), where the focus is on discovery of
+significant changes over a small window of consecutive graphs.
+
+{\bf Data representation.}  Another important area of research is
+efficient storage, retrieval, and in-memory representation of evolving
+graphs.  Various variants of delta-based storage have been
+investigated in the literature~\cite{Khurana2003,
+  DBLP:journals/tos/MiaoHLWYZPCC15, Koloniari2012} and a combination
+of deltas with selected materialized snapshots appears to provide the
+best balance of performance and compactness.  Most notably, Khurana
+and Deshpande~\cite{Khurana2003} investigate efficient physical
 representations using deltas for a variety of datasets to support
 snapshot retrieval, including different cases of skew. \eat{Another
   aspect relevant to our work is that of data skew and differential
@@ -84,9 +97,9 @@ snapshot retrieval, including different cases of skew. \eat{Another
   statistics such as rate of change.  We leave this for future work.}
 Miao, et al.~\cite{DBLP:journals/tos/MiaoHLWYZPCC15} use a similar
 approach, but demonstrate that there is a tradeoff between temporal
-and spatial co-location format based on the type of query.  For example,
-large temporal range queries benefit from the time-locality layout in
-their experiments.  
+and spatial co-location format based on the type of query.  For
+example, large temporal range queries benefit from the time-locality
+layout in their experiments.
 
 Hybrid delta-snapshot approach provides an ability to support an
 arbitrary evolving graph resolution.  \ql system basic building block
@@ -151,9 +164,10 @@ future, we will expore whether a hybrid MG-SGP approach could provide
 some benefits since it naturally supports many of the Portal
 operations, topographically speaking.}
 
-In this paper we build upon, and non-trivially extend, the graph
-processing abstractions of Apache Spark, a popular open-source
-distributed data processing engine, and specifically of
+{\bf Distributed frameworks, partitioning.}  In this paper we build
+upon, and non-trivially extend, the graph processing abstractions of
+Apache Spark, a popular open-source distributed data processing
+engine, and specifically of
 GraphX~\cite{DBLP:conf/osdi/GonzalezXDCFS14}.  GraphX provides an API
 for working with regular graphs (snapshots), without the time
 dimension.  As described in~\ref{sec:system}, we build our TGraph data
@@ -192,11 +206,3 @@ creation time which facilitates much more efficient joins.  This is
 similar to what some of our partition strategies do for tgroup and
 temporal joins to reduce communication overhead.
 
-There are other areas that are related to our work but not closely.
-For example, this work is different than work on query processing of
-dynamic graphs (e.g., ~\cite{Mondal2012}), where the history of
-changes is not important, and the focus is on updating the results as
-the graph undergoes changes.  Similarly, work on querying evolving
-graphs is different than the problem of mining evolving graph streams
-(e.g., ~\cite{Liu2010}), where the focus is on discovery of
-significant changes over a small window of consecutive graphs.
