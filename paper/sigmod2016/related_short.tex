@@ -29,16 +29,22 @@ locality-aware scheduling mechanisms, we work in a distributed storage
 and processing environment.  A further difference is that our work is
 in scope of Apache Spark, a widely-used open source platform, while
 the work of Miao et al. is on a proprietary stand-alone prototype.
-Nonetheless, several important insights of Miao et al. are relevant in
-our setting, and we discuss them further below.
+Nonetheless, several important insights of Miao et al. are relevant,
+and we discuss them below.
 
-There are other areas that are related to our work but not closely.
-For example, our work is different than query processing on dynamic
-graphs (e.g.,~\cite{Mondal2012}), where the history of changes is not
+\eat{
+Our work is differs from query processing on dynamic graphs
+(e.g.,~\cite{Mondal2012}), where the history of changes is not
 important, and the focus is on updating the results as the graph
 undergoes changes.  Our work is also different than mining evolving
 graph streams (e.g.,~\cite{Liu2010}), where the focus is on discovery
-of significant changes over a small window of consecutive graphs.
+of significant changes over a small window of consecutive graphs.}
+
+Our work differs from query processing on dynamic graphs
+(e.g.,~\cite{Mondal2012}), where the history of changes is not
+important, and from mining evolving graph streams
+(e.g.,~\cite{Liu2010}), where the focus is on discovering significant
+changes.
 
 \eat{Our contribution is an implementation-independent declarative language
 to support both iterative analytics and building-block operations such
@@ -56,14 +62,13 @@ approaches~\cite{Khurana2013,Koloniari2012,DBLP:journals/tos/MiaoHLWYZPCC15}.`
 Khurana and Deshpande~\cite{Khurana2013} investigate efficient
 physical representations using deltas to support snapshot retrieval.
 Their in-memory GraphPool maintains a single representation of all
-snapshots, and is thus similar to our MultiGraph and OneGraph data
-structures.  GraphPool goes further and stores only dependencies from
-a materialized snapshot in cases where deltas are small.  Our
-implementation does not take this step because evaluation of queries
-involving multiple snapshots, such as \insql{TGroup}, requires fully
-materialized views in memory.  The snapshot group method
-of~\cite{DBLP:journals/tos/MiaoHLWYZPCC15} is similar to GraphPool
-in~\cite{Khurana2013}.
+snapshots, and is thus similar to our MultiGraph and OneGraph.
+GraphPool goes further and stores only dependencies from a
+materialized snapshot when deltas are small.  We do not take
+this step because evaluation of queries involving multiple snapshots,
+such as \insql{TGroup}, requires fully materialized views in memory.
+The snapshot group method of~\cite{DBLP:journals/tos/MiaoHLWYZPCC15}
+is similar to GraphPool in~\cite{Khurana2013}.
 
 Ren et al.~\cite{Ren2011} develop an in-memory representation of
 evolving graphs based on computing and storing representative graphs
@@ -71,7 +76,7 @@ for sets of snapshots, and recording deltas from representative graphs
 to individual snapshots.  Note that representative snapshots can be
 computed using structural aggregation in \ql, and so this work
 provides additional motivation for our temporal aggregation and join
-operators.  Our OneGraph data structure can be thought of as a
+operators.  Furthermore, our OneGraph can be thought of as a
 representative graph for the whole selected time period.
 
 Semertzidis et al.~\cite{Semertzidis2015} develop a version graph,
@@ -95,8 +100,8 @@ there is a tradeoff between temporal and spatial locality based on the
 type of query.  Their solution is to keep multiple data replicas on
 disk and pick the better one for the type of query requested.  In our
 work we also explore the trade-offs between structural and temporal
-locality.  However, our focus is on in-memory query evaluation and not
-on on-disk layout.
+locality.  \eat{However, our focus is on in-memory query evaluation and not
+on on-disk layout.}
 
 {\bf Distributed frameworks, partitioning.}  In this paper we build
 upon, and non-trivially extend, the graph processing abstractions of
@@ -104,7 +109,7 @@ Apache Spark, a popular open-source distributed data processing
 engine, and specifically of
 GraphX~\cite{DBLP:conf/osdi/GonzalezXDCFS14}.  GraphX provides an API
 for working with regular graphs (snapshots), without the time
-dimension.  As described in~\ref{sec:system}, we build our \tgs on top
+dimension.  As described in~\ref{sec:sys}, we build our \tgs on top
 of GraphX Graph.  To improve performance, we modified the GraphX graph
 loading code, enabling concurrent distributed multi-file loading with
 a tuned number of partitions.  
