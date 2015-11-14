@@ -72,6 +72,15 @@ all subsequent experiments.
 \label{fig:partsfit}
 \end{figure}
 
+Not all operations benefit from a large partition number.  Any
+Pregel-based analytics perform better with a much smaller number of
+partitions because the cost of network communication dominates.  We
+coalesced all data structures to a quarter of their original
+partitions for analytics experiments to tune their performance.  We
+determined this number by repeatedly trying larger coalesce factors
+until OOM errors occurred.  For example, in a 32-snapshot graph, each
+coalesce factor improved performance by about 5 minutes.
+
 \subsection{\insql{TSelect}}
 
 To understand how different data structures perform as a function of
