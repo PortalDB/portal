@@ -1,13 +1,13 @@
 \section{System}
 \label{sec:sys}
 
-Our \ql system implementation builds on Apache Spark's GraphX as
-depicted in Figure~\ref{fig:arch}.  Green boxes indicate built-in
-components while blue are those we added for Portal.  We selected
-Spark because of its in-memory processing approach, and because it is
-open source and popular.  However, the system description here is
-mostly general and can be applied within another distributed
-architecture.
+Our \ql system implementation builds on GraphX, an Apache Spark
+library, as depicted in Figure~\ref{fig:arch}.  Green boxes indicate
+built-in components while blue are those we added for \ql.  We
+selected Apache Spark because it is a popular open-source system, and
+because of its in-memory processing approach.  All language operators
+are available through the public API of the \ql library, and may be
+used like any other library in an Apache Spark application.
 
 The \ql system includes an interactive shell for exporatory data
 analysis and a query parser.  A \ql query is rewritten into a sequence
@@ -15,21 +15,16 @@ of operators, a particular data structure and execution method are
 selected (Section~\ref{sec:sys:optimization}), and the query is
 executed.  The evolving graph snapshots are read from a distributed
 file system and processed by Workers, with the tasks assigned and
-managed by the runtime.  \eat{The order of operators within a \ql
-  statement is determined at execution time, based on a combination of
-  rule-based and cost-based considerations.}  We implement a variety
-of \tg representations (Section~\ref{sec:sys:datastructs}) and
-partitioning strategies (Section~\ref{sec:sys:partition}).  Which
-representation and which partitioning strategies are used is
-determined by rules based on theoretical and experimental
-observations.  All language operators are also available through the
-public API of the \ql library, and may be used like any other library
-in an Apache Spark application.
+managed by the runtime.  We implement a variety of \tg representations
+(Section~\ref{sec:sys:datastructs}) and partitioning strategies
+(Section~\ref{sec:sys:partition}).  We will experimentally compare
+preformance of these representations and partitioning strageties on
+two real evolving graphs in Section~\ref{sec:exp}.
 
 \begin{figure}[t!]
 \begin{center}
 \includegraphics[height=1.4in]{figs/architecture.pdf}
-\caption{Portal system architecture.}
+\caption{\ql system architecture.}
 \label{fig:arch}
 \end{center}
 \vspace{-0.5cm}
@@ -38,155 +33,157 @@ in an Apache Spark application.
 \subsection{Data Representation}
 \label{sec:sys:datastructs}
 
-We developed several different in-memory representations for the
-evolving graph to explore the tradeoffs of compactness, parallelism,
-and support of different query operators.  The data structures
-represent a continuum of replication, from the SnapshotGraph to
-OneGraph and are described here in more detail.
+We developed several in-memory representations of evolving graphs to
+explore the tradeoffs of compactness, parallelism, and support of
+different query operators. \eat{ The data structures represent a
+  continuum of replication, from the SnapshotGraph to OneGraph and are
+  described here in more detail.}
 
 {\bf SnapshotGraph (SG).} The simplest way to represent an evolving
 graph is by representing each snapshot individually, a direct
 translation of our logical data model.  We call this data structure
-SnapshotGraph and an example is depicted in Figure~\ref{fig:sgp}.  SG
-is a collection of snapshots, where vertices and edges store the
-attribute values for the specific time interval.  A \insql{TSelect}
-operation on this representation is a slice of the graph collection,
-while \insql{TGroup} and the structural joins require a group by key
-within each aggregate set.
+SnapshotGraph, or SG for short. An example of an SG is depicted in
+Figure~\ref{fig:sgp}.  SG is a collection of snapshots, where vertices
+and edges store the attribute values for the specific time interval.
+A \insql{TSelect} operation on this representation is a slice of the
+snapshot sequence, while \insql{TGroup} and temporal joins
+(\insql{TAnd} and \insql{TOr}) require a group by key within each
+aggregate set of vertices and edges.
 
-While this representation is simple, it is not compact, considering
+While the SG representation is simple, it is not compact, considering
 that in many real-world evolving graphs there is a 80\% or larger
 simmilarity between consecutive
 snapshots~\cite{DBLP:journals/tos/MiaoHLWYZPCC15}.  In a distributed
 architecture, however, this data structure provides some benefits as
-it can be easily parallelized by assigning different snapshots to
-workers with improved temporal locality for snapshot-based analytics.
-\eat{SG edges can be partitioned using temporal or structural
-  criteria.  Furthermore, due to Spark's lazy evaluation, operations
-  such as \insql{TSelect} are very efficient, since only those snapshots
-  involved in the operation are loaded.  While other data structures
-  do not benefit from this feature, push selection in query
-  optimization can compensate equally well.}
+operations on it can be easily parallelized, by assigning different
+snapshots to different workers, or even partitioning a snapshot across
+workers.  \eat{with improved temporal locality for snapshot-based
+  analytics. }\eat{SG edges can be partitioned using temporal or
+  structural criteria.  Furthermore, due to Spark's lazy evaluation,
+  operations such as \insql{TSelect} are very efficient, since only
+  those snapshots involved in the operation are loaded.  While other
+  data structures do not benefit from this feature, push selection in
+  query optimization can compensate equally well.}
 
 \begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/sgp.pdf}
-\caption{SnapshotGraph of T1 from Figure~\ref{fig:tg}.}
+\caption{SG representation of T1 from Figure~\ref{fig:tg}.}
 \label{fig:sgp}
 \end{figure}
 
 {\bf MultiGraph (MG).}  To take advantage of high similarity between
-snapshots, we developed another data structure called MultiGraph
-(Figure~\ref{fig:mg}).  MG stores the evolving graph as a single
-graph, with one vertex for all time periods, but one edge per period
-where it exists.  Because our goal is to represent both topoligical
-and attribute information, we need to store not only vertex presence
-or absence (which can be easily accomplished by an existence string,
-like in~\cite{Kan2009}, or bit sets), but also the values of the
-vertex attribute at each time period it existed.  MG vertex attribute,
-thus, is a map of time indices, which are easily converted to
-intervals, and corresponding values.  Edge attributes are tuples of
-the time index and the value at that time period.  Vertices typically
-change less frequently than edges, so the space savings on storing
-each vertex once are about 80\% in our experimental data sets.  Some
-of these savings, however, are taken up by the storage of a more
-complex map data structure compared to a simple single attribute like
-in the SG.  \eat{Partition of the MG edges can be either temporal or
-  structural, which lead to different rates of vertex replication
-  between partitions.}
+snapshots, we developed another data structure called MultiGraph, or
+MG for short (Figure~\ref{fig:mg}).  MG stores the evolving graph as a
+single graph, with one vertex for all time periods, but with one edge
+per period where it exists.  Because our goal is to represent both
+topoligical and attribute information, we need to store not only
+vertex presence or absence (which can be easily accomplished by an
+existence string, like in~\cite{Kan2009}, or by bit sets), but also
+the values of the vertex attribute at each time period.  MG vertex
+attribute, thus, is a map of time indices that represent intervals to
+corresponding values.  Edge attributes are tuples of the time index
+and the corresponding value.  Vertices typically change less
+frequently than edges, so the space savings on storing each vertex
+once are about 80\% in our experimental data sets.  Some of these
+savings, however, are taken up by the storage of a more complex map
+data structure for attribute values, compared to a simple single
+attribute like in the SG.  \eat{Partition of the MG edges can be
+  either temporal or structural, which lead to different rates of
+  vertex replication between partitions.}
 
 \begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/mg.pdf}
-\caption{MultiGraph of T1 from Figure~\ref{fig:tg}.}
+\caption{MG represetation of T1 from Figure~\ref{fig:tg}.}
 \label{fig:mg}
 \end{figure}
 
-The implementation of some of the Portal operations in MG is more
-complex.  \insql{TSelect} is a subgraph operation that operates on all
-vertices and edges.  \insql{TGroup} on vertices is a combination of
-transform and filter operations since the vertices are already
+The implementation of some of the \ql operations in MG is more complex
+than in SG.  \insql{TSelect} is a subgraph operation that operates on
+all vertices and edges.  \insql{TGroup} on vertices is a combination
+of transform and filter operations since the vertices are already
 aggregated across the whole time period, but the edges, like in SG,
 are grouped by key within their respective sets.  Implementation of
-snapshot analytics like pagerank is done in a batch mode, similar
+snapshot analytics like PageRank is done in batch mode, similar
 to~\cite{DBLP:journals/tos/MiaoHLWYZPCC15}, by computing the values
 and sending messages between vertices for all time periods at once.
-This data structure should also be more amenable to cross-time
+\eat{This data structure should also be more amenable to cross-time
 analytics and pattern mining, which we intend to explore in the
-future.
+future.}
 
-Note that for a large subset of queries, the attribute information is
+Note that for a large subset of the queries, attribute information is
 not used, and only the topology is important.  Thus, we can store the
 vertex attributes in a separate collection (column store), removing
 the attribute map and replacing it with existence bit sets instead.
-This is the essence of the special case of Multigraph, called {\bf
-  MultiGraphColumn (MGC)}, depicted in Figure~\ref{fig:mgc}.  This
-kind of representation allows storage of an arbitrary number of vertex
+This is the essence of the special case of MultiGraph, called {\bf
+  MultiGraphColumn (MGC)}, depicted in Figure~\ref{fig:mgc}.  The MGC
+representation allows storage of an arbitrary number of vertex
 attributes without using complex per-vertex lists, read from disk only
-as needed.  Further compression can be achieved by storing vertex
-attributes only once across all time periods where they are the same,
-similar to how temporal databases represent this type of data (e.g.,
-see~\cite{Muller2008}).  The drawback of this approach is that
-decompression is required to support, for example, the \insql{TGroup}
-operation.
+as needed, and so ammenable to lazy evaluation, an important
+performance optimization in Apache Spark.  Further compression can be
+achieved by storing vertex attributes values only once across all time
+periods in which they are the same, similar to how temporal databases
+represent this type of data (e.g., see~\cite{Muller2008}).  The
+drawback of this approach is that decompression is required to
+support, for example, the \insql{TGroup} operation.
 
 \begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/mgc.pdf}
-\caption{Column MultiGraph of T1 from Figure~\ref{fig:tg}.}
+\caption{MGC representation of T1 from Figure~\ref{fig:tg}.}
 \label{fig:mgc}
 \end{figure}
 
-{\bf OneGraph (OG).}  The most compact, topologically, representation
-is to store each vertex {\em and} edge only once for the whole
+{\bf OneGraph (OG).}  The most topologically compact representation is
+to store each vertex {\em and} each edge only once for the whole
 evolving graph, by taking a union of the snpashot vertex and edge
-sets.  The OneGraph data structure uses this representation in our
-system.  Similar to MG, the vertex and edge attributes are stored in
-maps with time index - attribute value pairs (Figure~\ref{fig:og}).
-Compared to the MG, this leads to 75\% storage savings.  This
-data structure provides some benefits in addition to compactness,
-since it reduces the total communication between vertices in
-Pregel-based analytics in batch mode.  The drawback is that OG
-\eat{cannot be partitioned temporally and} is much denser than
-individual snapshots (average vertex degree ??  for our main dataset).
-As with the MG, \insql{TSelect} is a subgraph operation, and
-\insql{TGroup} is a transform and filter operation -- both for
-vertices and edges.
+sets.  The OneGraph data structure, or OG for short, uses this
+representation in our system.  Similar to MG, vertex and edge
+attributes are stored in time-indexed maps (Figure~\ref{fig:og}).
+Compared to MG, this leads to 75\% storage savings.  The OG data
+structure provides some benefits in addition to compactness, since it
+reduces the total communication between vertices in Pregel-based
+analytics in batch mode.  The drawback is that OG is much denser than
+individual snapshots.  As with MG, \insql{TSelect} is a subgraph
+operation, and \insql{TGroup} is a transform and filter operation --
+both for vertices and edges.
 
 \begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/og.pdf}
-\caption{OneGraph of T1 from~\ref{fig:tg}.}
+\caption{OG of T1 from~\ref{fig:tg}.}
 \label{fig:og}
 \end{figure}
 
 Similar to MGC, {\bf OneGraphColumn (OGC)} uses a single graph to
 represent the union of vertices and edges, with bit sets for presence
-information, while the attribute information is stored separately.
-This is not as compact as storing attributes within the graph
-elements, but is faster in many operations where only graph topology
-is required.
+information, while attribute information is stored separately.  This
+is not as compact as storing attributes within the graph elements, but
+is faster in many operations where only graph topology is required.
 
-\subsection{Partition Strategies}  
+\subsection{Partitioning Strategies}  
 \label{sec:sys:partition}
 
 Graph partitioning can have a tremendous impact on system performance.
-A good partition strategy needs to be balanced (about equal number of
-units, in our case, edges) and limit the number of cuts (in our case,
-vertex cuts) to reduce cross-partition communication.
+A good partitioning strategy needs to (1) be balanced, assigning an
+approximately equal number of units (in our case, edges) to each
+partition, and (2) limit the number of cuts (in our case, vertex cuts)
+across partitions, to reduce cross-partition communication.
 
-We support six different edge partition strategies, which are applied
-prior to the operation but after loading and can be re-applied at any
-point:
+We support six different edge partitioning strategies, which are
+applied prior to the operation but after loading and can be re-applied
+at any point.
 
-{\bf Canonical Random Vertex Cut (CRVC).}  Each edge source and
-destination vertex ids are hashed in a canonical direction, as a
-tuple, and the result is distributed among the available partitions.
-The result is a random vertex cut that colocates all edges between
-vertices, regardless of direction.  This strategy is available in
-GraphX and was used without modification.
+{\bf Canonical Random Vertex Cut (CRVC).}  The source and destination
+ids of a vertex are hashed in a canonical direction, as a tuple, and
+the result is distributed among the available partitions.  The result
+is a random vertex cut that colocates all edges that connect a given
+pair of vertices, regardless of direction.  This strategy is available
+in GraphX and was used without modification.
 
-{\bf 2D Edge Partitioning.}  A sparce edge adjacency matrix is
-partitioned in two dimensions (Figure~\ref{fig:e2d}).  This guarantees
-a 2 * sqrt(number of partitions) bound on vertex replication and can
-provide good performance for Pregel-based analytics.  This strategy is
-also available in GraphX and was used without modification.
+{\bf 2D Edge Partitioning (E2D).}  A sparse edge adjacency matrix is
+partitioned in two dimensions (Figure~\ref{fig:e2d}), guaranteeing a
+$2 \sqrt{n}$ bound on vertex replication, where $n$ is the number of
+partitions. E2D can provide good performance for Pregel-style
+analytics.  This strategy is also available in GraphX and was used
+without modification.
 
 \begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/E2D.pdf}
