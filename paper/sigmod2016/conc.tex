@@ -1,9 +1,26 @@
 \section{Conclusions and Future Work}
 \label{sec:conc}
 
-While the Portal language is extensive, it is by no means complete. We
-recognize that there are a number of operations that are currently not
-supported but would be useful to potential users:
+In this paper we presented \ql, a declarative query langauge for
+evolving graphs.  We also proposed an implementation of \ql in scope
+of Apache Spark, a distributed open-source processing framework.  We
+implemented several physical representations of evolving graphs, and
+several partitioning strategies, and studied their relative
+performance for \ql operators.  
+
+Our experiments demonstrate interesting trade-offs between spatial and
+temporal locality.  This work opens many avenues for future work.  It
+is in our immediate plans to start work on a query optimizer for \ql.
+We will also implement and evaluate additional \tg representations
+that explore the trade-off between density and compactness, and
+between temporal and structural locality.  Finally, we are actively
+working on extending the class of available trend analytics, and on
+optimizing the performance of snapshot and trend analytics.
+
+  \eat{ While the Portal language is extensive, it is
+  by no means complete. We recognize that there are a number of
+  operations that are currently not supported but would be useful to
+  potential users:
 
 \begin{enumerate}
 \item Temporal pattern matching.  While aggregation provides an
@@ -30,3 +47,4 @@ supported but would be useful to potential users:
   distribution, diameter, etc.) or searching that returns a set of tgraphs,
   e.g. frequent pattern mining).
 \end{enumerate}
+}
