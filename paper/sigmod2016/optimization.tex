@@ -2,10 +2,10 @@
 \label{sec:sys:optimization}
 
 The declarative nature of \ql means that, like in SQL, queries can be
-optimized for better performance.  \ql optimizations can be done by
-operator reordering, application of best data structure and partition
-strategy based on rules, and cost-based optimizations.  We now discuss
-the first two options.
+optimized for better performance.  \ql queries can be optimized by
+operator reordering, rule-based application of best data structure and
+partition strategy, and cost-based optimizations.  We discuss the
+first two options.
 
 {\bf Operator reording.} Recollect that the logical order of
 evaluation of a \ql query is selection, join, aggregation, and,
@@ -26,15 +26,16 @@ this query:
 \end{verbatim}
 \end{small}
 
-Assuming that T1 and T2 have 1-year resolution, \insql{TGroup} will
+Assuming that T1 and T2 have a 1-year resolution, \insql{TGroup} will
 produce 20\% fewer graphs to join.  This reordering cannot be applied
-every time, however, because an invalid result can be produced.  For
+every time, however, because an invalid result may be produced.  For
 example, if T1 and T2 are those in Figures~\ref{fig:tg}
-and~\ref{fig:tg_t2}, then an aggregation would produce graphs with
-temporal schema ([2010, 2015), [2015, 2020)) for T1 and ([2008, 2013),
-      [2013, 2018)) for T2, which are not union-compatible.  We check
-        that the temporal schema of aggregated graphs is
-        union-compatible and apply the reordering only if it is.
+and~\ref{fig:tg_t2} respectively, then an aggregation would produce
+graphs with temporal schema ([2010, 2015), [2015, 2020)) for T1 and
+    ([2008, 2013), [2013, 2018)) for T2, which are not
+        union-compatible.  We check that the temporal schema of
+        aggregated graphs is union-compatible and apply the reordering
+        only if it is.
 
 {\bf \insql{TAnd} join before temporal selection.}  Temporal
 intersection between two graphs with a small temporal overlap can cut
@@ -89,14 +90,14 @@ better performance.  However, we cannot apply analytics in projection
 before the other operations, so we cannot always perform projection
 first.
 
-{\bf Data Structure selection.} In addition to selecting the most
-efficient order of operations, we select the best data structure for
-the query.  Our analysis of data structures' effectiveness for each
-individual operation is shown in the next section.  Switching between
-data structures from operation to operation is possible but
-computationally inefficient.  In general, however, SnapshotGraph
-performs better on graphs with a small temporal span, while OneGraph
-on those with large span.
+{\bf Data Structure selection.} \eat{In addition to selecting the most
+  efficient order of operations,}We select the best data structure for
+the query.  Our analysis of data structure effectiveness for each
+individual operation is shown in Section~\ref{sec:exp}.  Switching
+between data structures from operation to operation is possible but
+computationally inefficient.  In general, SnapshotGraph performs better
+on graphs with a small temporal span, while OneGraph on those with
+large span.
 
 \eat{Instead, we pick the structure that
 provides the best compromise for the query operations by associating
@@ -110,8 +111,9 @@ than a good one, as we show in the next section.  We evaluated
 different strategies and partition numbers experimentally and this
 serves as a basis of simple rules for partition selection.  For
 example, EdgePartition2D strategy provides a significantly better
-performance for snapshot-based structural analytics such as pagerank.
+performance for snapshot-based analytics such as pagerank.
 
 Other criteria that can affect the query performance are data skew,
 change rate between snapshots, and data size.  We continue to evaluate
-these aspects and will incorporate them into the query optimization.
+these aspects and will incorporate them into the query optimization in
+the future.

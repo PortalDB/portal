@@ -19,6 +19,7 @@ nodes with schema\\ $(\underline{vid}, a_1, \ldots, a_n)$, and $E$ is a
 finite set of edges connecting pairs of nodes from $V$, with schema
 $(\underline{vid_1}, \underline{vid_2}, b_1, \ldots, b_m)$.
 \label{def:sg} 
+\vspace{-0.3cm}
 \end{definition}
 
 Attributes of vertices and of edges are not restricted to be of atomic
@@ -39,9 +40,9 @@ This is the standard union compatibility definition, which requires
 that vertex schema $V$ and edge schema $E$ be the same for $G'$ and
 $G''$.
 
-Several operations of our query language will combine two or more
-snapshots into a single snapshot. This will be done using structural
-aggregation, defined next.  
+Several operations of our query language combine two or more snapshots
+into a single snapshot. This is done using structural aggregation,
+defined next.
 
 \begin{definition} [Structural aggregation]  
 A pair of operators $(\gamma^{V}, \gamma^{E}) : {\cal G} \rightarrow
@@ -75,13 +76,13 @@ ${\cal G}$, subject to $vid_1, vid_2 \in V(G)$.
 \end{definition}
 
 Note that both $\gamma^{V}$ and $\gamma^{E}$ group the respective
-collections by their key attributes.  Note also that the choice of
-union (\insql{Any}) vs. intersection (\insql{All}) for vertices and
-for edges is orthogonal, subject to the constraint that an edge is
-present in the result only if both vertices it connects are present.
-Finally, note that we did not specify (i) whether ${\cal G}$ is an
-ordered collection of snapshots, and (ii) which aggregation operations
-are available for non-key attributes of vertices and edges.  We will
+collections by their key attributes.  The choice of union
+(\insql{Any}) vs. intersection (\insql{All}) for vertices and for
+edges is orthogonal, subject to the constraint that an edge is present
+in the result only if both vertices it connects are present.  Finally,
+note that we did not specify (i) whether ${\cal G}$ is an ordered
+collection of snapshots, and (ii) which aggregation operations are
+available for non-key attributes of vertices and edges.  We will
 address both points in Section~\ref{sec:example}, when we discuss
 query language operations that use structural aggregation.
 
@@ -178,6 +179,8 @@ temporal sequence.
 Consider the following temporal sequences, with year as the unit of
 time.
 
+\vspace{-0.3cm}
+
 \begin{eqnarray*}
 P_1 & = & ([\tpy{2001},\tpy{2003}),[\tpy{2003},\tpy{2005}))\\
 P_2 & = & ([\tpy{2009},\tpy{2010}),[\tpy{2010},\tpy{2011})) \\
@@ -185,6 +188,8 @@ P_3 & = & ([\tpy{2008},\tpy{2010}),[\tpy{2010},\tpy{2012}),[\tpy{2012},\tpy{2014
 P_4 & = & ([\tpy{2012},\tpy{2014}),[\tpy{2014},\tpy{2016}))\\
 P_5 & = & ([\tpy{2020},\tpy{2022})) \\
 \end{eqnarray*}
+
+\vspace{-0.3cm}
 
 $P_1$ and $P_2$ are not union-compatible because the resolution of
   $P_1$ is 1 year, while the resolution of $P_2$ is 2 years.  $P_1$
@@ -205,6 +210,7 @@ to $P'$ and $P''$.  If no intervals are in common to $P'$ and $P''$,
 this operation returns $P^{\epsilon}$.
 \label{def:tseqand}
 \end{definition}
+\vspace{-0.1cm}
 
 Continuing with Example~\ref{ex:ex1}, $P_3 \cap P_4 =
 ([\tpy{2012},\tpy{2014}))$ and $P_3 \cap P_5 = P^{\epsilon}$.
@@ -215,6 +221,7 @@ $P' \cup P''$, is the sequence $P$ with $P.start = min(P'.start,
 P''.start)$, $P.end = max(P'.end, P''.end)$, and $P.res = P'.res$.
 \label{def:tseqor}
 \end{definition}
+\vspace{-0.1cm}
 
 In Example~\ref{ex:ex1}, $P_3 \cup P_4 =
 ([\tpy{2008},\tpy{2010}),\ldots,[\tpy{2014},\tpy{2016}))$ and $P_3

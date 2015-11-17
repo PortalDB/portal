@@ -22,19 +22,19 @@ framework on three real open-source datasets.
 \item DBLP\footnote{\url{dblp.uni-trier.de/xml}} contains
   co-authorship information from 1936 through 2015, with over 1.5
   million author nodes and over 6 million undirected co-authorship
-  edges.  Total data size: 205 MB.
+  edges.  Total data size: 250 MB.
 
 \item nGrams\footnote{\url{storage.googleapis.com/books/ngrams/books/datasetsv2.html}}
   contains word co-occurrence information from 1520 through 2008, with
   over 1.5 million word nodes and over 65 million undirected
-  co-occurrence edges.  Total data size: 50 GB. \vera{verify}
+  co-occurrence edges.  Total data size: 40 GB.
 
 \item
   DELIS\footnote{\url{law.di.unimi.it/webdata/uk-union-2006-06-2007-05}}
   contains monthly snapshots, from 05/2006 through 05/2007, of a
   portion of the Web graph focusing on the .uk domains, with a total
   of over 133 million nodes and over 5.5 billion directed
-  edges~\cite{BSVLTAG}.  Total data size: 1.2 TB. \vera{verify}
+  edges~\cite{BSVLTAG}.  Total data size: 1 TB.
 
 \end{enumerate}
 
@@ -72,15 +72,6 @@ all subsequent experiments.
 \label{fig:partsfit}
 \end{figure}
 
-Not all operations benefit from a large partition number.  Any
-Pregel-based analytics perform better with a much smaller number of
-partitions because the cost of network communication dominates.  We
-coalesced all data structures to a quarter of their original
-partitions for analytics experiments to tune their performance.  We
-determined this number by repeatedly trying larger coalesce factors
-until OOM errors occurred.  For example, in a 32-snapshot graph, each
-coalesce factor improved performance by about 5 minutes.
-
 \subsection{\insql{TSelect}}
 
 To understand how different data structures perform as a function of
@@ -104,9 +95,8 @@ Figure~\ref{fig:tselect}.  In the nGrams dataset, SG is the fastest
 data structure for simple data loading, although all structures
 exhibit a linear increase as a function of data size.  We observed the
 same trend in all three datasets and are not including the additional
-graphs here. \vera{Remove this claim if it cannot be verified in
-  time.}  The significant influence of data format on data structure
-performance has been shown
+graphs here. The significant influence of data format on data
+structure performance has been shown
 previously~\cite{DBLP:journals/tos/MiaoHLWYZPCC15}.  Given the
 significant difference at size (3-5x) between SGP and the other data
 structures, an alternative file format for aggregated data structures

@@ -101,7 +101,7 @@ type of the expressions that compute them.  Note that key columns of
 The value of the attribute \insql{pr} in $Q2$ is computed using a
 snapshot analytic function \insql{pagerank()}.  \ql supports a variety
 of snapshot analytics --- functions whose values are computed
-w.r.t. each snapshot of a \tg --- including degree, shortest paths and
+w.r.t. each snapshot of a \tg --- including degree, shortest paths, and
 connected components.  We provide an API that allows developers to
 implement custom analytics that can either be computed locally at a
 vertex, like degree, or be expressed in the popular Pregel API.
@@ -179,10 +179,10 @@ present.}
 \end{figure}
 
 $Q4$ illustrates another important feature of \ql, namely, aggregation
-of values of non-key attributes of vertices and edges, which takes place
-as part of structural aggregation.  We left specifics of available
-operations unspecified in Definition~\ref{def:sgroup}, so as to keep
-structural aggregation generic.  
+of values of non-key attributes of vertices and edges, which takes
+place as part of structural aggregation.  We left available operations
+unspecified in Definition~\ref{def:sgroup}, so as to keep structural
+aggregation generic.
 %
 When used in scope of \insql{TGroup}, structural aggregation operates
 over an ordered collection of snapshots.  \ql makes the following
@@ -275,7 +275,7 @@ Also recall from our discussion of temporal aggregation that
   edge are present.}
 
 Consider next query $Q6$ that computes temporal union of \insql{T1}
-and \insql{T2}.  The result of this query is listed in
+and \insql{T2}.  The result of this query is shown in
 Figure~\ref{fig:q6}.
 
 \begin{small}
@@ -375,10 +375,10 @@ selection and intersection below temporal aggregation.}
 Q8:  TSelect   All V [vid, pagerank() as pr];
                All E [vid1, vid2]
      From      ( TSelect Any V [vid] ; 
-                          Any E [vid1, vid2]
-                  From    T1 TAnd T2
-                  TWhere  Start >= 2010 
-                  And     End <= 2014 )
+                         Any E [vid1, vid2]
+                 From    T1 TAnd T2
+                 TWhere  Start >= 2010 
+                 And     End <= 2014 )
      TGroup    by 2 years
 \end{verbatim}
 \end{small}
