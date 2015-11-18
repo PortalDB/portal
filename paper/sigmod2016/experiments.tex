@@ -38,10 +38,11 @@ framework on two real open-source datasets:
 }
 \end{enumerate}
 
-These datasets are not large by industry standards, but
-the nGrams set is of comparable size to the LiveJournal dataset
-in~\cite{Xin2013} and is commesurate with our cluster size.  We plan to
-carry out further experiments with a larger
+These datasets are not large by industry standards, but the nGrams set
+is of comparable size to the LiveJournal dataset in~\cite{Xin2013} and
+is commesurate with our cluster size.  These two datasets differ from
+each other not only in size, but also in the evolutionary properties.
+We plan to carry out further experiments with a larger
 DELIS\footnote{\url{law.di.unimi.it/webdata/uk-union-2006-06-2007-05}}
 dataset as we grow the cluster in the near future.
 
@@ -153,7 +154,8 @@ strategies show linear increase in Any-type aggregation time as the
 number of snapshots grows.  As expected, because OGC is an already
 aggregated data structure, it outperforms MGC and SGP for the
 \insql{TGroup} operation by two orders of magnitude in the largest
-size (Figure~\ref{fig:tgroupe}).
+size.  This is shown in Figure~\ref{fig:tgroupe}, where we selected
+only the fastest partition strategy for each data structure.  
 
 \begin{figure*}[t!]
 \centering
@@ -165,35 +167,40 @@ size (Figure~\ref{fig:tgroupe}).
 \end{minipage}
 \begin{minipage}{3.3in}
   \centering
-  \includegraphics[width=3in]{figs/tgroupe_cold.pdf}
-  \caption{\insql{TGroup} with Any with materialization.}
-\label{fig:tgroupe_cold}
+  \includegraphics[width=3in]{figs/tgroupeparts.pdf}
+  \caption{\insql{TGroup} by partition strategy.}
+  \label{fig:tgroupeparts}
 \end{minipage}
 \end{figure*}
 
-Note that partition strategies can improve performance for the MGC
-data structure on this operation -- all outperform the default
-partitioning case by 20\% or greater.  This can be explained by the
-group by operation that is performed on the edges.  E2D always places
-two edges with the same key in the same partition, which theoretically
-leads to least cross-partition communication during aggregation.
-Hybrid strategies use the aggregation window as the width of the run,
-also placing the edges that are to be grouped in the same set of
-partitions.  The difference between E2D and the hybrid strategies for
-the MGC data structure are not statistically significant.
-Partitioning of the SG is also beneficial, but the gains are smaller
-than for the MGC.  We observed the same trend for the TGroup query
-with All semantics -- see Appendix.
+To compare between partition strategies, look at
+Figure~\ref{fig:tgroupeparts}, which contains performance for each
+data structure and strategy at 64 snapshot aggregation.  The same
+pattern is observed at all aggregation sizes.  Partition strategies
+can improve performance for the MGC data structure on this operation
+-- all outperform the default partitioning case by 20\% or greater.
+This can be explained by the group by operation that is performed on
+the edges.  E2D always places two edges with the same key in the same
+partition, which theoretically leads to least cross-partition
+communication during aggregation.  Hybrid strategies use the
+aggregation window as the width of the run, also placing the edges
+that are to be grouped in the same set of partitions.  The difference
+between E2D and the hybrid strategies for the MGC data structure are
+not statistically significant.  E2D partitioning of the SG is also
+beneficial, but the gains are smaller than for the MGC.  We observed
+the same trend for the TGroup query with All semantics -- see
+Appendix.
 
 To demonstrate why we use warm start, consider
 Figure~\ref{fig:tgroupe_cold}.  When we consider the total time for
 the same query, including graph loading, partitioning, aggregation,
 and materialization, the loading time dominates.  Based on this Figure
-in isolation, one can conclude that partitioning is not beneficial
-(because it takes additional non-trivial time) and that SG is the most
-effective data structure.  However, recall from experiment 2 that the
-file format favors SG, and no conclusions should be drawn from cold
-start total time alone.
+in isolation, where the fastest partition strategy per data structure
+is depicted and is no partitioning, one can conclude that partitioning
+is not beneficial (because it takes additional non-trivial time) and
+that SG is the most effective data structure.  However, recall from
+experiment 2 that the file format favors SG, and no conclusions should
+be drawn from cold start total time alone.
 
 OGC also outperforms the other data structures when we fix the overall
 data size and vary the aggregation width, as can be seen in
@@ -203,11 +210,20 @@ increases.  SG and MGC show a linear increase, with a drop for the
 final aggregation by the whole size.  This trend is observed in both
 datasets -- see Appendix.
 
-\begin{figure}[t]
-\includegraphics[width=3.2in]{figs/tgroupe_width.pdf}
-\caption{\insql{TGroup} with varying aggregation width in dblp.}
-\label{fig:tgroupe_width}
-\end{figure}
+\begin{figure*}
+\begin{minipage}{3.3in}
+  \centering
+  \includegraphics[width=3in]{figs/tgroupe_cold.pdf}
+  \caption{\insql{TGroup} including materialization.}
+\label{fig:tgroupe_cold}
+\end{minipage}
+\begin{minipage}{3.3in}
+  \centering
+  \includegraphics[width=3in]{figs/tgroupe_width.pdf}
+  \caption{\insql{TGroup} with varying aggregation width in dblp.}
+  \label{fig:tgroupe_width}
+\end{minipage}
+\end{figure*}
 
 \subsection{\insql{TAnd} with \insql{All}}
 
