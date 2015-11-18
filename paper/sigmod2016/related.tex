@@ -194,13 +194,13 @@ strategies (all vertex-cut) based on the temporal dimension as well as
 hybrids of structural and temporal.
 
 Another framework build on top of Spark is Shark (now
-SparkSQL)~\cite{Xin2013}.  Shark provides mid-query optimization of
-the distributed execution plan in addition to other optimizations over
-spark such as better data representation.  Query optimization is one
-of our goals for the Portal system, starting with dynamic adjustment
-of the number of partitions and the partition strategy, but that work
-is still in its infancy and we do not report on it here.  One
-immediately relevant aspect of the Shark work is in partitioning.
+SparkSQL)~\cite{Xin2013Shark}.  Shark provides mid-query optimization
+of the distributed execution plan in addition to other optimizations
+over spark such as better data representation.  Query optimization is
+one of our goals for the Portal system, starting with dynamic
+adjustment of the number of partitions and the partition strategy, but
+that work is still in its infancy and we do not report on it here.
+One immediately relevant aspect of the Shark work is in partitioning.
 Namely, in Shark tables can be copartitioned on a particular key at
 creation time which facilitates much more efficient joins.  This is
 similar to what some of our partition strategies do for tgroup and
