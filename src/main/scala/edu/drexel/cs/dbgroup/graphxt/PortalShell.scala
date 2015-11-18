@@ -55,6 +55,11 @@ object PortalShell {
       }
     }
 
+    //until we have a query optimizer, this will have to do
+    val grp:Int = query.indexOf("group") + 2
+    if (grp > 1)
+      runWidth = query(grp).toInt
+
     // environment specific settings for SparkConf must be passed through the command line
     // settings to pass are master, jars and other configurations
     var conf = new SparkConf().setAppName("TemporalGraph Project").setSparkHome(System.getenv("SPARK_HOME"))
