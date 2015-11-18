@@ -1,6 +1,14 @@
 \section{System}
 \label{sec:sys}
 
+\begin{figure}[t!]
+\begin{center}
+\includegraphics[height=1.4in]{figs/architecture.pdf}
+\caption{\ql system architecture.}
+\label{fig:arch}
+\end{center}
+\end{figure}
+
 Our \ql system implementation builds on GraphX, an Apache Spark
 library, as depicted in Figure~\ref{fig:arch}.  Green boxes indicate
 built-in components, while blue are those we added for \ql.  We
@@ -20,18 +28,59 @@ distributed file system and processed by Workers, with the tasks
 assigned and managed by the runtime.
 
 \begin{figure}[t!]
-\begin{center}
-\includegraphics[height=1.4in]{figs/architecture.pdf}
-\caption{\ql system architecture.}
-\label{fig:arch}
-\end{center}
-\vspace{-0.5cm}
+\includegraphics[width=3.2in]{figs/sgp.pdf}
+\caption{SG representation of T1 from Figure~\ref{fig:tg}.}
+\label{fig:sgp}
 \end{figure}
+
+
+\begin{figure*}[th!]
+\begin{minipage}{2.3in}
+\centering
+\includegraphics[width=2.2in]{figs/mg.pdf}
+\caption{MG for T1.}
+\label{fig:mg}
+\end{minipage}
+\begin{minipage}{2.3in}
+\centering
+\includegraphics[width=2.2in]{figs/mgc.pdf}
+\caption{MGC for T1.}
+\label{fig:mgc}
+\end{minipage}
+\begin{minipage}{2.3in}
+\centering
+\includegraphics[width=2.2in]{figs/og.pdf}
+\caption{OG for T1.}
+\label{fig:og}
+\end{minipage}
+\end{figure*}
 
 \input{optimization}
 
 \subsection{Data Representation}
 \label{sec:sys:datastructs}
+
+\begin{figure*}
+\begin{minipage}{2.3in}
+\centering
+\includegraphics[width=2.3in]{figs/E2D_1.pdf}
+\caption{E2D with 4 partitions.}
+\label{fig:e2d}
+\end{minipage}
+\begin{minipage}{2.3in}
+\centering
+\includegraphics[width=2.3in]{figs/Consecutive_1.pdf}
+\caption{Consecutive with 4 partitions, 3 snapshots.}
+\label{fig:consecutive}
+\end{minipage}
+\begin{minipage}{2.2in}
+\centering
+\includegraphics[width=2.2in]{figs/Hybrid2D_1.pdf}
+\caption{E2D-Temporal with 4 partitions, 4 snapshots, 2 runs.}
+\label{fig:hybrid2d}
+\end{minipage}
+\end{figure*}
+
 
 We developed several in-memory representations of evolving graphs to
 explore the trade-offs of compactness, parallelism, and support of
@@ -65,12 +114,6 @@ workers.  \eat{with improved temporal locality for snapshot-based
   data structures do not benefit from this feature, push selection in
   query optimization can compensate equally well.}
 
-\begin{figure}[t!]
-\includegraphics[width=3.2in]{figs/sgp.pdf}
-\caption{SG representation of T1 from Figure~\ref{fig:tg}.}
-\label{fig:sgp}
-\end{figure}
-
 {\bf MultiGraph (MG).}  To take advantage of high similarity between
 snapshots, we developed another data structure called MultiGraph, or
 MG for short (Figure~\ref{fig:mg}).  MG stores the evolving graph as a
@@ -90,12 +133,6 @@ data structure for attribute values, compared to a single attribute as
 in SG.  \eat{Partition of the MG edges can be either temporal or
   structural, which lead to different rates of vertex replication
   between partitions.}
-
-\begin{figure}[t!]
-\includegraphics[width=3.2in]{figs/mg.pdf}
-\caption{MG representation of T1 from Figure~\ref{fig:tg}.}
-\label{fig:mg}
-\end{figure}
 
 The implementation of some of the \ql operations in MG is more complex
 than in SG.  \insql{TSelect} is a subgraph operation that operates on
@@ -126,11 +163,11 @@ represent this type of data (e.g., see~\cite{Muller2008}).  The
 drawback of this approach is that decompression is required to
 support, for example, the \insql{TGroup} operation.
 
-\begin{figure}[t!]
+\eat{\begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/mgc.pdf}
 \caption{MGC representation of T1 from Figure~\ref{fig:tg}.}
 \label{fig:mgc}
-\end{figure}
+\end{figure}}
 
 {\bf OneGraph (OG).}  The most topologically compact representation is
 to store each vertex {\em and} each edge only once for the whole
@@ -146,11 +183,11 @@ individual snapshots.  As with MG, \insql{TSelect} is a subgraph
 operation, and \insql{TGroup} is a transform and filter operation ---
 for both vertices and edges.
 
-\begin{figure}[t!]
+\eat{\begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/og.pdf}
 \caption{OG of T1 from~\ref{fig:tg}.}
 \label{fig:og}
-\end{figure}
+\end{figure}}
 
 Similar to MGC, {\bf OneGraphColumn (OGC)} uses a single graph to
 represent the union of vertices and edges, with bit sets for presence
@@ -191,11 +228,11 @@ partitions. E2D can provide good performance for Pregel-style
 analytics.  This strategy is available in GraphX and was used without
 modification.
 
-\begin{figure}[t!]
+\eat{\begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/E2D.pdf}
 \caption{E2D partitioning over 4 partitions.}
 \label{fig:e2d}
-\end{figure}
+\end{figure}}
 
 {\bf Naive Temporal.} Let $n$ be the number of snapshots and $p$ be
 the number of partitions.  If $n \geq p$, then snapshot $i$ is placed
@@ -232,11 +269,11 @@ intervals in which it exists with degree > 0.  In the worst case, a
 vertex will be cut $n$ times.  Therefore, if vertices persist across
 many time intervals, this strategy is not a good choice.
 
-\begin{figure}[t!]
+\eat{\begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/Consecutive.pdf}
 \caption{Consecutive strategy over 4 partitions and 3 time intervals.}
 \label{fig:consecutive}
-\end{figure}
+\end{figure}}
 
 {\bf Hybrid strategies.} Hybrid strategies combine elements of
 temporal and structural criteria.  We define two such strategies,
@@ -251,12 +288,13 @@ width is determined based on the operation.  For \insql{TGroup}, we
 take the number of snapshots in a group as the run width.  For other
 operations the default run width is 2.
 
+\eat{
 \begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/Hybrid2D.pdf}
 \caption{Hybrid 2D Edge Temporal strategy over 4 partitions and 4 time
   intervals in runs of width 2.}
 \label{fig:hybrid2d}
-\end{figure}
+\end{figure}}
 
 Note that not all partitioning strategies can be applied to every data
 structure.  For example, only purely structural strategies can be
