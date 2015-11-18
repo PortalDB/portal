@@ -69,7 +69,6 @@ object ComplexQueryTest {
 
     val selStart = System.currentTimeMillis()
     val result: TemporalGraph[String, Int] = loadData(data, sc, graphType, from, to, partitionType, 1).persist()
-    result.materialize
     var total = System.currentTimeMillis() - selStart
     println(f"Select Runtime: $total%dms (1)")
 
@@ -79,7 +78,6 @@ object ComplexQueryTest {
     def eAggFunc(a: Int, b: Int): Int = a + b
     val result2: TemporalGraph[String, Int] = result.aggregate(Resolution.from("P8Y"), AggregateSemantics.Universal, vAggFunc, eAggFunc).persist()
     result.unpersist()
-    result2.materialize
     total = System.currentTimeMillis() - aggStart
     println(f"Aggregate Runtime: $total%dms (2)")
 
@@ -87,7 +85,6 @@ object ComplexQueryTest {
     val prStart = System.currentTimeMillis()
     val result3: TemporalGraph[Double,Double] = result2.pageRank(true, 0.001, 0.15, 10).persist()
     result2.unpersist()
-    result3.materialize
     total = System.currentTimeMillis() - prStart
     println(f"Pagerank Runtime: $total%dms (3)")
 
@@ -109,17 +106,16 @@ object ComplexQueryTest {
       .mapVertices(vmap2)
       .persist()
     result3.unpersist()
-    result4.materialize
     total = System.currentTimeMillis() - trendStart
     println(f"Trend Runtime: $total%dms (4)")
     
-    val endAsMili = System.currentTimeMillis()
-    val runTime = endAsMili - startAsMili
-    println(f"Final Runtime: $runTime%dms")
-
     //results just to see
     println("Top 10 by trend:")
     println(result4.verticesFlat.sortBy(c => c._2._2, false).take(10).mkString("\n"))
+
+    val endAsMili = System.currentTimeMillis()
+    val runTime = endAsMili - startAsMili
+    println(f"Final Runtime: $runTime%dms")
 
     sc.stop
   }

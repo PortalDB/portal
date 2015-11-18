@@ -212,7 +212,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
       var total:Int = 0
       BitSet() ++ parts.zipWithIndex.flatMap { case (expected,index) =>    //produce indices that should be set
         //make a mask for this part
-        val mask = BitSet((total to (total+expected)): _*)
+        val mask = BitSet((expected*index to (expected*(index+1)-1)): _*)
         if (sem == AggregateSemantics.Universal) {
           if (mask.subsetOf(attr))
             Some(index)
@@ -229,7 +229,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
       var total:Int = 0
       BitSet() ++ parts.zipWithIndex.flatMap { case (expected,index) =>    //produce indices that should be set
         //make a mask for this part
-        val mask = BitSet((total to (total+expected)): _*)
+        val mask = BitSet((expected*index to (expected*(index+1)-1)): _*)
         if (sem == AggregateSemantics.Universal) {
           if (mask.subsetOf(e.attr))
             Some(index)
@@ -242,6 +242,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
             None
         } else None
       }}
+      .subgraph(vpred = (vid, attr) => !attr.isEmpty, epred = et => !et.attr.isEmpty)
 
     //TODO: see if filtering can be done more efficiently
     val vattrs = if (sem == AggregateSemantics.Universal) vertexattrs.map{ case (k,v) => ((k._1, broadcastIndMap.value(k._2)), (v, 1))}.reduceByKey((x,y) => (vAggFunc(x._1, y._1), x._2 + y._2)).filter{ case (k, (attr,cnt)) => cnt == cntMap(k._2)}.map{ case (k,v) => (k, v._1)} else vertexattrs.map{ case (k,v) => ((k._1, broadcastIndMap.value(k._2)), v)}.reduceByKey(vAggFunc)
@@ -249,6 +250,8 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
     
     //broadcastIndMap.destroy()
 
+    //TODO: it may be more efficient to coalesce to smaller number
+    //of partitions here, especially for universal semantics
     new OneGraphColumn[VD, ED](intvs, filtered, vattrs, eattrs)
   }
 
@@ -450,11 +453,11 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
         mergeFunc, TripletFields.None)
 
       val pagerankGraph: Graph[Map[TimeIndex,(Double,Double)], Map[TimeIndex,(Double,Double)]] = graphs.outerJoinVertices(degrees) {
-        case (vid, vdata, Some(deg)) => deg
-        case (vid, vdata, None) => Map[TimeIndex,Int]()
+        case (vid, vdata, Some(deg)) => deg ++ vdata.filter(x => !deg.contains(x)).seq.map(x => (x,0)).toMap
+        case (vid, vdata, None) => vdata.seq.map(x => (x,0)).toMap
       }
-        .mapTriplets( e =>  e.attr.seq.map(x => (x, (0.0,0.0))).toMap)
-        .mapVertices( (id,attr) => attr.mapValues{ x => (0.0,0.0)})
+        .mapTriplets( e =>  e.attr.seq.map(x => (x, (1.0 / e.srcAttr(x), 1.0 / e.dstAttr(x)))).toMap)
+        .mapVertices( (id,attr) => attr.mapValues{ x => (0.0,0.0)}.map(identity))
         .cache()
 
       def vertexProgram(id: VertexId, attr: Map[TimeIndex, (Double,Double)], msg: Map[TimeIndex, Double]): Map[TimeIndex, (Double,Double)] = {

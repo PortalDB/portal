@@ -454,9 +454,9 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
         if (grp.edges.isEmpty) {
           Graph[Double, Double](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
         } else {
-          if (uni)
-            UndirectedPageRank.run(Graph(grp.vertices, grp.edges), tol, resetProb, numIter)
-          else if (numIter < Int.MaxValue)
+          if (uni) {
+            UndirectedPageRank.run(grp, tol, resetProb, numIter)
+          } else if (numIter < Int.MaxValue)
             grp.staticPageRank(numIter, resetProb)
           else
             grp.pageRank(tol, resetProb)
@@ -621,7 +621,7 @@ object SnapshotGraphParallel extends Serializable {
     var xx:LocalDate = minDate
 
     val total = res.numBetween(minDate, maxDate)
-    val numParts = MultifileLoad.estimateParts(dataPath + "/edges/edges{" + NumberRangeRegex.generateRegex(minDate.getYear(), maxDate.getYear()) + "}-{*}.txt")
+    //val numParts = MultifileLoad.estimateParts(dataPath + "/edges/edges{" + NumberRangeRegex.generateRegex(minDate.getYear(), maxDate.getYear()) + "}-{*}.txt")
 
     while (xx.isBefore(maxDate)) {
       var nodesPath = dataPath + "/nodes/nodes" + xx.toString() + ".txt"
@@ -643,7 +643,7 @@ object SnapshotGraphParallel extends Serializable {
         //uses extended version of Graph Loader to load edges with attributes
         var g = GraphLoaderAddon.edgeListFile(ProgramContext.sc, dataPath + "/edges/edges" + xx.toString() + ".txt", true, numEdgeParts)
         if (strategy != PartitionStrategyType.None) {
-          g = g.partitionBy(PartitionStrategies.makeStrategy(strategy, intvs.size + 1, total, runWidth), numParts)
+          g = g.partitionBy(PartitionStrategies.makeStrategy(strategy, intvs.size + 1, total, runWidth), g.edges.partitions.size)
         }
         edges = g.edges
       }

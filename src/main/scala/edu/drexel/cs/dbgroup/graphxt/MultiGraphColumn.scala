@@ -212,7 +212,7 @@ class MultiGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Gr
       var total:Int = 0
       BitSet() ++ parts.zipWithIndex.flatMap { case (expected,index) =>    //produce indices that should be set
         //make a mask for this part
-        val mask = BitSet((total to (total+expected)): _*)
+        val mask = BitSet((expected*index to (expected*(index+1)-1)): _*)
         if (sem == AggregateSemantics.Universal) {
           if (mask.subsetOf(attr))
             Some(index)
@@ -463,8 +463,8 @@ class MultiGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Gr
     val pagerankGraph: Graph[Map[TimeIndex,(Double,Double)], (TimeIndex,Double,Double)] = graphs
       // Associate the degree with each vertex for each interval
       .outerJoinVertices(degrees) {
-      case (vid, vdata, Some(deg)) => deg
-      case (vid, vdata, None) => Map[TimeIndex,Int]()
+      case (vid, vdata, Some(deg)) => deg ++ vdata.filter(x => !deg.contains(x)).seq.map(x => (x,0)).toMap
+      case (vid, vdata, None) => vdata.seq.map(x => (x,0)).toMap
       }
       // Set the weight on the edges based on the degree of that interval
       .mapTriplets( e => (e.attr._1, 1.0 / e.srcAttr(e.attr._1), 1.0 / e.dstAttr(e.attr._1)) )

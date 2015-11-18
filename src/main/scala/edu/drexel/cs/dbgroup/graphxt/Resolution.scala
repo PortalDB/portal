@@ -188,7 +188,7 @@ class Resolution(per:Period) extends Serializable {
   *  Get interval that is i-th index from start
   */
   def getInterval(start:LocalDate, index:Int):Interval = {
-    Interval(start.plus(index, unit), start.plus(index+1, unit))
+    Interval(start.plus(index * period.get(unit), unit), start.plus((index+1) * period.get(unit), unit))
   }
 
 }

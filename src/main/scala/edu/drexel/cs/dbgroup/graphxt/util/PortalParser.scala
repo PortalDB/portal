@@ -91,6 +91,7 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
   lazy val function = ( "min" ^^^ MinFunc()
                  | "max" ^^^ MaxFunc()
                  | "sum" ^^^ SumFunc()
+                 | "any" ^^^ AnyFunc()
   )
 
 
