@@ -3,13 +3,13 @@
 
 Our \ql system implementation builds on GraphX, an Apache Spark
 library, as depicted in Figure~\ref{fig:arch}.  Green boxes indicate
-built-in components while blue are those we added for \ql.  We
+built-in components, while blue are those we added for \ql.  We
 selected Apache Spark because it is a popular open-source system, and
 because of its in-memory processing approach.  All language operators
 are available through the public API of the \ql library, and may be
 used like any other library in an Apache Spark application.
 
-The \ql system includes an interactive shell for exporatory data
+The \ql system includes an interactive shell for exploratory data
 analysis and a query parser.  A \ql query is rewritten into a sequence
 of operators, a particular data structure and execution method are
 selected (Section~\ref{sec:sys:optimization}), and the query is
@@ -18,7 +18,7 @@ file system and processed by Workers, with the tasks assigned and
 managed by the runtime.  We implement a variety of \tg representations
 (Section~\ref{sec:sys:datastructs}) and partitioning strategies
 (Section~\ref{sec:sys:partition}).  We will experimentally compare
-preformance of these representations and partitioning strageties on
+performance of these representations and partitioning strategies on
 two real evolving graphs in Section~\ref{sec:exp}.
 
 \begin{figure}[t!]
@@ -34,7 +34,7 @@ two real evolving graphs in Section~\ref{sec:exp}.
 \label{sec:sys:datastructs}
 
 We developed several in-memory representations of evolving graphs to
-explore the tradeoffs of compactness, parallelism, and support of
+explore the trade-offs of compactness, parallelism, and support of
 different query operators. \eat{ The data structures represent a
   continuum of replication, from the SnapshotGraph to OneGraph and are
   described here in more detail.}
@@ -52,11 +52,11 @@ aggregate set of vertices and edges.
 
 While the SG representation is simple, it is not compact, considering
 that in many real-world evolving graphs there is a 80\% or larger
-simmilarity between consecutive
+similarity between consecutive
 snapshots~\cite{DBLP:journals/tos/MiaoHLWYZPCC15}.  In a distributed
 architecture, however, this data structure provides some benefits as
 operations on it can be easily parallelized, by assigning different
-snapshots to different workers, or even partitioning a snapshot across
+snapshots to different workers, or by partitioning a snapshot across
 workers.  \eat{with improved temporal locality for snapshot-based
   analytics. }\eat{SG edges can be partitioned using temporal or
   structural criteria.  Furthermore, due to Spark's lazy evaluation,
@@ -76,7 +76,7 @@ snapshots, we developed another data structure called MultiGraph, or
 MG for short (Figure~\ref{fig:mg}).  MG stores the evolving graph as a
 single graph, with one vertex for all time periods, but with one edge
 per period where it exists.  Because our goal is to represent both
-topoligical and attribute information, we need to store not only
+topological and attribute information, we need to store not only
 vertex presence or absence (which can be easily accomplished by an
 existence string, like in~\cite{Kan2009}, or by bit sets), but also
 the values of the vertex attribute at each time period.  MG vertex
@@ -86,21 +86,21 @@ and the corresponding value.  Vertices typically change less
 frequently than edges, so the space savings on storing each vertex
 once are about 80\% in our experimental data sets.  Some of these
 savings, however, are taken up by the storage of a more complex map
-data structure for attribute values, compared to a simple single
-attribute like in the SG.  \eat{Partition of the MG edges can be
-  either temporal or structural, which lead to different rates of
-  vertex replication between partitions.}
+data structure for attribute values, compared to a single attribute as
+in SG.  \eat{Partition of the MG edges can be either temporal or
+  structural, which lead to different rates of vertex replication
+  between partitions.}
 
 \begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/mg.pdf}
-\caption{MG represetation of T1 from Figure~\ref{fig:tg}.}
+\caption{MG representation of T1 from Figure~\ref{fig:tg}.}
 \label{fig:mg}
 \end{figure}
 
 The implementation of some of the \ql operations in MG is more complex
 than in SG.  \insql{TSelect} is a subgraph operation that operates on
 all vertices and edges.  \insql{TGroup} on vertices is a combination
-of transform and filter operations since the vertices are already
+of transform and filter operations, since the vertices are already
 aggregated across the whole time period, but the edges, like in SG,
 are grouped by key within their respective sets.  Implementation of
 snapshot analytics like PageRank is done in batch mode, similar
@@ -111,16 +111,16 @@ analytics and pattern mining, which we intend to explore in the
 future.}
 
 Note that for a large subset of the queries, attribute information is
-not used, and only the topology is important.  Thus, we can store the
+not used, and only the topology is important.  Thus, we can store
 vertex attributes in a separate collection (column store), removing
 the attribute map and replacing it with existence bit sets instead.
 This is the essence of the special case of MultiGraph, called {\bf
   MultiGraphColumn (MGC)}, depicted in Figure~\ref{fig:mgc}.  The MGC
 representation allows storage of an arbitrary number of vertex
 attributes without using complex per-vertex lists, read from disk only
-as needed, and so ammenable to lazy evaluation, an important
+as needed, and so amenable to lazy evaluation, an important
 performance optimization in Apache Spark.  Further compression can be
-achieved by storing vertex attributes values only once across all time
+achieved by storing vertex attribute values only once across all time
 periods in which they are the same, similar to how temporal databases
 represent this type of data (e.g., see~\cite{Muller2008}).  The
 drawback of this approach is that decompression is required to
@@ -134,7 +134,7 @@ support, for example, the \insql{TGroup} operation.
 
 {\bf OneGraph (OG).}  The most topologically compact representation is
 to store each vertex {\em and} each edge only once for the whole
-evolving graph, by taking a union of the snpashot vertex and edge
+evolving graph, by taking a union of the snapshot vertex and edge
 sets.  The OneGraph data structure, or OG for short, uses this
 representation in our system.  Similar to MG, vertex and edge
 attributes are stored in time-indexed maps (Figure~\ref{fig:og}).
@@ -143,8 +143,8 @@ structure provides some benefits in addition to compactness, since it
 reduces the total communication between vertices in Pregel-based
 analytics in batch mode.  The drawback is that OG is much denser than
 individual snapshots.  As with MG, \insql{TSelect} is a subgraph
-operation, and \insql{TGroup} is a transform and filter operation --
-both for vertices and edges.
+operation, and \insql{TGroup} is a transform and filter operation ---
+for both vertices and edges.
 
 \begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/og.pdf}
@@ -163,52 +163,74 @@ is faster in many operations where only graph topology is required.
 
 Graph partitioning can have a tremendous impact on system performance.
 A good partitioning strategy needs to (1) be balanced, assigning an
-approximately equal number of units (in our case, edges) to each
-partition, and (2) limit the number of cuts (in our case, vertex cuts)
-across partitions, to reduce cross-partition communication.
+approximately equal number of units to each partition, and (2) limit
+the number of cuts across partitions, to reduce cross-partition
+communication.  
 
-We support six different edge partitioning strategies, which are
-applied prior to the operation but after loading and can be re-applied
-at any point.
+There are two basic types of graph partitioning strategies. Vertex-cut
+(also known as edge partitioning) distributes edges across the
+available machines and replicates vertices as necessary, while
+edge-cut (vertex partitioning) does the opposite.  Vertex-cut
+approaches have been shown to have better
+performance~\cite{Gonzalez2012}, and are the strategies of choice in
+Graph X.  In \ql, we support six different vertex-cut strategies,
+which are applied prior to the operation but after loading, and can be
+re-applied at any point.
 
 {\bf Canonical Random Vertex Cut (CRVC).}  The source and destination
-ids of a vertex are hashed in a canonical direction, as a tuple, and
-the result is distributed among the available partitions.  The result
-is a random vertex cut that colocates all edges that connect a given
-pair of vertices, regardless of direction.  This strategy is available
-in GraphX and was used without modification.
+ids of a vertex are hashed in a canonical direction and the result is
+distributed among the available partitions.  The result is a random
+vertex cut that co-locates all edges connecting a given pair of
+vertices, regardless of direction.  This strategy is available in
+GraphX and was used without modification.
 
-{\bf 2D Edge Partitioning (E2D).}  A sparse edge adjacency matrix is
-partitioned in two dimensions (Figure~\ref{fig:e2d}), guaranteeing a
-$2 \sqrt{n}$ bound on vertex replication, where $n$ is the number of
+{\bf 2D Edge (E2D).}  A sparse edge adjacency matrix is partitioned in
+two dimensions (Figure~\ref{fig:e2d}), guaranteeing a $2 \sqrt{n}$
+bound on vertex replication, where $n$ is the number of
 partitions. E2D can provide good performance for Pregel-style
-analytics.  This strategy is also available in GraphX and was used
-without modification.
+analytics.  This strategy is available in GraphX and was used without
+modification.
 
 \begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/E2D.pdf}
-\caption{EdgePartition2D strategy over 4 partitions.}
+\caption{E2D partitioning over 4 partitions.}
 \label{fig:e2d}
 \end{figure}
 
-{\bf Naive Temporal.}  Provided there are more time intervals in the
-graph than there are partitions, each edge is placed in the time index
-modulo number of partitions place, round-robin fashion.  In the case
-where the graph covers a small time interval, multiple partitions are
-used for each interval (we term this a {\em run}), and the CRVC
-strategy is applied within each run.
+{\bf Naive Temporal.} Let $n$ be the number of snapshots and $p$ be
+the number of partitions.  If $n \geq p$, then snapshot $i$ is placed
+into partition $i \mod p$.  Otherwise, multiple partitions are grouped
+into a {\em run}, and the CRVC strategy is used to partition a
+snapshot within each run.
 
-{\bf Consecutive Temporal.}  If there are more time intervals than
-partitions, consecutive time intervals are assigned to the same
-partition in runs.  If there are more partitions, each time interval
-is assigned an equal number of consecutive partitions, within which
-CRVC strategy is applied (Figure~\ref{fig:consecutive}).  In many
-networks earlier snapshots are smaller, sometimes significantly so,
-than the later ones.  This partition strategy thus may result in an
-unbalanced partitioning for networks with large skew.  The number of
-vertex cuts depends on the rate of change between snapshots.  If
-vertices persist across many time intervals, this strategy is not a
-good choice.
+\eat{ Provided there are more time intervals in the graph than there
+  are partitions, each edge is placed in the time index modulo number
+  of partitions place, round-robin fashion.  In the case where the
+  graph covers a small time interval, multiple partitions are used for
+  each interval (we term this a {\em run}), and the CRVC strategy is
+  applied within each run.}
+
+{\bf Consecutive Temporal.}  Let $n$ be the number of snapshots and
+$p$ be the number of partitions.  If $n \geq p$, then temporally
+consecutive snapshots are assigned to the same partition.  Otherwise,
+each snapshot is assigned an equal number of consecutive partitions,
+and CRVC is used to partition the snapshot
+(Figure~\ref{fig:consecutive}).
+
+\eat{If there are more time intervals than partitions, consecutive
+  time intervals are assigned to the same partition in runs.  If there
+  are more partitions, each time interval is assigned an equal number
+  of consecutive partitions, within which CRVC strategy is applied
+  (Figure~\ref{fig:consecutive}).} 
+
+Many networks exhibit strong temporal skew, with later snapshots being
+significantly larger than earlier ones.  Consecutive temporal strategy
+may result in an unbalanced partitioning for networks with large skew.
+
+Furthermore, the number of cuts for a vertex is the number of
+intervals in which it exists with degree > 0.  In the worst case, a
+vertex will be cut $n$ times.  Therefore, if vertices persist across
+many time intervals, this strategy is not a good choice.
 
 \begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/Consecutive.pdf}
@@ -216,20 +238,18 @@ good choice.
 \label{fig:consecutive}
 \end{figure}
 
-{\bf Hybrid Random Cut Temporal.}  As the name implies, hybrid
-strategies combine elements of temporal and structural criteria.  In
-this strategy, time intervals are broken into runs, the width of which
-depends on the operation.  For example, for the \insql{TGroup}
-operation, the width of the run is the number of snapshots that are
-grouped.  Equal number of partitions is assigned to each run, and
-within the run edges are assigned using the CRVC strategy.  This
-strategy was specifically designed for time-based operations such as
-aggregation to co-locate edges that are to be grouped.
+{\bf Hybrid strategies.} Hybrid strategies combine elements of
+temporal and structural criteria.  We define two such strategies,
+E2D-Temporal (Figure~\ref{fig:hybrid2d}) and CRVC-Temporal.  With both
+strategies, we create runs of temporally consecutive snapshots, assign
+an equal number of partitions to each run, and then use E2D or CRVC
+within each run.
 
-{\bf Hybrid 2D Edge Temporal.}  Similar to the hybrid above, this one
-also uses runs, but within the run uses the 2D Edge partitioning
-strategy instead. Figure~\ref{fig:hybrid2d} shows an example of this
-strategy with 4 time intervals in runs of 2.
+These strategies are specifically designed for time-based operations
+such as aggregation to co-locate edges that are to be grouped.  Run
+width is determined based on the operation.  For \insql{TGroup}, we
+take the number of snapshots in a group as the run width.  For other
+operations the default run width is 2.
 
 \begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/Hybrid2D.pdf}
@@ -238,9 +258,9 @@ strategy with 4 time intervals in runs of 2.
 \label{fig:hybrid2d}
 \end{figure}
 
-Not all partition strategies can be applied to every data structure.
-For example, only purely structural strategies can be applied to OG.
-We report on the experimental effectiveness of the strategies in
-Section~\ref{sec:exp}.
+Note that not all partitioning strategies can be applied to every data
+structure.  For example, only purely structural strategies can be
+applied to OG.  We report on the experimental effectiveness of the
+strategies in Section~\ref{sec:exp}.
 
 \input{optimization}
