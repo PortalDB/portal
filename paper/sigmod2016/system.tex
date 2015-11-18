@@ -11,15 +11,13 @@ used like any other library in an Apache Spark application.
 
 The \ql system includes an interactive shell for exploratory data
 analysis and a query parser.  A \ql query is rewritten into a sequence
-of operators, a particular data structure and execution method are
-selected (Section~\ref{sec:sys:optimization}), and the query is
-executed.  The evolving graph snapshots are read from a distributed
-file system and processed by Workers, with the tasks assigned and
-managed by the runtime.  We implement a variety of \tg representations
-(Section~\ref{sec:sys:datastructs}) and partitioning strategies
-(Section~\ref{sec:sys:partition}).  We will experimentally compare
-performance of these representations and partitioning strategies on
-two real evolving graphs in Section~\ref{sec:exp}.
+of operators, and some operators are reordered to improve performance
+(Section~\ref{sec:sys:optimization}).  Next, a particular data
+structure (Section~\ref{sec:sys:datastructs}) and partitioning
+strategy (Section~\ref{sec:sys:partition}) are selected and the query
+is executed.  The evolving graph snapshots are read from the
+distributed file system and processed by Workers, with the tasks
+assigned and managed by the runtime.
 
 \begin{figure}[t!]
 \begin{center}
@@ -29,6 +27,8 @@ two real evolving graphs in Section~\ref{sec:exp}.
 \end{center}
 \vspace{-0.5cm}
 \end{figure}
+
+\input{optimization}
 
 \subsection{Data Representation}
 \label{sec:sys:datastructs}
@@ -263,4 +263,4 @@ structure.  For example, only purely structural strategies can be
 applied to OG.  We report on the experimental effectiveness of the
 strategies in Section~\ref{sec:exp}.
 
-\input{optimization}
+
