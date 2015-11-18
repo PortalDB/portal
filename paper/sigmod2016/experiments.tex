@@ -9,10 +9,12 @@ Standalone cluster manager and Hadoop 2.6 were used.
 Because Spark is a lazy evaluation system, a \insql{materialize}
 operation was appended to the end of each query, which consisted of
 the count of nodes and edges.  In cases where the goal was to evaluate
-a specific operation in isolation, we used warm start which consisted
+a specific operation in isolation, we used warm start, which consisted
 of materializing the graph upon load.  Each experiment was conducted 3
-times, we report the average running time. \eat{ and the measure of
-variability.}
+times, we report the average running time, which is representative
+because we took great care to control variability.  Standard deviation
+for each measure is at or below 5\% of the mean except in cases of
+very small running times.
 
 {\bf Data and evaluation methods.}  We evaluate performance of our
 framework on two real open-source datasets:
@@ -41,8 +43,12 @@ framework on two real open-source datasets:
 These datasets are not large by industry standards, but the nGrams set
 is of comparable size to the LiveJournal dataset in~\cite{Xin2013} and
 is commesurate with our cluster size.  These two datasets differ from
-each other not only in size, but also in the evolutionary properties.
-We plan to carry out further experiments with a larger
+each other not only in size, but also in the evolutionary properties:
+co-authorship network nodes have limited lifespan, while the nGrams
+network grows over time and nodes persist for long durations.  All
+figures in the body of this section are on the larger nGrams dataset.
+Refer to the Appendix for the dblp figures.  We plan to carry out
+further experiments with a larger
 DELIS\footnote{\url{law.di.unimi.it/webdata/uk-union-2006-06-2007-05}}
 dataset as we grow the cluster in the near future.
 
@@ -58,10 +64,10 @@ dataset as we grow the cluster in the near future.
 \end{minipage}
 \begin{minipage}{3.3in}
   \centering
-  \includegraphics[width=3in]{figs/partsfit.pdf}
-  \caption{Relationship between data size and the effective number of
-  partitions.}
-  \label{fig:partsfit}
+  \includegraphics[width=3in]{figs/tselect.pdf}
+  \caption{Total load time as a function of data size in the nGrams
+    dataset.}
+  \label{fig:tselect}
 \end{minipage}
 \end{figure*}
 
@@ -79,10 +85,10 @@ of data sizes.  In each data structure, we observe the same trend --
 as the number of partitions is increased for a given data size, the
 system performance quickly improves, but then starts to deteriorate
 (Figure~\ref{fig:numparts}).  This trend can be observed in all data
-structures.  As can be seen in Figure~\ref{fig:partsfit}, there is
-roughly a linear relationship between the data size and the optimal
-number of partitions, which allowed us to fit a linear function and
-use it in all subsequent experiments.
+structures.  There is roughly a linear relationship between the data
+size and the optimal number of partitions (see
+Figure~\ref{fig:partsfit} in the Appendix), which allowed us to fit a
+linear function and use it in all subsequent experiments.
 
 \subsection{Data loading}
 
@@ -118,13 +124,6 @@ significantly between different data structures, all subsequent
 experiments are reported with a warm start, with application of a
 desired partition strategy included during the loading process.
 
-\begin{figure}[t]
-\includegraphics[width=3.2in]{figs/tselect.pdf}
-\caption{Total load time as a function of data size in the nGrams
-  dataset.}
-\label{fig:tselect}
-\end{figure}
-
 \subsection{\insql{TSelect} with \insql{TGroup}}
 
 To investigate the comparative performance of different data
@@ -152,7 +151,7 @@ outperforms MG and OGC -- OG, and here we include only the better
 performing variant of each.  All data structures and partition
 strategies show linear increase in Any-type aggregation time as the
 number of snapshots grows.  As expected, because OGC is an already
-aggregated data structure, it outperforms MGC and SGP for the
+aggregated data structure, it outperforms MGC and SG for the
 \insql{TGroup} operation by two orders of magnitude in the largest
 size.  This is shown in Figure~\ref{fig:tgroupe}, where we selected
 only the fastest partition strategy for each data structure.  
@@ -219,8 +218,8 @@ datasets -- see Appendix.
 \end{minipage}
 \begin{minipage}{3.3in}
   \centering
-  \includegraphics[width=3in]{figs/tgroupe_width.pdf}
-  \caption{\insql{TGroup} with varying aggregation width in dblp.}
+  \includegraphics[width=3in]{figs/tgroupewidth.pdf}
+  \caption{\insql{TGroup} with varying aggregation width.}
   \label{fig:tgroupe_width}
 \end{minipage}
 \end{figure*}
@@ -260,7 +259,10 @@ overlap between the two graphs increases, we expect OGC to outperform
 SG for most cases, and this can be shown experimentally
 (Figure~\ref{fig:tandall}).  SG performs well on the small temporal
 overlap cases because fewer vertices and edges are joined there
-compared to MGC/OGC.
+compared to MGC/OGC.  Partitioning has a mild benefit for MGC,
+especially with the E2D strategy, as it does for OGC and SG. See
+Figure~\ref{fig:tand_parts} in the Appendix for side-by-side
+comparison.
 
 \begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/tand_all_warm.pdf}
@@ -288,13 +290,13 @@ varying number of snapshots:
 \end{verbatim}
 \end{small}
 
-Pagerank was executed for 10 iterations or until convergence,
+PageRank was executed for 10 iterations or until convergence,
 whichever came first.  Performance of Pregel-based algorithms depends
 heavily on the partition strategy, with best results achieved where
 cross-partition communication is small.  For this reason, we evaluated
 only no partitioning and Edge 2D partition strategy.
 
-SGP performs better than the other data structures in this experiment,
+SG performs better than the other data structures in this experiment,
 contrary to our expectation that the batch mode of MGC and OGC would
 be faster (Figure~\ref{fig:pagerank}.  This can be explained by MGC
 and OGC using significantly more cross-partition communication due to
@@ -350,7 +352,7 @@ faster, while OGC is very efficient at aggregation, and this query
 combines all of these and adds trend analytics and projection into a
 flat vertex relation for sort and limit.  The two data structures
 perform comparably with the best partition strategy (E2D for OGC, none
-for SGP), as can be seen in Figure~\ref{fig:complexq}.
+for SG), as can be seen in Figure~\ref{fig:complexq}.
 
 \begin{figure}[t]
 \includegraphics[width=3.2in]{figs/complexq.pdf}
