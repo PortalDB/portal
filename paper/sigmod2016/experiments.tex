@@ -2,8 +2,8 @@
 \label{sec:exp}
 
 {\bf Experimental environment.} All experiments in this section were
-conducted on an 8-slave elastic cloud cluster using Linux Ubuntu 14.04
-and Spark v1.4.  Each node had 4 cores and 16 GB of memory.  Spark
+conducted on an 8-slave in-house Open Stack cloud, using Linux Ubuntu
+14.04 and Spark v1.4.  Each node has 4 cores and 16 GB of RAM.  Spark
 Standalone cluster manager and Hadoop 2.6 were used.
 
 Because Spark is a lazy evaluation system, a \insql{materialize}
@@ -74,32 +74,36 @@ the DBLP figures, which show similar trends as nGrams.\eat{ We plan to
 
 In Spark applications, one of the most influential performance drivers
 is the choice of the number of partitions.  The default number of
-partitions, based on the Hadoop block size, used to read the graphs in
-practice proved insufficient.  We extended GraphX for parallel reading
-of multiple files with a custom number of partitions.  For all
-experiments a dynamic data size-based partition number estimator was
-used, based on the tuning experiment.
+partitions, based on the Hadoop block size, proved inefficient in
+practice.  We extended GraphX for parallel reading of multiple files
+with a custom number of partitions.  Further, we conducted a tuning
+experiment, and developed a dynamic data size-based estimator of the
+number of partitions.\eat{  We describe this experiment next, and use its
+result to tune the number of partitions in all experiments in this
+section.}
 
-To tune the estimator, we ran a simple \insql{TSelect} query with each
-data structure, varying the number of partitions on load for a range
-of data sizes.  In each data structure, we observe the same trend --
-as the number of partitions is increased for a given data size, system
-performance quickly improves, but then starts to deteriorate
-(Figure~\ref{fig:numparts}).  There is roughly a linear relationship
-between data size and the best number of partitions (see
+The tuning experiment consisted of running a simple \insql{TSelect}
+query with each data structure, varying the number of partitions on
+load for a range of data sizes.  In each data structure, we observe
+the same trend -- as the number of partitions is increased for a given
+data size, system performance quickly improves, but then starts to
+deteriorate (Figure~\ref{fig:numparts}).  There is roughly a linear
+relationship between data size and the best number of partitions (see
 Figure~\ref{fig:partsfit} in the Appendix), which allowed us to fit a
-linear function and use it in all subsequent experiments.
+linear function and use it to tune the number of partitions in all
+experiments.
 
 \subsection{Data loading}
 
 To understand how different data structures perform as a function of
-data size, we ran a simple \insql{TSelect} query on nGrams:
+data size, we ran the following query on nGrams:
 
 \begin{small}
 \begin{verbatim}
       TSelect V[vid:int, word:str]; 
               E[vid1:int, vid2:int, cnt:int]
       From    data/nGrams
+      Into    nGrams
       TWhere  Start >= x and End <= y
 \end{verbatim}
 \end{small}
@@ -112,11 +116,11 @@ because no data transformation, such as aggregation, is required.
 This is substantiated experimentally, as can be seen in
 Figure~\ref{fig:tselect}.  SG is the fastest data structure for data
 loading, although all exhibit a linear increase as a function of data
-size.  We observed the same trend in DBLP.  Miao et
+size.\eat{ We observed the same trend in DBLP.}  Miao et
 al.~\cite{DBLP:journals/tos/MiaoHLWYZPCC15} showed that data format
-play a significant role in load performance.  This is supported by our
-results in Figure~\ref{fig:tselect}, and warrants development of
-alternative file formats.
+plays a significant role in load performance.  This is supported by
+our results in Figure~\ref{fig:tselect}, and warrants development of
+alternative file formats, which is in our immediate plans.
 
 As we will see, load/materialize time makes up a significant portion
 of the over-all time.  For this reason, all experiments that evaluate
@@ -151,12 +155,12 @@ the following query:
 \end{verbatim}
 \end{small}
 
-We kept the aggregation time window constant (8 years) and varied the
+We kept the aggregation time window fixed (8 years) and varied the
 total number of snapshots in powers of 2.  Each snapshot contains
 about 13 million edges.
 
 Recollect that \insql{TGroup} requires a union and group by operation
-in SG, combination of transform with filter and group by for MG, and
+in SG, a combination of transform with filter and group by for MG, and
 transform with filter for OG.  Due to compactness, MGC outperforms MG
 and OGC outperforms OG.  All data structures and partitioning
 strategies show linear increase in structural aggregation time as the
@@ -171,7 +175,7 @@ each data structure.
 \centering
 \begin{minipage}{3in}
   \centering
-  \includegraphics[width=2.7in]{figs/tgroupe_warm.pdf}
+  \includegraphics[width=2.5in]{figs/tgroupe_warm.pdf}
 \vspace{-0.1in}
   \caption{\insql{TGroup} with \insql{Any} (warm start).}
   \label{fig:tgroupe}
@@ -179,7 +183,7 @@ each data structure.
 \end{minipage}
 \begin{minipage}{3in}
   \centering
-  \includegraphics[width=2.7in]{figs/tgroupeparts.pdf}
+  \includegraphics[width=2.5in]{figs/tgroupeparts.pdf}
 \vspace{-0.1in}
   \caption{\insql{TGroup} by partitioning strategy.}
   \label{fig:tgroupeparts}
@@ -230,7 +234,7 @@ figures.
 \centering
 \begin{minipage}{3in}
   \centering
-  \includegraphics[width=2.7in]{figs/tgroupe_cold.pdf}
+  \includegraphics[width=2.5in]{figs/tgroupe_cold.pdf}
 \vspace{-0.1in}
   \caption{\insql{TGroup} with \insql{Any} (cold start).}
 \label{fig:tgroupe_cold}
@@ -238,7 +242,7 @@ figures.
 \end{minipage}
 \begin{minipage}{3in}
   \centering
-\includegraphics[width=2.7in]{figs/tand_all_warm.pdf}
+\includegraphics[width=2.5in]{figs/tand_all_warm.pdf}
 \vspace{-0.1in}
 \caption{\insql{TAnd} time vs. temporal overlap.}
 \label{fig:tandall}
@@ -333,8 +337,8 @@ following factors:
 \item PageRank gets faster as vertex values converge, because those
   vertices stop sending out new messages.  In OGC/MGC a vertex converges
   only when it does so in all snapshots.
-\item Messages for OGC are larger --- it is more costly to send a Map
-  object than a number.
+\eat{\item Messages for OGC are larger --- it is more costly to send a Map
+  object than a number.}
 \end{enumerate}
 
 \begin{figure*}[t]
@@ -388,9 +392,8 @@ aggregation.  This query combines all of these operations, and adds a
 trend analytic, and a transformation of the vertices of the result
 into a flat vertex relation.
 
-SG and OGC with best partition strategy (E2D for OGC, none for SG)
-show comparable performances, as can be seen in
-Figure~\ref{fig:complexq}.
+SG with no partitioning, and OGC with E2D show comparable
+performances, as seen in Figure~\ref{fig:complexq}.
 
 \eat{
 \begin{figure}[t]
@@ -400,3 +403,9 @@ Figure~\ref{fig:complexq}.
 \end{figure}
 }
 
+{\bf In summary,} no one data structure is most efficient across all
+operations.  SG is most efficient for data load, because our file
+format favors this data structure, and for PageRank.  OGC is most
+efficient for temporal group and join.  The two data structures
+perform comparably for the complex query.  E2D is the most efficient
+partitioning method in most cases, and E2D-Temporal is a close second.
