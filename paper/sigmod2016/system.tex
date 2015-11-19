@@ -102,14 +102,13 @@ existence string, like in~\cite{Kan2009}, or by bit sets), but also
 the values of the vertex attribute at each time period.  MG vertex
 attribute, thus, is a map of time indices that represent intervals to
 corresponding values.  Edge attributes are tuples of the time index
-and the corresponding value.  Vertices typically change less
-frequently than edges, so the space savings on storing each vertex
-once are about 80\% in our experimental data sets.  Some of these
-savings, however, are taken up by the storage of a more complex map
-data structure for attribute values, compared to a single attribute as
-in SG.  \eat{Partition of the MG edges can be either temporal or
-  structural, which lead to different rates of vertex replication
-  between partitions.}
+and the corresponding value.  Vertices typically change infrequently,
+so storing each vertex only once reduces the total number of vertices
+by about 80\% in our data.  Some of these savings, however, are taken
+up by the storage of a more complex map data structure for attribute
+values, compared to a single attribute as in SG.  \eat{Partition of
+  the MG edges can be either temporal or structural, which lead to
+  different rates of vertex replication between partitions.}
 
 The implementation of some of the \ql operations in MG is more complex
 than in SG.  \insql{TSelect} is a subgraph operation that operates on
@@ -152,13 +151,13 @@ evolving graph, by taking a union of the snapshot vertex and edge
 sets.  The OneGraph data structure, or OG for short, uses this
 representation in our system.  Similar to MG, vertex and edge
 attributes are stored in time-indexed maps (Figure~\ref{fig:og}).
-Compared to MG, this leads to 75\% storage savings.  The OG data
-structure provides some benefits in addition to compactness, since it
-reduces the total communication between vertices in Pregel-based
-analytics in batch mode.  The drawback is that OG is much denser than
-individual snapshots.  As with MG, \insql{TSelect} is a subgraph
-operation, and \insql{TGroup} is a transform and filter operation ---
-for both vertices and edges.
+Compared to MG, this leads to storing about 75\% fewer edges.  The OG
+data structure provides some benefits in addition to compactness,
+since it reduces the total communication between vertices in
+Pregel-based analytics in batch mode.  The drawback is that OG is much
+denser than individual snapshots.  As with MG, \insql{TSelect} is a
+subgraph operation, and \insql{TGroup} is a transform and filter
+operation --- for both vertices and edges.
 
 \eat{\begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/og.pdf}
