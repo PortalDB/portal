@@ -203,15 +203,19 @@ smaller than for MGC.  We observed the same trend for the
 \insql{TGroup} query with \insql{All} semantics --- see Appendix.
 
 To demonstrate why we use warm start, consider
-Figure~\ref{fig:tgroupe_cold}, and note that loading time dominates
-the over-all time, which also includes partitioning, temporal
-aggregation and materialization.  Based on this figure alone, one
-would conclude that partitioning is not beneficial, because it takes
-additional non-trivial time, and that SG is the most efficient data
-structure.  However, recall that the file format favors SG, and so no
-conclusions about the performance of data structures / partitioning
-method for individual operations should be drawn from cold start total
-time alone.
+Figure~\ref{fig:tgroupe_cold} where the fastest partition condition
+for each data structure is depicted (and is None in all 3 cases), and
+note that loading time dominates the overall time, which also includes
+partitioning, temporal aggregation, and materialization.  Based on
+this figure alone, one would conclude that SG is the most efficient
+data structure.  However, recall that the file format favors SG, and
+so no conclusions about the performance of data structures for
+individual operations should be drawn from cold start total time
+alone.  \eat{Additionally, the fastest time for each data structure
+  with cold start is achieved without applying a partition strategy
+  because the process of partitioning takes additional non-trivial
+  time. Thus, partition strategies for individual operations cannot be
+  effectively compared from cold start data either.}
 
 OGC outperforms the other data structures when we fix the data size
 and vary the aggregation width.\eat{, as can be seen in
