@@ -395,15 +395,15 @@ Q9:  TSelect Any V[vid, trend(pr) as tr, max(pr) as mx];
 \end{small}
 
 Consider the use of the {\em trend analytic} function
-\insql{trend(pr)}, which aggregates the sequence of \insql{pagerank}
-scores of each vertex.  In our implementation we use a common
-definition of \insql{trend()}: compute the slope of the least squares
-line using linear regression, making an adjustment when a vertex value
-is missing.  While this is the only trend analytic we currently
-support, we are working on an API that will allow developers to
-implement custom trend analytics, taking attributes of both atomic and
-complex type as input, and computing a value of either an atomic or a
-complex type.
+\insql{trend(pr)}, which aggregates the sequence of PageRank scores of
+each vertex.  In our implementation we use a common definition of
+\insql{trend}: compute the slope of the least squares line using
+linear regression, making an adjustment when a vertex value is
+missing.  While this is the only trend analytic we currently support,
+we are working on an API that will allow developers to implement
+custom trend analytics, taking attributes of both atomic and complex
+type as input, and computing a value of either an atomic or a complex
+type.
 
 We invoke \insql{trend(pr)} alongside \insql{max(pr)} in $Q9$, to
 highlight the difference between a trend analytic and value
@@ -411,8 +411,8 @@ aggregation.  Syntactically, the two look the same, but the difference
 is that \insql{max(pr)} does not account for the temporal order of
 values being aggregated, while \insql{trend(pr)} does.  Based on this
 distinction, it is not meaningful to invoke a trend analytic when
-structural aggregation is due solely to join (\insql{TAnd}) or 
-(\insql{TOr}), but only as part of a query that does temporal
+structural aggregation is due solely to temporal join (\insql{TAnd})
+or (\insql{TOr}), but only as part of a query that does temporal
 aggregation (\insql{TGroup}).
 
 Finally, recall from our discussion of temporal aggregation that
