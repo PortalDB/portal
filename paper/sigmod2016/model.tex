@@ -99,7 +99,7 @@ A {\em time period} \\$p = [start, end)$ is an interval on the
 
 Examples of time periods are $p_1=[\tpy{2000},\tpy{2001})$ (a 1-year
   period), $p_2=[\tpym{2000}{12},\tpym{2001}{03})$ (a 3-month period)
-    and $p_2=[\tpymd{2000}{12}{01},\tpymd{2001}{03}{01})$ (a 90-day
+    and $p_3=[\tpymd{2000}{12}{01},\tpymd{2001}{03}{01})$ (a 90-day
       period).  The unit of time is application-dependent, and will be
       stated explicitly where not clear from context.
 
@@ -121,7 +121,7 @@ resolution, with no gaps.  That is,
 
 \begin{enumerate}
 \item $\forall i < n, p_i.end = p_{i+1}.start$, and 
-\item $\forall i, j, p_i.end - p_i.start = p_j.end - p_j.start$.
+\item $\forall i, j \leq n, p_i.end - p_i.start = p_j.end - p_j.start$.
 \end{enumerate}
 \label{def:tseq} 
 \end{definition}
@@ -183,10 +183,10 @@ P_4 & = & ([\tpy{2012},\tpy{2014}),[\tpy{2014},\tpy{2016}))\\
 P_5 & = & ([\tpy{2020},\tpy{2022})) \\
 \end{eqnarray*}
 
-\vspace{-0.3cm}
+\vspace{-0.5cm}
 
 $P_1$ and $P_2$ are not union-compatible because the resolution of
-  $P_1$ is 1 year, while the resolution of $P_2$ is 2 years.  $P_1$
+  $P_1$ is 2 years, while the resolution of $P_2$ is 1 year.  $P_1$
   and $P_3$ are not union-compatible because, while their resolution
   is the same, it is not possible to construct a valid temporal
   sequence with $P.start=\tpy{2001}$, $P.end=\tpy{2014}$ and a 2-year
@@ -231,9 +231,11 @@ $P^{\epsilon}$ if a valid sequence cannot be constructed.
 \label{def:tgroup}
 \end{definition}
 
-Temporal aggregation is semantic, in that an input sequence that has
-day as its unit, and 1-day resolution, can be coarsened into a
-sequence with month as its time unit, by specifying $w = 1$ month.
+For example, $\gamma_{4y}(P1) = ((2001,2005])$, and
+      $\gamma_{3y}(P1)=P^\epsilon$.  Temporal aggregation is semantic,
+      e.g., an input sequence that has day as its unit, and 1-day
+      resolution, can be coarsened into a sequence with month as its
+      time unit, by specifying $w = 1$ month.
 
 \subsection{TGraphs}
 \label{sec:model:tg}
@@ -256,9 +258,9 @@ sequence with month as its time unit, by specifying $w = 1$ month.
 
 
 A snapshot represents a single state of an evolving graph, and is not
-itself time-aware.  Temporal evolution of a graph is represented by a
-sequence of snapshots, which we call a {\em temporal graph}, or \tg
-for short.
+time-aware.  Temporal evolution of a graph is represented by a
+sequence of snapshots, called a {\em temporal graph}, or \tg for
+short.
 
 \begin{definition} [TGraph]
 A {\em temporal graph} $T = (G_1, \ldots, G_n; P)$ associates a
@@ -269,7 +271,7 @@ temporal sequence $P$, such that $P.size = n$.
 
 Snapshots define the {\em structural schema} of $T$, while $P$
 specifies the {\em temporal schema} of $T$.
-
+%
 An example of a \tg is given in Figure~\ref{fig:tg}, with instances of
 vertex and edge relations for 3 snapshots in Figure~\ref{fig:3ve}.
 Importantly, identity of a vertex persists across snapshots in a \tg,
