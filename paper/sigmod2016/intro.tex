@@ -1,19 +1,19 @@
 \section{Introduction}
 \label{sec:intro}
 
-The importance of networks cannot be overstated. They arise in a
-plethora of domains, and are central to many applications, both
-commercial and scientific.  Networks are commonly represented by
-graphs, and considerable research and engineering effort is being
-devoted to developing effective and efficient graph representations
-and analytics. (We use the terms ``network'' and ``graph''
-interchangeably.) Efficient graph abstractions and analytics for {\em
-  static graphs} have become available in scope of open source
-platforms such as Apache Spark (through the GraphX API) and GraphLab
-(through the PowerGraph library).  This in turn makes sophisticated
-graph analysis methods available and accessible to researchers and
-practitioners, facilitating their widespread adoption.  The open
-source nature of these systems encourages development and
+The importance of networks in scientific and commercial domains cannot
+be overstated.  Networks are represented by graphs, and we will use
+the terms ``network'' and ``graph'' interchangeably.  Considerable
+research and engineering effort is being devoted to developing
+effective and efficient graph representations and analytics.  As of
+late, efficient graph abstractions and analytics for {\em static
+  graphs} have become available in scope of open source platforms such
+as Apache Giraph~\cite{ApacheGiraph}, Apache Spark, through the GraphX
+API~\cite{DBLP:conf/osdi/GonzalezXDCFS14}, and GraphLab, through the
+PowerGraph library~\cite{DBLP:conf/osdi/GonzalezLGBG12}.  This in turn
+makes sophisticated graph analysis methods available to researchers
+and practitioners, facilitating their widespread adoption.  Further,
+because these systems are open source, this encourages development and
 dissemination of new graph analysis methods, and of more efficient
 implementations of existing methods.
 
@@ -21,12 +21,18 @@ Arguably the most interesting and important questions one can ask
 about networks have to do with their evolution, rather than with their
 static state.  Analysis of {\em evolving graphs} has been receiving
 increasing attention, with most progress taking place in the last
-decade, see~\cite{DBLP:journals/csur/AggarwalS14} for a recent survey.
-{\em Yet, systematic support for scalable querying and analytics over
+decade~\cite{DBLP:journals/csur/AggarwalS14,Chan2008,Kan2009,DBLP:journals/tos/MiaoHLWYZPCC15,Ren2011,Semertzidis2015}.
+Some areas where evolving graphs are being studies are social network
+analysis~\cite{DBLP:conf/icwsm/GoetzLMF09,DBLP:journals/tweb/LeskovecAH07,DBLP:conf/kdd/LeskovecBKT08,DBLP:conf/icml/SarkarCJ12},
+biological networks~\cite{DBLP:journals/tkdd/AsurPU09,DBLP:journals/tcsb/BeyerTLSF10,Stuart2003} and the Web~\cite{DBLP:journals/kais/ChanBL08,DBLP:journals/jisa/PapadimitriouDG10}.
+
+Yet, despite much recent interest and activity on the topic, and
+despite increased variety and availability of evolving graph data,
+{\em systematic support for scalable querying and analytics over
   evolving graphs still lacks}.  This support is urgently needed, due
 first and foremost to the scalability and efficiency challenges
 inherent in evolving graph analysis, but also to considerations of
-usability and ease of dissemination. {\em In this paper we present
+usability and ease of dissemination.  {\em In this paper we present
   \ql, a declarative query language, and its implementation in an
   open-source distributed framework, that fills this gap.}
 
@@ -47,7 +53,8 @@ supports efficient computation of node popularity with {\em snapshot
 {\em Have any changes in network connectivity been observed, either
   suddenly or gradually over time?}  For networks describing
 insulin-based metabolism pathways, gradual pathway disruption can be
-used to determine the onset of type-2 diabetes.  For a website
+used to determine the onset of type-2
+diabetes~\cite{DBLP:journals/tcsb/BeyerTLSF10}.  For a website
 accessibility network, sudden loss of connectivity can signal that
 censorship is taking place, e.g., in response to a recent election or
 another exogenous event.  In a co-authorship network, increasing
@@ -112,6 +119,6 @@ achieved with careful engineering.
 describe the \ql query language in Section~\ref{sec:example}, and
 discuss its implementation in an open-source prototype in
 Section~\ref{sec:sys}.  Section~\ref{sec:exp} describes our extensive
-experimental evaluation on a variety of real datasets.  We discuss
-related work in Section~\ref{sec:related}.  Future work and
-conclusions are given in Section~\ref{sec:conc}.
+experimental evaluation on real datasets.  We discuss related work in
+Section~\ref{sec:related}.  Future work and conclusions are given in
+Section~\ref{sec:conc}.

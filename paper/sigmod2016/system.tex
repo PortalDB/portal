@@ -17,6 +17,12 @@ because of its in-memory processing approach.  All language operators
 are available through the public API of the \ql library, and may be
 used like any other library in an Apache Spark application.
 
+\begin{figure}[t!]
+\includegraphics[width=3.2in]{figs/sgp.pdf}
+\caption{SG representation of T1 from Figure~\ref{fig:tg}.}
+\label{fig:sgp}
+\end{figure}
+
 The \ql system includes an interactive shell for exploratory data
 analysis and a query parser.  A \ql query is rewritten into a sequence
 of operators, and some operators are reordered to improve performance
@@ -26,13 +32,6 @@ strategy (Section~\ref{sec:sys:partition}) are selected and the query
 is executed.  The evolving graph snapshots are read from the
 distributed file system and processed by Workers, with the tasks
 assigned and managed by the runtime.
-
-\begin{figure}[t!]
-\includegraphics[width=3.2in]{figs/sgp.pdf}
-\caption{SG representation of T1 from Figure~\ref{fig:tg}.}
-\label{fig:sgp}
-\end{figure}
-
 
 \begin{figure*}[th!]
 \begin{minipage}{2.3in}
@@ -59,28 +58,6 @@ assigned and managed by the runtime.
 
 \subsection{Data Representation}
 \label{sec:sys:datastructs}
-
-\begin{figure*}
-\begin{minipage}{2.3in}
-\centering
-\includegraphics[width=2.3in]{figs/E2D_1.pdf}
-\caption{E2D with 4 partitions.}
-\label{fig:e2d}
-\end{minipage}
-\begin{minipage}{2.3in}
-\centering
-\includegraphics[width=2.3in]{figs/Consecutive_1.pdf}
-\caption{Consecutive with 4 partitions, 3 snapshots.}
-\label{fig:consecutive}
-\end{minipage}
-\begin{minipage}{2.2in}
-\centering
-\includegraphics[width=2.2in]{figs/Hybrid2D_1.pdf}
-\caption{E2D-Temporal with 4 partitions, 4 snapshots, 2 runs.}
-\label{fig:hybrid2d}
-\end{minipage}
-\end{figure*}
-
 
 We developed several in-memory representations of evolving graphs to
 explore the trade-offs of compactness, parallelism, and support of
@@ -194,6 +171,27 @@ represent the union of vertices and edges, with bit sets for presence
 information, while attribute information is stored separately.  This
 is not as compact as storing attributes within the graph elements, but
 is faster in many operations where only graph topology is required.
+
+\begin{figure*}
+\begin{minipage}{2.3in}
+\centering
+\includegraphics[width=2.3in]{figs/E2D_1.pdf}
+\caption{E2D with 4 partitions.}
+\label{fig:e2d}
+\end{minipage}
+\begin{minipage}{2.3in}
+\centering
+\includegraphics[width=2.3in]{figs/Consecutive_1.pdf}
+\caption{Consecutive with 4 partitions, 3 snapshots.}
+\label{fig:consecutive}
+\end{minipage}
+\begin{minipage}{2.2in}
+\centering
+\includegraphics[width=2.2in]{figs/Hybrid2D_1.pdf}
+\caption{E2D-Temporal with 4 partitions, 4 snapshots, 2 runs.}
+\label{fig:hybrid2d}
+\end{minipage}
+\end{figure*}
 
 \subsection{Partitioning Strategies}  
 \label{sec:sys:partition}

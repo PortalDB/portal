@@ -14,22 +14,6 @@ cnt:int), in our examples.
 \subsection{Portal Basics}
 \label{sec:example:basics}
 
-\begin{figure*}[th!]
-\centering
-\begin{minipage}{3.3in}
-  \centering
-  \includegraphics[width=3in]{figs/6snaps.pdf}
-  \caption{\tg \insql{T1} with 6 snapshots.}{}
-  \label{fig:tg}
-\end{minipage}%
-\begin{minipage}{3.3in}
-  \centering
-  \includegraphics[width=3in]{figs/t2.pdf}
-  \caption{\tg \insql{T2} with 6 snapshots.}{}
-  \label{fig:tg_t2}
-\end{minipage}
-\end{figure*}
-
 {\bf Temporal selection.}  Consider query $Q1$ below.  
 
 \begin{figure}
@@ -54,18 +38,18 @@ the interval specified by the \insql{TWhere} clause, namely, $[2010,
     \insql{End} portions of the \insql{TWhere} clause may be omitted.
 
 More generally, the \insql{TWhere} clause supports a variety of
-predicates based on which it is determined, for each snapshot in \tg,
-whether that snapshot is to be retained or discarded.  For example,
-\insql{TWhere month(Start) like '\%r\%'} will retain all snapshots
-that start during a month in which it is safe to eat oysters (these
-are months with the letter 'r' in their name), while \insql{TWhere
-  year(End) \% 4 = 0} will retain snapshots that end in a leap year,
-and discard all others.  However, recall from
+predicates based on which it is determined, for each snapshot in a
+\tg, whether that snapshot is to be retained or discarded.  For
+example, \insql{TWhere month(Start) like '\%r\%'} will retain all
+snapshots that start during a month in which it is safe to eat oysters
+(these are months with the letter 'r' in their name), while
+\insql{TWhere year(End) \% 4 = 0} will retain snapshots that end in a
+leap year, and discard all others.  However, recall from
 Definition~\ref{def:tseq} that a temporal sequence, which constitutes
 the temporal schema of a \tg, cannot have any gaps.  We enforce this
 by never discarding a time interval in the middle of a sequence, but
 rather replacing its snapshot with an empty graph $G(V=\emptyset;
-E=\emptyset)$.  
+E=\emptyset)$.
 
 \eat{\insql{Start} $t_1$ \insql{End} $t_2$ specifies a closed-open
   period $[t_1, t_2)$.  Its time unit must match, or be coarser than,
@@ -90,7 +74,7 @@ Q2: TSelect  V [vid, pagerank() as pr];
 
 This query illustrates how the \insql{TSelect} clause can be used to
 specify the structural schema of the result, which in this case is
-V(\underline{vid}:int, pr:float) ; E(\underline{vid1}:int,
+V(\underline{vid}:int, pr:float); E(\underline{vid1}:int,
 \underline{vid2}:int, score:float).  We may use the \insql{TSelect}
 clause to project out non-key columns of \insql{V} and \insql{E}, or
 to add columns with computed values.  Data types of computed
@@ -101,10 +85,11 @@ type of the expressions that compute them.  Note that key columns of
 The value of the attribute \insql{pr} in $Q2$ is computed using a
 snapshot analytic function \insql{pagerank()}.  \ql supports a variety
 of snapshot analytics --- functions whose values are computed
-w.r.t. each snapshot of a \tg --- including degree, shortest paths, and
-connected components.  We provide an API that allows developers to
+w.r.t. each snapshot of a \tg --- including degree, shortest paths,
+and connected components.  We provide an API that allows developers to
 implement custom analytics that can either be computed locally at a
-vertex, like degree, or be expressed in the popular Pregel API.
+vertex, like degree, or be expressed in the popular Pregel
+API~\cite{DBLP:conf/sigmod/MalewiczABDHLC10}.
 
 \subsection{Temporal Aggregation and Join}
 \label{sec:example:groupjoin}
@@ -143,9 +128,11 @@ input \tg be aggregated into a 1-snapshot \tg.  This notation will be
 useful when we discuss trend analytics later in this section.
 
 \begin{figure}
-\includegraphics[width=3.2in]{figs/TGroupAny.pdf}
+\includegraphics[width=2.5in]{figs/TGroupAny.pdf}
+\vspace{-0.1in}
 \caption{Result of query Q3 on T1.}
 \label{fig:q3}
+\vspace{-0.1in}
 \end{figure}
 
 Consider next query $Q4$, and its result in
@@ -173,9 +160,10 @@ only be present in a snapshot if both vertices it connects are
 present.}
 
 \begin{figure}
-\includegraphics[width=3.2in]{figs/TGroupAllAny.pdf}
+\includegraphics[width=2.5in]{figs/TGroupAllAny.pdf}
 \caption{Result of query Q4 on T1.}
 \label{fig:tg_all_any}
+\vspace{-0.1in}
 \end{figure}
 
 $Q4$ illustrates another important feature of \ql, namely, aggregation
@@ -222,8 +210,7 @@ that join together \tg relations, and will illustrate them using
 (Figure~\ref{fig:tg_t2}).  Query $Q5$ computes temporal intersection
 of \insql{T1} and \insql{T2}.  We require that \insql{T1} and
 \insql{T2} be union-compatible, as per Definition~\ref{def:tuc}.  The
-result of this query is in Figure~\ref{fig:q5}. \reminder{Make figure
-  1 line to save space.}
+result of this query is in Figure~\ref{fig:q5}. 
 
 \begin{small}
 \begin{verbatim}
@@ -234,9 +221,11 @@ Q5:  TSelect   Any V; Any E
 
 \begin{figure}
 \centering
-\includegraphics[width=2.3in]{figs/q5.pdf}
+\includegraphics[width=2.8in]{figs/q5.pdf}
 \caption{Result of query Q5.}
+\vspace{-0.1in}
 \label{fig:q5}
+\vspace{-0.1in}
 \end{figure}
 
 Temporal schema of the result is computed according to
@@ -289,8 +278,10 @@ Q6:  TSelect   All V[vid, pagerank() as pr];
 \begin{figure}
 \centering
 \includegraphics[width=3.3in]{figs/q6.pdf}
+\vspace{-0.1in}
 \caption{Result of query Q6.}
 \label{fig:q6}
+\vspace{-0.1in}
 \end{figure}
 
 Temporal schema of the result is computed according to
@@ -345,18 +336,20 @@ Q7:  TSelect Any V [vid, pagerank() as pr] ;
 \centering
 \begin{minipage}{1.6in}
   \centering
-  \includegraphics[width=1in]{figs/q7.pdf}
+  \includegraphics[width=0.8in]{figs/q7.pdf}
+\vspace{-0.1in}
   \caption{Result of Q7.}{}
+\vspace{-0.1in}
   \label{fig:q7}
 \end{minipage}%
 \begin{minipage}{1.6in}
   \centering
-  \includegraphics[width=1in]{figs/q8.pdf}
+  \includegraphics[width=0.8in]{figs/q8.pdf}
+\vspace{-0.1in}
   \caption{Result of Q8.}{}
   \label{fig:q8}
+\vspace{-0.1in}
 \end{minipage}
-%\caption{Results of queries Q7 and Q8.}
-%\label{fig:q7q8}
 \end{figure}
 
 Observe that \insql{TAnd} and \insql{TGroup} use the same

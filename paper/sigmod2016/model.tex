@@ -36,9 +36,9 @@ and $E''$ are union-compatible.
 \label{def:scompat}
 \end{definition}
 
-This is the standard union compatibility definition, which requires
+\eat{This is the standard union compatibility definition, which requires
 that vertex schema $V$ and edge schema $E$ be the same for $G'$ and
-$G''$.
+$G''$.}
 
 Several operations of our query language combine two or more snapshots
 into a single snapshot. This is done using structural aggregation,
@@ -201,7 +201,7 @@ $P_1$ and $P_2$ are not union-compatible because the resolution of
 \end{example}
 
 As our example illustrates, a pair of union-compatible sequences may
-or may not overlap, and may not even be consecutive.
+not overlap and may not be consecutive.
 
 \begin{definition} [Temporal Intersection] 
 Inter-\\section of union-compatible sequences $P'$ and $P''$, denoted $P'
@@ -244,6 +244,23 @@ sequence with month as its time unit, by specifying $w = 1$ month.
 \subsection{TGraphs}
 \label{sec:model:tg}
 
+\begin{figure*}[th!]
+\centering
+\begin{minipage}{3.3in}
+  \centering
+  \includegraphics[width=3in]{figs/6snaps.pdf}
+  \caption{\tg \insql{T1} with 6 snapshots.}{}
+  \label{fig:tg}
+\end{minipage}%
+\begin{minipage}{3.3in}
+  \centering
+  \includegraphics[width=3in]{figs/t2.pdf}
+  \caption{\tg \insql{T2} with 6 snapshots.}{}
+  \label{fig:tg_t2}
+\end{minipage}
+\end{figure*}
+
+
 A snapshot represents a single state of an evolving graph, and is not
 itself time-aware.  Temporal evolution of a graph is represented by a
 sequence of snapshots, which we call a {\em temporal graph}, or \tg
@@ -260,7 +277,7 @@ Snapshots define the {\em structural schema} of $T$, while $P$
 specifies the {\em temporal schema} of $T$.
 
 An example of a \tg is given in Figure~\ref{fig:tg}, with instances of
-vertex and edge relations for 2 snapshots in Figure~\ref{fig:3ve}.
+vertex and edge relations for 3 snapshots in Figure~\ref{fig:3ve}.
 Importantly, identity of a vertex persists across snapshots in a \tg,
 and across \tgs.  For example, vertex with id $3$ represents the same
 entity in all snapshots in Figure~\ref{fig:tg} in which it occurs.
