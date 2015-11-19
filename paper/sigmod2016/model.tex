@@ -51,27 +51,21 @@ $\gamma^{V}$ and $\gamma^{E}$ specify aggregation behavior for the
 vertices and for the edges, respectively.  For each, we support two
 variants.
 
-%\begin{itemize}
-%\item $V(G) = \gamma^{V}_{vid, L}(V_1 \cup \ldots \cup V_k)$.
 \insql{[Any V]} $V(G) = \gamma^{V}_{vid, L}(\bigcup_{G_i \in {\cal G}} V(G_i))$.
 Vertices in the resulting snapshot, $G$, are present in {\em any
   snapshot} in ${\cal G}$.
 
-%\item $V(G) = \gamma^{V}_{vid,L}(V_1 \cap \ldots \cap V_k)$. Vertice
 \insql{[All V]} $V(G) = \gamma^{V}_{vid, L}(\bigcap_{G_i \in {\cal G}} V(G_i))$.
 Vertices in $G$ are present in {\em all snapshots} in ${\cal G}$.
 
-%\item $E(G) = \gamma^{E}_{vid_1,vid_2,L}(E_1 \cup \ldots \cup E_k)$.
-\insql{[Any E]} $E(G) = \gamma^{V}_{vid_1,vid_2, L}(\bigcup_{G_i \in {\cal G}} E(G_i))$.
+\insql{[Any E]} $E(G) = \gamma^{E}_{vid_1,vid_2, L}(\bigcup_{G_i \in {\cal G}} E(G_i))$.
   Edges in $G$ are in {\em any snapshot} in ${\cal G}$,
   subject to $vid_1, vid_2 \in V(G)$.
 
-%\item $E(G) = \gamma^{E}_{vid_1,vid_2,L}(E_1 \cap \ldots \cap E_k)$.
-\insql{[All E]} $E(G) = \gamma^{V}_{vid_1,vid_2, L}(\bigcap_{G_i \in
+\insql{[All E]} $E(G) = \gamma^{E}_{vid_1,vid_2, L}(\bigcap_{G_i \in
   {\cal G}} E(G_i))$.  Edges in $G$ are in {\em all snapshots} in
 ${\cal G}$, subject to $vid_1, vid_2 \in V(G)$.
 
-%\end{itemize}
 \label{def:sgroup}
 \end{definition}
 
