@@ -179,10 +179,10 @@ aggregation operations available for ordered snapshot collections:
 \insql{sum}, \insql{count}, and \insql{list}.
 
 To illustrate, consider vertex and edge relations in
-Figure~\ref{fig:3ve}, which correspond to the first two snapshots of
+Figure~\ref{fig:3ve}, which correspond to the first three snapshots of
 \insql{T1}.  Vertex 1 is present in both $[2010, 2011)$ and $[2011,
     2012)$ in \insql{T1}, and so is present in the snapshot $[2010,
-      2012)$ of the result of $Q4$.  Vertex 1 has \insql{name='Cathy'}
+      2012)$ of the result of $Q4$.  Vertex 1 has \insql{name='Alice'}
       in both snapshots, but different values for \insql{salary}.
       Therefore, taking any value of \insql{name} and the maximum
       \insql{salary} may be appropriate.  Operations \insql{first} and
@@ -244,8 +244,9 @@ structural aggregation operates on unordered collections of snapshots,
 with at most two snapshots per group.  \ql makes the following
 aggregation operations available for unordered snapshot collections:
 \insql{any}, \insql{min}, \insql{max}, \insql{sum}, \insql{count}, and
-\insql{list}.  Note that \insql{first} and \insql{last} are
-unavailable here, and that \insql{any} is still the default.
+\insql{list}.  Note that, unlike for \insql{TGroup}, \insql{first} and
+\insql{last} are unavailable here, and that \insql{any} is still the
+default.
 
 \eat{
 Also recall from our discussion of temporal aggregation that
@@ -288,7 +289,7 @@ Temporal schema of the result is computed according to
 Definition~\ref{def:tseqor}, and corresponds to a sequence with
 $P.start = 2008$, $P.end=2016$ and $P.size=8$.  Further, observe the
 use of projection (non-key attributes of \insql{V} are not retained),
-of an analytic function \insql{pagerank()} and of the aggregation
+of an analytic function \insql{pagerank()}, and of the aggregation
 operation \insql{sum} applied to the edge attribute \insql{cnt}.
 
 \subsection{Complex queries}
@@ -318,16 +319,16 @@ first executes temporal selection on each \insql{T1} and \insql{T2}.
 (Note that when temporal conditions in the \insql{TWhere} clause are
 not qualified, they are applied to all \tgs in the \insql{From}
 clause.)  Next, $Q7$ computes temporal intersection of \insql{T1} and
-\insql{T2}, the result to $[2010, 2014)$, and then temporally
-  aggregates the resulting \tg by 2 years.  Finally,
-  \insql{pagerank()} is computed for each vertex in the result.
+\insql{T2}, and then temporally aggregates the resulting \tg by 2
+years.  Finally, \insql{pagerank()} is computed for each vertex in the
+result.
 
 \begin{small}
 \begin{verbatim}
 Q7:  TSelect Any V [vid, pagerank() as pr] ; 
              Any E [vid1, vid2] 
      From    T1 TAnd T2 
-     TWhere  Start >= 2010 And End <= 2014 
+     TWhere  Start >= 2012 And End <= 2014 
      TGroup by 2 years
 \end{verbatim}
 \end{small}
@@ -360,8 +361,7 @@ query of this kind.
 Consider next query $Q8$ that is similar to $Q7$, but uses nesting to
 decouple structural aggregation of \insql{TSelect} from that of
 \insql{TGroup}. The result of executing $Q8$ is shown in
-Figure~\ref{fig:q8}.\eat{  Observe that $Q8$ explicitly pushes temporal
-selection and intersection below temporal aggregation.}
+Figure~\ref{fig:q8}.
 
 \begin{small}
 \begin{verbatim}
@@ -370,7 +370,7 @@ Q8:  TSelect   All V [vid, pagerank() as pr];
      From      ( TSelect Any V [vid] ; 
                          Any E [vid1, vid2]
                  From    T1 TAnd T2
-                 TWhere  Start >= 2010 
+                 TWhere  Start >= 2012 
                  And     End <= 2014 )
      TGroup    by 2 years
 \end{verbatim}
