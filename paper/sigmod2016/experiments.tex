@@ -134,6 +134,7 @@ structures is warranted.}
   partitioning strategy included during the loading process.}
 
 \subsection{\insql{TSelect} with \insql{TGroup}}
+\label{sec:exp:tgroup}
 
 To investigate the comparative performance of different data
 structures and partition strategies on the \insql{TGroup} operation, we used
@@ -221,6 +222,7 @@ whole size.  This trend is observed in both datasets, see Appendix for
 figures.
 
 \begin{figure*}
+\centering
 \begin{minipage}{3in}
   \centering
   \includegraphics[width=2.7in]{figs/tgroupe_cold.pdf}
@@ -313,7 +315,7 @@ only no partitioning and E2D.
 
 SG performs better than the other data structures in this experiment,
 contrary to our expectation that batch mode of MGC and OGC would be
-faster (Figure~\ref{fig:pagerank}.  This can be explained by MGC and
+faster (Figure~\ref{fig:pagerank}).  This can be explained by MGC and
 OGC using significantly more cross-partition communication due to the
 following factors:
 
@@ -336,7 +338,7 @@ following factors:
   \centering
   \includegraphics[width=2.6in]{figs/pagerank.pdf}
   \vspace{-0.1in}
-  \caption{PageRank time}
+  \caption{PageRank time.}
   \label{fig:pagerank}
   \vspace{-0.1in}
 \end{minipage}
