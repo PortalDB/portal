@@ -39,11 +39,11 @@ undirected co-occurrence edges.  Total data size: 40 GB.
 %\end{enumerate}
 
 The nGrams dataset is of comparable size to the LiveJournal dataset
-in~\cite{Xin2013} and is commesurate with our cluster size.  DBLP and
+in~\cite{Xin2013} and is commensurate with our cluster size.  DBLP and
 nGrams differ not only in size, but also in the evolutionary
 properties: co-authorship network nodes and edges have limited
 lifespan, while the nGrams network grows over time, with nodes and
-edges persisting for long durations.  All figures in the body of this
+edges persisting for long duration.  All figures in the body of this
 section are on the larger nGrams dataset.  Refer to the Appendix for
 the DBLP figures, which show similar trends as nGrams.\eat{ We plan to
   carry out further experiments with a larger
@@ -130,8 +130,8 @@ structures is warranted.}
 
 \eat{ Because the load/materialize time varies so significantly
   between different data structures, all subsequent experiments are
-  reported with a warm start, with application of a desired partition
-  strategy included during the loading process.}
+  reported with a warm start, with application of a desired
+  partitioning strategy included during the loading process.}
 
 \subsection{\insql{TSelect} with \insql{TGroup}}
 
@@ -156,14 +156,14 @@ about 13 million edges.
 Recollect that \insql{TGroup} requires a union and group by operation
 in SG, combination of transform with filter and group by for MG, and
 transform with filter for OG.  Due to compactness, MGC outperforms MG
-and OGC outperforms OG.  All data structures and partition strategies
-show linear increase in structural aggregation time as the number of
-snapshots grows.  As expected, because OGC is an already aggregated
-data structure, it outperforms MGC and SG for the \insql{TGroup}
-operation by up to two orders of magnitude.  This is shown in
-Figure~\ref{fig:tgroupe}, where we present only the best-performing
-variant (column-store) and partitioning strategy for each data
-structure.
+and OGC outperforms OG.  All data structures and partitioning
+strategies show linear increase in structural aggregation time as the
+number of snapshots grows.  As expected, because OGC is an already
+aggregated data structure, it outperforms MGC and SG for the
+\insql{TGroup} operation by up to two orders of magnitude.  This is
+shown in Figure~\ref{fig:tgroupe}, where we present only the
+best-performing variant (column-store) and partitioning strategy for
+each data structure.
 
 \begin{figure*}[t!]
 \centering
@@ -187,20 +187,19 @@ structure.
 
 To compare between partitioning strategies, consider
 Figure~\ref{fig:tgroupeparts}, which contains performance for each
-data structure and strategy at 64 snapshot aggregation.  The same
-pattern is observed at all aggregation sizes.  Partitioning strategies
-improve performance for MGC on this operation -- all outperform the
-default partitioning case by 20\% or greater.  This can be explained
-by the group by operation that is performed on the edges.  E2D always
-places two edges with the same key in the same partitioning, which
-leads to least cross-partition communication during aggregation.
+data structure and strategy at 64 snapshot aggregation.  (The same
+pattern is observed at all aggregation sizes.)  Partitioning
+strategies improve performance for MGC on this operation --- all
+outperform the default no partitioning case by 20\% or more.  This can
+be explained by the group by operation that is performed on the edges.
+E2D always places two edges with the same key in the same partition,
+which leads to least cross-partition communication during aggregation.
 Hybrid strategies use the aggregation window as the width of the run,
 also placing the edges that are to be grouped in the same set of
-partitions.  The difference between E2D and the hybrid strategies for
-MGC are not significant.  E2D partitioning of SG is also beneficial,
-but the gains are smaller than for MGC.  We observed the same trend
-for the \insql{TGroup} query with \insql{All} semantics --- see
-Appendix.
+partitions.  The differences between E2D and the hybrid strategies for
+MGC are not significant.  E2D also does best for SG, but the gains are
+smaller than for MGC.  We observed the same trend for the
+\insql{TGroup} query with \insql{All} semantics --- see Appendix.
 
 To demonstrate why we use warm start, consider
 Figure~\ref{fig:tgroupe_cold}, and note that loading time dominates
@@ -209,15 +208,17 @@ aggregation and materialization.  Based on this figure alone, one
 would conclude that partitioning is not beneficial, because it takes
 additional non-trivial time, and that SG is the most efficient data
 structure.  However, recall that the file format favors SG, and so no
-conclusions should be drawn from cold start total time alone.
+conclusions about the performance of data structures / partitioning
+method for individual operations should be drawn from cold start total
+time alone.
 
-OGC outperforms the other data structures when we fix the overall data
-size and vary the aggregation width.\eat{, as can be seen in
+OGC outperforms the other data structures when we fix the data size
+and vary the aggregation width.\eat{, as can be seen in
   Figure~\ref{fig:tgroupe_width}.}  OGC is insensitive to aggregation
-width, with only a slight improvement as the width increases.  SG and
-MGC show a linear increase, with a drop for the final aggregation by
-the whole size.  This trend is observed in both datasets, see Appendix
-for figures.
+width, with a slight improvement as the width increases.  SG and MGC
+show a linear increase, with a drop for the final aggregation by the
+whole size.  This trend is observed in both datasets, see Appendix for
+figures.
 
 \begin{figure*}
 \begin{minipage}{3in}
@@ -258,23 +259,24 @@ for figures.
 \end{small}
 
 We are selecting the two graphs from the same dataset and varying the
-amount of temporal overlap (\insql{n - m}) between them to investigate
-the worst-case performance.  This query is a good example where query
-optimization would lead to some performance improvement, since only
-the \insql{n} to \insql{y} snapshots are relevant to the operation.
-In this experiment the query was not optimized and was executed
-directly as specified.
+amount of temporal overlap (\insql{n - m}).  Note that this is the
+worst-case scenario for structural aggregation with \insql{All}, since
+the size of the intersection among the corresponding pairs of
+snapshots is the highest possible.  Note that, while this query is a
+good candidate for query rewriting, we did not optimize it in this
+experiment, but executed it directly as specified.
 
-\insql{TAnd} requires a join operation for each snapshot pair in SG,
-and a single graph join in all other data structures.  As the temporal
-overlap between the two graphs increases, we expect OGC to outperform
-SG for most cases, and this can be shown experimentally
-(Figure~\ref{fig:tandall}).  SG performs well on the small temporal
-overlap cases because fewer vertices and edges are joined there
-compared to MGC/OGC.  Partitioning has a mild benefit for MGC,
-especially with the E2D strategy, as it does for OGC and SG. See
-Figure~\ref{fig:tand_parts} in the Appendix for side-by-side
-comparison.
+\insql{TAnd} performs structural aggregation of for each snapshot pair
+in SG, and one structural aggregation in all other data structures.
+As the temporal overlap between the two graphs increases, we expect
+OGC to outperform SG, and this is what we observe experimentally
+(Figure~\ref{fig:tandall}).  SG outperforms other representations when
+overlap is 7\% or lower, while OGC significantly outperforms SG and
+MGC for higher overlap values.
+
+Partitioning has a mild benefit for MGC, especially with the E2D
+strategy, as it does for OGC and SG. See Figure~\ref{fig:tand_parts}
+in the Appendix for side-by-side comparison.
 
 \eat{
 \begin{figure}[t!]
@@ -285,12 +287,11 @@ comparison.
 }
 
 \insql{TOr} performance with \insql{Any} exactly matches that of
-\insql{TAnd} with \insql{All} above where the snapshots are selected
-from the same dataset, so we do not show it here.
+\insql{TAnd} with \insql{All} above, and we do not show it here.
 
 \subsection{PageRank}
 
-Snapshot-based analytics like \insql{pagerank} are implemented using
+Snapshot analytics like PageRank are implemented using
 the Pregel API in GraphX, with batch mode for MGC and OGC.  We used
 the following query to evaluate data structure performance over
 varying number of snapshots:
@@ -308,26 +309,25 @@ PageRank was executed for 10 iterations or until convergence,
 whichever came first.  Performance of Pregel-based algorithms depends
 heavily on the partition strategy, with best results achieved where
 cross-partition communication is small.  For this reason, we evaluated
-only no partitioning and Edge 2D partition strategy.
+only no partitioning and E2D.
 
 SG performs better than the other data structures in this experiment,
-contrary to our expectation that the batch mode of MGC and OGC would
-be faster (Figure~\ref{fig:pagerank}.  This can be explained by MGC
-and OGC using significantly more cross-partition communication due to
-the following factors:
+contrary to our expectation that batch mode of MGC and OGC would be
+faster (Figure~\ref{fig:pagerank}.  This can be explained by MGC and
+OGC using significantly more cross-partition communication due to the
+following factors:
 
 \begin{enumerate}[leftmargin=*]
 \item Each individual snapshot is less dense than the aggregate
-  (although this depends on the rate of change, etc.) and dense graphs
-  do worse with Pregel analytics.
+  (although this depends on the rate of change), and dense graphs do
+  worse with Pregel analytics.
 \item Individual snapshots are smaller and take fewer partitions, so
-  less communication happens cross-partition.
-\item PageRank gets faster as vertex values stabilize because those
-  vertices stop sending out new messages. With each vertex sending a
-  message for all snapshots where it exists at the same time, it takes
-  as long to stop sending as the longest snapshot.  
-\item The messages themselves for OGC are larger - it is more costly
-  to send a Map object than a simple number.
+  less communication happens across partitions.
+\item PageRank gets faster as vertex values converge, because those
+  vertices stop sending out new messages.  In OGC/MGC a vertex converges
+  only when it does so in all snapshots.
+\item Messages for OGC are larger --- it is more costly to send a Map
+  object than a number.
 \end{enumerate}
 
 \begin{figure*}[t]
@@ -350,14 +350,14 @@ the following factors:
 \end{minipage}
 \end{figure*}
 
-As expected, E2D partitioning leads to performance improvements in all
-data structures except MGC.
+E2D partitioning leads to performance improvements in all data
+structures except MGC.
 
 \subsection{\insql{TSelect} with \insql{trend(pagerank())}}
 
-All the experiments above evaluated performance of single operations.
-To see how data structures compare overall, we executed the following
-query:
+All the experiments so far evaluated performance of individual \ql
+operations. We conclude this section with a cold-start execution of
+the query:
 
 \begin{small}
 \begin{verbatim}
@@ -375,12 +375,15 @@ query:
 \end{verbatim}
 \end{small}
 
-As we saw above, typically SG loads faster and performs pagerank
-faster, while OGC is very efficient at aggregation, and this query
-combines all of these and adds trend analytics and projection into a
-flat vertex relation for sort and limit.  The two data structures
-perform comparably with the best partition strategy (E2D for OGC, none
-for SG), as can be seen in Figure~\ref{fig:complexq}.
+As we saw above, SG outperforms other representations for data load
+and for PageRank, while OGC is very efficient for temporal
+aggregation.  This query combines all of these operations, and adds a
+trend analytic, and a transformation of the vertices of the result
+into a flat vertex relation.
+
+SG and OGC with best partition strategy (E2D for OGC, none for SG)
+show comparable performances, as can be seen in
+Figure~\ref{fig:complexq}.
 
 \eat{
 \begin{figure}[t]
@@ -390,4 +393,3 @@ for SG), as can be seen in Figure~\ref{fig:complexq}.
 \end{figure}
 }
 
-%\vera{SOME CONCLUDING SENTENCE HERE}

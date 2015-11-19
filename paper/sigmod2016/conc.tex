@@ -1,7 +1,7 @@
 \section{Conclusions and Future Work}
 \label{sec:conc}
 
-In this paper we presented \ql, a declarative query langauge for
+In this paper we presented \ql, a declarative query language for
 evolving graphs.  We also proposed an implementation of \ql in scope
 of Apache Spark, a distributed open-source processing framework.  We
 implemented several physical representations of evolving graphs, and
@@ -13,9 +13,9 @@ temporal locality.  This work opens many avenues for future work.  It
 is in our immediate plans to start work on a query optimizer for \ql.
 We will also implement and evaluate additional \tg representations
 that explore the trade-off between density and compactness, and
-between temporal and structural locality.  Finally, we are actively
-working on extending the class of available trend analytics, and on
-optimizing the performance of snapshot and trend analytics.
+between temporal and structural locality.  Finally, we are working on
+extending the class of trend analytics, and on optimizing the
+performance of snapshot and trend analytics.
 
 \eat{ While the Portal language is extensive, it is by no means
   complete. We recognize that there are a number of operations that
@@ -31,12 +31,12 @@ optimizing the performance of snapshot and trend analytics.
   specify that he/she is looking for small strongly connected
   components that exhibit consistent growth over a period of time?
   Some work on this front has been done by Chan et
-  al~\cite{Chan2008,Kan2009}.
+  al.~\cite{Chan2008,Kan2009}.
 \item Structural select (subgraph). 
 \item Other kinds of temporal select besides by interval, such as with
   predicates, similar to snapshot selection support
   in~\cite{Khurana2013}. 
-\item Across-time analytics (unlike spanshot-based analytics,
+\item Across-time analytics (unlike snapshot-based analytics,
   e.g. pagerank) like the centrality metric for dynamic networks,
   where influence of a vertex propagates through time.
 \item Anything that would return not another tgraph.  This could be

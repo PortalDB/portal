@@ -132,7 +132,7 @@ useful when we discuss trend analytics later in this section.
 \vspace{-0.1in}
 \caption{Result of query Q3 on T1.}
 \label{fig:q3}
-\vspace{-0.1in}
+%\vspace{-0.1in}
 \end{figure}
 
 Consider next query $Q4$, and its result in
@@ -225,7 +225,7 @@ Q5:  TSelect   Any V; Any E
 \caption{Result of query Q5.}
 \vspace{-0.1in}
 \label{fig:q5}
-\vspace{-0.1in}
+%\vspace{-0.1in}
 \end{figure}
 
 Temporal schema of the result is computed according to
@@ -457,9 +457,9 @@ that of \insql{T1}.
 {\bf Inspecting results with SQL.}  Suppose that the result of $Q9$ is
 assigned to \insql{T5}, with the structural schema
 V(\underline{vid}:int, tr:float, mx:float) ; E(\underline{vid1}:int,
-\underline{vid2}:int).  Consider the SQL query below, which shows
-\insql{vid} and \insql{tr} values of 20 vertices with the most
-significantly increasing \insql{pagerank} trend. 
+\underline{vid2}:int).  The SQL query below shows \insql{vid}
+and \insql{tr} values of 20 vertices with the most significantly
+increasing \insql{pagerank} trend.
 
 \begin{small}
 \begin{verbatim}
