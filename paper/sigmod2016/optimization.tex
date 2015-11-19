@@ -24,9 +24,9 @@ of queries which can be reordered without the loss of correctness.}
 
 {\bf \insql{TGroup} before join.}  Temporal aggregation produces a
 smaller number of snapshots than its input.  Since the performance of
-joins depends on the number of snapshots being structurally joined,
-smaller number of snapshots will lead to faster performance.  Consider
-this query:
+joins depends on the number of snapshots being structurally
+aggregated, a smaller number of snapshots will lead to better
+performance.  Consider this query:
 
 \begin{small}
 \begin{verbatim}
@@ -37,11 +37,11 @@ this query:
 \end{small}
 
 Assuming that T1 and T2 have 1-year resolution, \insql{TGroup} will
-reduce the number of graphs to be joined by a factor of 5.  Therefore,
-it seems beneficial to apply \insql{TGroup} to each T1 and T2 first,
-and to the compute \insql{TOr} of the result.  Unfortunately this
-reordering is not always possible.  For T1 and T2 in
-Figures~\ref{fig:tg} and~\ref{fig:tg_t2}, aggregation produce \tgs
+reduce the number of graphs to be aggregated by a factor of 5.
+Therefore, it seems beneficial to apply \insql{TGroup} to each T1 and
+T2 first, and to then compute \insql{TOr} of the result.  Unfortunately
+this reordering is not always possible.  For T1 and T2 in
+Figures~\ref{fig:tg} and~\ref{fig:tg_t2}, \insql{TGroup} produces \tgs
 with temporal schema ([2010, 2015), [2015, 2020)) for T1 and ([2008,
       2013), [2013, 2018)) for T2.  The two \tgs are not temporally
         union-compatible and so cannot be joined.
@@ -64,7 +64,7 @@ the rewriting is:
 
 \begin{small}
 \begin{verbatim}
-   TSelct All V; All E
+   TSelect All V; All E
    From   T1 TAnd T2
    TWhere T1.Start >= 2010 And T2.End <= 2014 
           And T2.Start >= 2010 And T2.End <= 2014
@@ -76,7 +76,7 @@ This rewriting reduces the loading size of T1 and T2 by $\frac{1}{3}$
 loading time is a significant portion of the over-all time, and
 reducing it will have a noticeable effect on performances.
 
-{\bf Projection before aggregation or join.}  Recollect that
+{\bf Projection before aggregation or join.}  Recollect that temporal
 aggregation and join operate not only on graph structure, but also on
 vertex and edge attributes.  In some cases, the values of some or all
 of those attributes are irrelevant to the query, and attribute
