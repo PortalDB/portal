@@ -99,7 +99,7 @@ per period where it exists.  Because our goal is to represent both
 topological and attribute information, we need to store not only
 vertex presence or absence (which can be easily accomplished by an
 existence string, like in~\cite{Kan2009}, or by bit sets), but also
-the values of the vertex attribute at each time period.  MG vertex
+the values of vertex attributes at each time period.  MG vertex
 attribute, thus, is a map of time indices that represent intervals to
 corresponding values.  Edge attributes are tuples of the time index
 and the corresponding value.  Vertices typically change infrequently,
@@ -233,7 +233,7 @@ modification.
 
 {\bf Naive Temporal.} Let $n$ be the number of snapshots and $p$ be
 the number of partitions.  If $n \geq p$, then snapshot $i$ is placed
-into partition $i \mod p$.  Otherwise, multiple partitions are grouped
+into partition $i \% p$.  Otherwise, multiple partitions are grouped
 into a {\em run}, and the CRVC strategy is used to partition a
 snapshot within each run.
 
