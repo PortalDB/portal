@@ -1,4 +1,4 @@
-package edu.drexel.cs.dbgroup.graphxt
+package edu.drexel.cs.dbgroup.temporalgraph
 
 import scala.math.Ordered.orderingToOrdered
 import scala.math.Ordering._

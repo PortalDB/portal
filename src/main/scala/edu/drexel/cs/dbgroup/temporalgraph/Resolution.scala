@@ -1,4 +1,4 @@
-package edu.drexel.cs.dbgroup.graphxt
+package edu.drexel.cs.dbgroup.temporalgraph
 
 import java.time.Period
 import java.time.LocalDate
