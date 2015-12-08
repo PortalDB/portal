@@ -18,4 +18,8 @@ package object temporalgraph {
     def setContext(c: SparkContext):Unit = sc = c
   }
 
+  object PartitionStrategyType extends Enumeration {
+    val CanonicalRandomVertexCut, EdgePartition2D, NaiveTemporal, NaiveTemporalEdge, ConsecutiveTemporal, ConsecutiveTemporalEdge, HybridRandomTemporal, HybridRandomEdgeTemporal, Hybrid2DTemporal, Hybrid2DEdgeTemporal, None = Value
+  }
+
 }

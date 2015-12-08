@@ -1,5 +1,5 @@
 //read all files in a number range in parallel
-package edu.drexel.cs.dbgroup.graphxt.util
+package edu.drexel.cs.dbgroup.temporalgraph.util
 
 import org.apache.spark.rdd.RDD
 import org.apache.hadoop.fs._
@@ -8,8 +8,7 @@ import org.apache.hadoop.mapreduce.{Job => NewHadoopJob}
 import org.apache.hadoop.mapreduce.lib.input.{FileInputFormat => NewFileInputFormat}
 import org.apache.spark.rdd.CFTextFileRDD
 import org.apache.spark.input.CFInputFormat
-import edu.drexel.cs.dbgroup.graphxt.ProgramContext
-import edu.drexel.cs.dbgroup.graphxt._
+import edu.drexel.cs.dbgroup.temporalgraph._
 import java.time.LocalDate
 
 object MultifileLoad {

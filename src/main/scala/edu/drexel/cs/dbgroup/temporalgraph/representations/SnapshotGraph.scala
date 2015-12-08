@@ -1,4 +1,4 @@
-package edu.drexel.cs.dbgroup.graphxt
+package edu.drexel.cs.dbgroup.temporalgraph.representations
 
 import scala.collection.mutable.Buffer
 import scala.reflect.ClassTag
@@ -19,6 +19,8 @@ import org.apache.spark.rdd.PairRDDFunctions
 import org.apache.spark.storage.RDDBlockId
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
+
+import edu.drexel.cs.dbgroup.temporalgraph._
 
 import java.time.LocalDate
 
@@ -356,7 +358,7 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
     new SnapshotGraph(mergedIntervals, graphBuf.toSeq)
   }
 
-  override def intersection(other: TemporalGraph[VD, ED], sem: AggregateSemantics.Value, vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
+  override def intersect(other: TemporalGraph[VD, ED], sem: AggregateSemantics.Value, vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
     /** The type checking already validates that the structurally the graphs are union-compatible
       * But we also need to check that they are temporally union-compatible
       * this includes having the same resolution and aligning intervals

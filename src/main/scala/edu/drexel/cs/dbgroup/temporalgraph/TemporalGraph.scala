@@ -200,7 +200,7 @@ abstract class TemporalGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * @throws IllegalArgumentException if the graphs are not union-compatible
     */
   @throws(classOf[IllegalArgumentException])
-  def intersection(other: TemporalGraph[VD, ED], sem: AggregateSemantics.Value, vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TemporalGraph[VD, ED]
+  def intersect(other: TemporalGraph[VD, ED], sem: AggregateSemantics.Value, vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TemporalGraph[VD, ED]
 
   /**
     * The analytics methods
@@ -294,7 +294,7 @@ abstract class TemporalGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
    * @return a new Temporal Graph where each vertex attribute is the shortest-path distance to
    * each reachable landmark vertex.
    */
-  def shortestPaths(landmarks: Seq[VertexId]): TemporalGraph[ShortestPathsXT.SPMap, ED]
+  def shortestPaths(landmarks: Seq[VertexId]): TemporalGraph[Map[VertexId, Int], ED]
 
   /**
     * The spark-specific partitioning-related methods

@@ -1,4 +1,4 @@
-package edu.drexel.cs.dbgroup.graphxt
+package edu.drexel.cs.dbgroup.temporalgraph.portal
 
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
@@ -7,7 +7,8 @@ import scala.util.control._
 import org.apache.log4j.Logger
 import org.apache.log4j.Level
 
-import edu.drexel.cs.dbgroup.graphxt.util._
+import edu.drexel.cs.dbgroup.temporalgraph._
+import edu.drexel.cs.dbgroup.temporalgraph.util.GraphLoader
 
 object PortalShell {
   def main(args: Array[String]) = {

@@ -1,6 +1,6 @@
 //One multigraph
 //Each vertex and edge has a value attribute associated with each time period
-package edu.drexel.cs.dbgroup.graphxt
+package edu.drexel.cs.dbgroup.temporalgraph.representations
 
 import scala.collection.parallel.ParSeq
 import scala.collection.mutable.HashMap
@@ -22,7 +22,8 @@ import org.apache.spark.graphx._
 import org.apache.spark.graphx.Graph
 import org.apache.spark.rdd._
 
-import edu.drexel.cs.dbgroup.graphxt.util.MultifileLoad
+import edu.drexel.cs.dbgroup.temporalgraph._
+import edu.drexel.cs.dbgroup.temporalgraph.util.MultifileLoad
 import java.time.LocalDate
 
 class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Map[TimeIndex, VD], (TimeIndex, ED)]) extends TemporalGraph[VD, ED] with Serializable {
@@ -315,7 +316,7 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
     new MultiGraph[VD, ED](mergedIntervals, Graph[Map[TimeIndex, VD], (TimeIndex, ED)](newverts, EdgeRDD.fromEdges[(TimeIndex, ED),Map[TimeIndex,VD]](newedges)))
   }
 
-  override def intersection(other: TemporalGraph[VD, ED], sem: AggregateSemantics.Value, vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
+  override def intersect(other: TemporalGraph[VD, ED], sem: AggregateSemantics.Value, vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
     /** The type checking already validates that the structurally the graphs are union-compatible
       * But we also need to check that they are temporally union-compatible
       * this includes having the same resolution and aligning intervals

@@ -1,9 +1,11 @@
-package edu.drexel.cs.dbgroup.graphxt
+package edu.drexel.cs.dbgroup.temporalgraph.representations
 
 import scala.reflect.ClassTag
 import org.apache.spark.graphx._
 import scala.collection.immutable.Map
 import scala.collection.breakOut
+
+import edu.drexel.cs.dbgroup.temporalgraph._
 
 //pageRank implementation using Pregel interface, but for an undirected graph
 object UndirectedPageRank {

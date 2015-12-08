@@ -1,6 +1,8 @@
-package edu.drexel.cs.dbgroup.graphxt.util
+package edu.drexel.cs.dbgroup.temporalgraph.util
 
-import edu.drexel.cs.dbgroup.graphxt._
+import org.apache.spark.sql.catalyst.expressions.Attribute
+import edu.drexel.cs.dbgroup.temporalgraph._
+import edu.drexel.cs.dbgroup.temporalgraph.representations._
 import java.time.LocalDate
 
 object GraphLoader {
@@ -15,6 +17,7 @@ object GraphLoader {
   def setStrategy(str: PartitionStrategyType.Value):Unit = strategy = str
   def setRunWidth(rw: Int):Unit = runWidth = rw
 
+  //TODO: change to using reflection so that new data types can be added without recoding this
   def loadData(set: String, from: LocalDate, to: LocalDate):TemporalGraph[String,Int] = {
     //FIXME: make this not hard-coded but read from somewhere
     val path = set.toLowerCase() match {
@@ -34,5 +37,10 @@ object GraphLoader {
       case "OGC" =>
         OneGraphColumn.loadWithPartition(path, from, to, strategy, runWidth)
     }
+  }
+
+  def loadDataWithSchema(set: String, from: LocalDate, to: LocalDate, schema: Seq[Attribute] = Seq.empty): TemporalGraphWithSchema[VertexEdgeAttribute, VertexEdgeAttribute] = {
+    //TODO!
+    throw new UnsupportedOperationException("loadDataWithSchema not yet implemented")
   }
 }

@@ -1,4 +1,4 @@
-package edu.drexel.cs.dbgroup.graphxt
+package edu.drexel.cs.dbgroup.temporalgraph.representations
 
 import scala.reflect.{classTag, ClassTag}
 
@@ -9,9 +9,7 @@ import org.apache.spark.graphx._
 import org.apache.spark.graphx.impl.GraphXPartitionExtension
 import org.apache.spark.graphx.impl.PartitionStrategyMoreInfo
 
-object PartitionStrategyType extends Enumeration {
-  val CanonicalRandomVertexCut, EdgePartition2D, NaiveTemporal, NaiveTemporalEdge, ConsecutiveTemporal, ConsecutiveTemporalEdge, HybridRandomTemporal, HybridRandomEdgeTemporal, Hybrid2DTemporal, Hybrid2DEdgeTemporal, None = Value
-}
+import edu.drexel.cs.dbgroup.temporalgraph._
 
 object PartitionStrategies {
   //a factory for different strategies

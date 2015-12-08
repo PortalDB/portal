@@ -1,10 +1,12 @@
-package edu.drexel.cs.dbgroup.graphxt.util
+package edu.drexel.cs.dbgroup.temporalgraph.portal
 
 import scala.util.parsing.combinator.PackratParsers
 import scala.util.parsing.combinator.syntactical.StandardTokenParsers
 import java.time.LocalDate
 
-import edu.drexel.cs.dbgroup.graphxt._
+import edu.drexel.cs.dbgroup.temporalgraph._
+import edu.drexel.cs.dbgroup.temporalgraph.util.{LinearTrendEstimate,GraphLoader}
+
 
 object PortalParser extends StandardTokenParsers with PackratParsers {
   lexical.reserved += ("select", "from", "union", "intersection", "min", "max", "sum", "any", "universal", "existential", "directed", "undirected", "vertices", "edges", "group", "by", "with", "return", "compute", "pagerank", "components", "count", "id", "attr", "trend", "year", "month", "day", "start", "end", "where", "and", 
@@ -260,14 +262,14 @@ object Interpreter {
         }
 
         if (gr1.isLeft) {
-          val res = gr1.left.get.intersection(gr2.left.get, sem.value, fun1, fun2)
+          val res = gr1.left.get.intersect(gr2.left.get, sem.value, fun1, fun2)
           val countEnd = System.currentTimeMillis()
           val total = countEnd - countStart
           println(f"Intersection Runtime: $total%dms ($argNum%d)")
           argNum += 1
           Left(res)
         } else {
-          val res = gr1.right.get.intersection(gr2.right.get, sem.value, fun3, fun3)
+          val res = gr1.right.get.intersect(gr2.right.get, sem.value, fun3, fun3)
           val countEnd = System.currentTimeMillis()
           val total = countEnd - countStart
           println(f"Intersection Runtime: $total%dms ($argNum%d)")

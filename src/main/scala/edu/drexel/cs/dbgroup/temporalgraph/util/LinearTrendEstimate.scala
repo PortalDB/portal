@@ -1,4 +1,4 @@
-package edu.drexel.cs.dbgroup.graphxt.util
+package edu.drexel.cs.dbgroup.temporalgraph.util
 
 import scala.collection.immutable.Map
 

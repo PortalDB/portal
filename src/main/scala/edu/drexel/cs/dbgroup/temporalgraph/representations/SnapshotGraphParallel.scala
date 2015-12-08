@@ -1,4 +1,4 @@
-package edu.drexel.cs.dbgroup.graphxt
+package edu.drexel.cs.dbgroup.temporalgraph.representations
 
 import scala.collection.parallel.ParSeq
 import scala.collection.mutable.Buffer
@@ -21,8 +21,9 @@ import org.apache.spark.storage.RDDBlockId
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
 
-import edu.drexel.cs.dbgroup.graphxt.util.MultifileLoad
-import edu.drexel.cs.dbgroup.graphxt.util.NumberRangeRegex
+import edu.drexel.cs.dbgroup.temporalgraph._
+import edu.drexel.cs.dbgroup.temporalgraph.util.MultifileLoad
+import edu.drexel.cs.dbgroup.temporalgraph.util.NumberRangeRegex
 
 import java.time.LocalDate
 
@@ -366,7 +367,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
     new SnapshotGraphParallel(mergedIntervals, mergedGraphs)
   }
 
-  override def intersection(other: TemporalGraph[VD, ED], sem: AggregateSemantics.Value, vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
+  override def intersect(other: TemporalGraph[VD, ED], sem: AggregateSemantics.Value, vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
     /** The type checking already validates that the structurally the graphs are union-compatible
       * But we also need to check that they are temporally union-compatible
       * this includes having the same resolution and aligning intervals

@@ -1,4 +1,4 @@
-package edu.drexel.cs.dbgroup.graphxt.util
+package edu.drexel.cs.dbgroup.temporalgraph.util
 
 import org.apache.hadoop.fs._
 import org.apache.hadoop.conf._

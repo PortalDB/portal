@@ -1,5 +1,5 @@
 //generate a file globbing regex for an inclusive range of two ints.
-package edu.drexel.cs.dbgroup.graphxt.util
+package edu.drexel.cs.dbgroup.temporalgraph.util
 
 object NumberRangeRegex {
 

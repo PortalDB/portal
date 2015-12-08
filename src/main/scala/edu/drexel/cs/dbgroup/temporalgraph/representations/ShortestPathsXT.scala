@@ -1,8 +1,10 @@
-package edu.drexel.cs.dbgroup.graphxt
+package edu.drexel.cs.dbgroup.temporalgraph.representations
 
 import org.apache.spark.graphx._
 import scala.reflect.ClassTag
 import scala.collection.breakOut
+
+import edu.drexel.cs.dbgroup.temporalgraph._
 
 /**
  * Computes shortest paths to the given set of landmark vertices for temporal graphs

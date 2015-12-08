@@ -1,11 +1,13 @@
-package edu.drexel.cs.dbgroup.graphxt
+package edu.drexel.cs.dbgroup.temporalgraph.representations
 
 import scala.reflect.ClassTag
 import org.apache.spark.graphx._
 import scala.collection.immutable.Map
 import scala.collection.breakOut
 
-//connected components algorithm for graphxt
+import edu.drexel.cs.dbgroup.temporalgraph._
+
+//connected components algorithm for temporalgraph
 object ConnectedComponentsXT {
   /**
    * Run connected components algorithm on a multigraph
