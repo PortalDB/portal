@@ -3,6 +3,7 @@ package edu.drexel.cs.dbgroup.temporalgraph.plan
 import edu.drexel.cs.dbgroup.temporalgraph.{TemporalGraphWithSchema,VertexEdgeAttribute}
 import java.util.concurrent.atomic.AtomicBoolean
 import org.apache.spark.sql.catalyst.plans.QueryPlan
+import org.apache.spark.sql.catalyst.InternalRow
 
 abstract class PortalPlan extends QueryPlan[PortalPlan] {
 
@@ -15,7 +16,7 @@ abstract class PortalPlan extends QueryPlan[PortalPlan] {
    * Returns the result of this query as an TemporalGraphWithSchema[VertexEdgeAttribute,VertexEdgeAttribute] by delegating to doExecute
    * Concrete implementations of PortalPlan should override doExecute instead.
    */
-  final def execute(): TemporalGraphWithSchema[VertexEdgeAttribute,VertexEdgeAttribute] = {
+  final def execute(): TemporalGraphWithSchema[InternalRow,InternalRow] = {
     prepare()
     doExecute()
   }
@@ -42,9 +43,9 @@ abstract class PortalPlan extends QueryPlan[PortalPlan] {
 
   /**
    * Overridden by concrete implementations of PortalPlan.
-   * Produces the result of the query as an TemporalGraphWithSchema[VertexEdgeAttribute,VertexEdgeAttribute]
+   * Produces the result of the query as an TemporalGraphWithSchema[InternalRow,InternalRow]
    */
-  protected def doExecute(): TemporalGraphWithSchema[VertexEdgeAttribute,VertexEdgeAttribute]
+  protected def doExecute(): TemporalGraphWithSchema[InternalRow,InternalRow]
 
 }
 

@@ -5,7 +5,7 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.catalyst.expressions.NamedExpression
 
 abstract class TemporalGraphWithSchema[VD: ClassTag, ED: ClassTag] extends TemporalGraph {
-  def getSchema(): StructType
+  def getSchema(): GraphSpec
 
   def project[VD2: ClassTag, ED2: ClassTag](input: Seq[NamedExpression]): TemporalGraphWithSchema[VD2, ED2]
 }

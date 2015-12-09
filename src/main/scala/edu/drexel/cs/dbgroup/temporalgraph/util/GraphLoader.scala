@@ -1,6 +1,8 @@
 package edu.drexel.cs.dbgroup.temporalgraph.util
 
-import org.apache.spark.sql.catalyst.expressions.Attribute
+import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.types.StructType
+
 import edu.drexel.cs.dbgroup.temporalgraph._
 import edu.drexel.cs.dbgroup.temporalgraph.representations._
 import java.time.LocalDate
@@ -39,7 +41,7 @@ object GraphLoader {
     }
   }
 
-  def loadDataWithSchema(set: String, from: LocalDate, to: LocalDate, schema: Seq[Attribute] = Seq.empty): TemporalGraphWithSchema[VertexEdgeAttribute, VertexEdgeAttribute] = {
+  def loadDataWithSchema(set: String, from: LocalDate, to: LocalDate, schema: StructType): TemporalGraphWithSchema[InternalRow, InternalRow] = {
     //TODO!
     throw new UnsupportedOperationException("loadDataWithSchema not yet implemented")
   }

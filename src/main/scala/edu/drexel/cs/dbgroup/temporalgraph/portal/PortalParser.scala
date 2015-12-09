@@ -1,29 +1,142 @@
 package edu.drexel.cs.dbgroup.temporalgraph.portal
 
+import scala.language.implicitConversions
 import scala.util.parsing.combinator.PackratParsers
 import scala.util.parsing.combinator.syntactical.StandardTokenParsers
+import scala.util.parsing.combinator.lexical.StdLexical
+import scala.util.parsing.input.CharArrayReader.EofCh
+import scala.util.matching.Regex
 import java.time.LocalDate
 
-import edu.drexel.cs.dbgroup.temporalgraph._
-import edu.drexel.cs.dbgroup.temporalgraph.util.{LinearTrendEstimate,GraphLoader}
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 
+import edu.drexel.cs.dbgroup.temporalgraph._
+import edu.drexel.cs.dbgroup.temporalgraph.plan.{LoadGraph,LoadGraphWithSchema}
 
 object PortalParser extends StandardTokenParsers with PackratParsers {
-  lexical.reserved += ("select", "from", "union", "intersection", "min", "max", "sum", "any", "universal", "existential", "directed", "undirected", "vertices", "edges", "group", "by", "with", "return", "compute", "pagerank", "components", "count", "id", "attr", "trend", "year", "month", "day", "start", "end", "where", "and", 
+  //lexical.reserved += ("tselect", "from", "union", "intersection", "min", "max", "sum", "any", "universal", "existential", "directed", "undirected", "vertices", "edges", "group", "by", "with", "return", "compute", "pagerank", "components", "count", "id", "attr", "trend", "year", "month", "day", "start", "end", "where", "and",
     //these are for debugging and testing
-    "materialize")
-  lexical.delimiters ++= List("-", "=", ".")
+//    "materialize")
+  //lexical.delimiters ++= List("-", "=", ".")
 
-  def parse(input: String) = {
-    println("parsing query " + input)
+  protected case class Keyword(str: String) {
+    def normalize: String = lexical.normalizeKeyword(str)
+    def parser: Parser[String] = normalize
+  }
+
+  protected implicit def asParser(k: Keyword): Parser[String] = k.parser
+
+  import lexical.Identifier
+  implicit def regexToParser(regex: Regex): Parser[String] = acceptMatch(
+    s"identifier matching regex ${regex}",
+    { case Identifier(str) if regex.unapplySeq(str).isDefined => str }
+  )
+
+  protected val TSELECT = Keyword("TSELECT")
+  protected val FROM = Keyword("FROM")
+  protected val ALL = Keyword("ALL")
+  protected val ANY = Keyword("ANY")
+  protected val V = Keyword("V")
+  protected val E = Keyword("E")
+  protected val HDFS = Keyword("HDFS")
+  protected val FILE = Keyword("FILE")
+  //TODO: ADD MORE HERE
+
+  protected lazy val reservedWords: Seq[String] = 
+    this
+      .getClass
+      .getMethods
+      .filter(_.getReturnType == classOf[Keyword])
+      .map(_.invoke(this).asInstanceOf[Keyword].normalize)
+
+  override val lexical = new PortalLexical
+
+  def parse(input: String): LogicalPlan = {
+    initLexical
     val tokens = (new PackratReader(new lexical.Scanner(input)))
-    val res = phrase(query)(tokens)
+    val res = phrase(start)(tokens)
     res match {
-      case Success(result, _) => Interpreter.parseQuery(result)
+      case Success(result, _) => result
       case e: NoSuccess => throw new IllegalArgumentException("illformed query, message: " + e.toString)
     }
   }
 
+  protected lazy val initLexical: Unit = lexical.initialize(reservedWords)
+
+  protected def start: Parser[LogicalPlan] = query
+
+  protected lazy val query: Parser[LogicalPlan] = tselect
+
+  protected lazy val tselect: Parser[LogicalPlan] = (
+    TSELECT ~> V ~> ";" ~> E ~> FROM ~> path ^^ {
+      case dataset => LoadGraph(dataset)
+    }
+    | TSELECT ~> graphspec ~ (FROM ~> path) ^^ {
+      case spec ~ dataset => LoadGraphWithSchema(spec, dataset)
+    }
+  )
+
+  //poorman's url parse
+  protected lazy val path: Parser[String] = {
+    protocol ~ "://" ~ repsep(stringLit, "/") ^^ {
+      case prot ~ _ ~ dirs => prot + "://" + dirs.mkString("/")
+    }
+  }
+
+  protected lazy val protocol: Parser[String] = (
+    HDFS | FILE
+  )
+
+  protected lazy val graphspec: Parser[GraphSpec] = (
+    (V ~> "[" ~> repsep(field, ",") <~ "]") ~ (E ~> "[" ~> repsep(field, ",") <~ "]") ^^ {
+      case vfields ~ efields => new GraphSpec(vfields, efields)
+    }
+  )
+
+  protected lazy val field: Parser[StructField] = (
+    //FIXME: vid is not nullable and this makes every field nullable
+    ident ~ ":" ~ dataType ^^ { case fieldName ~ _ ~ typ => StructField(fieldName, typ) }
+  )
+
+  protected lazy val dataType: Parser[DataType] = primitiveType
+
+  protected lazy val primitiveType: Parser[DataType] = (
+    "(?i)string".r ^^^ StringType |
+    "(?i)float".r ^^^ FloatType |
+    "(?i)(?:int|integer)".r ^^^ IntegerType |
+    "(?i)tinyint".r ^^^ ByteType |
+    "(?i)smallint".r ^^^ ShortType |
+    "(?i)double".r ^^^ DoubleType |
+    "(?i)(?:bigint|long)".r ^^^ LongType |
+    "(?i)binary".r ^^^ BinaryType |
+    "(?i)boolean".r ^^^ BooleanType |
+    "(?i)decimal".r ^^^ DecimalType.USER_DEFAULT |
+    "(?i)date".r ^^^ DateType |
+    "(?i)timestamp".r ^^^ TimestampType
+  )
+
+/*
+  protected lazy val graphspec: Parser[GraphSpec] = {
+    V ~ opt(attrspec) ~ ";" ~ E ~ opt(attrspec) ^^ {
+      //TODO
+    }
+  }
+
+  protected lazy val modifer: Parser[AggregateSemantics.Value] = {
+    ALL ^^^ AggregateSemantics.Universal
+    ANY ^^ AggregateSemantics.Existential
+  }
+
+  protected lazy val attrspec: Parser[Seq[StructField]] = {
+    "[" ~> repsep(attr, ",") <~ "]"
+  }
+
+  protected lazy val attr: Parser[StructField] = {
+
+  }
+ */
+/*
   lazy val query: PackratParser[Query] = ( expr ~ "return" ~ entity ~ opt(attrStr) ^^ { case g ~ _ ~ e ~ Some(astr) => Return(g, e, astr) 
     case g ~ _ ~ e ~ _ => Return(g, e, Attr()) }
     | expr ~ "materialize" ^^ { case g ~ _ => Materialize(g)}
@@ -95,10 +208,70 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
                  | "sum" ^^^ SumFunc()
                  | "any" ^^^ AnyFunc()
   )
-
+ */
 
 }
 
+class PortalLexical extends StdLexical {
+  case class FloatLit(chars: String) extends Token {
+    override def toString: String = chars
+  }
+
+  /* This is a work around to support the lazy setting */
+  def initialize(keywords: Seq[String]): Unit = {
+    reserved.clear()
+    reserved ++= keywords
+  }
+
+  /* Normal the keyword string */
+  def normalizeKeyword(str: String): String = str.toLowerCase
+
+  delimiters += (
+    "@", "*", "+", "-", "<", "=", "<>", "!=", "<=", ">=", ">", "/", "(", ")",
+    ",", ";", "%", "{", "}", ":", "[", "]", ".", "&", "|", "^", "~", "<=>"
+  )
+
+  protected override def processIdent(name: String) = {
+    val token = normalizeKeyword(name)
+    if (reserved contains token) Keyword(token) else Identifier(name)
+  }
+
+  override lazy val token: Parser[Token] =
+    ( identChar ~ (identChar | digit).* ^^
+      { case first ~ rest => processIdent((first :: rest).mkString) }
+    | digit.* ~ identChar ~ (identChar | digit).* ^^
+      { case first ~ middle ~ rest => processIdent((first ++ (middle :: rest)).mkString) }
+    | rep1(digit) ~ ('.' ~> digit.*).? ^^ {
+        case i ~ None => NumericLit(i.mkString)
+        case i ~ Some(d) => FloatLit(i.mkString + "." + d.mkString)
+      }
+    | '\'' ~> chrExcept('\'', '\n', EofCh).* <~ '\'' ^^
+      { case chars => StringLit(chars mkString "") }
+    | '"' ~> chrExcept('"', '\n', EofCh).* <~ '"' ^^
+      { case chars => StringLit(chars mkString "") }
+    | '`' ~> chrExcept('`', '\n', EofCh).* <~ '`' ^^
+      { case chars => Identifier(chars mkString "") }
+    | EofCh ^^^ EOF
+    | '\'' ~> failure("unclosed string literal")
+    | '"' ~> failure("unclosed string literal")
+    | delim
+    | failure("illegal character")
+    )
+
+  override def identChar: Parser[Elem] = letter | elem('_')
+
+  override def whitespace: Parser[Any] =
+    ( whitespaceChar
+    | '/' ~ '*' ~ comment
+    | '/' ~ '/' ~ chrExcept(EofCh, '\n').*
+    | '#' ~ chrExcept(EofCh, '\n').*
+    | '-' ~ '-' ~ chrExcept(EofCh, '\n').*
+    | '/' ~ '*' ~ failure("unclosed comment")
+    ).*
+}
+
+
+/*
 object Interpreter {
   var argNum:Int = 1
 
@@ -511,3 +684,5 @@ case class MaxFunc extends Function
 case class MinFunc extends Function
 case class SumFunc extends Function
 case class AnyFunc extends Function
+
+ */
