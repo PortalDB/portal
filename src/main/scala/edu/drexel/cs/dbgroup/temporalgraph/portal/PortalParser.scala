@@ -29,8 +29,10 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
 
   import lexical.Identifier
   implicit def regexToParser(regex: Regex): Parser[String] = acceptMatch(
-    s"identifier matching regex ${regex}",
-    { case Identifier(str) if regex.unapplySeq(str).isDefined => str }
+    s"identifier matching regex ${regex}", {
+      case Identifier(str) if regex.unapplySeq(str).isDefined => str
+      case lexical.Keyword(str) if regex.unapplySeq(str).isDefined => str
+    }
   )
 
   protected val TSELECT = Keyword("TSELECT")
@@ -39,8 +41,6 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
   protected val ANY = Keyword("ANY")
   protected val V = Keyword("V")
   protected val E = Keyword("E")
-  protected val HDFS = Keyword("HDFS")
-  protected val FILE = Keyword("FILE")
   //TODO: ADD MORE HERE
 
   protected lazy val reservedWords: Seq[String] = 
@@ -69,33 +69,21 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
   protected lazy val query: Parser[LogicalPlan] = tselect
 
   protected lazy val tselect: Parser[LogicalPlan] = (
-    TSELECT ~> V ~> ";" ~> E ~> FROM ~> path ^^ {
+    TSELECT ~> V ~> ";" ~> E ~> FROM ~> stringLit ^^ {
       case dataset => LoadGraph(dataset)
     }
-    | TSELECT ~> graphspec ~ (FROM ~> path) ^^ {
+    | TSELECT ~> graphspec ~ (FROM ~> stringLit) ^^ {
       case spec ~ dataset => LoadGraphWithSchema(spec, dataset)
     }
   )
 
-  //poorman's url parse
-  protected lazy val path: Parser[String] = {
-    protocol ~ "://" ~ repsep(stringLit, "/") ^^ {
-      case prot ~ _ ~ dirs => prot + "://" + dirs.mkString("/")
-    }
-  }
-
-  protected lazy val protocol: Parser[String] = (
-    HDFS | FILE
-  )
-
   protected lazy val graphspec: Parser[GraphSpec] = (
-    (V ~> "[" ~> repsep(field, ",") <~ "]") ~ (E ~> "[" ~> repsep(field, ",") <~ "]") ^^ {
+    (V ~> "[" ~> repsep(field, ",") <~ "]" <~ ";") ~ (E ~> "[" ~> repsep(field, ",") <~ "]") ^^ {
       case vfields ~ efields => new GraphSpec(vfields, efields)
     }
   )
 
   protected lazy val field: Parser[StructField] = (
-    //FIXME: vid is not nullable and this makes every field nullable
     ident ~ ":" ~ dataType ^^ { case fieldName ~ _ ~ typ => StructField(fieldName, typ) }
   )
 

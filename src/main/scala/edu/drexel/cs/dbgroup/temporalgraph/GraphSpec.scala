@@ -1,6 +1,7 @@
 package edu.drexel.cs.dbgroup.temporalgraph
 
-import org.apache.spark.sql.types.StructField
+import org.apache.spark.sql.types.{StructField,StructType,Metadata}
+import org.apache.spark.sql.catalyst.expressions.{Attribute,AttributeReference}
 
 class GraphSpec(vertexSchema: Seq[StructField], edgeSchema: Seq[StructField]) {
   override def toString(): String = {
@@ -12,5 +13,10 @@ class GraphSpec(vertexSchema: Seq[StructField], edgeSchema: Seq[StructField]) {
     builder.append("]")
 
     builder.toString()
+  }
+
+  def toAttributes(): Seq[Attribute] = {
+    Seq(AttributeReference("V", StructType(vertexSchema), false, Metadata.empty)(),
+      AttributeReference("E", StructType(edgeSchema), false, Metadata.empty)())
   }
 }
