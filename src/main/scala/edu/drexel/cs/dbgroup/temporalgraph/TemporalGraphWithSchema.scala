@@ -3,9 +3,11 @@ package edu.drexel.cs.dbgroup.temporalgraph
 import scala.reflect.ClassTag
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.catalyst.expressions.NamedExpression
+import org.apache.spark.sql.catalyst.InternalRow
 
-abstract class TemporalGraphWithSchema[VD: ClassTag, ED: ClassTag] extends TemporalGraph {
+trait TemporalGraphWithSchema extends TemporalGraph[InternalRow,InternalRow] {
   def getSchema(): GraphSpec
 
-  def project[VD2: ClassTag, ED2: ClassTag](input: Seq[NamedExpression]): TemporalGraphWithSchema[VD2, ED2]
+  def projectVertices(input: Seq[NamedExpression]): TemporalGraphWithSchema
+  def projectEdges(input: Seq[NamedExpression]): TemporalGraphWithSchema
 }

@@ -7,7 +7,7 @@ import edu.drexel.cs.dbgroup.temporalgraph.util.GraphLoader
 
 case class LoadGraph(url: String) extends LogicalLeafNode {
   protected lazy val catalog: Seq[Attribute] = {
-    GraphLoader.loadGraphDescription(url)
+    GraphLoader.loadGraphDescription(url).toAttributes
   }
 
   override def output: Seq[Attribute] = catalog
