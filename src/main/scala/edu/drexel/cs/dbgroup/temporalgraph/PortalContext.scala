@@ -1,7 +1,7 @@
 package edu.drexel.cs.dbgroup.temporalgraph
 
 import edu.drexel.cs.dbgroup.temporalgraph.portal.{PortalParser,PortalAnalyzer,PortalPlanner,PortalOptimizer}
-import edu.drexel.cs.dbgroup.temporalgraph.plan.PortalPlan
+import edu.drexel.cs.dbgroup.temporalgraph.plans.PortalPlan
 
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.catalyst.{SimpleCatalystConf}

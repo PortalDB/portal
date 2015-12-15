@@ -47,9 +47,13 @@ object GraphLoader {
     }
   }
 
-  def loadDataWithSchema(set: String, from: LocalDate, to: LocalDate, schema: StructType): TemporalGraphWithSchema = {
-    //TODO!
-    throw new UnsupportedOperationException("loadDataWithSchema not yet implemented")
+  def loadDataWithSchema(url: String, from: LocalDate, to: LocalDate, schema: GraphSpec): TemporalGraphWithSchema = {
+    //TODO: make the data type not string
+    graphType match {
+      case "SG" =>
+        SnapshotGraphWithSchema.loadWithSchema(url, from, to, schema)
+      case _ => throw new IllegalArgumentException("Unknown data structure type " + graphType)
+    }
   }
 
   def loadGraphSpan(url: String): (Interval, Resolution) = {

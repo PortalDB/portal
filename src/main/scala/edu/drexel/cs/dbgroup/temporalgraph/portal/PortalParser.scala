@@ -12,7 +12,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 
 import edu.drexel.cs.dbgroup.temporalgraph._
-import edu.drexel.cs.dbgroup.temporalgraph.plan.{LoadGraph,LoadGraphWithSchema}
+import edu.drexel.cs.dbgroup.temporalgraph.plans.logical._
 
 object PortalParser extends StandardTokenParsers with PackratParsers {
   //lexical.reserved += ("tselect", "from", "union", "intersection", "min", "max", "sum", "any", "universal", "existential", "directed", "undirected", "vertices", "edges", "group", "by", "with", "return", "compute", "pagerank", "components", "count", "id", "attr", "trend", "year", "month", "day", "start", "end", "where", "and",
@@ -73,7 +73,7 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
       case dataset => LoadGraph(dataset)
     }
     | TSELECT ~> graphspec ~ (FROM ~> stringLit) ^^ {
-      case spec ~ dataset => LoadGraphWithSchema(spec, dataset)
+      case spec ~ dataset => LoadGraphWithSchema(spec.toAttributes, dataset)
     }
   )
 

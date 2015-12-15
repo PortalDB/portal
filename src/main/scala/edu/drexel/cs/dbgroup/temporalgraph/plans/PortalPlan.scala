@@ -1,4 +1,4 @@
-package edu.drexel.cs.dbgroup.temporalgraph.plan
+package edu.drexel.cs.dbgroup.temporalgraph.plans
 
 import edu.drexel.cs.dbgroup.temporalgraph.{TemporalGraphWithSchema,VertexEdgeAttribute}
 import java.util.concurrent.atomic.AtomicBoolean
