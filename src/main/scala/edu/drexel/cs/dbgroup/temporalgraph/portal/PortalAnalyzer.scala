@@ -21,13 +21,13 @@ class PortalAnalyzer(catalog: Catalog, registry: FunctionRegistry) extends Analy
     CheckResolution()
   )
 
-  case class CheckUnionCompatability extends (LogicalPlan => Unit) {
+  case class CheckUnionCompatability() extends (LogicalPlan => Unit) {
     def apply(plan: LogicalPlan): Unit = {
       //TODO: verify that all unions/intersections are union compatible
     }
   }
 
-  case class CheckResolution extends (LogicalPlan => Unit) {
+  case class CheckResolution() extends (LogicalPlan => Unit) {
     def apply(plan: LogicalPlan): Unit = {
       //TODO: verify that aggregations go from smaller to larger valid resolutions
       //in tgroup ops
