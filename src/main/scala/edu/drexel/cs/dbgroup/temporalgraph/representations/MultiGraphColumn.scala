@@ -163,7 +163,7 @@ class MultiGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Gr
       throw new UnsupportedOperationException("this version of select not yet implementet")
   }
 
-  override def aggregate(res: Resolution, sem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
+  override def aggregate(res: Resolution, vsem: AggregateSemantics.Value, esem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
     var intvs: Seq[Interval] = Seq[Interval]()
 
     if (!resolution.isCompatible(res)) {
@@ -214,12 +214,12 @@ class MultiGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Gr
       BitSet() ++ parts.zipWithIndex.flatMap { case (expected,index) =>    //produce indices that should be set
         //make a mask for this part
         val mask = BitSet((expected*index to (expected*(index+1)-1)): _*)
-        if (sem == AggregateSemantics.All) {
+        if (vsem == AggregateSemantics.All) {
           if (mask.subsetOf(attr))
             Some(index)
           else
             None
-        } else if (sem == AggregateSemantics.Any) {
+        } else if (vsem == AggregateSemantics.Any) {
           if (!(mask & attr).isEmpty)
             Some(index)
           else
@@ -228,13 +228,13 @@ class MultiGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Gr
       }}
 
     var edges: EdgeRDD[(TimeIndex, ED)] = null
-    if (sem == AggregateSemantics.Any) {
+    if (esem == AggregateSemantics.Any) {
       edges = EdgeRDD.fromEdges[(TimeIndex, ED), VD](wverts.edges.map(x => ((x.srcId, x.dstId, broadcastIndMap.value(x.attr._1)), x.attr._2)).reduceByKey(eAggFunc).map { x =>
         val (k, v) = x
         //key is srcid, dstid, resolution, value is attrib
         Edge(k._1, k._2, (k._3, v))
       })
-    } else if (sem == AggregateSemantics.All) {
+    } else if (esem == AggregateSemantics.All) {
       edges = EdgeRDD.fromEdges[(TimeIndex, ED), VD](wverts.edges.map(x => ((x.srcId, x.dstId, broadcastIndMap.value(x.attr._1)), (x.attr._2, 1))).reduceByKey((x, y) => (eAggFunc(x._1, y._1), x._2 + y._2)).filter { case (k, (attr, cnt)) => cnt == cntMap(k._3) }.map { x =>
         val (k, v) = x
         //key is srcid, dstid, resolution, value is attrib and count
@@ -243,7 +243,7 @@ class MultiGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Gr
     }
 
     //TODO: see if filtering can be done more efficiently
-    val attrs = if (sem == AggregateSemantics.All) vertexattrs.map{ case (k,v) => ((k._1, broadcastIndMap.value(k._2)), (v, 1))}.reduceByKey((x,y) => (vAggFunc(x._1, y._1), x._2 + y._2)).filter{ case (k, (attr,cnt)) => cnt == cntMap(k._2)}.map{ case (k,v) => (k, v._1)} else vertexattrs.map{ case (k,v) => ((k._1, broadcastIndMap.value(k._2)), v)}.reduceByKey(vAggFunc)
+    val attrs = if (vsem == AggregateSemantics.All) vertexattrs.map{ case (k,v) => ((k._1, broadcastIndMap.value(k._2)), (v, 1))}.reduceByKey((x,y) => (vAggFunc(x._1, y._1), x._2 + y._2)).filter{ case (k, (attr,cnt)) => cnt == cntMap(k._2)}.map{ case (k,v) => (k, v._1)} else vertexattrs.map{ case (k,v) => ((k._1, broadcastIndMap.value(k._2)), v)}.reduceByKey(vAggFunc)
 
     //broadcastIndMap.destroy()
 

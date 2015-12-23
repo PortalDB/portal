@@ -144,7 +144,7 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Map[
       throw new UnsupportedOperationException("this version of select not yet implementet")
   }
 
-  override def aggregate(res: Resolution, sem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
+  override def aggregate(res: Resolution, vsem: AggregateSemantics.Value, esem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
     var intvs: Seq[Interval] = Seq[Interval]()
 
     if (!resolution.isCompatible(res)) {
@@ -190,20 +190,21 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Map[
     val filtered = graphs.mapVertices { (vid, attr) =>
       var tmp: Map[Int, Seq[VD]] = attr.toSeq.map { case (k, v) => (indMap(k), v) }.groupBy { case (k, v) => k }.mapValues { v => v.map { case (x, y) => y } }
       //tmp is now a map of (index, list(attr))
-      if (sem == AggregateSemantics.All) {
+      if (vsem == AggregateSemantics.All) {
         tmp = tmp.filter { case (k, v) => v.size == cntMap(k) }
       }
       tmp.mapValues { v => v.reduce(vAggFunc) }.map(identity)
     }
+    .subgraph(vpred = (vid, attr) => !attr.isEmpty)
     .mapEdges { e =>
       var tmp: Map[Int, Seq[ED]] = e.attr.toSeq.map { case (k,v) => (indMap(k), v) }.groupBy { case (k,v) => k}.mapValues { v => v.map { case (x, y) => y } }
       //tmp is now a map of (index, list(attr))
-      if (sem == AggregateSemantics.All) {
+      if (esem == AggregateSemantics.All) {
         tmp = tmp.filter { case (k,v) => v.size == cntMap(k) }
       }
       tmp.mapValues { v => v.reduce(eAggFunc) }.map(identity)
     }
-    .subgraph(vpred = (vid, attr) => !attr.isEmpty, epred = e => !e.attr.isEmpty)
+    .subgraph(epred = e => !e.attr.isEmpty)
 
     new OneGraph[VD, ED](intvs, filtered)
   }
