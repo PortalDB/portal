@@ -9,7 +9,11 @@ package object temporalgraph {
   type TimeIndex = Int
 
   object AggregateSemantics extends Enumeration {
-    val Existential, Universal = Value
+    val All, Any = Value
+  }
+
+  object JoinSemantics extends Enumeration {
+    val And, Or = Value
   }
 
   object ProgramContext {

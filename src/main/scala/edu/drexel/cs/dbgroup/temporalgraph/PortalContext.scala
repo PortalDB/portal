@@ -23,6 +23,9 @@ class PortalContext(@transient val sparkContext: SparkContext) {
 
   protected[temporalgraph] lazy val planner = new PortalPlanner()
 
+  //the logical tree created by the parser does not contain all
+  //the necessary elements. For example, it does not contain the analytics
+  //nodes because that requires the analysis step
   def parsePortal(query: String): LogicalPlan = PortalParser.parse(query)
   def executePortal(query: String): this.QueryExecution = executePlan(parsePortal(query))
   def executePlan(plan: LogicalPlan) = new this.QueryExecution(plan)

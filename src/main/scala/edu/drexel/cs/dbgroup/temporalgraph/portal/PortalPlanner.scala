@@ -31,12 +31,10 @@ class PortalPlanner extends QueryPlanner[PortalPlan] {
           physical.PhysicalGraph(spec, url, start, end, "OGC") :: Nil
         else
           physical.PhysicalGraph(spec, url, start, end, defaultDS) :: Nil
-      case logical.LoadGraphWithDate(spec, url, start, end) =>
-        physical.PhysicalGraph(spec, url, start, end, defaultDS) :: Nil
-      case logical.LoadGraphWithSchema(spec, url) =>
-        physical.PhysicalGraph(spec, url, LocalDate.MIN, LocalDate.MAX, defaultDS) :: Nil
-      case l @ logical.LoadGraph(url) =>
-        physical.PhysicalGraph(l.output, url, LocalDate.MIN, LocalDate.MAX, defaultDS) :: Nil
+      case lg @ logical.LoadGraphWithSchema(spec, url, start, end) =>
+        physical.PhysicalGraph(lg.spec.toAttributes(), url, start, end, defaultDS) :: Nil
+      case l @ logical.LoadGraph(url, start, end) =>
+        physical.PhysicalGraph(l.output, url, start, end, defaultDS) :: Nil
       case _ => Nil
     }
   }

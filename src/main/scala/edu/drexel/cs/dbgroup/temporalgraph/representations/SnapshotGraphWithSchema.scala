@@ -81,6 +81,9 @@ object SnapshotGraphWithSchema {
     val fs: FileSystem = FileSystem.get(conf)
 
     val fullSchema = GraphLoader.loadGraphDescription(dataPath)
+    //FIXME: throw exception if the schema passed in has fields
+    //that the full schema does not have!
+
     val vertexAllFields = fullSchema.getVertexSchema
     val edgeAllFields = fullSchema.getEdgeSchema
     val (vertexFields: Array[Boolean], edgeFields: Array[Boolean]) = schema.getIndices(fullSchema)

@@ -190,7 +190,7 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Map[
     val filtered = graphs.mapVertices { (vid, attr) =>
       var tmp: Map[Int, Seq[VD]] = attr.toSeq.map { case (k, v) => (indMap(k), v) }.groupBy { case (k, v) => k }.mapValues { v => v.map { case (x, y) => y } }
       //tmp is now a map of (index, list(attr))
-      if (sem == AggregateSemantics.Universal) {
+      if (sem == AggregateSemantics.All) {
         tmp = tmp.filter { case (k, v) => v.size == cntMap(k) }
       }
       tmp.mapValues { v => v.reduce(vAggFunc) }.map(identity)
@@ -198,7 +198,7 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Map[
     .mapEdges { e =>
       var tmp: Map[Int, Seq[ED]] = e.attr.toSeq.map { case (k,v) => (indMap(k), v) }.groupBy { case (k,v) => k}.mapValues { v => v.map { case (x, y) => y } }
       //tmp is now a map of (index, list(attr))
-      if (sem == AggregateSemantics.Universal) {
+      if (sem == AggregateSemantics.All) {
         tmp = tmp.filter { case (k,v) => v.size == cntMap(k) }
       }
       tmp.mapValues { v => v.reduce(eAggFunc) }.map(identity)
@@ -282,7 +282,7 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Map[
     val gr2Verts = if (gr2IndexStart > 0) grp2.graphs.vertices.mapValues{ (vid:VertexId, vattr:Map[TimeIndex,VD]) => vattr.map{ case (k,v) => (k+gr2IndexStart, v)} } else grp2.graphs.vertices
 
     //now union
-    var target = if (sem == AggregateSemantics.Universal) 2 else 1
+    var target = if (sem == AggregateSemantics.All) 2 else 1
     //this is somewhat complicated. union of vertices produces some duplicates
     //reduceByKey applies a specified function to the attributes, which are maps
     //for each pair of maps, we convert them to sequences 
@@ -338,7 +338,7 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Map[
       }
 
       //now union
-      var target = if (sem == AggregateSemantics.Universal) 2 else 1
+      var target = if (sem == AggregateSemantics.All) 2 else 1
       //this is somewhat complicated. union of vertices produces some duplicates
       //reduceByKey applies a specified function to the attributes, which are maps
       //for each pair of maps, we convert them to sequences

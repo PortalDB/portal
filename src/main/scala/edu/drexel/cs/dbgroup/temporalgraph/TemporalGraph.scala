@@ -5,7 +5,6 @@ import org.apache.spark.graphx._
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.rdd.RDD
 
-//TODO: change to a trait?
 abstract class TemporalGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
 
   /**
@@ -170,12 +169,12 @@ abstract class TemporalGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * Produce a union of two union-compatible temporal graphs. 
     * The result is a union of the temporal sequences of the two graphs.
     * For the snapshots that correspond to the same time period,
-    * the existential or universal semantics is applied.
+    * the any(existential) or all(universal) semantics is applied.
     * If there are any vertices or edges in the
     * overlapping snapshot that themselves overlap (have the same id), 
     * the transformation function vFunc/eFunc is applied.
     * @param other The other TemporalGraph with the same structural schema
-    * @param sem Universal or Existential semantics
+    * @param sem All or Any semantics
     * @param vFunc The combination function when the same vertex is found within the same time period
     * @param eFunc The combination function when the same edge is found within the same time period
     * @return new TemporalGraph with the union of snapshots from both graphs
@@ -188,12 +187,12 @@ abstract class TemporalGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * Produce the intersection of two union-compatible temporal graphs.
     * The result is an intersection of the temporal sequences of the two graphs.
     * For the snapshots that correspond to the same time period,
-    * the existential or universal semantics is applied.
+    * the any(existential) or all(universal) semantics is applied.
     * If there are any vertices or edges in the overlapping snapshot that
     * themselves overlap (have the same id),
     * the transformation function vFunc/eFunc is applied.
     * @param other The other TemporalGraph with the same structural schema
-    * @param sem Universal or Existential semantics
+    * @param sem All or Any semantics
     * @param vFunc The combination function when the same vertex is found within the same time period
     * @param eFunc The combination function when the same edge is found within the same time period
     * @return new TemporaGraph with the intersection of snapshots from both graphs

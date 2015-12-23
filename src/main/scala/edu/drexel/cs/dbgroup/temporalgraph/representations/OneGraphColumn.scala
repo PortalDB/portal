@@ -214,12 +214,12 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
       BitSet() ++ parts.zipWithIndex.flatMap { case (expected,index) =>    //produce indices that should be set
         //make a mask for this part
         val mask = BitSet((expected*index to (expected*(index+1)-1)): _*)
-        if (sem == AggregateSemantics.Universal) {
+        if (sem == AggregateSemantics.All) {
           if (mask.subsetOf(attr))
             Some(index)
           else
             None
-        } else if (sem == AggregateSemantics.Existential) {
+        } else if (sem == AggregateSemantics.Any) {
           if (!(mask & attr).isEmpty)
             Some(index)
           else
@@ -231,12 +231,12 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
       BitSet() ++ parts.zipWithIndex.flatMap { case (expected,index) =>    //produce indices that should be set
         //make a mask for this part
         val mask = BitSet((expected*index to (expected*(index+1)-1)): _*)
-        if (sem == AggregateSemantics.Universal) {
+        if (sem == AggregateSemantics.All) {
           if (mask.subsetOf(e.attr))
             Some(index)
           else
             None
-        } else if (sem == AggregateSemantics.Existential) {
+        } else if (sem == AggregateSemantics.Any) {
           if (!(mask & e.attr).isEmpty)
             Some(index)
           else
@@ -246,8 +246,8 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
       .subgraph(vpred = (vid, attr) => !attr.isEmpty, epred = et => !et.attr.isEmpty)
 
     //TODO: see if filtering can be done more efficiently
-    val vattrs = if (sem == AggregateSemantics.Universal) vertexattrs.map{ case (k,v) => ((k._1, broadcastIndMap.value(k._2)), (v, 1))}.reduceByKey((x,y) => (vAggFunc(x._1, y._1), x._2 + y._2)).filter{ case (k, (attr,cnt)) => cnt == cntMap(k._2)}.map{ case (k,v) => (k, v._1)} else vertexattrs.map{ case (k,v) => ((k._1, broadcastIndMap.value(k._2)), v)}.reduceByKey(vAggFunc)
-    val eattrs = if (sem == AggregateSemantics.Universal) edgeattrs.map{ case (k,v) => ((k._1, k._2, broadcastIndMap.value(k._3)), (v, 1))}.reduceByKey((x,y) => (eAggFunc(x._1, y._1), x._2 + y._2)).filter{ case (k, (attr,cnt)) => cnt == cntMap(k._3)}.map{ case (k,v) => (k, v._1)} else edgeattrs.map{ case (k,v) => ((k._1, k._2, broadcastIndMap.value(k._3)), v)}.reduceByKey(eAggFunc)
+    val vattrs = if (sem == AggregateSemantics.All) vertexattrs.map{ case (k,v) => ((k._1, broadcastIndMap.value(k._2)), (v, 1))}.reduceByKey((x,y) => (vAggFunc(x._1, y._1), x._2 + y._2)).filter{ case (k, (attr,cnt)) => cnt == cntMap(k._2)}.map{ case (k,v) => (k, v._1)} else vertexattrs.map{ case (k,v) => ((k._1, broadcastIndMap.value(k._2)), v)}.reduceByKey(vAggFunc)
+    val eattrs = if (sem == AggregateSemantics.All) edgeattrs.map{ case (k,v) => ((k._1, k._2, broadcastIndMap.value(k._3)), (v, 1))}.reduceByKey((x,y) => (eAggFunc(x._1, y._1), x._2 + y._2)).filter{ case (k, (attr,cnt)) => cnt == cntMap(k._3)}.map{ case (k,v) => (k, v._1)} else edgeattrs.map{ case (k,v) => ((k._1, k._2, broadcastIndMap.value(k._3)), v)}.reduceByKey(eAggFunc)
     
     //broadcastIndMap.destroy()
 
@@ -318,20 +318,20 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
     val gr2Edges = if (gr2IndexStart > 0) grp2.graphs.edges.mapValues{ e => e.attr.map(_ + gr2IndexStart)} else grp2.graphs.edges
 
     //now union
-    var target = if (sem == AggregateSemantics.Universal) 2 else 1
+    var target = if (sem == AggregateSemantics.All) 2 else 1
 
     //we want to keep those vertices that exist either in either or both graphs
     //depending on the semantics
-    val newverts = if (sem == AggregateSemantics.Universal) (gr1Verts union gr2Verts).reduceByKey{ (a: BitSet, b: BitSet) => a & b }.filter{ case (vid, vattr) => !vattr.isEmpty} else (gr1Verts union gr2Verts).reduceByKey{ (a: BitSet, b: BitSet) => a.union(b)  }
-    val newedges = if (sem == AggregateSemantics.Universal) (gr1Edges union gr2Edges).map{e => ((e.srcId, e.dstId), e.attr)}.reduceByKey{ (a: BitSet, b: BitSet) => a & b }.filter{ x => !x._2.isEmpty}.map{ case (k,v) => Edge(k._1, k._2, v)} else (gr1Edges union gr2Edges).map{e => ((e.srcId, e.dstId), e.attr)}.reduceByKey{ (a: BitSet, b: BitSet) => a.union(b) }.map{ case (k,v) => Edge(k._1, k._2, v)}
+    val newverts = if (sem == AggregateSemantics.All) (gr1Verts union gr2Verts).reduceByKey{ (a: BitSet, b: BitSet) => a & b }.filter{ case (vid, vattr) => !vattr.isEmpty} else (gr1Verts union gr2Verts).reduceByKey{ (a: BitSet, b: BitSet) => a.union(b)  }
+    val newedges = if (sem == AggregateSemantics.All) (gr1Edges union gr2Edges).map{e => ((e.srcId, e.dstId), e.attr)}.reduceByKey{ (a: BitSet, b: BitSet) => a & b }.filter{ x => !x._2.isEmpty}.map{ case (k,v) => Edge(k._1, k._2, v)} else (gr1Edges union gr2Edges).map{e => ((e.srcId, e.dstId), e.attr)}.reduceByKey{ (a: BitSet, b: BitSet) => a.union(b) }.map{ case (k,v) => Edge(k._1, k._2, v)}
 
     val gr1vattrs = if (gr1IndexStart > 0) vertexattrs.map{ case (k,v) => ((k._1, k._2 + gr1IndexStart), v)} else vertexattrs
     val gr2vattrs = if (gr2IndexStart > 0) grp2.vertexattrs.map{ case (k,v) => ((k._1, k._2 + gr2IndexStart), v)} else grp2.vertexattrs
     //now put them together
-    val vattrs = if (sem == AggregateSemantics.Universal) (gr1vattrs join gr2vattrs).mapValues(x => vFunc(x._1, x._2)) else (gr1vattrs union gr2vattrs).reduceByKey(vFunc)
+    val vattrs = if (sem == AggregateSemantics.All) (gr1vattrs join gr2vattrs).mapValues(x => vFunc(x._1, x._2)) else (gr1vattrs union gr2vattrs).reduceByKey(vFunc)
     val gr1eattrs = if (gr1IndexStart > 0) edgeattrs.map{ case (k,v) => ((k._1, k._2, k._3 + gr1IndexStart), v)} else edgeattrs
     val gr2eattrs = if (gr2IndexStart > 0) grp2.edgeattrs.map{ case (k,v) => ((k._1, k._2, k._3 + gr2IndexStart), v)} else grp2.edgeattrs
-    val eattrs = if (sem == AggregateSemantics.Universal) (gr1eattrs join gr2eattrs).mapValues(x => eFunc(x._1, x._2)) else (gr1eattrs union gr2eattrs).reduceByKey(eFunc)
+    val eattrs = if (sem == AggregateSemantics.All) (gr1eattrs join gr2eattrs).mapValues(x => eFunc(x._1, x._2)) else (gr1eattrs union gr2eattrs).reduceByKey(eFunc)
 
     new OneGraphColumn[VD, ED](mergedIntervals, Graph[BitSet,BitSet](newverts, EdgeRDD.fromEdges[BitSet,BitSet](newedges)), vattrs, eattrs)
   }
@@ -371,11 +371,11 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
       //now union
       //we want to keep those vertices that exist either in either or both graphs
       //depending on the semantics
-      val newverts = if (sem == AggregateSemantics.Universal) (gr1Sel.graphs.vertices union gr2Sel.graphs.vertices).reduceByKey{ (a: BitSet, b: BitSet) => a & b }.filter{ case (vid, vattr) => !vattr.isEmpty} else (gr1Sel.graphs.vertices union gr2Sel.graphs.vertices).reduceByKey{ (a: BitSet, b: BitSet) => a.union(b)  }
-    val newedges = if (sem == AggregateSemantics.Universal) (gr1Sel.graphs.edges union gr2Sel.graphs.edges).map{e => ((e.srcId, e.dstId), e.attr)}.reduceByKey{ (a: BitSet, b: BitSet) => a & b }.filter{ x => !x._2.isEmpty}.map{ case (k,v) => Edge(k._1, k._2, v)} else (gr1Sel.graphs.edges union gr2Sel.graphs.edges).map{e => ((e.srcId, e.dstId), e.attr)}.reduceByKey{ (a: BitSet, b: BitSet) => a.union(b) }.map{ case (k,v) => Edge(k._1, k._2, v)}
+      val newverts = if (sem == AggregateSemantics.All) (gr1Sel.graphs.vertices union gr2Sel.graphs.vertices).reduceByKey{ (a: BitSet, b: BitSet) => a & b }.filter{ case (vid, vattr) => !vattr.isEmpty} else (gr1Sel.graphs.vertices union gr2Sel.graphs.vertices).reduceByKey{ (a: BitSet, b: BitSet) => a.union(b)  }
+    val newedges = if (sem == AggregateSemantics.All) (gr1Sel.graphs.edges union gr2Sel.graphs.edges).map{e => ((e.srcId, e.dstId), e.attr)}.reduceByKey{ (a: BitSet, b: BitSet) => a & b }.filter{ x => !x._2.isEmpty}.map{ case (k,v) => Edge(k._1, k._2, v)} else (gr1Sel.graphs.edges union gr2Sel.graphs.edges).map{e => ((e.srcId, e.dstId), e.attr)}.reduceByKey{ (a: BitSet, b: BitSet) => a.union(b) }.map{ case (k,v) => Edge(k._1, k._2, v)}
 
-      val vattrs = if (sem == AggregateSemantics.Universal) (gr1Sel.vertexattrs join gr2Sel.vertexattrs).mapValues(x => vFunc(x._1, x._2)) else (gr1Sel.vertexattrs union gr2Sel.vertexattrs).reduceByKey(vFunc)
-      val eattrs = if (sem == AggregateSemantics.Universal) (gr1Sel.edgeattrs join gr2Sel.edgeattrs).mapValues(x => eFunc(x._1, x._2)) else (gr1Sel.edgeattrs union gr2Sel.edgeattrs).reduceByKey(eFunc)
+      val vattrs = if (sem == AggregateSemantics.All) (gr1Sel.vertexattrs join gr2Sel.vertexattrs).mapValues(x => vFunc(x._1, x._2)) else (gr1Sel.vertexattrs union gr2Sel.vertexattrs).reduceByKey(vFunc)
+      val eattrs = if (sem == AggregateSemantics.All) (gr1Sel.edgeattrs join gr2Sel.edgeattrs).mapValues(x => eFunc(x._1, x._2)) else (gr1Sel.edgeattrs union gr2Sel.edgeattrs).reduceByKey(eFunc)
 
       new OneGraphColumn[VD, ED](gr2Sel.intervals, Graph[BitSet,BitSet](newverts, EdgeRDD.fromEdges[BitSet,BitSet](newedges)), vattrs, eattrs)
     }
