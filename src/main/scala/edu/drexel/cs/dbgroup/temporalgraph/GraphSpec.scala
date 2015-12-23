@@ -10,9 +10,9 @@ class GraphSpec(vertexSchema: Seq[StructField], edgeSchema: Seq[StructField]) {
   override def toString(): String = {
     val builder = new StringBuilder
     builder.append("V [")
-    builder.append(vertexSchema.map(field => s"${field.name}:${field.dataType.simpleString}"))
+    builder.append(vertexSchema.map(field => s"${field.name}:${field.dataType.simpleString}").mkString(","))
     builder.append("], E [")
-    builder.append(edgeSchema.map(field => s"${field.name}:${field.dataType.simpleString}"))
+    builder.append(edgeSchema.map(field => s"${field.name}:${field.dataType.simpleString}").mkString(","))
     builder.append("]")
 
     builder.toString()
@@ -47,8 +47,19 @@ class GraphSpec(vertexSchema: Seq[StructField], edgeSchema: Seq[StructField]) {
     }.toArray
     (vIndices, eIndices)
   }
+
+  def validate(v: Seq[StructField], e: Seq[StructField]): Boolean = {
+    v.foreach(f => if (!vertexSchema.contains(f)) return false )
+    e.foreach(f => if (!edgeSchema.contains(f)) return false )
+    true
+  }
 }
 
 object GraphSpec {
   def apply(vertexSchema: Seq[StructField], edgeSchema: Seq[StructField]) = new GraphSpec(vertexSchema, edgeSchema)
+}
+
+class PartialGraphSpec(vertexSchema: Option[Seq[StructField]], edgeSchema: Option[Seq[StructField]]) extends GraphSpec(vertexSchema.getOrElse(Seq()), edgeSchema.getOrElse(Seq())) {
+  def hasVertexSchema(): Boolean = vertexSchema != None
+  def hasEdgeSchema(): Boolean = edgeSchema != None
 }

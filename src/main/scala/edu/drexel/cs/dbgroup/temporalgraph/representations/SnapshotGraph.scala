@@ -241,12 +241,12 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
       }
 
       intvs = intvs :+ newIntv
-      if (sem == AggregateSemantics.Existential) {
+      if (sem == AggregateSemantics.Any) {
         gps = gps :+ Graph(VertexRDD(firstVRDD.reduceByKey(vAggFunc)), EdgeRDD.fromEdges[ED, VD](firstERDD.map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eAggFunc).map { x =>
           val (k, v) = x
           Edge(k._1, k._2, v)
         }))
-      } else if (sem == AggregateSemantics.Universal && num == expected) {
+      } else if (sem == AggregateSemantics.All && num == expected) {
         //we only have a valid aggregated snapshot if we have all the datapoints from this interval
         gps = gps :+ Graph(VertexRDD(firstVRDD.map(x => (x._1, (x._2, 1)))
           .reduceByKey((x, y) => (vAggFunc(x._1, y._1), x._2 + y._2))
@@ -332,12 +332,12 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
       if (ind1 >= 0 && ind2 >= 0) {
         val gr1 = graphs(ind1)
         val gr2 = grp2.graphs(ind2)
-        if (sem == AggregateSemantics.Existential) {
+        if (sem == AggregateSemantics.Any) {
           graphBuf(ii) = Graph(VertexRDD(gr1.vertices.union(gr2.vertices).reduceByKey(vFunc)), EdgeRDD.fromEdges[ED, VD](gr1.edges.union(gr2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eFunc).map { x =>
             val (k, v) = x
             Edge(k._1, k._2, v)
           }))
-        } else if (sem == AggregateSemantics.Universal) {
+        } else if (sem == AggregateSemantics.All) {
           graphBuf(ii) = Graph(gr1.vertices.union(gr2.vertices).map(x => (x._1, (x._2, 1))).reduceByKey((x, y) => (vFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == 2).map {x =>
             val (k, v) = x
             (k, v._1)
@@ -346,9 +346,9 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
             Edge(k._1, k._2, v._1)
           }))
         }
-      } else if (ind1 >= 0 && sem == AggregateSemantics.Existential) {
+      } else if (ind1 >= 0 && sem == AggregateSemantics.Any) {
         graphBuf(ii) = graphs(ind1)
-      } else if (ind2 >= 0 && sem == AggregateSemantics.Existential) {
+      } else if (ind2 >= 0 && sem == AggregateSemantics.Any) {
         graphBuf(ii) = grp2.graphs(ind2)
       } else {
         graphBuf(ii) = Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
@@ -397,12 +397,12 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
         if (ind1 >= 0 && ind2 >= 0) {
           val gr1 = graphs(ind1)
           val gr2 = grp2.graphs(ind2)
-          if (sem == AggregateSemantics.Existential) {
+          if (sem == AggregateSemantics.Any) {
             graphBuf(ii) = Graph(VertexRDD(gr1.vertices.union(gr2.vertices).reduceByKey(vFunc)), EdgeRDD.fromEdges[ED, VD](gr1.edges.union(gr2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eFunc).map { x =>
               val (k, v) = x
               Edge(k._1, k._2, v)
             }))
-          } else if (sem == AggregateSemantics.Universal) {
+          } else if (sem == AggregateSemantics.All) {
             graphBuf(ii) = Graph(gr1.vertices.union(gr2.vertices).map(x => (x._1, (x._2, 1))).reduceByKey((x, y) => (vFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == 2).map {x =>
               val (k, v) = x
               (k, v._1)
@@ -411,9 +411,9 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
               Edge(k._1, k._2, v._1)
             }))
           }
-        } else if (ind1 >= 0 && sem == AggregateSemantics.Existential) {
+        } else if (ind1 >= 0 && sem == AggregateSemantics.Any) {
           graphBuf(ii) = graphs(ind1)
-        } else if (ind2 >= 0 && sem == AggregateSemantics.Existential) {
+        } else if (ind2 >= 0 && sem == AggregateSemantics.Any) {
           graphBuf(ii) = grp2.graphs(ind2)
         } else {
           graphBuf(ii) = Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)

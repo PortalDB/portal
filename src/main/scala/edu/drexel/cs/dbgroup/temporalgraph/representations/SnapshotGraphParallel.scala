@@ -235,12 +235,12 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
       }
 
       intvs = intvs :+ newIntv
-      if (sem == AggregateSemantics.Existential) {
+      if (sem == AggregateSemantics.Any) {
         gps = gps :+ Graph(VertexRDD(firstVRDD.reduceByKey(vAggFunc)), EdgeRDD.fromEdges[ED, VD](firstERDD.map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eAggFunc).map { x =>
           val (k, v) = x
           Edge(k._1, k._2, v)
         }))
-      } else if (sem == AggregateSemantics.Universal && num == expected) {
+      } else if (sem == AggregateSemantics.All && num == expected) {
         //we only have a valid aggregated snapshot if we have all the datapoints from this interval
         gps = gps :+ Graph(firstVRDD.map(x => (x._1, (x._2, 1))).reduceByKey((x, y) => (vAggFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == expected).map { x =>
           val (k, v) = x
@@ -337,17 +337,17 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
     val mergedGraphs:ParSeq[Graph[VD, ED]] = grseq1.zip(grseq2).map { twogrs =>
       val (gr1:Graph[VD,ED],gr2:Graph[VD,ED]) = twogrs
       if (gr1.vertices.isEmpty) {
-        if (sem == AggregateSemantics.Existential)
+        if (sem == AggregateSemantics.Any)
           gr2
         else
           Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
       } else if (gr2.vertices.isEmpty) {
-        if (sem == AggregateSemantics.Existential)
+        if (sem == AggregateSemantics.Any)
           gr1
         else
           Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
       } else {
-        if (sem == AggregateSemantics.Existential) {
+        if (sem == AggregateSemantics.Any) {
           Graph(VertexRDD(gr1.vertices.union(gr2.vertices).reduceByKey(vFunc)), EdgeRDD.fromEdges[ED, VD](gr1.edges.union(gr2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eFunc).map { x =>
             val (k, v) = x
             Edge(k._1, k._2, v)
@@ -408,17 +408,17 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
       val mergedGraphs:ParSeq[Graph[VD, ED]] = grseq1.zip(grseq2).map { twogrs =>
         val (gr1:Graph[VD,ED],gr2:Graph[VD,ED]) = twogrs
         if (gr1.vertices.isEmpty) {
-          if (sem == AggregateSemantics.Existential)
+          if (sem == AggregateSemantics.Any)
             gr2
           else
             Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
         } else if (gr2.vertices.isEmpty) {
-          if (sem == AggregateSemantics.Existential)
+          if (sem == AggregateSemantics.Any)
             gr1
           else
             Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
         } else {
-          if (sem == AggregateSemantics.Existential) {
+          if (sem == AggregateSemantics.Any) {
             Graph(VertexRDD(gr1.vertices.union(gr2.vertices).reduceByKey(vFunc)), EdgeRDD.fromEdges[ED, VD](gr1.edges.union(gr2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eFunc).map { x =>
               val (k, v) = x
               Edge(k._1, k._2, v)
