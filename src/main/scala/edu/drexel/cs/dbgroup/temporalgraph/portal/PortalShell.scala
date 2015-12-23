@@ -7,18 +7,16 @@ import scala.util.control._
 import org.apache.log4j.Logger
 import org.apache.log4j.Level
 
-import edu.drexel.cs.dbgroup.temporalgraph._
-import edu.drexel.cs.dbgroup.temporalgraph.util.GraphLoader
+import edu.drexel.cs.dbgroup.temporalgraph._;
+import edu.drexel.cs.dbgroup.temporalgraph.portal.command._;
+import edu.drexel.cs.dbgroup.temporalgraph.util.GraphLoader;
 
+import scala.util.matching.Regex
 import scala.tools.jline.console.ConsoleReader;
 import scala.util.control._;
 import scala.util.Properties;
 
 object PortalShell {
-  val infoText: String = "[info]";
-  val errText: String = "[error]";
-  val unsupportedError: String = "unsupported command";
-  
   def main(args: Array[String]) = {
 
     //note: this does not remove ALL logging  
@@ -111,8 +109,9 @@ object PortalShell {
           line += consoleReader.readLine(">");
         }
 
+        line = line.dropRight(1); //remove terminating "\"
         commandNum += 1;
-        if(parseCommand(line, commandNum) == false){
+        if (parseCommand(line, commandNum) == false) {
           //unsupported command
           commandNum -= 1;
         }
@@ -123,12 +122,54 @@ object PortalShell {
 
   }
 
-  def printProgramStart() = {
-    println("\n===============================================================================");
-    println("\t\t\tWelcome to the Portal Shell!");
-    println("\t\t    cs.drexel.edu.dbgroup.temporalgraph")
-    println("===============================================================================");
+  def parseCommand(line: String, commandNum: Integer): Boolean = {
+    var command: PortalCommand = null;
+    var args = line.split(" ");
+    var commandType: String = args(0);
+    var tViewName: String = null;
+    var portalQuery: String = null;
+    var isMaterialized: Boolean = false;
 
+//    printf("#%d --> %s\n", commandNum, line);
+
+    if (commandType.equalsIgnoreCase("create")) {
+      tViewName = args(2);
+      portalQuery = retrieveQuery(line);
+      printf("portalQuery retrieved from command: %s\n", portalQuery);
+
+      if (args(1).equalsIgnoreCase("materialized")) {
+        isMaterialized = true;
+        tViewName = args(4);
+      }
+
+      try {
+        command = new CreateCommand(commandNum, portalQuery, tViewName, isMaterialized);
+      } catch {
+        case ex: Exception => {
+          println(PortalShellConstants.ErrText(ex.getMessage()));
+          command = null
+        }
+      }
+      
+      println("\ntViewName --> " + tViewName);
+
+    } else if (commandType.equalsIgnoreCase("describe")) {
+      tViewName = args(1);
+
+    } else if (commandType.equalsIgnoreCase("show")) {
+
+    } else {
+      println(PortalShellConstants.ErrText(PortalShellConstants.UnsupportedErrorText()));
+      return false
+    }
+
+    if (command == null) {
+      return false;
+    }
+    
+    command.execute();
+
+    return true;
   }
 
   def isLineEnd(line: String): Boolean = {
@@ -145,38 +186,23 @@ object PortalShell {
     return false;
   }
 
-  def parseCommand(line: String, commandNum: Integer): Boolean = {
-    var args = line.split(" ");
-    var commandType: String = args(0);
-    var tViewName: String = "";
-    var queryString: String = "";
+  def retrieveQuery(command: String): String = {
+    val queryRegex = "\\(.*\\)$"
+    val pattern = new Regex(queryRegex);
+    var res = (pattern findFirstIn command).getOrElse(null)
 
-    //    for (r <- args) {
-    //      println(r)
-    //    }
-    printf("#%d --> %s", commandNum, line);
-
-    if (commandType.equalsIgnoreCase("create")) {
-      var isMaterialized: Boolean = false;
-      tViewName = args(2);
-
-      if (args(1).equalsIgnoreCase("materialized")) {
-        isMaterialized = true;
-        tViewName = args(4);
-      }
-
-      println("\ntViewName --> " + tViewName);
-
-    } else if (commandType.equalsIgnoreCase("describe")) {
-      tViewName = args(1);
-
-    } else if (commandType.equalsIgnoreCase("show")) {
-
-    } else {
-      printf("\n%s %s\n", errText, unsupportedError);
-      return false
+    if (res != null) {
+      res = res.drop(1).dropRight(1); //replace beginning and ending "(" and ")"
     }
-
-    return true;
+    return res
   }
+
+  def printProgramStart() = {
+    println("\n===============================================================================");
+    println("\t\t\tWelcome to the Portal Shell!");
+    println("\t\t    cs.drexel.edu.dbgroup.temporalgraph")
+    println("===============================================================================");
+
+  }
+
 }
