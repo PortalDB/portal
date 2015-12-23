@@ -147,7 +147,7 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
       throw new UnsupportedOperationException("this version of select not yet implementet")
   }
 
-  override def aggregate(res: Resolution, sem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
+  override def aggregate(res: Resolution, vsem: AggregateSemantics.Value, esem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
     var intvs: Seq[Interval] = Seq[Interval]()
 
     if (!resolution.isCompatible(res)) {
@@ -193,20 +193,20 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
     val wverts = graphs.mapVertices { (vid, attr) =>
       var tmp: Map[Int, Seq[VD]] = attr.toSeq.map { case (k, v) => (indMap(k), v) }.groupBy { case (k, v) => k }.mapValues { v => v.map { case (x, y) => y } }
       //tmp is now a map of (index, list(attr))
-      if (sem == AggregateSemantics.All) {
+      if (vsem == AggregateSemantics.All) {
         tmp = tmp.filter { case (k, v) => v.size == cntMap(k) }
       }
       tmp.mapValues { v => v.reduce(vAggFunc) }.map(identity)
     }.subgraph(vpred = (vid, attr) => !attr.isEmpty, epred = e => true).mapEdges { e => (indMap(e.attr._1), e.attr._2)}
 
     var edges: EdgeRDD[(TimeIndex, ED)] = null
-    if (sem == AggregateSemantics.Any) {
+    if (esem == AggregateSemantics.Any) {
       edges = EdgeRDD.fromEdges[(TimeIndex, ED), VD](wverts.edges.map(x => ((x.srcId, x.dstId, indMap(x.attr._1)), x.attr._2)).reduceByKey(eAggFunc).map { x =>
         val (k, v) = x
         //key is srcid, dstid, resolution, value is attrib
         Edge(k._1, k._2, (k._3, v))
       })
-    } else if (sem == AggregateSemantics.All) {
+    } else if (esem == AggregateSemantics.All) {
       edges = EdgeRDD.fromEdges[(TimeIndex, ED), VD](wverts.edges.map(x => ((x.srcId, x.dstId, indMap(x.attr._1)), (x.attr._2, 1))).reduceByKey((x, y) => (eAggFunc(x._1, y._1), x._2 + y._2)).filter { case (k, (attr, cnt)) => cnt == cntMap(k._3) }.map { x =>
         val (k, v) = x
         //key is srcid, dstid, resolution, value is attrib and count

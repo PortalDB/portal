@@ -163,7 +163,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
       throw new UnsupportedOperationException("this version of select not yet implementet")
   }
 
-  override def aggregate(res: Resolution, sem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
+  override def aggregate(res: Resolution, vsem: AggregateSemantics.Value, esem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
     var intvs: Seq[Interval] = Seq[Interval]()
 
     if (!resolution.isCompatible(res)) {
@@ -214,40 +214,43 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
       BitSet() ++ parts.zipWithIndex.flatMap { case (expected,index) =>    //produce indices that should be set
         //make a mask for this part
         val mask = BitSet((expected*index to (expected*(index+1)-1)): _*)
-        if (sem == AggregateSemantics.All) {
+        if (vsem == AggregateSemantics.All) {
           if (mask.subsetOf(attr))
             Some(index)
           else
             None
-        } else if (sem == AggregateSemantics.Any) {
+        } else if (vsem == AggregateSemantics.Any) {
           if (!(mask & attr).isEmpty)
             Some(index)
           else
             None
         } else None
       }}
+      .subgraph(vpred = (vid, attr) => !attr.isEmpty)
       .mapEdges{ e =>
       var total:Int = 0
       BitSet() ++ parts.zipWithIndex.flatMap { case (expected,index) =>    //produce indices that should be set
         //make a mask for this part
         val mask = BitSet((expected*index to (expected*(index+1)-1)): _*)
-        if (sem == AggregateSemantics.All) {
+        if (esem == AggregateSemantics.All) {
           if (mask.subsetOf(e.attr))
             Some(index)
           else
             None
-        } else if (sem == AggregateSemantics.Any) {
+        } else if (esem == AggregateSemantics.Any) {
           if (!(mask & e.attr).isEmpty)
             Some(index)
           else
             None
         } else None
       }}
-      .subgraph(vpred = (vid, attr) => !attr.isEmpty, epred = et => !et.attr.isEmpty)
+      .subgraph(epred = et => !et.attr.isEmpty)
 
     //TODO: see if filtering can be done more efficiently
-    val vattrs = if (sem == AggregateSemantics.All) vertexattrs.map{ case (k,v) => ((k._1, broadcastIndMap.value(k._2)), (v, 1))}.reduceByKey((x,y) => (vAggFunc(x._1, y._1), x._2 + y._2)).filter{ case (k, (attr,cnt)) => cnt == cntMap(k._2)}.map{ case (k,v) => (k, v._1)} else vertexattrs.map{ case (k,v) => ((k._1, broadcastIndMap.value(k._2)), v)}.reduceByKey(vAggFunc)
-    val eattrs = if (sem == AggregateSemantics.All) edgeattrs.map{ case (k,v) => ((k._1, k._2, broadcastIndMap.value(k._3)), (v, 1))}.reduceByKey((x,y) => (eAggFunc(x._1, y._1), x._2 + y._2)).filter{ case (k, (attr,cnt)) => cnt == cntMap(k._3)}.map{ case (k,v) => (k, v._1)} else edgeattrs.map{ case (k,v) => ((k._1, k._2, broadcastIndMap.value(k._3)), v)}.reduceByKey(eAggFunc)
+    //FIXME: can this result in values in the RDD not associated with
+    //valid edges in the graph?
+    val vattrs = if (vsem == AggregateSemantics.All) vertexattrs.map{ case (k,v) => ((k._1, broadcastIndMap.value(k._2)), (v, 1))}.reduceByKey((x,y) => (vAggFunc(x._1, y._1), x._2 + y._2)).filter{ case (k, (attr,cnt)) => cnt == cntMap(k._2)}.map{ case (k,v) => (k, v._1)} else vertexattrs.map{ case (k,v) => ((k._1, broadcastIndMap.value(k._2)), v)}.reduceByKey(vAggFunc)
+    val eattrs = if (esem == AggregateSemantics.All) edgeattrs.map{ case (k,v) => ((k._1, k._2, broadcastIndMap.value(k._3)), (v, 1))}.reduceByKey((x,y) => (eAggFunc(x._1, y._1), x._2 + y._2)).filter{ case (k, (attr,cnt)) => cnt == cntMap(k._3)}.map{ case (k,v) => (k, v._1)} else edgeattrs.map{ case (k,v) => ((k._1, k._2, broadcastIndMap.value(k._3)), v)}.reduceByKey(eAggFunc)
     
     //broadcastIndMap.destroy()
 

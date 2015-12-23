@@ -108,7 +108,7 @@ abstract class TemporalGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * @throws IllegalArgumentException if the graphs are not union-compatible.
     */
   @throws(classOf[IllegalArgumentException])
-  def aggregate(res: Resolution, sem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TemporalGraph[VD, ED]
+  def aggregate(res: Resolution, vsem: AggregateSemantics.Value, esem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TemporalGraph[VD, ED]
 
   /**
     * Transforms the structural schema of the graph

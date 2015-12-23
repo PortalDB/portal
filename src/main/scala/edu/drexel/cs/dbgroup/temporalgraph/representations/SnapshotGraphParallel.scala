@@ -190,7 +190,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
     new SnapshotGraphParallel(intervals, graphs.map(x => x.subgraph(epred, vpred)))
   }
 
-  override def aggregate(res: Resolution, sem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
+  override def aggregate(res: Resolution, vsem: AggregateSemantics.Value, esem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
     if (size == 0)
       return SnapshotGraphParallel.emptyGraph[VD,ED]()
 
@@ -235,24 +235,18 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
       }
 
       intvs = intvs :+ newIntv
-      if (sem == AggregateSemantics.Any) {
-        gps = gps :+ Graph(VertexRDD(firstVRDD.reduceByKey(vAggFunc)), EdgeRDD.fromEdges[ED, VD](firstERDD.map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eAggFunc).map { x =>
-          val (k, v) = x
-          Edge(k._1, k._2, v)
-        }))
-      } else if (sem == AggregateSemantics.All && num == expected) {
-        //we only have a valid aggregated snapshot if we have all the datapoints from this interval
-        gps = gps :+ Graph(firstVRDD.map(x => (x._1, (x._2, 1))).reduceByKey((x, y) => (vAggFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == expected).map { x =>
-          val (k, v) = x
-          (k, v._1)
-        },
-          EdgeRDD.fromEdges[ED, VD](firstERDD.map(e => ((e.srcId, e.dstId), (e.attr, 1))).reduceByKey((x, y) => (eAggFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == expected).map { x =>
-            val (k, v) = x
-            Edge(k._1, k._2, v._1)
-          }))
-      } else { //empty graph
-        gps = gps :+ Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+     //separate semantics for vertex and edge aggregation
+      val vrdd = if (vsem == AggregateSemantics.Any) VertexRDD(firstVRDD.reduceByKey(vAggFunc)) else VertexRDD(firstVRDD.map(x => (x._1, (x._2, 1))).reduceByKey((x, y) => (vAggFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == expected).map(x => (x._1, x._2._1)))
+      var erdd: RDD[Edge[ED]] = firstERDD
+      //a special case where we need to filter out edges that are connected to ids for vertices that don't exit
+      //TODO: idset might be very large. find a better way to filter
+      if (vsem == AggregateSemantics.All && esem == AggregateSemantics.Any) {
+        val idset = vrdd.keys.collect.toSet
+        erdd = erdd.filter(e => idset.contains(e.srcId) && idset.contains(e.dstId))
       }
+      erdd = if (esem == AggregateSemantics.Any) erdd.map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eAggFunc).map(x => Edge(x._1._1, x._1._2, x._2)) else erdd.map(e => ((e.srcId, e.dstId), (e.attr, 1))).reduceByKey((x, y) => (eAggFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == expected).map(x => Edge(x._1._1, x._1._2, x._2._1))
+
+      gps = gps :+ Graph(vrdd, EdgeRDD.fromEdges[ED, VD](erdd))
     }
 
     new SnapshotGraphParallel(intvs, gps)
