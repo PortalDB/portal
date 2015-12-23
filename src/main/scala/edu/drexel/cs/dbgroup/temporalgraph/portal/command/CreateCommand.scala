@@ -1,21 +1,41 @@
 package edu.drexel.cs.dbgroup.temporalgraph.portal.command;
 
-class CreateCommand(text: String, commandNum: Int, viewName: String, materialize: Boolean) extends PortalCommand(text, commandNum) {
-  val tViewName: String = viewName;
-  var isMaterialized: Boolean = materialize;
-  
-  override def describeCommand() = {
-    println("This is a Portal \"Create\" command");
-  }
+import edu.drexel.cs.dbgroup.temporalgraph.portal.PortalParser;
+import edu.drexel.cs.dbgroup.temporalgraph.portal.PortalShellConstants;
 
-  override def executeCommand() = {
+class CreateCommand(commandNum: Int, portalQuery: String, tViewName: String, isMaterialized: Boolean) extends PortalCommand(commandNum) {
 
-  }
+  if (portalQuery == null || portalQuery.isEmpty()) {
+    throw new Exception(PortalShellConstants.InvalidSyntaxText());
+  };
 
-  override def verifySyntax(command: String): Boolean = {
-    println("[info] Checking \'Create\' command syntax: ", command)
+  verifySyntax();
+
+  override def describe() = {
+    println("This is a Portal \"Create\" command:");
+  };
+
+  override def execute(): Boolean = {
+    println("Executing \'Create\' command:");
+
+    try {
+      logicalPlan = PortalParser.parse(portalQuery);
+
+    } catch {
+        case ex: Exception => {
+          println(PortalShellConstants.ErrText(ex.getMessage()));
+        };
+        
+        return false;
+      }
 
     return true;
-  }
+  };
+
+  override def verifySyntax(): Boolean = {
+    println("[info] Checking \'Create\' command syntax of: " + portalQuery)
+
+    return true;
+  };
 
 }
