@@ -1,0 +1,51 @@
+% Enviroment definitions
+\newtheorem{definition}{Definition}[section]
+\newtheorem{proposition}{Proposition}
+\newtheorem{conjecture}{Conjecture}
+\newtheorem{theorem}{Theorem}
+\newtheorem{problem}{Problem}
+\newtheorem{example}{Example}
+\newtheorem{remark}{Remark}
+
+% Comments
+\newcommand{\todo}[1]{[\textcolor{magenta}{{\bf TODO: }#1}]}
+\newcommand{\reminder}[1]{[\textcolor{magenta}{{\bf NB: }#1}]}
+\newcommand{\comment}[1]{\noindent\textcolor{comcol}{\small\textbf{Comment:} #1}}
+\newcommand*{\eat}[1]{}
+\newcommand{\julia}[1]{[\textcolor{purple}{{\bf Julia: }#1}]}
+\newcommand{\vera}[1]{[\textcolor{orange}{{\bf Vera: }#1}]}
+
+% Vocabulary
+\newcommand*{\ql}{\textsf{Portal}\xspace}
+\newcommand*{\tg}{\textsf{TGraph}\xspace}
+\newcommand*{\tgs}{\textsf{TGraphs}\xspace}
+\newcommand*{\sg}{SG\xspace}
+\newcommand*{\mg}{MG\xspace}
+\newcommand*{\mgc}{MGC\xspace}
+\newcommand*{\og}{OG\xspace}
+\newcommand*{\ogc}{OGC\xspace}
+\newcommand*{\qlui}{\textsf{ui}\xspace}
+
+\newcommand{\dollar}{{\$}}
+
+% Time periods
+\newcommand{\tpy}[1]{#1}
+\newcommand{\tpym}[2]{#1/#2}
+\newcommand{\tpymd}[3]{\ensuremath{\mathsf #1/#2/#3}}
+
+% Query langauge operations
+\newcommand*{\tsel}[2]{\ensuremath{\sigma^{t}(#1,#2)}}
+\newcommand*{\ssel}[2]{\ensuremath{\sigma^{s}(#1,#2)}}
+
+\newcommand*{\andgrp}[4]{\ensuremath{\gamma^{\cap}(#1,#2,#3,#4)}}
+\newcommand*{\orgrp}[4]{\ensuremath{\gamma^{\cup}(#1,#2,#3,#4)}}
+
+\newcommand*{\xfrm}[3]{\ensuremath{\chi(#1,#2,#3)}}
+\newcommand*{\an}[2]{\ensuremath{\alpha(#1,#2)}}
+
+%\newcommand*{\tor}[4]{\ensuremath{\bigcup({#1},{#2},{#3},{#4})}}
+\newcommand*{\tor}[4]{\ensuremath{#1 \cup_{#3, #4} #2}}
+%\newcommand*{\tand}[4]{\ensuremath{\bigcap(#1,#2,#3,#4)}}
+\newcommand*{\tand}[4]{\ensuremath{#1 \cap_{#3, #4} #2}}
+
+\newcommand{\insql}[1]{\textsf{#1}}

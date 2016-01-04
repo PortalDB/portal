@@ -1,0 +1,35 @@
+\section{Graphical Query Composition}
+\label{sec:gui}
+
+\begin{figure}
+\begin{center}
+\includegraphics[width=3.2in]{figs/ui.pdf}
+\caption{Graphical query composition. PLACEHOLDER}
+\label{fig:ui}
+\end{center}
+\end{figure}
+
+Evolving graph analysis is of interest to researchers in many domains,
+as we already showed previously.  While \ql is declarative and, thus,
+does not require computer science expertise to use, we want to reach a
+wide audience.  For this reason, we are developing a graphical query
+composition tool \qlui (Figure~\ref{fig:ui}).
+
+\qlui users can compose queries by adding to and manipulating
+\tg\\s in the workspace, where they are represented by their
+timelines.  To temporally join two evolving graphs, for example, the
+user can drag them to the workspace and place them close together.  If
+the two graphs are not union-compatible, they will not snap together
+and an error message is displayed to the user explaning the problem.
+Union-compatibility is one of the more complex aspects of the
+language, and it is our hope that a graphical representation of the
+\tg temporal schema will reduce confusion.
+
+To select a temporal subset of a \tg, the user can move the outside
+border of the timeline.  To aggregate a \tg, the user can move the
+border of any of the timeline periods and then specify the aggregation
+functions through a drop-down menu.
+
+As the query is composed graphically, its \ql representation is
+updated in the Query view.  The user can also view the optimized
+logical plan for the query in the Plan view.
