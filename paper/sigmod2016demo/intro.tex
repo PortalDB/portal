@@ -1,49 +1,53 @@
 \section{Introduction}
 \label{sec:intro}
 
-The development of the Structured Query Language (SQL) for relational
-data analysis had a tremendous impact on the database community and
-database users.  It gave a reasonably user-friendly tool for
-non-programmers to perform querying and exploratory data analysis.
-At the same time, its declarative nature separated the implementation
-from the language itself, paving way for alternative implementations
-and query optimization.  The motivation for this research is to
-provide a similar tool for analyzing evolving graphs, an area of
-interest in many research communities, including sociology,
-epidemiology, networking, etc.
+The development of SQL, a declarative query language for relational
+data analysis, had a tremendous impact on the usability of database
+technology, leading to its wide-spread adoption.  At the same time,
+the separation between the logical and the physical representations
+paved the way for powerful performance optimizations.  The motivation
+for our research is to provide a similar tool for analyzing {\em
+  evolving graphs}, an area of interest in many research communities,
+including sociology, epidemiology, networking, etc.
 
 Many phenomena can be represented as networks or graphs (two terms
-used here interchangeably).  The Internet, or portion thereof, is
-often thought of as a graph where web pages or web sites are the graph
-nodes, and the hyperlinks between them are the graph edges.  A social
-network is another commonly used graph type, with people or
-organizations as nodes and their activities or relationships serving
-as the edges.  Less frequently mentioned but still very useful for
+used here interchangeably).  The Internet is often thought of as a
+graph where Web pages are the nodes and hyperlinks between them are
+the edges.  A social network is another commonly used graph type, with
+people or organizations as nodes and their activities or relationships
+as edges.  Less frequently mentioned but still very useful for
 research are graphs formed from sensor and road networks, animal herds
 (for the purpose of studying epidemics), metabolism pathways, and many
 others.
 
-The phenomena that are represented by these graphs change over time,
-some continuously and others sporadically.  Many interesting questions
-about these networks are related to their evolution rather than their
-frozen moment in time state.  Researchers study graph evolution rate
-and mechanisms (e.g.,~\cite{Cho2000,DBLP:journals/csur/AggarwalS14}),
+The phenomena represented by these graphs change over time, some
+continuously and others sporadically.  Many interesting questions
+about these networks are related to their evolution rather than to
+their static state.  Researchers study graph evolution rate and
+mechanisms (e.g.,~\cite{DBLP:journals/csur/AggarwalS14,Cho2000}),
 impact of specific events on further evolution
-(e.g.,~\cite{Chan2008}), spatial and spatiotemporal patterns
-(e.g.,~\cite{Lahiri2008}).  As with database users, many of these
-researchers are not computer scientists and they need system support
-to perform their data analysis.
+(e.g.,~\cite{Chan2008}), spatial and spatio-temporal patterns
+(e.g.,~\cite{Lahiri2008}).  Many of these researchers are not computer
+scientists and need system support to perform their data analysis.
 
-\subsection{Introducing Portal}
+Despite much recent interest and activity on the topic, and despite
+increased variety and availability of evolving graph data, systematic
+support for scalable querying and analytics over evolving graphs still
+lacks. This support is urgently needed, due first and foremost to the
+scalability and efficiency challenges inherent in evolving graph
+analysis, but also to considerations of usability.
 
-In this paper we present \ql, a declarative query language and system
-for efficient querying and exploratory analysis of evolving graphs.
-Our language supports a variety of operations including temporal
-selection, join, and aggregation, and a rich class of analytics.  We
-provide a scalable and extensible open-source implementation of \ql in
-scope of Apache Spark, an open-source distributed data processing
-framework.  Let us consider some categories of questions one may ask
-about evolving networks in our system.
+{\em In this demonstration we present \ql, a declarative query
+  language for evolving graphs, and its implementation in an
+  open-source distributed framework, that fills this gap.} Portal
+streamlines exploratory analysis of evolving graphs, making it
+efficient and usable, and providing critical tools to computational
+and data scientists.
+
+\eat{\subsection{Introducing Portal}
+
+Let us consider some categories of questions one may ask about
+evolving networks in our system.
 
 {\em Can information about graph evolution be used to make graph
   analytics more stable, or representative?}  Algorithms that compute
@@ -84,4 +88,4 @@ analysis with {\em snapshot and trend analytics}.
 
 In the remainder of this demonstration proposal, we describe \ql
 system design.  We also describe in detail how we plan to demonstrate
-\ql at SIGMOD.
+\ql at SIGMOD.}

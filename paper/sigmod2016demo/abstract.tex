@@ -1,10 +1,26 @@
 \begin{abstract}
 
-\ql is a declarative query language for evolving graphs and a system
+Graphs are used to represent a plethora of phenomena, from the Web and
+social networks, to biological pathways, to semantic knowledge
+bases. Arguably the most interesting and important questions one can
+ask about graphs have to do with their evolution. Which Web pages are
+showing an increasing popularity trend? How does influence propagate
+in social networks? How does knowledge evolve?  
+
+In this demonstration we present \ql, a declarative language for
+efficient querying and exploratory analysis of evolving graphs.  We
+describe an implementation of \ql on Apache Spark, an open-source
+distributed data processing framework.  We provide both a text-based
+query shell and a visual query composer for \ql.  We demonstrate that
+our system is usable and efficient, by showing that sophisticated
+kinds of exploratory analysis of large evolving graphs can be
+expressed intuitively and concisely, and executed in interactive time.
+
+\eat{\ql is a declarative query language for evolving graphs and a system
 built on Apache Spark.  Our system supports a variety of operations
 including temporal selection, join and aggregation, and a rich class
 of analytics.  We provide both a text-based query shell and a
-graphical user interface for query composition and evaluation,
-targeting exploratory data analysis.
+graphical user interface for query composition and evaluation
+targeting exploratory data analysis.}
 
 \end{abstract}
