@@ -5,21 +5,23 @@
 \label{sec:setup}
 
 We will present an end-to-end implementation of \ql and demonstrate
-some of the benefits it provides.  The demonstrate exhibits three main
+some of the benefits it provides.  The demonstration exhibits three main
 components:
 
 {\bf Interactive Shell:} We will have a console where users can type
 in \ql commands and queries to explore the language features and its
-expressiveness.  
+expressiveness.  The users will be able to review optimized query
+plans, define new views, and execute queries.
 
-{\bf Data Set:} We will have a local or remote
-cluster with two small- to medium-sized evolving graph data sets that
-allow interactive-speed data exploration.  DBLP~\cite{dblp} contains
-co-authorship information from 1936 through 2015, with over 1.5
-million author nodes and over 6 million undirected co-authorship
-edges.  nGrams~\cite{nGrams} contains word co-occurrence information
-from 1520 through 2008, with over 1.5 million word nodes and over 65
-million undirected co-occurrence edges.
+{\bf Data Set:} We will have a local cluster with three small- to
+medium-sized evolving graph data sets that allow interactive-speed
+data exploration.  DBLP~\cite{dblp} contains co-authorship information
+from 1936 through 2015, with over 1.5 million author nodes and over 6
+million undirected co-authorship edges.  arXiv~\cite{arxiv} also
+contains co-authorship information from 1993 through 2016, filtered to
+only Computer Science publications.  nGrams~\cite{nGrams} contains
+word co-occurrence information from 1520 through 2008, with over 1.5
+million word nodes and over 65 million undirected co-occurrence edges.
 
 {\bf Web Query Composer:} Users will also be able to compose their
 queries in the graphical composer and then execute them on the
@@ -31,7 +33,7 @@ cluster.
 We demonstrate the functionality of \ql by executing queries provided
 by us and by members of the audience.  Queries on very large evolving
 graphs do not result in interactive time, but the DBLP data set we
-will primarily use allows for exploratory querying can be processed
+will primarily use allows for exploratory querying which can be processed
 within several seconds on a small cluster.  The total run-time is
 dominated by the data set loading time from HDFS, except in cases of
 using snapshot analytics over long time periods. Some queries on the
@@ -55,18 +57,18 @@ missing from \ql but desirable to the community.
 One of the most complicated queries that leads to meaningful results
 is to answer the following question: find 10 researchers whose
 publication careers exhibit the highest rising popularity over the
-last 50 years of the 20th century.  We can use the following SQL-\ql
-query:
+last 20 years, using both DBLP and arXiv data sets.  We can use the
+following SQL-\ql query:
 
 \begin{small}
 \begin{verbatim}
    Select vid, pr
-   From (TSelect Any V[vid, trend(prank) as pr]
+   From (TSelect Any V[vid, trend(prank) as pr];
                  Any E
          From (TSelect All V[vid, pagerank() as prank]; 
                        All E
-               From dblp
-               TWhere Start >= 1950-01-01 And End < 2000-01-01
+               From dblp TAnd arxiv
+               TWhere Start >= 1995-01-01 And End < 2015-01-01
                TGroup by 5 years)
          TGroup by size).toVerticesFlat()
    Order by pr
@@ -74,13 +76,37 @@ query:
 \end{verbatim}
 \end{small}
 
+With this query users not only get to experiment with all available
+\ql features, but also explore query optimization.  Several different
+operation orders are viable here and they lead to different
+performance.
+
 {\bf Use Case 2:} Word co-occurrence data in the nGrams data set
 provides interesting history of the evolution of the English language
 over 400 years.  What is the rate of change?  By experimenting with
 different aggregation sizes, we can see how stable two-word phrases
-are long-term.  What 30 words are the most popular in each century, as
-judged by the number of phrases that they appear in?  Users will be
-able to explore the data set and come up with their own questions and
-the queries to answer those questions.  They will be able to do so
-both through the \qlui and the interactive shell.
+are long-term.  What words are the most popular in each century, as
+judged by the number of phrases that they appear in?  
+
+One complicated query on this data set is to answer the following
+question: Which words are becoming obsolete most rapidly over the past
+50 years?  We can use the following SQL-\ql query:
+
+\begin{small}
+\begin{verbatim}
+   Select name, pop
+   From (TSelect Any V[vid, trend(degree) as pop];
+                 Any E
+         From (TSelect V[vid, degree()]; 
+                       E[vid1, vid2]
+               TWhere Start >= 1965-01-01)
+         TGroup by size).toVerticesFlat()
+   Order by pop asc
+   Limit 10
+\end{verbatim}
+\end{small}
+
+Users will be able to explore the data set and come up with their own
+questions and the queries to answer those questions.  They will be
+able to do so both through the \qlui and the interactive shell.
 

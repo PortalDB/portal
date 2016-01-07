@@ -21,6 +21,7 @@ application.
 %\subsection{Query Processing}
 %\label{sec:queryp}
 
+\eat{
 \begin{figure}
 \begin{center}
 \includegraphics[width=3.2in]{figs/shell.png}
@@ -28,30 +29,35 @@ application.
 \label{fig:shell}
 \end{center}
 \end{figure}
+}
 
 {\bf Query evaluation.}  \ql query execution follows the traditional
 query processing steps: parsing, logical plan generation and
 verification, and physical plan generation.  \ql re-uses and extends
 SparkSQL abstractions for these steps.  A \ql query is rewritten into
 a sequence of operators, and some operators are reordered to improve
-performance.  We developed several different physical representations
+performance.  For example, pushing temporal aggregation before a
+temporal join can sometimes lead to more efficient performance.  By
+injecting temporal selection during load based on the following
+temporal join we can also reduce execution time.
+
+We developed several different physical representations
 and partition strategies that are selected at the physical plan
 generation stage.  The \tgs are read from the distributed file system
 HDFS and processed by Spark Workers, with the tasks assigned and
 managed by the runtime.
 
 {\bf Interactive shell.} The \ql system includes an interactive shell
-for exploratory data analysis (Figure~\ref{fig:shell}).  Shell users
-can:
+for exploratory data analysis.  Shell users can:
 
 \begin{enumerate}[leftmargin=*]
 \item Define (materialized) views of \tg using standard SQL
   \insql{create view} command.
-\item View logical plans for defined views using \insql{describe}
-  command.
+\item View optimized execution plans for defined views using
+  \insql{describe} command.
 \item View results of queries using SQL, with \ql queries either
-  embedded in SQL, or from a previously defined view.
-\item View defined views and functions, including snapshot analytics.
+  embedded in SQL, or a previously defined view.
+\item View defined views and functions.
 \end{enumerate}
 
 {\bf Integration with SQL.}  Consider query \insql{Q3}, a SQL query
@@ -77,37 +83,4 @@ collection and flattens it into \insql{VF} (\underline{vid}:int,
 that returns a flattened collection of edges, called
 \insql{toEdgesFlat()}.
 
-\begin{figure}
-\begin{center}
-\includegraphics[width=3.2in]{figs/ui.pdf}
-\caption{Graphical query composition. PLACEHOLDER}
-\label{fig:ui}
-\end{center}
-\end{figure}
-
-{\bf Graphical query composer.} Evolving graph analysis is of interest
-to researchers in many domains.  While \ql is declarative and, thus,
-does not require computer science expertise to use, we want to reach a
-wide audience.  For this reason, we developed a graphical query
-composition tool, the \qlui (Figure~\ref{fig:ui}).
-
-\qlui users can compose queries by defining and manipulating \tgs in
-the workspace, where they are represented by their timelines.  For
-example, to temporally join two \tgs, the user can drag them to the
-workspace and place them close together.  Two \tgs can only be joined
-if they are {\em union-compatible}, that is, if their temporal
-sequences have the same resolution and can be aligned.  If the two
-graphs are not union-compatible, they will not snap together and an
-error message is displayed to the user explaining the problem.
-Union-compatibility is one of the more complex aspects of the
-language, and it is our hope that a graphical representation of the
-\tg temporal schema will reduce confusion.
-
-To select a temporal subset of a \tg, the user can move the outside
-border of the timeline.  To aggregate a \tg, the user can move the
-border of any of the timeline periods and then specify the aggregation
-functions through a drop-down menu.
-
-As the query is composed graphically, its \ql representation is
-updated in the Query view.  The user can also view the optimized
-logical plan for the query in the Plan view.
+\input{ui}
