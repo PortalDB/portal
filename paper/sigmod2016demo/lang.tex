@@ -57,12 +57,6 @@ specifies a sophisticated analysis task.\\
 \end{verbatim}
 }
 
-\insql{Q1} combines \tgs \insql{T1} and \insql{T2} by means of
-temporal union, restricts the result to the $[2010, 2014)$ range,
-  groups the result into 2-year windows, computes \insql{pagerank()}
-  for each vertex, and sums values of the attribute \insql{cnt} for
-  each edge.
-
 \begin{figure}[t!]
   \centering
 \includegraphics[width=3.5in]{figs/4snaps_T1_ve.pdf}
@@ -70,6 +64,18 @@ temporal union, restricts the result to the $[2010, 2014)$ range,
   \label{fig:tg_t1_ve}
 \end{figure}
 
+\insql{Q1} combines \tgs \insql{T1} and \insql{T2}, restricts the
+result to the $[2010, 2014)$ range, groups the result into 2-year
+  windows, computes \insql{pagerank()} for each vertex of the two
+  resulting snapshots, and sums values of the attribute \insql{cnt}
+  for each edge.  Note the use of \insql{TOr} in \insql{Q1}.  This one
+  a kind of a temporal join supported in \ql, returning the union of
+  the snapshots of the two operands.  (\ql also support temporal
+  intersection \insql{TAnd}, illustrated in \insql{Q2}).  Temporal
+  join is a binary operation that requires its operands to be {\em
+    union-compatible}: temporal sequences of \insql{T1} and \insql{T2}
+  must have the same resolution, and they must align.  We explain this
+  concept further in Section~\ref{sec:demo}, under use case 1.
 
 \ql supports two families of analytics.  The first are snapshot
 analytics, which are executed on each graph in a series of
