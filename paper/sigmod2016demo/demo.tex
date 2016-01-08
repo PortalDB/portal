@@ -1,44 +1,45 @@
 \section{Demonstration Details}
 \label{sec:demo}
 
+We will present an end-to-end implementation of \ql and will
+demonstrate that our system is usable and efficient, by showing that
+sophisticated kinds of exploratory analysis of large evolving graphs
+can be expressed intuitively and concisely, and executed in
+interactive time.
+
 \subsection{Demo Setup}
 \label{sec:setup}
 
-We will present an end-to-end implementation of \ql and demonstrate
-some of the benefits it provides.  The demonstration exhibits three main
-components:
+Users will interact with the \ql system via an {\bf interactive shell}
+and via the {\bf Portal Query Composer}, where they will type in or
+visually compose queries and define \tg views, exploring language
+features.\eat{ and its expressiveness.}  Users will inspect optimized
+query execution plans and execute queries.
 
-{\bf Interactive Shell:} We will have a console where users can type
-in \ql commands and queries to explore the language features and its
-expressiveness.  The users will be able to review optimized query
-plans, define new views, and execute queries.
-
-{\bf Data Set:} We will have a local cluster with three small- to
-medium-sized evolving graph data sets that allow interactive-speed
-data exploration.  DBLP~\cite{dblp} contains co-authorship information
-from 1936 through 2015, with over 1.5 million author nodes and over 6
-million undirected co-authorship edges.  arXiv~\cite{arxiv} also
-contains co-authorship information from 1993 through 2016, filtered to
-only Computer Science publications.  nGrams~\cite{nGrams} contains
-word co-occurrence information from 1520 through 2008, with over 1.5
-million word nodes and over 65 million undirected co-occurrence edges.
-
-{\bf Web Query Composer:} Users will also be able to compose their
-queries in the graphical composer and then execute them on the
-cluster.
+We will have a local cluster with three evolving graph data sets that
+allow interactive-speed data exploration.  DBLP~\cite{dblp} contains
+co-authorship information from 1936 through 2015, with over 1.5
+million author nodes and over 6 million undirected co-authorship
+edges.  arXiv~\cite{arxiv} contains co-authorship information from
+1993 through 2016, filtered to Computer Science publications.
+nGrams~\cite{nGrams} contains word co-occurrences from 1520 through
+2008, with over 1.5 million word nodes and over 65 million undirected
+co-occurrence edges.  We now discuss interesting use cases for each
+data sets.
 
 \subsection{Story Line}
 \label{sec:story}
 
-We demonstrate the functionality of \ql by executing queries provided
-by us and by members of the audience.  Queries on very large evolving
-graphs do not result in interactive time, but the DBLP data set we
-will primarily use allows for exploratory querying which can be processed
-within several seconds on a small cluster.  The total run-time is
-dominated by the data set loading time from HDFS, except in cases of
-using snapshot analytics over long time periods. Some queries on the
-nGrams data set also can be done in interactive time.  We will now
-discuss a use case for each of the data sets.
+\eat{We will demonstrate the functionality of \ql by executing queries
+provided by us and by members of the audience. Queries on very
+  large evolving graphs will not result in interactive running times
+  on the stand-alone cluster we plan to use for the demonstration.
+  However, the DBLP data set that we will primarily use allows for
+  exploratory querying that takes on the order of seconds on a small
+  cluster.  The total running time is dominated by the time it takes
+  to load data from HDFS, except in cases of using snapshot analytics
+  over long time periods. Some queries on the nGrams data set also can
+  be done in interactive time.} 
 
 {\bf Use Case 1:} DBLP data set can provide interesting insights into
 Computer Science research community at large.  Which authors have the
@@ -50,15 +51,15 @@ Who are the most authoritative sources, as judged by the co-authorship
 relationships, and does that conincide with our own judgements?  This
 question can be answered using pagerank analytic over an aggregation
 of various durations since the by-year data is very sparce.  Members
-of the audience may come up with other questions.  We wil be recording
-all the questions to see what language features, if any, are currently
+of the audience may come up with other questions.  We will record all
+the questions to see what language features, if any, are currently
 missing from \ql but desirable to the community.
 
-One of the most complicated queries that leads to meaningful results
-is to answer the following question: find 10 researchers whose
-publication careers exhibit the highest rising popularity over the
-last 20 years, using both DBLP and arXiv data sets.  We can use the
-following SQL-\ql query:
+An interesting complex query computes the answer the following
+question: Who are the top-10 researchers whose publication careers
+exhibit the highest rising popularity over the last 20 years, using
+both DBLP and arXiv data sets?  We can use the following SQL-\ql
+query:
 
 \begin{small}
 \begin{verbatim}
@@ -68,7 +69,8 @@ following SQL-\ql query:
          From (TSelect All V[vid, pagerank() as prank]; 
                        All E
                From dblp TAnd arxiv
-               TWhere Start >= 1995-01-01 And End < 2015-01-01
+               TWhere Start >= 1995-01-01 And
+                      End < 2015-01-01
                TGroup by 5 years)
          TGroup by size).toVerticesFlat()
    Order by pr
@@ -76,21 +78,22 @@ following SQL-\ql query:
 \end{verbatim}
 \end{small}
 
-With this query users not only get to experiment with all available
-\ql features, but also explore query optimization.  Several different
-operation orders are viable here and they lead to different
-performance.
+With this query users will not only get to experiment with the
+available features of \ql, but also observe query optimization in
+action.  We will explain that several different orders of operators
+produce equivalent results for this query, but lead to different
+performance.  
 
-{\bf Use Case 2:} Word co-occurrence data in the nGrams data set
-provides interesting history of the evolution of the English language
-over 400 years.  What is the rate of change?  By experimenting with
-different aggregation sizes, we can see how stable two-word phrases
-are long-term.  What words are the most popular in each century, as
-judged by the number of phrases that they appear in?  
+{\bf Use Case 2:} Word co-occurrences in the nGrams data set provide
+interesting history of the evolution of the English language over 400
+years.  Do co-occurrence pairs persist over time?  By experimenting
+with different aggregation window sizes, we can see how stable
+two-word phrases are long-term.  What words are the most popular in
+each century, as judged by the number of phrases in which they appear?
 
-One complicated query on this data set is to answer the following
-question: Which words are becoming obsolete most rapidly over the past
-50 years?  We can use the following SQL-\ql query:
+An interesting query on this data answers the question: Which words
+are becoming obsolete most rapidly over the past 50 years?  We can use
+the following SQL-\ql query:
 
 \begin{small}
 \begin{verbatim}
@@ -107,6 +110,6 @@ question: Which words are becoming obsolete most rapidly over the past
 \end{small}
 
 Users will be able to explore the data set and come up with their own
-questions and the queries to answer those questions.  They will be
-able to do so both through the \qlui and the interactive shell.
+questions, and with queries to answer those questions.  They will be
+able to do so through both the \qlui and the interactive shell.
 

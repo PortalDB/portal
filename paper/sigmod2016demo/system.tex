@@ -36,22 +36,30 @@ query processing steps: parsing, logical plan generation and
 verification, and physical plan generation.  \ql re-uses and extends
 SparkSQL abstractions for these steps.  A \ql query is rewritten into
 a sequence of operators, and some operators are reordered to improve
-performance.  For example, pushing temporal aggregation before a
-temporal join can sometimes lead to more efficient performance.  By
-injecting temporal selection during load based on the following
-temporal join we can also reduce execution time.
+performance.  For example, pushing temporal aggregation before
+temporal join can sometimes lead to more efficient performance.  A
+temporal join query may be rewritten to include additional temporal
+selection conditions, based on information about the temporal schema
+of the \tgs being joined, which in turn significantly reduces data
+load time.
 
-We developed several different physical representations
-and partition strategies that are selected at the physical plan
+We developed several different physical representations and
+partitioning strategies that are selected at the physical plan
 generation stage.  The \tgs are read from the distributed file system
 HDFS and processed by Spark Workers, with the tasks assigned and
 managed by the runtime.
 
-{\bf Interactive shell.} The \ql system includes an interactive shell
-for exploratory data analysis.  Shell users can:
+{\bf Interactive shell.  Integration with SQL.} The \ql system
+includes an interactive shell for exploratory data analysis.  Shell
+users can define (materialized) \tg views, inspect query execution
+plans and execute SQL queries with an embedded \ql view.  Consider
+query \insql{Q3}, a SQL query that returns \insql{vid} and \insql{tr}
+values of 20 vertices with the most significantly increasing
+\insql{pagerank} trend.
 
 \begin{enumerate}[leftmargin=*]
-\item Define (materialized) views of \tg using standard SQL
+\item
+ Define (materialized) views of \tg using standard SQL
   \insql{create view} command.
 \item View optimized execution plans for defined views using
   \insql{describe} command.
@@ -60,9 +68,7 @@ for exploratory data analysis.  Shell users can:
 \item View defined views and functions.
 \end{enumerate}
 
-{\bf Integration with SQL.}  Consider query \insql{Q3}, a SQL query
-that returns \insql{vid} and \insql{tr} values of 20 vertices with the
-most significantly increasing \insql{pagerank} trend.
+%{\bf Integration with SQL.}  
 
 \begin{small}
 \begin{verbatim}
