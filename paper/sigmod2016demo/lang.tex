@@ -7,12 +7,14 @@
  % \centering
   \includegraphics[width=2.9in]{figs/4snaps_T1.pdf}
   \caption{\tg \insql{T1} with 4 snapshots.}{}
+\vspace{-0.5cm}
   \label{fig:tg_t1}
 \end{minipage}%
 \begin{minipage}{3.2in}
 %  \centering
   \includegraphics[width=2.9in]{figs/4snaps_T2.pdf}
   \caption{\tg \insql{T2} with 4 snapshots.}{}
+\vspace{-0.5cm}
   \label{fig:tg_t2}
 \end{minipage}
 \end{figure*}
@@ -62,20 +64,33 @@ specifies a sophisticated analysis task.\\
 \includegraphics[width=3.5in]{figs/4snaps_T1_ve.pdf}
   \caption{Vertex and edge attributes of \tg \insql{T1}.}{}
   \label{fig:tg_t1_ve}
+\vspace{-0.5cm}
 \end{figure}
 
 \insql{Q1} combines \tgs \insql{T1} and \insql{T2}, restricts the
 result to the $[2010, 2014)$ range, groups the result into 2-year
-  windows, computes \insql{pagerank()} for each vertex of the two
-  resulting snapshots, and sums values of the attribute \insql{cnt}
-  for each edge.  Note the use of \insql{TOr} in \insql{Q1}.  This one
-  a kind of a temporal join supported in \ql, returning the union of
-  the snapshots of the two operands.  (\ql also support temporal
-  intersection \insql{TAnd}, illustrated in \insql{Q2}).  Temporal
-  join is a binary operation that requires its operands to be {\em
-    union-compatible}: temporal sequences of \insql{T1} and \insql{T2}
-  must have the same resolution, and they must align.  We explain this
-  concept further in Section~\ref{sec:demo}, under use case 1.
+  windows, computes \insql{pagerank()} for each vertex, and sums
+  values of the attribute \insql{cnt} for each edge.
+
+Note the use of \insql{TOr} in \insql{Q1}.  This is one a kind of a
+temporal join supported in \ql, returning the union of the snapshots
+of the two operands.  (\ql also support temporal intersection
+\insql{TAnd}, illustrated in \insql{Q2}).  Temporal join is a binary
+operation that requires its operands to be {\em union-compatible}.
+There are two parts to \tg union-compatibility, structural and
+temporal.  Structural union-compatibility states that vertex and edge
+relations of the two \tgs must be union-compatible.  Temporal
+union-compatiblity states that temporal sequences of \insql{T1} and
+\insql{T2} must have the same resolution, and they must align. \eat{
+  We explain this concept further in Section~\ref{sec:demo}, under use
+  case 1.}
+
+As part of query \insql{Q1}, \ql performs {\em structural
+  aggregation}.  This operation is part of temporal aggregation
+(\insql{TGroup}) and temporal join (\insql{TOr}).  This default is to
+take the union of vertices and edges; it can be over-ridden to compute
+an intersection of the edges, or of the vertices, or both.  Query
+\insql{Q4} in Section~\ref{sec:demo} gives an example.
 
 \ql supports two families of analytics.  The first are snapshot
 analytics, which are executed on each graph in a series of

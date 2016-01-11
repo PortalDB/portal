@@ -5,6 +5,7 @@
 \begin{center}
 \includegraphics[height=1.4in]{figs/architecture.pdf}
 \caption{\ql system architecture.}
+\vspace{-0.5cm}
 \label{fig:arch}
 \end{center}
 \end{figure}
@@ -17,6 +18,14 @@ system, and because of its in-memory processing approach.  All
 language operators on \tgs are available through the public API of the
 \ql library, and may be used like any other library in an Apache Spark
 application.
+
+\begin{figure*}
+\centering
+  \includegraphics[width=4.5in]{figs/ui.png}
+  \caption{Graphical query composition.}
+  \label{fig:ui}
+\end{figure*}
+
 
 %\subsection{Query Processing}
 %\label{sec:queryp}
@@ -37,11 +46,10 @@ verification, and physical plan generation.  \ql re-uses and extends
 SparkSQL abstractions for these steps.  A \ql query is rewritten into
 a sequence of operators, and some operators are reordered to improve
 performance.  For example, pushing temporal aggregation before
-temporal join can sometimes lead to more efficient performance.  A
-temporal join query may be rewritten to include additional temporal
-selection conditions, based on information about the temporal schema
-of the \tgs being joined, which in turn significantly reduces data
-load time.
+temporal join can sometimes lead to better performance.  A temporal
+join query may be rewritten to include additional temporal selection
+conditions, based on information about the temporal schema of the \tgs
+being joined, which in turn significantly reduces data load time.
 
 We developed several different physical representations and
 partitioning strategies that are selected at the physical plan
