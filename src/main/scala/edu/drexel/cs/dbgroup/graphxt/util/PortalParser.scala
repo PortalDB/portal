@@ -4,6 +4,8 @@ import scala.util.parsing.combinator.PackratParsers
 import scala.util.parsing.combinator.syntactical.StandardTokenParsers
 import java.time.LocalDate
 
+import org.apache.spark.graphx.Edge
+
 import edu.drexel.cs.dbgroup.graphxt._
 
 object PortalParser extends StandardTokenParsers with PackratParsers {
@@ -60,6 +62,7 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
 
   lazy val compute = ( "compute" ~> "pagerank" ~> dir ~ doubleLit ~ doubleLit ~ numericLit ^^ { case dir ~ tol ~ reset ~ numIter => Pagerank(dir, tol, reset, numIter)}
     | "compute" ~> "degree" ^^^ Degrees()
+    | "components" ^^^ ConnectedComponents()
   )
 
   lazy val doubleLit = ( numericLit ~ "." ~ numericLit ^^ { case num1 ~ _ ~ num2 => (num1 + "." + num2).toDouble} )
@@ -344,17 +347,19 @@ object Interpreter {
         argNum += 1
         result
       }
-        /*
-         case ConnectedComponents() => {
-         val conStart = System.currentTimeMillis()
-         val result = gr.connectedComponents()
+      case ConnectedComponents() => {
+        val conStart = System.currentTimeMillis()
+
+        def vmap(vid: Long, interval: Interval, attr: Long): Double = attr.toDouble
+        def emap(e: Edge[Int], internval: Interval): Double = 0.0
+
+        val result = gr.connectedComponents().mapVertices(vmap).mapEdges(emap)
         val conEnd = System.currentTimeMillis()
         val total = conEnd - conStart
         println(f"ConnectedComponents Runtime: $total%dms ($argNum%d)")
         argNum += 1
         result
-         }
-         */
+      }
     }
   }
 }
@@ -454,6 +459,7 @@ case class Existential extends Semantics {
 sealed abstract class Compute
 case class Pagerank(dir: Direction, tol: Double, reset: Double, numIter: String) extends Compute
 case class Degrees extends Compute
+case class ConnectedComponents extends Compute
 
 class Where(datec: Datecond) {
   var start: LocalDate = datec match { 
