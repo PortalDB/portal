@@ -451,6 +451,16 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
 
     new SnapshotGraph(intervals, gps)
   }
+
+  override def degree(): TemporalGraph[Double,Double] = {
+    var gps: Seq[Graph[Double,Double]] = Seq[Graph[Double,Double]]()
+
+    graphs.foreach { x =>
+      gps = gps :+ x.outerJoinVertices(x.degrees) { (vid, data, deg) => deg.getOrElse(0).toDouble}.mapEdges(e => 0.0)
+    }
+
+    new SnapshotGraph(intervals, gps)
+  }
   
   def connectedComponents(): TemporalGraph[VertexId, ED] = {
     var gps: Seq[Graph[Long, ED]] = Seq[Graph[Long, ED]]()

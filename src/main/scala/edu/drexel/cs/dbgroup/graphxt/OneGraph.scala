@@ -496,6 +496,27 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Map[
     }
   }
   
+  override def degree(): TemporalGraph[Double, Double] = {
+      def mergeFunc(a:Map[TimeIndex,Double], b:Map[TimeIndex,Double]): Map[TimeIndex,Double] = {
+        a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0.0)) }
+      }
+
+      val degrees: VertexRDD[Map[TimeIndex,Double]] = graphs.aggregateMessages[Map[TimeIndex, Double]](
+        ctx => {
+          ctx.sendToSrc(ctx.attr.mapValues(x => 1.0).map(identity))
+          ctx.sendToDst(ctx.attr.mapValues(x => 1.0).map(identity))
+        },
+        mergeFunc, TripletFields.None)
+
+    val newgraph: Graph[Map[TimeIndex,Double], Map[TimeIndex,Double]] = graphs.outerJoinVertices(degrees) {
+      case (vid, vdata, Some(deg)) => deg
+      case (vid, vdata, None) => vdata.mapValues(x => 0.0).map(identity)
+    }
+      .mapEdges(e => e.attr.map{ case (k,v) => (k -> 0.0)}.map(identity))
+
+    new OneGraph[Double, Double](intervals, newgraph)
+  }
+
   //run connected components on each interval
   override def connectedComponents(): TemporalGraph[VertexId, ED] = {
     //TODO: implement this using pregel

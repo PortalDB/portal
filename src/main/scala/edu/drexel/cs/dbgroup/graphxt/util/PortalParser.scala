@@ -7,7 +7,7 @@ import java.time.LocalDate
 import edu.drexel.cs.dbgroup.graphxt._
 
 object PortalParser extends StandardTokenParsers with PackratParsers {
-  lexical.reserved += ("select", "from", "union", "intersection", "min", "max", "sum", "any", "universal", "existential", "directed", "undirected", "vertices", "edges", "group", "by", "with", "return", "compute", "pagerank", "components", "count", "id", "attr", "trend", "year", "month", "day", "start", "end", "where", "and", 
+  lexical.reserved += ("select", "from", "union", "intersection", "min", "max", "sum", "any", "universal", "existential", "directed", "undirected", "vertices", "edges", "group", "by", "with", "return", "compute", "pagerank", "degree", "components", "count", "id", "attr", "trend", "year", "month", "day", "start", "end", "where", "and", 
     //these are for debugging and testing
     "materialize")
   lexical.delimiters ++= List("-", "=", ".")
@@ -59,6 +59,7 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
   )
 
   lazy val compute = ( "compute" ~> "pagerank" ~> dir ~ doubleLit ~ doubleLit ~ numericLit ^^ { case dir ~ tol ~ reset ~ numIter => Pagerank(dir, tol, reset, numIter)}
+    | "compute" ~> "degree" ^^^ Degrees()
   )
 
   lazy val doubleLit = ( numericLit ~ "." ~ numericLit ^^ { case num1 ~ _ ~ num2 => (num1 + "." + num2).toDouble} )
@@ -334,6 +335,15 @@ object Interpreter {
         argNum += 1
         result
       }
+      case Degrees() => {
+        val degStart = System.currentTimeMillis()
+        val result = gr.degree()
+        val degEnd = System.currentTimeMillis()
+        val total = degEnd - degStart
+        println(f"Degree Runtime: $total%dms ($argNum%d)")
+        argNum += 1
+        result
+      }
         /*
          case ConnectedComponents() => {
          val conStart = System.currentTimeMillis()
@@ -443,6 +453,7 @@ case class Existential extends Semantics {
 
 sealed abstract class Compute
 case class Pagerank(dir: Direction, tol: Double, reset: Double, numIter: String) extends Compute
+case class Degrees extends Compute
 
 class Where(datec: Datecond) {
   var start: LocalDate = datec match { 
