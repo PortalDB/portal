@@ -11,12 +11,16 @@ import edu.drexel.cs.dbgroup.temporalgraph._;
 import edu.drexel.cs.dbgroup.temporalgraph.portal.command._;
 import edu.drexel.cs.dbgroup.temporalgraph.util.GraphLoader;
 
-import scala.util.matching.Regex
+import scala.collection.mutable.ListBuffer
 import scala.tools.jline.console.ConsoleReader;
+import scala.util.matching.Regex
 import scala.util.control._;
 import scala.util.Properties;
 
 object PortalShell {
+  var commandList: Map[String, PortalCommand] = Map(); //tViewName -> PortalCommand
+  var portalContext: PortalContext = null;
+
   def main(args: Array[String]) = {
 
     //note: this does not remove ALL logging  
@@ -74,6 +78,7 @@ object PortalShell {
       .setMaster("local[2]");
     val sc = new SparkContext(conf)
     ProgramContext.setContext(sc)
+    portalContext = new PortalContext(sc);
 
     GraphLoader.setPath(data)
     GraphLoader.setGraphType(graphType)
@@ -119,7 +124,6 @@ object PortalShell {
     }
 
     println("Exiting Portal Shell...\n")
-
   }
 
   def parseCommand(line: String, commandNum: Integer): Boolean = {
@@ -129,6 +133,8 @@ object PortalShell {
     var tViewName: String = null;
     var portalQuery: String = null;
     var isMaterialized: Boolean = false;
+    var showType: String = null;
+    var isNoop: Boolean = false;
 
 //    printf("#%d --> %s\n", commandNum, line);
 
@@ -143,23 +149,85 @@ object PortalShell {
       }
 
       try {
-        command = new CreateCommand(commandNum, portalQuery, tViewName, isMaterialized);
+        command = new CreateViewCommand(portalContext, commandNum, portalQuery, tViewName, isMaterialized);
+        val result = command.execute();
+        
+        if (commandList.contains(tViewName)){
+          //FIXME: what is the correct action if tViewNmae already exists
+          printf("TView\'%s\' already exists, replacing it.\n", tViewName)
+        }
+        
+        //add new command to list of commands
+        commandList += (tViewName -> command)
+        
       } catch {
         case ex: Exception => {
-          println(PortalShellConstants.ErrText(ex.getMessage()));
+          printErrMessage(ex.getMessage());
           command = null
         }
       }
-      
-      println("\ntViewName --> " + tViewName);
+      //println("\ntViewName --> " + tViewName);
 
     } else if (commandType.equalsIgnoreCase("describe")) {
+      
+      if(args.length < 2){
+        printErrMessage(PortalShellConstants.InvalidCommandFormat(commandType));
+        return false
+      }
+      
       tViewName = args(1);
+      
+      if (commandList.contains(tViewName)){
+          command = commandList.get(tViewName).getOrElse(null);
+      } else {
+        printErrMessage(PortalShellConstants.UnsupportedErrorText());
+      }
+      
+      val description = command.describe();
 
     } else if (commandType.equalsIgnoreCase("show")) {
 
+      if(args.length < 2){
+        printErrMessage(PortalShellConstants.InvalidCommandFormat(commandType));
+        return false
+      }
+      
+      showType = args(1);
+      
+      if(showType.equalsIgnoreCase("plan")){
+        //show plan
+        
+      }else if(showType.equalsIgnoreCase("view")){
+        //show view
+        
+      } else {
+        printErrMessage(PortalShellConstants.UnsupportedErrorText());
+        return false
+      }
+      
+    } else if (commandType.equalsIgnoreCase("help")){
+      var helpType: String = null;
+      
+      if(args.length > 1){
+        helpType = args(1);
+      }
+      
+      command = new HelpCommand(portalContext, commandNum, helpType);
+      var result = command.describe();
+      println(result);
+      
+    } else if (commandType.equalsIgnoreCase("select")){
+      //sql statement
+      
+    } else if (commandType.equalsIgnoreCase("info")){
+      if(args.length < 2 && !args(1).equalsIgnoreCase("portalShell")){
+        printErrMessage(PortalShellConstants.InvalidCommandFormat(commandType));
+        return false
+      }
+      
+      
     } else {
-      println(PortalShellConstants.ErrText(PortalShellConstants.UnsupportedErrorText()));
+      printErrMessage(PortalShellConstants.UnsupportedErrorText());
       return false
     }
 
@@ -167,8 +235,6 @@ object PortalShell {
       return false;
     }
     
-    command.execute();
-
     return true;
   }
 
@@ -198,11 +264,15 @@ object PortalShell {
   }
 
   def printProgramStart() = {
-    println("\n===============================================================================");
-    println("\t\t\tWelcome to the Portal Shell!");
-    println("\t\t    cs.drexel.edu.dbgroup.temporalgraph")
-    println("===============================================================================");
-
+    printf(String.format("\n%s\n\t\t\t%s\n\t\t%s\n%s\n",
+            "===============================================================================",
+            "Welcome to the Portal Shell!",
+            "    cs.drexel.edu.dbgroup.temporalgraph",
+            "==============================================================================="))
   }
-
+  
+  def printErrMessage(message: String) = {
+    //print error message
+    println(PortalShellConstants.ErrText(message));
+  }
 }
