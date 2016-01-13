@@ -62,7 +62,7 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
 
   lazy val compute = ( "compute" ~> "pagerank" ~> dir ~ doubleLit ~ doubleLit ~ numericLit ^^ { case dir ~ tol ~ reset ~ numIter => Pagerank(dir, tol, reset, numIter)}
     | "compute" ~> "degree" ^^^ Degrees()
-    | "components" ^^^ ConnectedComponents()
+    | "compute" ~> "components" ^^^ ConnectedComponents()
   )
 
   lazy val doubleLit = ( numericLit ~ "." ~ numericLit ^^ { case num1 ~ _ ~ num2 => (num1 + "." + num2).toDouble} )

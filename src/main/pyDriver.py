@@ -16,7 +16,7 @@ strats = []
 
 def collect_time(output):
     ftime = -1
-    op_list = ["Aggregation", "Select", "PageRank", "Materialize", "Trend", "Union", "Intersection"] #append to this list for new opearations
+    op_list = ["Aggregation", "Select", "PageRank", "Degree", "Materialize", "Trend", "Union", "Intersection", "Components"] #append to this list for new opearations
     time_dict = {}
     
     #collect final runtime
@@ -91,6 +91,20 @@ def collect_args(query, strat, run):
             opType = "PageRank"
             arg1 = int(line[i+4])
             arg2 = 1
+            partS = runW = numParts = None
+
+            addOp = True
+
+        if line[i] == "degree":
+            opType = "Degree"
+            arg1 = arg2 = 1
+            partS = runW = numParts = None
+
+            addOp = True
+
+        if line[i] == "components":
+            opType = "Components"
+            arg1 = arg2 = 1
             partS = runW = numParts = None
 
             addOp = True
