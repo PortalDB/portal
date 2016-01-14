@@ -33,6 +33,8 @@ object GraphLoader {
         OneGraph.loadWithPartition(path, from, to, strategy, runWidth)
       case "OGC" =>
         OneGraphColumn.loadWithPartition(path, from, to, strategy, runWidth)
+      case "HG" =>
+        HybridGraph.loadWithPartition(path, from, to, strategy, runWidth)
     }
   }
 }

@@ -39,6 +39,8 @@ object PortalShell {
               println("Running experiments with OneGraph")
             case "OGC" =>
               println("Running experiments with columnar OneGraph")
+            case "HG" =>
+              println("Running experiments with HybridGraph")
             case _ =>
               println("Invalid graph type, exiting")
               System.exit(1)
