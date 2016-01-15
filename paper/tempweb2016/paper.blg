@@ -1,0 +1,61 @@
+This is BibTeX, Version 0.99d (TeX Live 2013/Debian)
+Capacity: max_strings=35307, hash_size=35307, hash_prime=30011
+The top-level auxiliary file: paper.aux
+The style file: abbrv.bst
+Database file #1: temporal.bib
+A bad cross reference---entry "DBLP:conf/icwsm/GoetzLMF09"
+refers to entry "DBLP:conf/icwsm/2009", which doesn't exist
+A bad cross reference---entry "DBLP:conf/kdd/LeskovecBKT08"
+refers to entry "DBLP:conf/kdd/2008", which doesn't exist
+A bad cross reference---entry "DBLP:conf/icml/SarkarCJ12"
+refers to entry "DBLP:conf/icml/2012", which doesn't exist
+A bad cross reference---entry "DBLP:journals/tcsb/BeyerTLSF10"
+refers to entry "DBLP:journals/tcsb/2010-12", which doesn't exist
+Warning--I didn't find a database entry for "Khurana2003"
+Warning--I didn't find a database entry for "DBLP:conf/icwsm/2009"
+Warning--I didn't find a database entry for "DBLP:conf/kdd/2008"
+Warning--I didn't find a database entry for "DBLP:conf/icml/2012"
+Warning--I didn't find a database entry for "DBLP:journals/tcsb/2010-12"
+Warning--to sort, need author or key in dblp
+You've used 26 entries,
+            2118 wiz_defined-function locations,
+            672 strings with 8431 characters,
+and the built_in function-call counts, 9175 in all, are:
+= -- 865
+> -- 483
+< -- 6
++ -- 192
+- -- 162
+* -- 638
+:= -- 1506
+add.period$ -- 80
+call.type$ -- 26
+change.case$ -- 155
+chr.to.int$ -- 0
+cite$ -- 27
+duplicate$ -- 360
+empty$ -- 734
+format.name$ -- 162
+if$ -- 1936
+int.to.chr$ -- 0
+int.to.str$ -- 26
+missing$ -- 24
+newline$ -- 134
+num.names$ -- 52
+pop$ -- 193
+preamble$ -- 1
+purify$ -- 129
+quote$ -- 0
+skip$ -- 240
+stack$ -- 0
+substring$ -- 463
+swap$ -- 80
+text.length$ -- 6
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 104
+warning$ -- 1
+while$ -- 79
+width$ -- 28
+write$ -- 283
+(There were 4 error messages)

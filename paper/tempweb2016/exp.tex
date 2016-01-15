@@ -1,0 +1,41 @@
+\section{Experimental Evaluation}
+\label{sec:exp}
+
+{\bf Experimental environment.} All experiments in this section were
+conducted on an 8-slave in-house Open Stack cloud, using Linux Ubuntu
+14.04 and Spark v1.4.  Each node has 4 cores and 16 GB of RAM.  Spark
+Standalone cluster manager and Hadoop 2.6 were used.
+
+Because Spark is a lazy evaluation system, a \insql{materialize}
+operation was appended to the end of each query, which consisted of
+the count of nodes and edges.  In cases where the goal was to evaluate
+a specific operation in isolation, we used warm start, which consisted
+of materializing the graph upon load.  Each experiment was conducted 3
+times, we report the average running time, which is representative
+because we took great care to control variability.  Standard deviation
+for each measure is at or below 5\% of the mean except in cases of
+very small running times.
+
+{\bf Data.}  We evaluate performance of our framework on two real
+open-source datasets.
+%\begin{enumerate}%[leftmargin=*]
+%\item 
+DBLP~\cite{dblp} contains co-authorship information from 1936 through
+2015, with over 1.5 million author nodes and over 6 million undirected
+co-authorship edges.  Total data size: 250 MB.
+%
+nGrams~\cite{nGrams} contains word co-occurrence information from 1520
+through 2008, with over 1.5 million word nodes and over 65 million
+undirected co-occurrence edges.  Total data size: 40 GB.  
+
+The nGrams dataset is of comparable size to the LiveJournal dataset
+in~\cite{Xin2013} and is commensurate with our cluster size.  DBLP and
+nGrams differ not only in size, but also in the evolutionary
+properties: co-authorship network nodes and edges have limited
+lifespan, while the nGrams network grows over time, with nodes and
+edges persisting for long duration.  All figures in the body of this
+section are on the larger nGrams dataset.  Refer to the Appendix for
+the DBLP figures, which show similar trends as nGrams.  We plan to
+carry out further experiments with a larger
+DELIS\footnote{\url{law.di.unimi.it/webdata/uk-union-2006-06-2007-05}}
+dataset as we grow the cluster in the near future.
