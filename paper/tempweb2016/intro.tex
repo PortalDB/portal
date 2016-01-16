@@ -33,9 +33,17 @@ analysis, but also to considerations of usability.
    that fills this gap.} \ql streamlines exploratory analysis of
  evolving graphs, making it efficient and usable, and providing
  critical tools to computational and data scientists.  Importantly,
- \ql implements a declarative query language for evolving graphs.  
-%
-Let us consider some categories of questions one may ask about
+ \ql implements a declarative query language for evolving graphs.  We
+ briefly describe our query language (Section~\ref{sec:language}) and
+ the system (Section~\ref{sec:sys}) that implements it.  We then
+ describe several physical representations of evolving graphs that we
+ developed (Section~\ref{sec:physical}), and show results of a
+ preliminary experimental evaluation (Section~\ref{sec:exp}), which
+ illustrates interesting performance trade-offs when different
+ physical representations are used for an important class of
+ analytics.  
+
+\eat{Let us consider some categories of questions one may ask about
 evolving networks in our system.
 
 {\em Can information about graph evolution be used to make graph
@@ -74,8 +82,9 @@ collaboration across domains.  Here, again, connectivity can be
 quantified as, e.g., pair-wise distance, length of shortest path
 between communities, or graph density.  \ql supports this kind of
 analysis with {\em snapshot and trend analytics}.
+}
 
-{\bf Roadmap.} In what follows, we briefly describe our query language
+\eat{{\bf Roadmap.} In what follows, we briefly describe our query language
 (Section~\ref{sec:language}) and the system (Section~\ref{sec:sys})
 that implements it.  We then describe several physical representations
 of evolving graphs that we developed (Section~\ref{sec:physical}), and
@@ -83,7 +92,7 @@ show results of a preliminary experimental evaluation
 (Section~\ref{sec:exp}), which illustrates interesting performance
 trade-offs when different physical representations are used for an
 important class of analytics.  We present related work in
-Section~\ref{sec:related} and conclude in Section~\ref{sec:conc}.
+Section~\ref{sec:related} and conclude in Section~\ref{sec:conc}.}
 
 
 

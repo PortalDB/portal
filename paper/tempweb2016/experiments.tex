@@ -40,12 +40,12 @@ carry out further experiments with a larger
 DELIS\footnote{\url{law.di.unimi.it/webdata/uk-union-2006-06-2007-05}}
 dataset as we grow the cluster in the near future.
 
-\subsection{Degrees}
+%\subsection{Degrees}
 
-Computation of the number of edges for each vertex is performed using
-a single round of message sending between nodes, with batch mode for
-HG and OG.  We used the following query to evaluate data structure
-performance over varying number of snapshots:
+{\bf Degrees.} Computation of the number of edges for each vertex is
+performed using a single round of message sending between nodes, with
+batch mode for HG and OG.  We used the following query to evaluate
+data structure performance over varying number of snapshots:
 
 \begin{small}
 \begin{verbatim}
@@ -90,12 +90,12 @@ does not consistently outperform OG dues to its sensitivity to
 temporal skew.  This effect is particularly pronounced for
 fast-running operations like Degree.
 
-\subsection{Connected Components}
+%\subsection{Connected Components}
 
-Snapshot analytics like Connected Components are implemented using the
-Pregel API in GraphX, with batch mode for HG and OG.  We used the
-following query to evaluate data structure performance over varying
-number of snapshots:
+{\bf Connected components.} Snapshot analytics like Connected
+  Components are implemented using the Pregel API in GraphX, with
+  batch mode for HG and OG.  We used the following query to evaluate
+  data structure performance over varying number of snapshots:
 
 \begin{small}
 \begin{verbatim}
@@ -156,24 +156,24 @@ performance improves compared to SG, and in fact for the largest size
 (128) HG surpasses SG in performance.  We saw this trend in both data
 sets.
 
-\subsection{PageRank}
+%\subsection{PageRank}
 
-PageRank is implemented using Pregel, like Connected Components above.
-The query is the same, replacing \insql{components} with
-\insql{pagerank}.  PageRank was executed for 10 iterations or until
-convergence, whichever came first.  The results of this experiment
-(Figure~\ref{fig:pagerank_ngrams}) are similar to those of the
-experiment above: SG outperforms the other data structures, but HG
+{\bf PageRank.} PageRank is implemented using Pregel, like Connected
+Components above.  The query is the same, replacing \insql{components}
+with \insql{pagerank}.  PageRank was executed for 10 iterations or
+until convergence, whichever came first.  The results of this
+experiment (Figure~\ref{fig:pagerank_ngrams}) are similar to those of
+the experiment above: SG outperforms the other data structures, but HG
 exhibits the same slope and its performance improves relative to the
 other data structures as the number of snapshots is increased.  E2D
 partitioning leads to performance improvements for SG, but
 inconsistent for HG/OG.
 
-\subsection{Mixed queries}
+%\subsection{Mixed queries}
 
-All the experiments so far evaluated performance of individual \ql
-analytics operations.  We want to see what happens when operations are
-combined in a single query such as this:
+{\bf Mixed queries.} All the experiments so far evaluated performance
+of individual \ql analytics operations.  We want to see what happens
+when operations are combined in a single query such as this:
 
 \begin{small}
 \begin{verbatim}
