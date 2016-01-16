@@ -93,13 +93,13 @@ approaches have been shown to have better
 performance~\cite{Gonzalez2012}, and are the strategies of choice in
 GraphX.  \ql leverages these strategies.
 
-In our experiments we compare performance of SG, OG and HG without
-explicitly specified partitioning (\julia{What does this mean?})  and
-with 2D edge partitioning (E2D).  This strategy is available in GraphX
-and was used without modification.  In E2D, a sparse edge adjacency
-matrix is partitioned in two dimensions, guaranteeing a $2 \sqrt{n}$
-bound on vertex replication, where $n$ is the number of partitions. As
-we will see in Section~\ref{sec:exp}, E2D provides good
+In our experiments we compare performance of SG, OG and HG with (1) no
+repartitioning after load, and (2) with repartitioning using the 2D
+edge partitioning strategy (E2D).  This strategy is available in
+GraphX and was used without modification.  In E2D, a sparse edge
+adjacency matrix is partitioned in two dimensions, guaranteeing a $2
+\sqrt{n}$ bound on vertex replication, where $n$ is the number of
+partitions. As we will see in Section~\ref{sec:exp}, E2D provides good
 performance for Pregel-style analytics.
 
 We implemented and are experimenting with additional partitioning
