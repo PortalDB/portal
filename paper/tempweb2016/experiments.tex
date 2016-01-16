@@ -134,7 +134,7 @@ only no partitioning and E2D.
 
 SG performs better than the other data structures in this experiment,
 contrary to our expectation that batch mode of HG and OG would be
-faster (Figure~\ref{fig:connectedc_ngrams}).  This can be explained by
+faster (Figure~\ref{fig:connectc_ngrams}).  This can be explained by
 HG and OG using significantly more cross-partition communication due
 to the following factors:
 
@@ -183,20 +183,20 @@ when operations are combined in a single query such as this:
                        E[vid1, vid2]
                From    nGrams
                TWhere  Start >= x And End <= y)
-      TGroup by size
+      TGroup by 16 years
 \end{verbatim}
 \end{small}
 
 This query computes a degree of each vertex in each snapshot,
-aggregates all snapshots into a single graph, and uses trend analytic
-as the aggregation function on degrees.  We have shown above that in
-most cases SG provides the most efficient performance for snapshot
+aggregates snapshots in groups of 16, and uses trend analytic as the
+aggregation function on degrees.  We have shown above that in most
+cases SG provides the most efficient performance for snapshot
 analytics.  We have also shown in (under review) that aggregate data
 structures (OG, HG, others) take longer to load but are more efficient
 for a \insql{TGroup} operation.  When these operations are combined,
 there is no significant difference in performance between SG and OG
-(Figure~\ref{trend_deg} with cold start).  At this time we do not have
-an implementation of temporal aggregation for HG.
+(Figure~\ref{fig:trend_deg} with cold start).  At this time we do not
+have an implementation of temporal aggregation for HG.
 
 \begin{figure*}[t]
 \centering
@@ -223,7 +223,7 @@ an implementation of temporal aggregation for HG.
 }
 
 We conclude this section with a cold-start execution of
-the query:
+the following SQL-\ql query:
 
 \begin{small}
 \begin{verbatim}
@@ -248,7 +248,7 @@ aggregation.  This query combines all of these operations, and adds a
 trend analytic, and a transformation of the vertices of the result
 into a flat vertex relation.
 }
-SG with no partitioning, and OGC with E2D show comparable
+SG with no partitioning, and OG with E2D show comparable
 performances, as seen in Figure~\ref{fig:complexq}.
 
 \eat{
