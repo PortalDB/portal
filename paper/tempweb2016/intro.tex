@@ -8,16 +8,18 @@ the separation between the logical and the physical representations
 paved the way for powerful performance optimizations.  The motivation
 for our research is to provide a similar tool for analyzing {\em
   evolving graphs}, an area of interest in many research communities,
-including sociology, epidemiology, networking, etc.
+including the Web and social networks, sociology, epidemiology, and
+others.
 
-Arguably the most interesting and important questions one can ask
-about networks have to do with their evolution, rather than with their
-static state.  Analysis of {\em evolving graphs} has been receiving
-increasing attention, with most progress taking place in the last
+Analysis of evolving graphs has been receiving increasing attention,
+with most progress taking place in the last
 decade~\cite{DBLP:journals/csur/AggarwalS14,Chan2008,Kan2009,DBLP:journals/tos/MiaoHLWYZPCC15,Ren2011,Semertzidis2015}.
 Some areas where evolving graphs are being studied are social network
 analysis~\cite{DBLP:conf/icwsm/GoetzLMF09,DBLP:journals/tweb/LeskovecAH07,DBLP:conf/kdd/LeskovecBKT08,DBLP:conf/icml/SarkarCJ12},
-biological networks~\cite{DBLP:journals/tkdd/AsurPU09,DBLP:journals/tcsb/BeyerTLSF10,Stuart2003} and the Web~\cite{DBLP:journals/kais/ChanBL08,DBLP:journals/jisa/PapadimitriouDG10}.
+biological
+networks~\cite{DBLP:journals/tkdd/AsurPU09,DBLP:journals/tcsb/BeyerTLSF10,Stuart2003}
+and the
+Web~\cite{DBLP:journals/kais/ChanBL08,DBLP:journals/jisa/PapadimitriouDG10}.
 
 Despite much recent interest and activity on the topic, and despite
 increased variety and availability of evolving graph data, systematic
@@ -27,22 +29,12 @@ scalability and efficiency challenges inherent in evolving graph
 analysis, but also to considerations of usability. 
 
  {\em In this paper we present our ongoing work on the \ql system, an
-   open-source distributed framework that fills this gap.} \ql
- streamlines exploratory analysis of evolving graphs, making it
- efficient and usable, and providing critical tools to computational
- and data scientists.  Importantly, \ql implements a declarative query
- language for evolving graphs.  In what follows, we briefly describe
- the query language (Section~\ref{sec:language}) and the \ql system
- (Section~\ref{sec:sys}) that implements it.  We then describe several
- physical representations of evolving graphs that we developed
- (Section~\ref{sec:physical}), and show results of a preliminary
- experimental evaluation (Section~\ref{sec:exp}), which
- illustrates interesting performance trade-offs when different
- physical representations are used for different analytics.
-
-
-\eat{\subsection{Introducing Portal}
-
+   open-source distributed framework built on top of Apache Spark,
+   that fills this gap.} \ql streamlines exploratory analysis of
+ evolving graphs, making it efficient and usable, and providing
+ critical tools to computational and data scientists.  Importantly,
+ \ql implements a declarative query language for evolving graphs.  
+%
 Let us consider some categories of questions one may ask about
 evolving networks in our system.
 
@@ -83,6 +75,15 @@ quantified as, e.g., pair-wise distance, length of shortest path
 between communities, or graph density.  \ql supports this kind of
 analysis with {\em snapshot and trend analytics}.
 
-In the remainder of this demonstration proposal, we describe \ql
-system design.  We also describe in detail how we plan to demonstrate
-\ql at SIGMOD.}
+{\bf Roadmap.} In what follows, we briefly describe our query language
+(Section~\ref{sec:language}) and the system (Section~\ref{sec:sys})
+that implements it.  We then describe several physical representations
+of evolving graphs that we developed (Section~\ref{sec:physical}), and
+show results of a preliminary experimental evaluation
+(Section~\ref{sec:exp}), which illustrates interesting performance
+trade-offs when different physical representations are used for an
+important class of analytics.  We present related work in
+Section~\ref{sec:related} and conclude in Section~\ref{sec:conc}.
+
+
+
