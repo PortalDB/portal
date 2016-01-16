@@ -78,15 +78,17 @@ performance over varying number of snapshots:
 
 SG performs better than the other data structures in this experiment,
 contrary to our expectation that batch mode of HG and OG would be
-faster (Figures~\ref{fig:deg_dblp}, \ref{fig:deg_ngrams}).  Note that
-both figures show warm start performance, which is the case throughout
-this paper unless otherwise noted.  Furthermore, we expected HG
-performance to be between the two graphs that it combines, which we
-observe in a few cases, but not consistently.  SG performance can be
-explained if we consider that each snapshot is spread out over fewer
-partitions than in the aggregate data structures.  Thus, more
-communication occurs intra-partition rather than between partitions.
-Communication cost dominates the overall performance.
+faster (Figures~\ref{fig:deg_dblp}, \ref{fig:deg_ngrams}, with warm
+start).  SG performance can be explained if we consider that each
+snapshot is spread out over fewer partitions than in the aggregate
+data structures.  Thus, more communication occurs intra-partition
+rather than between partitions.  Communication cost dominates the
+overall running time.  Furthermore, we expected HG performance to be
+between SG and OG, the two data structures that it combines.  We do
+observe this in most cases, but not consistently.  We believe that HG
+does not consistently outperform OG dues to its sensitivity to
+temporal skew.  This effect is particularly pronounced for
+fast-running operations like Degree.
 
 \subsection{Connected Components}
 
