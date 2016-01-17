@@ -1,6 +1,15 @@
 \section{Portal by example}
 \label{sec:language}
 
+\begin{figure}[t!]
+  \includegraphics[width=2.9in]{figs/4snaps_T1.pdf}
+  \caption{\tg \insql{T1} with 4 snapshots.}
+  \vspace{-0.5cm}
+  \label{fig:tg_t1}
+  \vspace{-0.2cm}
+\end{figure}
+
+\eat{
 \begin{figure*}[th!]
 \centering
 \begin{minipage}{3.2in}
@@ -18,7 +27,7 @@
   \label{fig:tg_t2}
 \end{minipage}
 \end{figure*}
-
+}
 \ql is a declarative query language for evolving graphs.  The language
 operates on a novel kind of a relation, called a \tg, which can be
 provided as a base relation or computed as a view.  A \tg associates a
@@ -108,8 +117,8 @@ Q2:  TSelect V [vid, trend(pr)];
 \end{verbatim}
 }
 
-\insql{Q2} executes a temporal join of \insql{T1} and \insql{T2},
-invokes \insql{pagerank()} {\em snapshot analytic} on consecutive
+\insql{Q2} executes a temporal join of \insql{T1} and \insql{T2}, then
+invokes \insql{pagerank()}, a {\em snapshot analytic}, on consecutive
 snapshots of the result.  Our current focus is on Pregel-style
 snapshot analytics.  We may accommodate additional classes of
 analytics in the future.
