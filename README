@@ -3,7 +3,14 @@ Set $SPARK_HOME environment variable:
     e.g. export SPARK_HOME=/Applications/spark-1.2.0-bin-hadoop2.4 
 
 To compile:
-    sbt package
+    1) compile graphext first:
+        cd src/graphext;
+        sbt package; 
+        mkdir ../main/lib
+        cp target/scala-2.10/graphx-extensions_2.10-1.0.jar ../main/lib/
+    2) compile the main project
+        cd ../main
+        sbt package
 
 To run Experiment driver locally:
      $SPARK_HOME/bin/spark-submit --class edu.drexel.cs.dbgroup.graphxt.Driver --master local --jars lib/graphx-extensions_2.10-1.0.jar target/scala-2.10/temporal-graph-project_2.10-1.0.jar {params}
