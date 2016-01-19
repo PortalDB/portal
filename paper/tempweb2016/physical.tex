@@ -28,9 +28,10 @@ snapshot sequence, while \insql{TGroup} and temporal joins
 aggregate set of vertices and edges.
 
 \begin{figure}[t!]
-\includegraphics[width=3.2in]{figs/sgp.pdf}
+\includegraphics[width=3.3in]{figs/sgp.pdf}
 \caption{SG representation of T1 from Figure~\ref{fig:tg_t1}.}
 \label{fig:sgp}
+\vspace{-0.3cm}
 \end{figure}
 
 While the SG representation is simple, it is not compact, considering
@@ -46,19 +47,17 @@ workers.
 graph structure is to store each vertex {\em and} each edge only once
 for the whole evolving graph, by taking a union of the snapshot vertex
 and edge sets.  The OneGraph data structure, or OG for short, uses
-this representation in our system.
-%
-The OG provides some benefits in addition to compactness, since it
-reduces the total communication between vertices in Pregel-based
-analytics in batch mode.  The drawback is that OG is much denser than
-individual snapshots of SG.  OG stores vertex and edge attribute
-information separately.  This is not as compact as storing attributes
-within the graph elements, but is faster in many operations where only
-graph topology is required.
+this representation in our system.  The drawback is that OG is much
+denser than individual snapshots of SG.  OG stores vertex and edge
+attribute information separately.  This is not as compact as storing
+attributes within the graph elements, but is faster in many operations
+where only graph topology is required.
 
 \begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/ogc.pdf}
+\vspace{-0.3cm}
 \caption{OG representation of T1 from~\ref{fig:tg_t1}.}
+\vspace{-0.5cm}
 \label{fig:ogc}
 \end{figure}
 
