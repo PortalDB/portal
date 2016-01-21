@@ -8,6 +8,8 @@ import edu.drexel.cs.dbgroup.temporalgraph.TemporalGraphWithSchema;
 class CreateViewCommand(portalContext: PortalContext, commandNum: Int, portalQuery: String, tViewName: String, 
     isMaterialized: Boolean) extends PortalCommand(portalContext, commandNum) {
   
+  val schemaDescriptionFormat: String = "TView \'%s\' schema => %s";
+  
   // begin primary constructor definition  
   if (portalQuery == null || portalQuery.isEmpty()) {
     throw new Exception(PortalShellConstants.InvalidQuerySyntax());
@@ -17,15 +19,14 @@ class CreateViewCommand(portalContext: PortalContext, commandNum: Int, portalQue
   
   // begin method implementation  
   def describe(): String = {
-    println("In \'Create Command\', Printing description of tView: " + tViewName)
+    var pcontext = getPortalContext();
     
-    if (portalContext == null){
+    if (pcontext == null){
       throw new Exception(PortalShellConstants.InvalidPortalContext());
-    }else if (portalPlan == null){
-      throw new Exception(PortalShellConstants.InvalidExecutionPlan());
-    }
+    };
     
-    return portalPlan.toString();
+    var description: String = String.format(schemaDescriptionFormat, tViewName, tempGraph.getSchema().toString());
+    return description;
   }
   
   /*
@@ -33,10 +34,11 @@ class CreateViewCommand(portalContext: PortalContext, commandNum: Int, portalQue
    * or create the TemporalGraph in the PortalShell class?
    */
   override def execute(): TemporalGraphWithSchema = {
-    println("Executing \'Create View\' command:");
+    //println("Executing \'Create View\' command:");
 
     try {
-      var queryExec = portalContext.executePortal(portalQuery);
+      var pcontext = getPortalContext();
+      queryExec = pcontext.executePortal(portalQuery);
       tempGraph = queryExec.toTGraph;
       
       //register a view with a name
@@ -46,6 +48,7 @@ class CreateViewCommand(portalContext: PortalContext, commandNum: Int, portalQue
         tempGraph.materialize();
       }
       
+      attributes += ("tViewName" -> tViewName)
       return tempGraph;
 
     } catch {
@@ -53,15 +56,15 @@ class CreateViewCommand(portalContext: PortalContext, commandNum: Int, portalQue
           //FIXME: handle exception correctly 
           throw new Exception(ex);
         };
-        
       }
 
     return null;
   };
 
   override def verifySyntax(): Boolean = {
-    println("[info] Checking \'Create View\' command syntax of: " + portalQuery)
-
+    //TODO: remove syntax verification
+    //println("[info] Checking \'Create View\' command syntax of: " + portalQuery)
+    
     return true;
   };
   
