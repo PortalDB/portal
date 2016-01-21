@@ -25,7 +25,7 @@ object PortalCommandType {
     val cType: CommandType,
     val description: String) extends Ordered[Command] {
 
-    def describeCommand(): String = {
+    def getDescription(): String = {
       var quotedStr = String.format("\'%s\'", this.usage)
       return String.format(commandPrintfFormat, quotedStr, this.description);
     }
@@ -83,13 +83,23 @@ object PortalCommandType {
   val commands: SortedSet[Command] = TreeSet(CreateView, CreateMatView, DescribeView, ShowView,
     ShowPlan, HelpAll, HelpWithCommand);
 
+  
+  //method implementations
+  def describeCommand(commandName: String) = {
+    //TODO: to implement
+  };
+  
   def describeAll(): String = {
     var res: String = "";
-    commands.foreach(res += _.describeCommand)
+    commands.foreach(res += _.getDescription)
 
     return String.format(shellHelpFormat, shellHeader(), res);
   };
-
+  
+  def verifyCommand(commandName: String) = {
+    //TODO: to implement
+  };
+  
   def shellHeader(): String = {
     return String.format("%s\n%s\n%s\n%s",
       "PortalShell, version 1.0.",
@@ -98,7 +108,4 @@ object PortalCommandType {
       "Use 'info portalshell' to find out more about the shell in general.");
   };
 
-  def verifyCommand(commandName: String) = {
-
-  }
 }

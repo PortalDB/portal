@@ -8,10 +8,9 @@ import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan;
 
 abstract class PortalCommand(portalContext: PortalContext, commandNum : Int) {
   var timeExecuted: Long = System.currentTimeMillis();
-  var verifierRes: Tuple2[Boolean, String] = null;
-  var logicalPlan: LogicalPlan = null;
-  var portalPlan: PortalPlan = null;
   var tempGraph: TemporalGraphWithSchema = null;
+  var queryExec: PortalContext#QueryExecution = null;
+  var attributes: Map[String, String] = Map();
   
   //to be implemented by subclasses
   def describe(): String;
@@ -22,5 +21,12 @@ abstract class PortalCommand(portalContext: PortalContext, commandNum : Int) {
   def getExecutionTime(): Long = {
     return timeExecuted;
   }
-
+  
+  def getAttributes(): Map[String, String] = {
+     return attributes;
+  }
+  
+  def getPortalContext(): PortalContext = {
+    return this.portalContext;
+  }
 }
