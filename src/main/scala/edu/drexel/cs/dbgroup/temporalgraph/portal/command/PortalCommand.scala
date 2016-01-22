@@ -13,9 +13,7 @@ abstract class PortalCommand(portalContext: PortalContext, commandNum : Int) {
   var attributes: Map[String, String] = Map();
   
   //to be implemented by subclasses
-  def describe(): String;
-  def execute(): TemporalGraphWithSchema;
-  def verifySyntax(): Boolean;
+  def execute();
   
   // begin method implementation
   def getExecutionTime(): Long = {
@@ -29,4 +27,5 @@ abstract class PortalCommand(portalContext: PortalContext, commandNum : Int) {
   def getPortalContext(): PortalContext = {
     return this.portalContext;
   }
+  
 }
