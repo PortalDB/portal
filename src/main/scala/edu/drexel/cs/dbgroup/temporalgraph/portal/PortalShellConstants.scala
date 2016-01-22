@@ -12,7 +12,7 @@ object PortalShellConstants {
   def InvalidQuerySyntax(message: String): String = { String.format("Invalid Command Syntax: %s", message) };
   
   def InvalidPortalContext(): String = {"Invalid Portal Context"};
-  def InvalidExecutionPlan(): String = {"Invalid Command Execution Plan"};
+  def InvalidExecutionPlan(): String = {"Invalid Execution Plan"};
   def InvalidCommandFormat(): String = {"Invalid Command Format"};
   def InvalidCommandFormat(message: String): String = {String.format("Invalid Command Format: use \'help %s\' command description", message) };
   

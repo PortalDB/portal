@@ -11,20 +11,12 @@ import edu.drexel.cs.dbgroup.temporalgraph.TemporalGraphWithSchema;
 class HelpCommand(portalContext: PortalContext, commandNum: Int, commandName: String)
   extends PortalCommand(portalContext, commandNum) {
   
-  def execute(): TemporalGraphWithSchema = {
-    if (commandName != null){
-      
+  override def execute() = {
+    if (commandName == null){
+      println(PortalCommandType.describeAll());
+    } else {
+      println("Help text for " + commandName)
+      //println(PortalCommandType.describeCommand(commandName));
     }
-    
-    return null;
-  }
-  
-  def verifySyntax(): Boolean = {
-    return true;
-  }
-  
-  def describe(): String = {
-    var result = PortalCommandType.describeAll();
-    return result;
   }
 }
