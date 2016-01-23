@@ -527,6 +527,26 @@ class MultiGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Gr
     new MultiGraphColumn[Double,Double](intervals, resultGraph.outerJoinVertices(graphs.vertices)((vid, vl, bt) => bt.get), newattrs)
   }
 
+  override def degree(): TemporalGraph[Double, Double] = {
+    def mergedFunc(a:Map[TimeIndex,Int], b:Map[TimeIndex,Int]): Map[TimeIndex,Int] = {
+      a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) }
+    }
+
+    //compute degree of each vertex for each interval
+    //this should produce a map from interval to degree for each vertex
+    val degrees: VertexRDD[Map[TimeIndex,Int]] = graphs.aggregateMessages[Map[TimeIndex,Int]](
+      ctx => { 
+        ctx.sendToSrc(Map(ctx.attr._1 -> 1))
+        ctx.sendToDst(Map(ctx.attr._1 -> 1))
+      },
+      mergedFunc,
+      TripletFields.None)
+
+    val newattrs = degrees.flatMap{ case (vid, mp) => mp.map{ case (k,v) => ((vid, k), v.toDouble)}}
+
+    new MultiGraphColumn[Double, Double](intervals, graphs.mapEdges(e => (e.attr._1, 0.0)), newattrs)
+  }
+
   //run connected components on each interval
   override def connectedComponents(): TemporalGraph[VertexId, ED] = {
     val ccGraph: Graph[Map[TimeIndex, VertexId], (TimeIndex, ED)] = graphs

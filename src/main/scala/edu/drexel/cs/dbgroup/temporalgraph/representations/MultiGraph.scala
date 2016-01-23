@@ -422,7 +422,28 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
       //TODO: implement this using pregel
       throw new UnsupportedOperationException("directed version of pageRank not yet implemented")
   }
-  
+
+  override def degree(): TemporalGraph[Double, Double] = {
+    def mergedFunc(a:Map[TimeIndex,Double], b:Map[TimeIndex,Double]): Map[TimeIndex,Double] = {
+      a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0.0)) }
+    }
+
+    val degrees: VertexRDD[Map[TimeIndex,Double]] = graphs.aggregateMessages[Map[TimeIndex,Double]](
+      ctx => { 
+        ctx.sendToSrc(Map(ctx.attr._1 -> 1.0))
+        ctx.sendToDst(Map(ctx.attr._1 -> 1.0)) 
+      },
+      mergedFunc,
+      TripletFields.None)
+
+    new MultiGraph[Double,Double](intervals, graphs.outerJoinVertices(degrees) {
+      case (vid, vdata, Some(deg)) => deg
+      case (vid, vdata, none) => vdata.mapValues(x => 0.0).map(identity)
+    }
+      .mapEdges(e => (e.attr._1, 0.0))
+    )
+  }
+
   //run connected components on each interval
   override def connectedComponents(): TemporalGraph[VertexId, ED] = {
       new MultiGraph[VertexId, ED](intervals, ConnectedComponentsXT.runCombined(graphs, intervals.size))
