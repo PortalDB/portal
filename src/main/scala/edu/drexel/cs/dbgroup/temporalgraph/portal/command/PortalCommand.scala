@@ -24,8 +24,4 @@ abstract class PortalCommand(portalContext: PortalContext, commandNum : Int) {
      return attributes;
   }
   
-  def getPortalContext(): PortalContext = {
-    return this.portalContext;
-  }
-  
 }

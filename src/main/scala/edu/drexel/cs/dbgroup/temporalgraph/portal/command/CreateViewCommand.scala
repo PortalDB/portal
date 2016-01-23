@@ -16,15 +16,9 @@ class CreateViewCommand(portalContext: PortalContext, commandNum: Int, portalQue
   };
 
   // begin method implementation  
-  
-  /*
-   * TODO: what does this method return? TemporalGraph or PortalPlan?
-   * or create the TemporalGraph in the PortalShell class?
-   */
   override def execute() = {
     try {
-      var pcontext = getPortalContext();
-      queryExec = pcontext.executePortal(portalQuery);
+      queryExec = portalContext.executePortal(portalQuery);
       tempGraph = queryExec.toTGraph;
 
       //register a view with a name
@@ -45,12 +39,6 @@ class CreateViewCommand(portalContext: PortalContext, commandNum: Int, portalQue
   };
 
   def describeSchema(): String = {
-    var pcontext = getPortalContext();
-
-    if (pcontext == null) {
-      throw new Exception(PortalShellConstants.InvalidPortalContext());
-    };
-
     //var description: String = String.format(schemaDescriptionFormat, tViewName, tempGraph.getSchema().toString());
     var description = tempGraph.getSchema().toString();
     return description;
