@@ -44,8 +44,6 @@ object Driver {
             println("Running experiments with OneGraph")
           case "OGC" =>
             println("Running experiments with columnar OneGraph")
-          case "HG" =>
-            println("Running experiments with HybridGraph")
           case _ =>
             println("Invalid graph type, exiting")
             System.exit(1)
@@ -251,8 +249,6 @@ object Driver {
         OneGraph.loadWithPartition(data, from, to, strategy, runWidth)
       case "OGC" =>
         OneGraphColumn.loadWithPartition(data, from, to, strategy, runWidth)
-      case "HG" =>
-        HybridGraph.loadWithPartition(data, from, to, strategy, runWidth)
       case _ =>
         null
     }

@@ -54,8 +54,6 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
   override def materialize() = {
     graphs.numVertices
     graphs.numEdges
-    vertexattrs.count
-    edgeattrs.count
   }
 
   override def vertices: VertexRDD[Map[Interval, VD]] = {
@@ -526,72 +524,10 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
     }
   }
   
-  override def degree(): TemporalGraph[Double, Double] = {
-      def mergeFunc(a:Map[TimeIndex,Int], b:Map[TimeIndex,Int]): Map[TimeIndex,Int] = {
-        a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) }
-      }
-
-      val degrees: VertexRDD[Map[TimeIndex,Int]] = graphs.aggregateMessages[Map[TimeIndex, Int]](
-        ctx => {
-          ctx.sendToSrc(ctx.attr.seq.map(x => (x,1)).toMap)
-          ctx.sendToDst(ctx.attr.seq.map(x => (x,1)).toMap)
-        },
-        mergeFunc, TripletFields.None)
-
-
-    val vattrs = degrees.flatMap{ case (vid, vattr) => vattr.map{ case (k,v) => ((vid, k), v.toDouble)}}
-    val eattrs = edgeattrs.map{ case (k, attr) => (k, 0.0)}
-
-    new OneGraphColumn[Double, Double](intervals, graphs, vattrs, eattrs)
-  }
-
   //run connected components on each interval
   override def connectedComponents(): TemporalGraph[VertexId, ED] = {
-    val conGraph: Graph[Map[TimeIndex, VertexId], BitSet] = graphs.mapVertices{ case (vid, bset) =>
-      bset.map(x => (x,vid)).toMap
-    }
-
-    def vertexProgram(id: VertexId, attr: Map[TimeIndex, VertexId], msg: Map[TimeIndex, VertexId]): Map[TimeIndex, VertexId] = {
-      var vals = attr
-      msg.foreach { x =>
-        val (k,v) = x
-        if (vals.contains(k)) {
-          vals = vals.updated(k, math.min(v, vals(k)))
-        }
-      }
-      vals
-    }
-
-    def sendMessage(edge: EdgeTriplet[Map[TimeIndex, VertexId], BitSet]): Iterator[(VertexId, Map[TimeIndex, VertexId])] = {
-      edge.attr.iterator.flatMap{ k =>
-        if (edge.srcAttr(k) < edge.dstAttr(k))
-          Iterator((edge.dstId, Map(k -> edge.srcAttr(k))))
-        else if (edge.srcAttr(k) > edge.dstAttr(k))
-          Iterator((edge.srcId, Map(k -> edge.dstAttr(k))))
-        else
-          Iterator.empty
-      }
-        .toSeq.groupBy{ case (k,v) => k}
-        .mapValues(v => v.map{ case (k,m) => m}.reduce((a,b) => a ++ b))
-        .iterator
-    }
-
-    def messageCombiner(a: Map[TimeIndex, VertexId], b: Map[TimeIndex, VertexId]): Map[TimeIndex, VertexId] = {
-      (a.keySet ++ b.keySet).map { i =>
-        val val1: VertexId = a.getOrElse(i, Long.MaxValue)
-        val val2: VertexId = b.getOrElse(i, Long.MaxValue)
-        i -> math.min(val1, val2)
-      }.toMap
-    }
-
-    val i: Int = 0
-    val initialMessage: Map[TimeIndex, VertexId] = (for(i <- 0 to intervals.size) yield (i -> Long.MaxValue))(breakOut)
-
-    val resultGraph: Graph[Map[TimeIndex, VertexId], BitSet] = Pregel(conGraph, initialMessage, activeDirection = EdgeDirection.Either)(vertexProgram, sendMessage, messageCombiner)
-
-    val vattrs = resultGraph.vertices.flatMap{ case (vid, vattr) => vattr.map{ case (k,v) => ((vid,k), v)}}
-
-    new OneGraphColumn[VertexId, ED](intervals, graphs, vattrs, edgeattrs)
+    //TODO: implement this using pregel
+    throw new UnsupportedOperationException("directed version of pageRank not yet implemented")
    }
   
   //run shortestPaths on each interval

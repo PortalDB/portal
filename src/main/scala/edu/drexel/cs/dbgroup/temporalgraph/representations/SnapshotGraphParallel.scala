@@ -462,13 +462,6 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
 
   }
 
-  override def degree(): TemporalGraph[Double, Double] = {
-    def deg(grp: Graph[VD, ED]): Graph[Double, Double] = {
-      grp.outerJoinVertices(grp.degrees) { (vid, data, deg) => deg.getOrElse(0).toDouble}.mapEdges(e => 0.0)
-    }
-    new SnapshotGraphParallel(intervals, graphs.map(deg))
-  }
-
   override def connectedComponents(): TemporalGraph[VertexId, ED] = {
     def safeConnectedComponents(grp: Graph[VD, ED]): Graph[VertexId, ED] = {
       if (grp.vertices.isEmpty) {

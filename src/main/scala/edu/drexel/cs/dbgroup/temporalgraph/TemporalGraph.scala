@@ -276,9 +276,6 @@ abstract class TemporalGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     */
   def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): TemporalGraph[Double,Double]
 
-  //THIS IS A TEMP PLACEHOLDER for experiment
-  def degree(): TemporalGraph[Double,Double]
-
   /**
    * Run connected components algorithm on a temporal graph
    * return a graph with the vertex value containing the lowest vertex
