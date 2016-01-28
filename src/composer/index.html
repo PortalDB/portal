@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Portal Query Composer</title>
+  <link rel="stylesheet" href="jquery-ui-1.11.4.custom/jquery-ui.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="header">
+<h1 align="left"><img src="images/logo.png" style="width:50px;height:50px;">
+Portal Query Composer</h1>
+</div>
+
+<div id="views">
+<h2>TGraphs</h2>
+<ul id="views-list">
+<li>dblp</li>
+<li>arXiv</li>
+</ul>
+</div>
+
+<div id="workspace">
+</div>
+ 
+<div id="schema">
+<h2>Schema</h2>
+<div id="accordion">
+</div>
+</div>
+
+<div id="tabs">
+  <ul>
+    <li><a href="#tabs-query">Query View</a></li>
+    <li><a href="#tabs-plan">Query Plan</a></li>
+    <li><a href="#tabs-shell">Shell</a></li>
+  </ul>
+  <div id="tabs-query">This text is replaced by the query
+  </div>
+  <div id="tabs-plan">This text is replaced by the plan
+  </div>
+  <div id="tabs-shell">This text is replaced by the shell
+  </div>
+</div> 
+
+<script src="jquery-ui-1.11.4.custom/external/jquery/jquery.js"></script>
+<script src="jquery-ui-1.11.4.custom/jquery-ui.js"></script>
+<script src="composer.js"></script>
+ 
+</body>
+</html>

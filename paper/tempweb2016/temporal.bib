@@ -1,0 +1,540 @@
+@article{DBLP:journals/sigmod/KulkarniM12,
+  author    = {Krishna G. Kulkarni and
+               Jan{-}Eike Michels},
+  title     = {Temporal features in {SQL:} 2011},
+  journal   = {{SIGMOD} Record},
+  volume    = {41},
+  number    = {3},
+  pages     = {34--43},
+  year      = {2012},
+  url       = {http://doi.acm.org/10.1145/2380776.2380786},
+  doi       = {10.1145/2380776.2380786},
+  timestamp = {Sat, 20 Oct 2012 20:57:25 +0200},
+  biburl    = {http://dblp.uni-trier.de/rec/bib/journals/sigmod/KulkarniM12},
+  bibsource = {dblp computer science bibliography, http://dblp.org}
+}
+
+@inproceedings{Kan2009,
+abstract = {An evolving graph is a graph that can change over time. Such graphs can be applied in modelling a wide range of real-world phenomena, like computer networks, social networks and proteian interaction networks. This paper addresses the novel problem of querying evolving graphs using spatio-temporal patterns. In particular, we focus on answering selection queries, which can discover evolving subgraphs that satisfy both a temporal and a spatial predicate. We investigate the efficient implementation of such queries and experimentally evaluate our techniques using real-world evolving graph datasets - Internet connectivity logs and the Enron email corpus. We show that it is possible to use queries to discover meaningful events hidden in this data and demonstrate that our implementation is scalable for very large evolving graphs.},
+annote = {Each timed graph is stored separately. I.e., there is no single evolving representation like common in temporal databases.},
+author = {Kan, Andrey and Chan, Je and Bailey, James and Leckie, Christopher},
+booktitle = {AusDM},
+file = {:Users/vzaychik/Documents/ReferencePapers/Graphs/query-ev-graphs.pdf:pdf},
+keywords = {graph databases},
+mendeley-groups = {Graphs},
+mendeley-tags = {graph databases},
+title = {{A Query Based Approach for Mining Evolving Graphs}},
+year = {2009}
+}
+
+@inproceedings{Khurana2013,
+abstract = {We address the problem of managing historical data for large evolving information networks like social networks or citation networks, with the goal to enable temporal and evolutionary queries and analysis. We present the design and architecture of a distributed graph database system that stores the entire history of a network and provides support for efficient retrieval of multiple graphs from arbitrary time points in the past, in addition to maintaining the current state for ongoing updates. Our system exposes a general programmatic API to process and analyze the retrieved snapshots. We introduce DeltaGraph, a novel, extensible, highly tunable, and distributed hierarchical index structure that enables compactly recording the historical information, and that supports efficient retrieval of historical graph snapshots for single-site or parallel processing. Along with the original graph data, DeltaGraph can also maintain and index auxiliary information; this functionality can be used to extend the structure to efficiently execute queries like subgraph pattern matching over historical data. We develop analytical models for both the storage space needed and the snapshot retrieval times to aid in choosing the right parameters for a specific scenario. In addition, we present strategies for materializing portions of the historical graph state in memory to further speed up the retrieval process. Secondly, we present an in-memory graph data structure called GraphPool that can maintain hundreds of historical graph instances in main memory in a non-redundant manner. We present a comprehensive experimental evaluation that illustrates the effectiveness of our proposed techniques at managing historical graph information.},
+address = {Brisbane, QLD},
+archivePrefix = {arXiv},
+arxivId = {1207.5777},
+author = {Khurana, Udayan and Deshpande, Amol},
+booktitle = {ICDE},
+eprint = {1207.5777},
+file = {:Users/vzaychik/Documents/ReferencePapers/Graphs/1207.5777.pdf:pdf},
+keywords = {graph databases},
+mendeley-groups = {Graphs},
+mendeley-tags = {graph databases},
+pages = {997 -- 1008},
+title = {{Efficient Snapshot Retrieval over Historical Graph Data}},
+url = {http://arxiv.org/abs/1207.5777},
+year = {2013}
+}
+
+@article{Wood2012,
+abstract = {Query languages for graph databases started to be inves- tigated some 25 years ago. With much current data, such as linked data on the Web and social network data, be- ing graph-structured, there has been a recent resurgence in interest in graph query languages. We provide a brief survey of many of the graph query languages that have been proposed, focussing on the core functionality pro- vided in these languages. We also consider issues such as expressive power and the computational complexity of query evaluation.},
+author = {Wood, Peter T.},
+doi = {10.1145/2206869.2206879},
+file = {:Users/vzaychik/Documents/ReferencePapers/Graphs/wood.pdf:pdf},
+issn = {01635808},
+journal = {ACM SIGMOD Record},
+keywords = {graph databases,query languages},
+mendeley-groups = {Graphs},
+mendeley-tags = {graph databases,query languages},
+month = mar,
+number = {1},
+pages = {50--60},
+title = {{Query languages for graph databases}},
+url = {http://dl.acm.org/citation.cfm?doid=2206869.2206879},
+volume = {41},
+year = {2012}
+}
+
+@inproceedings{Han2014,
+abstract = {Temporal graphs capture changes in graphs over time and are becoming a subject that attracts increasing interest from the research communities, for example, to understand tem- poral characteristics of social interactions on a time-evolving social graph. Chronos is a storage and execution engine de- signed and optimized specifically for running in-memory it- erative graph computation on temporal graphs. Locality is at the center of the Chronos design, where the in-memory layout of temporal graphs and the scheduling of the itera- tive computation on temporal graphs are carefully designed, so that common “bulk” operations on temporal graphs are scheduled to maximize the benefit of in-memory data lo- cality. The design of Chronos further explores the interest- ing interplay among locality, parallelism, and incremental computation in supporting common mining tasks on tempo- ral graphs. The result is a high-performance temporal-graph system that offers up to an order of magnitude speedup for temporal iterative graph mining compared to a straightfor- ward application of existing graph engines on a series of snapshots.},
+address = {Amsterdam, Netherlands},
+author = {Han, Wentao and Chen, Wenguang and Chen, Enhong},
+booktitle = {EuroSys},
+file = {:Users/vzaychik/Documents/ReferencePapers/Graphs/eurosys2014.pdf:pdf},
+isbn = {9781450327046},
+keywords = {graph databases,temporal DB},
+mendeley-groups = {Graphs},
+mendeley-tags = {graph databases,temporal DB},
+title = {{Chronos : A Graph Engine for Temporal Graph Analysis}},
+year = {2014}
+}
+
+@article{DBLP:journals/csur/AggarwalS14,
+  author    = {Charu C. Aggarwal and
+               Karthik Subbian},
+  title     = {Evolutionary Network Analysis},
+  journal   = {{ACM} Comput. Surv.},
+  volume    = {47},
+  number    = {1},
+  pages     = {10:1--10:36},
+  year      = {2014},
+  url       = {http://doi.acm.org/10.1145/2601412},
+  doi       = {10.1145/2601412},
+  timestamp = {Thu, 07 May 2015 18:17:40 +0200},
+  biburl    = {http://dblp.uni-trier.de/rec/bib/journals/csur/AggarwalS14},
+  bibsource = {dblp computer science bibliography, http://dblp.org}
+}
+
+@inproceedings{DBLP:conf/osdi/GonzalezXDCFS14,
+  author    = {Joseph E. Gonzalez and others},
+  title     = {{GraphX}: Graph Processing in a Distributed Dataflow Framework},
+  booktitle = {OSDI},
+  year      = {2014},
+  url       = {https://www.usenix.org/conference/osdi14/technical-sessions/presentation/gonzalez},
+  timestamp = {Tue, 18 Nov 2014 17:21:14 +0100},
+  biburl    = {http://dblp.uni-trier.de/rec/bib/conf/osdi/GonzalezXDCFS14},
+  bibsource = {dblp computer science bibliography, http://dblp.org}
+}
+
+@ARTICLE{BSVLTAG,
+        AUTHOR = "Paolo Boldi and Massimo Santini and Sebastiano Vigna",
+        TITLE = "A Large Time-Aware Graph",
+        JOURNAL = "SIGIR Forum",
+        YEAR = 2008,
+        VOLUME = 42,
+        NUMBER = 2,
+        PAGES = "33--38"
+}
+
+@inproceedings{DBLP:conf/cidr/StoyanovichADJM13,
+  author    = {Julia Stoyanovich and others},
+  title     = {Understanding Local Structure in Ranked Datasets},
+  booktitle = {CIDR},
+  year      = {2013},
+  url       = {http://www.cidrdb.org/cidr2013/Papers/CIDR13_Paper51.pdf},
+  timestamp = {Wed, 15 May 2013 20:47:29 +0200},
+  biburl    = {http://dblp.uni-trier.de/rec/bib/conf/cidr/StoyanovichADJM13},
+  bibsource = {dblp computer science bibliography, http://dblp.org}
+}
+
+@article{DBLP:journals/tos/MiaoHLWYZPCC15,
+  author    = {Youshan Miao and others},
+  title     = {{ImmortalGraph}: {A} System for Storage and Analysis of Temporal Graphs},
+  journal   = {{TOS}},
+  volume    = {11},
+  number    = {3},
+  pages     = {14},
+  year      = {2015},
+  url       = {http://doi.acm.org/10.1145/2700302},
+  doi       = {10.1145/2700302},
+  timestamp = {Fri, 21 Aug 2015 12:22:29 +0200},
+  biburl    = {http://dblp.uni-trier.de/rec/bib/journals/tos/MiaoHLWYZPCC15},
+  bibsource = {dblp computer science bibliography, http://dblp.org}
+}
+
+@article{Chan2008,
+author = {Chan, Jeffrey and Bailey, James and Leckie, Christopher},
+journal = {Knowl. Inf.Syst.},
+keywords = {Clustering,Correlated spatio-temporal changes,Data mining,Dynamic graph analysis,Event discovery,Evolving graphs,Spatio-temporal analysis},
+number = {1},
+pages = {53--96},
+title = {{Discovering correlated spatio-temporal changes in evolving graphs}},
+volume = {16},
+year = {2008}
+}
+
+@inproceedings{Borgwardt2006,
+author = {Borgwardt, Karsten M. and Kriegel, Hans Peter and Wackersreuther, Peter},
+booktitle = {Proceedings - IEEE International Conference on Data Mining, ICDM},
+doi = {10.1109/ICDM.2006.124},
+isbn = {0769527019},
+issn = {15504786},
+pages = {818--822},
+title = {{Pattern mining in frequent dynamic subgraphs}},
+year = {2006}
+}
+
+@article{Boldi2008,
+author = {Boldi, Paolo and Santini, Massimo and Vigna, Sebastiano},
+journal = {ACM SIGIR Forum},
+number = {2},
+pages = {33--38},
+title = {{A Large Time-Aware Web Graph}},
+volume = {42},
+year = {2008}
+}
+
+@inproceedings{Mondal2012,
+author = {Mondal, Jayanta and Deshpande, Amol},
+booktitle = {ACM SIGMOD},
+doi = {10.1145/2213836.2213854},
+isbn = {9781450312479},
+issn = {07308078},
+keywords = {feed delivery,graph databases,replication,social networks},
+pages = {145},
+title = {{Managing large dynamic graphs efficiently}},
+url = {http://dl.acm.org/citation.cfm?doid=2213836.2213854},
+year = {2012}
+}
+
+@article{Ren2011,
+author = {Ren, Chenghui and Lo, Eric and Kao, Ben and Zhu, Xinjie and Cheng, Reynold},
+journal = {PVLDB},
+keywords = {graph databases,temporal DB},
+mendeley-tags = {graph databases,temporal DB},
+number = {11},
+pages = {726--737},
+title = {{On Querying Historical Evolving Graph Sequences}},
+volume = {4},
+year = {2011}
+}
+
+@incollection{Liu2010,
+year={2010},
+isbn={978-3-642-12025-1},
+booktitle={Database Systems for Advanced Applications},
+volume={5981},
+series={Lecture Notes in Computer Science},
+editor={Kitagawa, Hiroyuki and Ishikawa, Yoshiharu and Li, Qing and Watanabe, Chiemi},
+doi={10.1007/978-3-642-12026-8_15},
+title={Discovering Burst Areas in Fast Evolving Graphs},
+url={http://dx.doi.org/10.1007/978-3-642-12026-8_15},
+publisher={Springer Berlin Heidelberg},
+keywords={Evolving Graphs; Burst Areas; Haar Wavelet},
+author={Liu, Zheng and Yu, JeffreyXu},
+pages={171-185},
+language={English}
+}
+
+@inproceedings{Semertzidis2015,
+annote = {Query for evolving graphs with a single type: historical reachability.},
+author = {Semertzidis, Konstantinos and Lillis, Kostas and Pitoura, Evaggelia},
+booktitle = {EDBT},
+doi = {10.5441/002/edbt.2015.12},
+file = {:Users/vzaychik/Documents/ReferencePapers/Graphs/paper-89.pdf:pdf},
+isbn = {9783893180677},
+keywords = {evolving graphs,historical queries,reachability},
+title = {{TimeReach: Historical Reachability Queries on Evolving Graphs}},
+year = {2015}
+}
+
+@inproceedings{Muller2008,
+address = {New York, NY},
+author = {Muller, Heiko and Buneman, Peter and Koltsidas, Ioannis},
+booktitle = {ACM SIGMOD},
+keywords = {digital libraries,scientific databases,temporal DB},
+mendeley-groups = {DB Various},
+mendeley-tags = {temporal DB},
+pages = {1295--1298},
+title = {{XArch : Archiving Scientific and Reference Data}},
+year = {2008}
+}
+
+@inproceedings{DBLP:conf/osdi/GonzalezLGBG12,
+author = {Gonzalez, Je and Low, Y and Gu, H},
+booktitle = {OSDI},
+isbn = {978-1-931971-96-6},
+pages = {17--30},
+title = {Powergraph: Distributed graph-parallel computation on natural graphs},
+url = {https://www.usenix.org/system/files/conference/osdi12/osdi12-final-167.pdf},
+year = {2012}
+}
+
+@inproceedings{Xin2013,
+address = {New York, New York, USA},
+author = {Xin, Reynold S and Gonzalez, Joseph E and Franklin, Michael J and Stoica, Ion and Berkeley, U C},
+booktitle = {GRADES},
+isbn = {9781450321884},
+keywords = {graph databases},
+mendeley-groups = {Graphs},
+mendeley-tags = {graph databases},
+title = {{GraphX : A Resilient Distributed Graph System on Spark}},
+year = {2013}
+}
+
+@inproceedings{Xin2013Shark,
+author = {Xin, Reynold S and Rosen, Josh and Zaharia, Matei and Franklin, Michael J and Shenker, Scott and Stoica, Ion and Berkeley, U C},
+booktitle = {ACM SIGMOD},
+isbn = {9781450320375},
+keywords = {data warehouse,databases,hadoop,machine learning,shark,spark},
+mendeley-groups = {DB Various},
+title = {{Shark : SQL and Rich Analytics at Scale}},
+year = {2013}
+}
+
+@inproceedings{DBLP:conf/cikm/YangQZGL07,
+  author    = {Lei Yang and
+               Lei Qi and
+               Yan{-}Ping Zhao and
+               Bin Gao and
+               Tie{-}Yan Liu},
+  title     = {Link analysis using time series of web graphs},
+  booktitle = {CIKM},
+  pages     = {1011--1014},
+  year      = {2007},
+  url       = {http://doi.acm.org/10.1145/1321440.1321598},
+  doi       = {10.1145/1321440.1321598},
+  timestamp = {Mon, 10 Dec 2007 10:57:00 +0100},
+  biburl    = {http://dblp.uni-trier.de/rec/bib/conf/cikm/YangQZGL07},
+  bibsource = {dblp computer science bibliography, http://dblp.org}
+}
+
+@inproceedings{Koloniari2012,
+address = {Istanbul, Turkey},
+archivePrefix = {arXiv},
+arxivId = {arXiv:1302.5549v1},
+author = {Koloniari, Georgia},
+booktitle = {Proceedings of 1st Workshop on Online Social Systems (WOSS) 2012},
+eprint = {arXiv:1302.5549v1},
+file = {:Users/vzaychik/Documents/ReferencePapers/Graphs/1302.5549v1.pdf:pdf},
+title = {{On Graph Deltas for Historical Queries}},
+year = {2012}
+}
+
+@misc{ApacheGiraph,
+  author = {The Apache Software Foundation},
+  title = {Apache Giraph},
+  howpublished = "\url{http://giraph.apache.org/}",
+  note = "[Online; accessed 14-November-2015]"
+}
+
+@inproceedings{Gonzalez2012,
+author = {Gonzalez, Je and Low, Y and Gu, H},
+booktitle = {OSDI'12 Proceedings of the 10th USENIX conference on Operating Systems Design and Implementation},
+isbn = {978-1-931971-96-6},
+pages = {17--30},
+title = {{PowerGraph: Distributed graph-parallel computation on natural graphs}},
+url = {https://www.usenix.org/system/files/conference/osdi12/osdi12-final-167.pdf},
+year = {2012}
+}
+
+@inproceedings{DBLP:conf/icwsm/GoetzLMF09,
+  author    = {Michaela Goetz and
+               Jure Leskovec and
+               Mary McGlohon and
+               Christos Faloutsos},
+  title     = {Modeling Blog Dynamics},
+  booktitle = {ICWSM},
+  year      = {2009},
+  crossref  = {DBLP:conf/icwsm/2009},
+  url       = {http://aaai.org/ocs/index.php/ICWSM/09/paper/view/152},
+  timestamp = {Thu, 13 Dec 2012 14:15:16 +0100},
+  biburl    = {http://dblp.uni-trier.de/rec/bib/conf/icwsm/GoetzLMF09},
+  bibsource = {dblp computer science bibliography, http://dblp.org}
+}
+
+@article{DBLP:journals/tweb/LeskovecAH07,
+  author    = {Jure Leskovec and
+               Lada A. Adamic and
+               Bernardo A. Huberman},
+  title     = {The dynamics of viral marketing},
+  journal   = {{TWEB}},
+  volume    = {1},
+  number    = {1},
+  year      = {2007},
+  url       = {http://doi.acm.org/10.1145/1232722.1232727},
+  doi       = {10.1145/1232722.1232727},
+  timestamp = {Tue, 06 Nov 2007 09:28:29 +0100},
+  biburl    = {http://dblp.uni-trier.de/rec/bib/journals/tweb/LeskovecAH07},
+  bibsource = {dblp computer science bibliography, http://dblp.org}
+}
+
+@inproceedings{DBLP:conf/kdd/LeskovecBKT08,
+  author    = {Jure Leskovec and
+               Lars Backstrom and
+               Ravi Kumar and
+               Andrew Tomkins},
+  title     = {Microscopic evolution of social networks},
+  booktitle = {{ACM} {SIGKDD}},
+  pages     = {462--470},
+  year      = {2008},
+  crossref  = {DBLP:conf/kdd/2008},
+  url       = {http://doi.acm.org/10.1145/1401890.1401948},
+  doi       = {10.1145/1401890.1401948},
+  timestamp = {Mon, 14 May 2012 09:20:40 +0200},
+  biburl    = {http://dblp.uni-trier.de/rec/bib/conf/kdd/LeskovecBKT08},
+  bibsource = {dblp computer science bibliography, http://dblp.org}
+}
+
+@inproceedings{DBLP:conf/icml/SarkarCJ12,
+  author    = {Purnamrita Sarkar and
+               Deepayan Chakrabarti and
+               Michael I. Jordan},
+  title     = {Nonparametric Link Prediction in Dynamic Networks},
+  booktitle = {ICML},
+  year      = {2012},
+  crossref  = {DBLP:conf/icml/2012},
+  url       = {http://icml.cc/discuss/2012/828.html},
+  timestamp = {Fri, 25 Jan 2013 09:27:52 +0100},
+  biburl    = {http://dblp.uni-trier.de/rec/bib/conf/icml/SarkarCJ12},
+  bibsource = {dblp computer science bibliography, http://dblp.org}
+}
+
+@article{DBLP:journals/jisa/PapadimitriouDG10,
+  author    = {Panagiotis Papadimitriou and
+               Ali Dasdan and
+               Hector Garcia{-}Molina},
+  title     = {Web graph similarity for anomaly detection},
+  journal   = {J. Internet Services and Applications},
+  volume    = {1},
+  number    = {1},
+  pages     = {19--30},
+  year      = {2010},
+  url       = {http://dx.doi.org/10.1007/s13174-010-0003-x},
+  doi       = {10.1007/s13174-010-0003-x},
+  timestamp = {Wed, 19 May 2010 20:07:58 +0200},
+  biburl    = {http://dblp.uni-trier.de/rec/bib/journals/jisa/PapadimitriouDG10},
+  bibsource = {dblp computer science bibliography, http://dblp.org}
+}
+
+@article{DBLP:journals/kais/ChanBL08,
+  author    = {Jeffrey Chan and
+               James Bailey and
+               Christopher Leckie},
+  title     = {Discovering correlated spatio-temporal changes in evolving graphs},
+  journal   = {Knowl. Inf. Syst.},
+  volume    = {16},
+  number    = {1},
+  pages     = {53--96},
+  year      = {2008},
+  url       = {http://dx.doi.org/10.1007/s10115-007-0117-z},
+  doi       = {10.1007/s10115-007-0117-z},
+  timestamp = {Thu, 27 Nov 2008 12:22:49 +0100},
+  biburl    = {http://dblp.uni-trier.de/rec/bib/journals/kais/ChanBL08},
+  bibsource = {dblp computer science bibliography, http://dblp.org}
+}
+
+@article{DBLP:journals/tkdd/AsurPU09,
+  author    = {Sitaram Asur and
+               Srinivasan Parthasarathy and
+               Duygu Ucar},
+  title     = {An event-based framework for characterizing the evolutionary behavior
+               of interaction graphs},
+  journal   = {{TKDD}},
+  volume    = {3},
+  number    = {4},
+  year      = {2009},
+  url       = {http://doi.acm.org/10.1145/1631162.1631164},
+  doi       = {10.1145/1631162.1631164},
+  timestamp = {Fri, 19 Mar 2010 11:17:57 +0100},
+  biburl    = {http://dblp.uni-trier.de/rec/bib/journals/tkdd/AsurPU09},
+  bibsource = {dblp computer science bibliography, http://dblp.org}
+}
+
+@article{Stuart2003,
+  author = {Joshua M. Stuart and Eran Segal and Daphne Koller and Stuart K. Kim},
+  year   = {2003},
+  title  = {A gene-coexpression network for global discovery of conserved genetic modules},
+  journal = {Science},
+  number  = {302},
+  volume = {5643},
+  pages = {249-–255}
+}
+
+@article{DBLP:journals/tcsb/BeyerTLSF10,
+  author    = {Antje Beyer and
+               Peter Thomason and
+               Xinzhong Li and
+               James Scott and
+               Jasmin Fisher},
+  title     = {Mechanistic Insights into Metabolic Disturbance during Type-2 Diabetes
+               and Obesity Using Qualitative Networks},
+  journal   = {T. Comp. Sys. Biology},
+  volume    = {12},
+  pages     = {146--162},
+  year      = {2010},
+  crossref  = {DBLP:journals/tcsb/2010-12},
+  url       = {http://dx.doi.org/10.1007/978-3-642-11712-1_4},
+  doi       = {10.1007/978-3-642-11712-1_4},
+  timestamp = {Tue, 31 Aug 2010 12:50:14 +0200},
+  biburl    = {http://dblp.uni-trier.de/rec/bib/journals/tcsb/BeyerTLSF10},
+  bibsource = {dblp computer science bibliography, http://dblp.org}
+}
+
+@inproceedings{DBLP:conf/sigmod/MalewiczABDHLC10,
+  author    = {Grzegorz Malewicz and
+               Matthew H. Austern and
+               Aart J. C. Bik and
+               James C. Dehnert and
+               Ilan Horn and
+               Naty Leiser and
+               Grzegorz Czajkowski},
+  title     = {Pregel: a system for large-scale graph processing},
+  booktitle = {{ACM} {SIGMOD}},
+  pages     = {135--146},
+  year      = {2010},
+  crossref  = {DBLP:conf/sigmod/2010},
+  url       = {http://doi.acm.org/10.1145/1807167.1807184},
+  doi       = {10.1145/1807167.1807184},
+  timestamp = {Mon, 07 Jun 2010 08:03:40 +0200},
+  biburl    = {http://dblp.uni-trier.de/rec/bib/conf/sigmod/MalewiczABDHLC10},
+  bibsource = {dblp computer science bibliography, http://dblp.org}
+}
+
+@misc{DBLP,
+  title = {{DBLP}, Computer Science Bibliography},
+  howpublished = "\url{http://dblp.uni-trier.de/}",
+  note = "[Online; accessed 14-November-2015]"
+}
+
+@misc{nGrams,
+  author = {Google},
+  title = {The Google Books {Ngram} dataset},
+  howpublished = "\url{http://storage.googleapis.com/books/ngrams/books/datasetsv2.html}",
+  note = "[Online; accessed 14-November-2015]"
+}
+
+@misc{arxiv,
+  title = {arXiv.org},
+  howpublished = "\url{http://arxiv.org/}",
+  note = "[Online; accessed 07-January-2016]"
+}
+
+@inproceedings{Lahiri2008,
+author = {Lahiri, M. and Berger-Wolf, T.Y.},
+booktitle = {ICDM},
+doi = {10.1109/ICDM.2008.104},
+isbn = {978-0-7695-3502-9},
+issn = {1550-4786},
+keywords = {pattern mining,social networks},
+mendeley-groups = {Graphs},
+title = {{Mining Periodic Behavior in Dynamic Social Networks}},
+year = {2008}
+}
+
+@article{Cho2000,
+author = {Cho, Junghoo and Garcia-Molina, H},
+doi = {10.1109/WI.2004.10097},
+file = {:Users/vzaychik/Documents/ReferencePapers/1999-22.pdf:pdf},
+isbn = {0-7695-2100-2},
+journal = {VLDB},
+title = {{The evolution of the web and implications for an incremental crawler}},
+url = {http://ilpubs.stanford.edu:8090/376/},
+year = {2000}
+}
+
+@inproceedings{DBLP:conf/www/LinGR14,
+  author    = {Jimmy Lin and
+               Milad Gholami and
+               Jinfeng Rao},
+  title     = {Infrastructure for supporting exploration and discovery in web archives},
+  booktitle = {23rd International World Wide Web Conference, {WWW} '14, Seoul, Republic
+               of Korea, April 7-11, 2014, Companion Volume},
+  pages     = {851--856},
+  year      = {2014},
+  crossref  = {DBLP:conf/www/2014c},
+  url       = {http://doi.acm.org/10.1145/2567948.2579045},
+  doi       = {10.1145/2567948.2579045},
+  timestamp = {Tue, 15 Apr 2014 21:35:34 +0200},
+  biburl    = {http://dblp.uni-trier.de/rec/bib/conf/www/LinGR14},
+  bibsource = {dblp computer science bibliography, http://dblp.org}
+}
