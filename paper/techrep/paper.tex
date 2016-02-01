@@ -1,14 +1,19 @@
-o\documentclass{style/sig-alternate}
+\documentclass{sig-alternate}
 
 \input{package}
+\pdfoutput=1
 \input{preamble}
+
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd{\maketitle}{\@copyrightspace}{}{}{}
+\makeatother
 
 \begin{document}
 
 \title{Portal: A Query Language for Evolving Graphs}
 
 \numberofauthors{2}
-%\eat{
 \author{
   \alignauthor Vera Zaychik Moffitt\\
   \affaddr{Drexel University}\\
@@ -19,7 +24,6 @@ o\documentclass{style/sig-alternate}
   \email{stoyanovich@drexel.edu}  \\
  %
 }
-%}
 
 \maketitle
 
@@ -29,9 +33,9 @@ o\documentclass{style/sig-alternate}
 \input{intro}
 \input{model}
 \input{example}
-%\input{eval}
 \input{system}
 \input{experiments}
+\newpage
 \input{related_short}
 \input{conc}
 \newpage

@@ -10,18 +10,6 @@ of operations is predetermined, some operators can be reordered
 without affecting the result, but with potential differences in
 performance, while others cannot. 
 
-\eat{ The declarative nature of \ql means that, like in SQL, queries
-  can be optimized for better performance.  \ql queries can be
-  optimized by operator reordering, rule-based application of best
-  data structure and partition strategy, and cost-based optimizations.
-  We discuss the first two options.}
-
-\eat{
-{\bf Operator reording.} Recollect that the logical order of
-evaluation of a \ql query is selection, join, aggregation, and,
-finally, analytics and projection.  We can show that there are classes
-of queries which can be reordered without the loss of correctness.}
-
 {\bf \insql{TGroup} before join.}  Temporal aggregation produces a
 smaller number of snapshots than its input.  Since the performance of
 joins depends on the number of snapshots being structurally
@@ -66,8 +54,8 @@ the rewriting is:
 \begin{verbatim}
    TSelect All V; All E
    From   T1 TAnd T2
-   TWhere T1.Start >= 2010 And T2.End <= 2014 
-          And T2.Start >= 2010 And T2.End <= 2014
+   TWhere T1.Start >= 2010 And T1.End < 2014 
+          And T2.Start >= 2010 And T2.End < 2014
 \end{verbatim}
 \end{small}
 
@@ -95,34 +83,4 @@ Vertices of T1 and T2 have non-key attributes \insql{name} and
 \insql{salary}, which are not used in this query. Therefore, to
 improve performance, we can project the vertices of T1 and T2 to
 \insql{V [vid]} prior to evaluation of the \insql{TOr} operation.
-\eat{However, we cannot apply analytics in projection before the other
-  operations, so we cannot always perform projection first.}
 
-\eat{
-{\bf Data structure selection.} \eat{In addition to selecting the most
-  efficient order of operations,}We select the best data structure for
-the query.  Our analysis of data structure effectiveness for each
-individual operation is shown in Section~\ref{sec:exp}.  Switching
-between data structures from operation to operation is possible but
-computationally inefficient.  In general, SnapshotGraph performs
-better on graphs with a small temporal span, while OneGraph on those
-with large span.}
-
-\eat{Instead, we pick the structure that
-provides the best compromise for the query operations by associating
-costs with each operation and picking the least expensive one.}
-
-\eat{{\bf Partitioning.} In our experience, the partitioning of the data
-affects the performance more than the data structure choice itself.  A
-poor partition strategy, in terms of the correct number of partitions
-and the allocation of edges to partitions, can be 10x times slower
-than a good one, as we show in the next section.  We evaluated
-different strategies and partition numbers experimentally and this
-serves as a basis of simple rules for partition selection.  For
-example, EdgePartition2D strategy provides a significantly better
-performance for snapshot-based analytics such as pagerank.}
-
-\eat{Other criteria that can affect the query performance are data skew,
-change rate between snapshots, and data size.  We continue to evaluate
-these aspects and will incorporate them into the query optimization in
-the future.}

@@ -17,26 +17,12 @@ for each measure is at or below 5\% of the mean except in cases of
 very small running times.
 
 {\bf Data.}  We evaluate performance of our framework on two real
-open-source datasets.
-%\begin{enumerate}%[leftmargin=*]
-%\item 
-DBLP~\cite{dblp} contains co-authorship information from 1936 through
-2015, with over 1.5 million author nodes and over 6 million undirected
-co-authorship edges.  Total data size: 250 MB.
-%
-nGrams~\cite{nGrams} contains word co-occurrence information from 1520
-through 2008, with over 1.5 million word nodes and over 65 million
-undirected co-occurrence edges.  Total data size: 40 GB.  
-
-\eat{
-\item
-  DELIS\footnote{\url{law.di.unimi.it/webdata/uk-union-2006-06-2007-05}}
-  contains monthly snapshots of a portion of the Web graph focusing on
-  the .uk domains from 05/2006 through 05/2007, with a total of over
-  133 million nodes and over 5.5 billion directed edges\cite{BSVLTAG}.
-  Data size: 1 TB.
-}
-%\end{enumerate}
+open-source datasets.  DBLP~\cite{dblp} contains co-authorship
+information from 1936 through 2015, with over 1.5 million author nodes
+and over 6 million undirected co-authorship edges.  Total data size:
+250 MB.  nGrams~\cite{nGrams} contains word co-occurrence information
+from 1520 through 2008, with over 1.5 million word nodes and over 65
+million undirected co-occurrence edges.  Total data size: 40 GB.
 
 The nGrams dataset is of comparable size to the LiveJournal dataset
 in~\cite{Xin2013} and is commensurate with our cluster size.  DBLP and
@@ -45,10 +31,7 @@ properties: co-authorship network nodes and edges have limited
 lifespan, while the nGrams network grows over time, with nodes and
 edges persisting for long duration.  All figures in the body of this
 section are on the larger nGrams dataset.  Refer to the Appendix for
-the DBLP figures, which show similar trends as nGrams.\eat{ We plan to
-  carry out further experiments with a larger
-  DELIS\footnote{\url{law.di.unimi.it/webdata/uk-union-2006-06-2007-05}}
-  dataset as we grow the cluster in the near future.}
+the DBLP figures, which show similar trends as nGrams.
 
 \subsection{Number of partitions}
 
@@ -78,9 +61,7 @@ partitions, based on the Hadoop block size, proved inefficient in
 practice.  We extended GraphX for parallel reading of multiple files
 with a custom number of partitions.  Further, we conducted a tuning
 experiment, and developed a dynamic data size-based estimator of the
-number of partitions.\eat{  We describe this experiment next, and use its
-result to tune the number of partitions in all experiments in this
-section.}
+number of partitions.
 
 The tuning experiment consisted of running a simple \insql{TSelect}
 query with each data structure, varying the number of partitions on
@@ -104,7 +85,7 @@ data size, we ran the following query on nGrams:
               E[vid1:int, vid2:int, cnt:int]
       From    data/nGrams
       Into    nGrams
-      TWhere  Start >= x and End <= y
+      TWhere  Start >= x and End < y
 \end{verbatim}
 \end{small}
 
@@ -116,27 +97,16 @@ because no data transformation, such as aggregation, is required.
 This is substantiated experimentally, as can be seen in
 Figure~\ref{fig:tselect}.  SG is the fastest data structure for data
 loading, although all exhibit a linear increase as a function of data
-size.\eat{ We observed the same trend in DBLP.}  Miao et
-al.~\cite{DBLP:journals/tos/MiaoHLWYZPCC15} showed that data format
-plays a significant role in load performance.  This is supported by
-our results in Figure~\ref{fig:tselect}, and warrants development of
-alternative file formats, which is in our immediate plans.
+size.Miao et al.~\cite{DBLP:journals/tos/MiaoHLWYZPCC15} showed that
+data format plays a significant role in load performance.  This is
+supported by our results in Figure~\ref{fig:tselect}, and warrants
+development of alternative file formats, which is in our immediate
+plans.
 
 As we will see, load/materialize time makes up a significant portion
 of the over-all time.  For this reason, all experiments that evaluate
 performance of individual \ql operators are executed with a warm
 start.
-
-\eat{The significant influence of data format on data structure performance
-has been shown previously~\cite{DBLP:journals/tos/MiaoHLWYZPCC15}.
-Given the significant difference at size (3-5x) between SG and the
-other data structures, an alternative file format for aggregated data
-structures is warranted.}  
-
-\eat{ Because the load/materialize time varies so significantly
-  between different data structures, all subsequent experiments are
-  reported with a warm start, with application of a desired
-  partitioning strategy included during the loading process.}
 
 \subsection{\insql{TSelect} with \insql{TGroup}}
 \label{sec:exp:tgroup}
@@ -150,7 +120,7 @@ the following query:
       TSelect Any V[vid, any(word)];
               Any E[vid1, vid2, sum(cnt) as score]
       From    nGrams
-      TWhere  Start >= x And End <= y
+      TWhere  Start >= x And End < y
       TGroup  by 8 years
 \end{verbatim}
 \end{small}
@@ -216,15 +186,10 @@ this figure alone, one would conclude that SG is the most efficient
 data structure.  However, recall that the file format favors SG, and
 so no conclusions about the performance of data structures for
 individual operations should be drawn from cold start total time
-alone.  \eat{Additionally, the fastest time for each data structure
-  with cold start is achieved without applying a partition strategy
-  because the process of partitioning takes additional non-trivial
-  time. Thus, partition strategies for individual operations cannot be
-  effectively compared from cold start data either.}
+alone.  
 
 OGC outperforms the other data structures when we fix the data size
-and vary the aggregation width.\eat{, as can be seen in
-  Figure~\ref{fig:tgroupe_width}.}  OGC is insensitive to aggregation
+and vary the aggregation width.  OGC is insensitive to aggregation
 width, with a slight improvement as the width increases.  SG and MGC
 show a linear increase, with a drop for the final aggregation by the
 whole size.  This trend is observed in both datasets, see Appendix for
@@ -261,11 +226,11 @@ figures.
               All E[vid1, vid2, max(cnt) as score]
       From    ( TSelect V; E
                 From nGrams
-                TWhere  Start >= x And End <= y )
+                TWhere  Start >= x And End < y )
               TAnd
               ( TSelect V; E
                 From nGrams
-                TWhere  Start >= n And End <= m )      
+                TWhere  Start >= n And End < m )      
 \end{verbatim}
 \end{small}
 
@@ -289,14 +254,6 @@ Partitioning has a mild benefit for MGC, especially with the E2D
 strategy, as it does for OGC and SG. See Figure~\ref{fig:tand_parts}
 in the Appendix for side-by-side comparison.
 
-\eat{
-\begin{figure}[t!]
- \includegraphics[width=2.7in]{figs/tgroupewidth.pdf}
- \caption{\insql{TGroup} time vs. aggregation width.}
- \label{fig:tgroupe_width}
-\end{figure}
-}
-
 \insql{TOr} performance with \insql{Any} exactly matches that of
 \insql{TAnd} with \insql{All} above, and we do not show it here.
 
@@ -312,7 +269,7 @@ varying number of snapshots:
       TSelect V[vid, pagerank()];
               E[vid1, vid2]
       From    nGrams
-      TWhere  Start >= x And End <= y
+      TWhere  Start >= x And End < y
 \end{verbatim}
 \end{small}
 
@@ -337,8 +294,6 @@ following factors:
 \item PageRank gets faster as vertex values converge, because those
   vertices stop sending out new messages.  In OGC/MGC a vertex converges
   only when it does so in all snapshots.
-\eat{\item Messages for OGC are larger --- it is more costly to send a Map
-  object than a number.}
 \end{enumerate}
 
 \begin{figure*}[t]
@@ -373,12 +328,12 @@ the query:
 \begin{small}
 \begin{verbatim}
       Select vid, pr
-      From (TSelect Any V[vid, trend(prank) as pr]
+      From (TSelect Any V[vid, trend(prank) as pr];
                     Any E
             From (TSelect All V[vid, pagerank() as prank]; 
                           All E
                   From nGrams
-                  TWhere Start >= x And End <= y
+                  TWhere Start >= x And End < y
                   TGroup by 8 years)
             TGroup by size).toVerticesFlat()
       Order by pr
@@ -394,14 +349,6 @@ into a flat vertex relation.
 
 SG with no partitioning, and OGC with E2D show comparable
 performances, as seen in Figure~\ref{fig:complexq}.
-
-\eat{
-\begin{figure}[t]
-\includegraphics[width=3.2in]{figs/complexq.pdf}
-\caption{Complex query: \insql{TGroup}, PageRank, trend.}
-\label{fig:complexq}
-\end{figure}
-}
 
 {\bf In summary,} no one data structure is most efficient across all
 operations.  SG is most efficient for data load, because our file

@@ -1,12 +1,7 @@
 \section{Related Work}
 \label{sec:related}
 
-\eat{The research related to our \ql system is in the areas of queries for
-evolving graphs, efficient evolving graph representation, on disk or
-in memory, and frameworks / graph partitioning.  We discuss each of
-these in turn.}
-
-{\bf Querying and analytics.} \ql is the first proposed declarative
+{\bf Querying and analytics.}  \ql is the first proposed declarative
 query language for evolving graphs.  There has been much recent work
 on analytics for evolving graphs,
 see~\cite{DBLP:journals/csur/AggarwalS14} for a survey. This line of
@@ -29,16 +24,6 @@ locality-aware scheduling mechanisms, we work in a distributed
 processing environment.  A further difference is that our work is in
 scope of Apache Spark, a widely-used open source platform, while
 ImmortalGraph is a proprietary stand-alone prototype.
-\eat{Nonetheless, several important insights of Miao et al. are
-  relevant, and we discuss them below.}
-
-\eat{
-Our work is differs from query processing on dynamic graphs
-(e.g.,~\cite{Mondal2012}), where the history of changes is not
-important, and the focus is on updating the results as the graph
-undergoes changes.  Our work is also different than mining evolving
-graph streams (e.g.,~\cite{Liu2010}), where the focus is on discovery
-of significant changes over a small window of consecutive graphs.}
 
 Our work differs from query processing on dynamic graphs
 (e.g.,~\cite{Mondal2012}), where the history of changes is not
@@ -46,15 +31,9 @@ important, and from mining evolving graph streams
 (e.g.,~\cite{Liu2010}), where the focus is on discovering significant
 changes.
 
-\eat{Our contribution is an implementation-independent declarative language
-to support both iterative analytics and building-block operations such
-as joins and aggregations.}
-
-{\bf Data representation.}\eat{ Another important area of research is
-  efficient storage, retrieval and in-memory representation of
-  evolving graphs.  }The basic building block in \ql is a snapshot,
-which naturally limits the resolution at which changes can be
-retrieved. This deliberate choice is in contrast with delta-based
+{\bf Data representation.}  The basic building block in \ql is a
+snapshot, which naturally limits the resolution at which changes can
+be retrieved. This deliberate choice is in contrast with delta-based
 approaches~\cite{Khurana2013,Koloniari2012,DBLP:journals/tos/MiaoHLWYZPCC15}.
 
 Khurana and Deshpande~\cite{Khurana2013} investigate efficient
@@ -94,38 +73,18 @@ use of BitSets.  The primary difference is that their work represents
 purely topological information and does not address vertex and edge
 attributes.
 
-\eat{
-% We said this in experiments
-Miao, et al.~\cite{DBLP:journals/tos/MiaoHLWYZPCC15} demonstrate that
-there is a trade-off between temporal and spatial locality based on the
-type of query.  Their solution is to keep multiple data replicas on
-disk and pick the better one for the type of query requested.  In our
-work we also explore the trade-offs between structural and temporal
-locality.}  \eat{However, our focus is on in-memory query evaluation and not
-on on-disk layout.}
-
 {\bf Distributed frameworks.}  We build upon
 GraphX~\cite{DBLP:conf/osdi/GonzalezXDCFS14}, which provides an API
 for working with regular graphs (snapshots) in Apache Spark, but
 without the time dimension.  To improve performance, we modified the
 GraphX graph loading code, enabling concurrent distributed multi-file
-loading with a tuned number of partitions.
-%
-\eat{Distributed graph computation requires balanced graph partitioning,
-dependent on the nature of the operation being applied to the graph.
-There are two basic types of graph partitioning strategies.
-  Edge-cut distributes vertices across the available machines and
-  replicates the edges as necessary, while vertex-cut does the
-  opposite.  Based on extensive theoretical and experimental
-  studies~\cite{Gonzalez2012}, GraphX chose the vertex-cut approach.} 
-We use built-in GraphX partitioning and develop additional vertex-cut
-strategies that incorporate the temporal dimension.
-%
-Another relevant framework is SparkSQL~\cite{Xin2013Shark}, which
-provides mid-query optimization of distributed execution.  Mid-query
-optimization is in our immediate plans for \ql.  In SparkSQL tables
-to be joined can be co-partitioned at creation time.  This is similar
-to what our data structures and partition strategies achieve for
-\insql{TGroup} and temporal join.
+loading with a tuned number of partitions.  We use built-in GraphX
+partitioning and develop additional vertex-cut strategies that
+incorporate the temporal dimension.  Another relevant framework is
+SparkSQL~\cite{Xin2013Shark}, which provides mid-query optimization of
+distributed execution.  Mid-query optimization is in our immediate
+plans for \ql.  In SparkSQL tables to be joined can be co-partitioned
+at creation time.  This is similar to what our data structures and
+partition strategies achieve for \insql{TGroup} and temporal join.
 
 

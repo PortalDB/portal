@@ -36,10 +36,6 @@ and $E''$ are union-compatible.
 \label{def:scompat}
 \end{definition}
 
-\eat{This is the standard union compatibility definition, which requires
-that vertex schema $V$ and edge schema $E$ be the same for $G'$ and
-$G''$.}
-
 Several operations of our query language combine two or more snapshots
 into a single snapshot. This is done using structural aggregation,
 defined next.
@@ -141,20 +137,6 @@ For example, $P=([\tpy{1940},\tpy{1945}), \ldots,
 A special sequence $P^{\epsilon}$ is the null sequence, with
 $P^{\epsilon}.res=null$, $P^{\epsilon}.start=null$,
 $P^{\epsilon}.end=null$, and  $P^{\epsilon}.size=0$.
-
-\eat{\vera{According to the wiki, $[a,a)$ is considered an empty
-      set. So if we just follow the standard interval math semantics,
-      we can say: A null temporal sequence is a sequence represented
-      by the $[p.start,p.end)$ time interval regardless of the
-        resolution. By definition it is of size 0.}}
-
-\eat{
-\begin{definition} [Temporal Selection]
-Operator $\sigma_c P$ returns a temporal sequence $P'$ with $P'.start
-\geq P.start$, $P'.end \leg P.end$, and $P',res = P.res$.
-\label{def:tsel}
-\end{definition}
-}
 
 We next define union-compatibility for temporal sequences, and present
 two binary operations on temporal sequences.

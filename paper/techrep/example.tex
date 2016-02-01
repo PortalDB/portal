@@ -26,7 +26,7 @@ cnt:int), in our examples.
 \begin{verbatim}
 Q1: TSelect  V; E
     From     T1
-    TWhere   Start >= 2010 And End <= 2014
+    TWhere   Start >= 2010 And End < 2014
 \end{verbatim}
 \end{small}
 
@@ -50,16 +50,6 @@ the temporal schema of a \tg, cannot have any gaps.  We enforce this
 by never discarding a time interval in the middle of a sequence, but
 rather replacing its snapshot with an empty graph $G(V=\emptyset;
 E=\emptyset)$.
-
-\eat{\insql{Start} $t_1$ \insql{End} $t_2$ specifies a closed-open
-  period $[t_1, t_2)$.  Its time unit must match, or be coarser than,
-    the time unit of \insql{T1}.  If $t_1 < P.start$, we rewrite the
-    query, setting $t_1 = P.start$.  Similarly, if $t_2 > P.end$, we
-    rewrite the query, setting $t_2 = P.end$.  If $t_1$ does not fall
-    on an interval boundary in the input \tg, we rewrite the query,
-    setting $t_1$ to the {\em beginning} of the interval in which it
-    falls.  If $t_2$ does not fall on the interval boundary, we rewrite
-    the query, setting $t_2$ to the {\em end} of the interval in which}
 
 {\bf Specifying structural schema of the result.  Snapshot analytics.}
 Next, consider query $Q2$ below.
@@ -116,13 +106,6 @@ vertices and edges.  For an example consider snapshot $[2010, 2012)$
   in Figure~\ref{fig:q3}, which is computed from snapshots $[2010,
     2011)$ and $[2011, 2012)$ of \insql{T1} in Figure~\ref{fig:tg}.
 
-\eat{
-Recall that temporal aggregation in \ql is semantic, in that we can
-aggregate an input \tg that has day as its unit into a \tg with month
-as its time unit, by simply specifying \insql{TGroup by 1 month}, and
-without having to worry about how many days there are in a particular
-month.}
-
 We may use \insql{TGroup by Size} to specify that all snapshots of the
 input \tg be aggregated into a 1-snapshot \tg.  This notation will be
 useful when we discuss trend analytics later in this section.
@@ -132,7 +115,6 @@ useful when we discuss trend analytics later in this section.
 \vspace{-0.1in}
 \caption{Result of query Q3 on T1.}
 \label{fig:q3}
-%\vspace{-0.1in}
 \end{figure}
 
 Consider next query $Q4$, and its result in
@@ -153,11 +135,7 @@ meaning that $\gamma^{V}_{vid, any(name), max(salary)}(\bigcap_{G_i
   \in {\cal G}} V(G_i))$ (Definition~\ref{def:sgroup}) is used to
 aggregate vertices of snapshots in each 2-year group.  \insql{Any E}
 states that the edges in the result correspond to the union of the
-edges connecting the vertices.\eat{  As our example illustrates,
-\insql{Any} and \insql{All} modifiers are associated with vertices and
-edges and are orthogonal, subject to the constraint that an edge can
-only be present in a snapshot if both vertices it connects are
-present.}
+edges connecting the vertices.
 
 \begin{figure}
 \includegraphics[width=2.5in]{figs/TGroupAllAny.pdf}
@@ -170,13 +148,12 @@ $Q4$ illustrates another important feature of \ql, namely, aggregation
 of values of non-key attributes of vertices and edges, which takes
 place as part of structural aggregation.  We left available operations
 unspecified in Definition~\ref{def:sgroup}, so as to keep structural
-aggregation generic.
-%
-When used in scope of \insql{TGroup}, structural aggregation operates
-over an ordered collection of snapshots.  \ql makes the following
-aggregation operations available for ordered snapshot collections:
-\insql{any}, \insql{first}, \insql{last}, \insql{min}, \insql{max},
-\insql{sum}, \insql{count}, and \insql{list}.
+aggregation generic.  When used in scope of \insql{TGroup}, structural
+aggregation operates over an ordered collection of snapshots.  \ql
+makes the following aggregation operations available for ordered
+snapshot collections: \insql{any}, \insql{first}, \insql{last},
+\insql{min}, \insql{max}, \insql{sum}, \insql{count}, and
+\insql{list}.
 
 To illustrate, consider vertex and edge relations in
 Figure~\ref{fig:3ve}, which correspond to the first three snapshots of
@@ -195,14 +172,6 @@ specified explicitly, \insql{any} is used as the default for non-key
 attributes.  That is, the \insql{TSelect} clause of $Q3$ is short-hand
 for \insql{TSelect Any V[vid, any(name), any(salary)] ;} 
 \insql{Any E[vid1, vid2, any(cnt)]}.
-
-\eat{
-In the current version of \ql, temporal aggregation always groups
-\insql{V} and \insql{E} by their respective key attributes, and values
-of all other attributes are aggregated with one of the provided
-operators (\insql{any} being the default).  In the future we will
-support grouping by non-key attributes.  Further, we will define an
-API to allow developers to specify custom aggregation operators.}
 
 {\bf Temporal join.} We will now present two binary operators of \ql
 that join together \tg relations, and will illustrate them using
@@ -225,7 +194,6 @@ Q5:  TSelect   Any V; Any E
 \caption{Result of query Q5.}
 \vspace{-0.1in}
 \label{fig:q5}
-%\vspace{-0.1in}
 \end{figure}
 
 Temporal schema of the result is computed according to
@@ -247,22 +215,6 @@ aggregation operations available for unordered snapshot collections:
 \insql{list}.  Note that, unlike for \insql{TGroup}, \insql{first} and
 \insql{last} are unavailable here, and that \insql{any} is still the
 default.
-
-\eat{
-Also recall from our discussion of temporal aggregation that
-\insql{TSelect Any V; Any E } is short-hand for \insql{TSelect Any V
-  [vid, any(name), any(salary)]; Any E [vid1, vid2, any(cnt)]}.}
-
-
-\eat{ Let us briefly revisit {\bf structural aggregation}, which is
-  specified with \insql{Any} and \insql{All}, and has the same
-  semantics in all \ql operators that map multiple input snapshots
-  into one snapshot in the result. These operations are temporal
-  aggregation, temporal union, and temporal intersection.  In all
-  these operations, the use of \insql{Any} and \insql{All} for
-  vertices and edges is orthogonal, subject to the constraint that an
-  edge is only present in the result if both vertices connected by the
-  edge are present.}
 
 Consider next query $Q6$ that computes temporal union of \insql{T1}
 and \insql{T2}.  The result of this query is shown in
@@ -328,7 +280,7 @@ result.
 Q7:  TSelect Any V [vid, pagerank() as pr] ; 
              Any E [vid1, vid2] 
      From    T1 TAnd T2 
-     TWhere  Start >= 2012 And End <= 2014 
+     TWhere  Start >= 2012 And End < 2014 
      TGroup by 2 years
 \end{verbatim}
 \end{small}
@@ -371,7 +323,7 @@ Q8:  TSelect   All V [vid, pagerank() as pr];
                          Any E [vid1, vid2]
                  From    T1 TAnd T2
                  TWhere  Start >= 2012 
-                 And     End <= 2014 )
+                 And     End < 2014 )
      TGroup    by 2 years
 \end{verbatim}
 \end{small}
@@ -425,25 +377,24 @@ since a temporal trend may be computed over a window of any size.
 
 {\bf Loading filesystem data.  Views.}  Queries $Q1$ through $Q9$
 refer to \tg variables in the \insql{From} clause.  The value of a \tg
-variable is assigned by the \insql{Into} clause.  This value may be
-loaded from the file system, as in query $Q10$, or it may correspond to
-a view, as in query $Q11$.
+variable is assigned by the \insql{define view} statement.  This value
+may be loaded from the file system, as in query $Q10$, or it may
+correspond to a view, as in query $Q11$.
 
 \begin{small}
 \begin{verbatim}
-Q10:  TSelect V[vid:int, name:str, salary:int]; 
-              E[vid1:int, vid2:int, cnt:int]
-      From    path/to/directory
-      Into    T3
+Q10:  Create Tview T1 as 
+        (TSelect V[vid:int, name:str, salary:int]; 
+                 E[vid1:int, vid2:int, cnt:int]
+         From    path/to/directory)
 \end{verbatim}
 \end{small}
 
 \begin{small}
 \begin{verbatim}
-Q11:  TSelect V; E
-      From    T1
-      Into    T4
-      TWhere  Start >=  2010 
+Q11:  Create Tview T4 as (TSelect V; E
+         From    T1
+         TWhere  Start >=  2010)
 \end{verbatim}
 \end{small}
 

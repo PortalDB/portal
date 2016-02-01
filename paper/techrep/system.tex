@@ -14,42 +14,46 @@ library, as depicted in Figure~\ref{fig:arch}.  Green boxes indicate
 built-in components, while blue are those we added for \ql.  We
 selected Apache Spark because it is a popular open-source system, and
 because of its in-memory processing approach.  All language operators
-are available through the public API of the \ql library, and may be
-used like any other library in an Apache Spark application.
+on \tgs are available through the public API of the \ql library, and
+may be used like any other library in an Apache Spark application.
 
 \begin{figure}[t!]
 \includegraphics[width=3.2in]{figs/sgp.pdf}
-\caption{SG representation of T1 from Figure~\ref{fig:tg}.}
+\caption{SG representation of T1 from Figure~\ref{fig:tg} (partial).}
 \label{fig:sgp}
 \end{figure}
 
-The \ql system includes an interactive shell for exploratory data
-analysis and a query parser.  A \ql query is rewritten into a sequence
-of operators, and some operators are reordered to improve performance
-(Section~\ref{sec:sys:optimization}).  Next, a particular data
-structure (Section~\ref{sec:sys:datastructs}) and partitioning
-strategy (Section~\ref{sec:sys:partition}) are selected and the query
-is executed.  The evolving graph snapshots are read from the
-distributed file system and processed by Workers, with the tasks
-assigned and managed by the runtime.
+\ql query execution follows the traditional query processing steps:
+parsing, logical plan generation and verification, and physical plan
+generation.  \ql re-uses and extends SparkSQL abstractions for these
+steps.  A \ql query is rewritten into a sequence of operators, and
+some operators are reordered to improve performance
+(Section~\ref{sec:sys:optimization}).  We developed several different
+physical representations (Section~\ref{sec:sys:datastructs}) and
+partitioning strategies (Section~\ref{sec:sys:partition}) that are
+selected at the physical plan generation stage.  The \tgs are read
+from the distributed file system HDFS and processed by Spark Workers,
+with the tasks assigned and managed by the runtime.  The System
+Catalog contains information about each data set, including the
+temporal and structural schema, and temporal bounds.
 
 \begin{figure*}[th!]
 \begin{minipage}{2.3in}
 \centering
 \includegraphics[width=2.2in]{figs/mg.pdf}
-\caption{MG for T1.}
+\caption{MG for T1 (partial).}
 \label{fig:mg}
 \end{minipage}
 \begin{minipage}{2.3in}
 \centering
 \includegraphics[width=2.2in]{figs/mgc.pdf}
-\caption{MGC for T1.}
+\caption{MGC for T1 (partial).}
 \label{fig:mgc}
 \end{minipage}
 \begin{minipage}{2.3in}
 \centering
 \includegraphics[width=2.2in]{figs/og.pdf}
-\caption{OG for T1.}
+\caption{OG for T1 (partial).}
 \label{fig:og}
 \end{minipage}
 \end{figure*}
@@ -61,9 +65,7 @@ assigned and managed by the runtime.
 
 We developed several in-memory representations of evolving graphs to
 explore the trade-offs of compactness, parallelism, and support of
-different query operators. \eat{ The data structures represent a
-  continuum of replication, from the SnapshotGraph to OneGraph and are
-  described here in more detail.}
+different query operators.
 
 {\bf SnapshotGraph (SG).} The simplest way to represent an evolving
 graph is by representing each snapshot individually, a direct
@@ -83,13 +85,7 @@ snapshots~\cite{DBLP:journals/tos/MiaoHLWYZPCC15}.  In a distributed
 architecture, however, this data structure provides some benefits as
 operations on it can be easily parallelized, by assigning different
 snapshots to different workers, or by partitioning a snapshot across
-workers.  \eat{with improved temporal locality for snapshot-based
-  analytics. }\eat{SG edges can be partitioned using temporal or
-  structural criteria.  Furthermore, due to Spark's lazy evaluation,
-  operations such as \insql{TSelect} are very efficient, since only
-  those snapshots involved in the operation are loaded.  While other
-  data structures do not benefit from this feature, push selection in
-  query optimization can compensate equally well.}
+workers.  
 
 {\bf MultiGraph (MG).}  To take advantage of high similarity between
 snapshots, we developed another data structure called MultiGraph, or
@@ -106,9 +102,7 @@ and the corresponding value.  Vertices typically change infrequently,
 so storing each vertex only once reduces the total number of vertices
 by about 80\% in our data.  Some of these savings, however, are taken
 up by the storage of a more complex map data structure for attribute
-values, compared to a single attribute as in SG.  \eat{Partition of
-  the MG edges can be either temporal or structural, which lead to
-  different rates of vertex replication between partitions.}
+values, compared to a single attribute as in SG.  
 
 The implementation of some of the \ql operations in MG is more complex
 than in SG.  \insql{TSelect} is a subgraph operation that operates on
@@ -119,9 +113,6 @@ are grouped by key within their respective sets.  Implementation of
 snapshot analytics like PageRank is done in batch mode, similar
 to~\cite{DBLP:journals/tos/MiaoHLWYZPCC15}, by computing the values
 and sending messages between vertices for all time periods at once.
-\eat{This data structure should also be more amenable to cross-time
-analytics and pattern mining, which we intend to explore in the
-future.}
 
 Note that for a large subset of the queries, attribute information is
 not used, and only the topology is important.  Thus, we can store
@@ -139,12 +130,6 @@ represent this type of data (e.g., see~\cite{Muller2008}).  The
 drawback of this approach is that decompression is required to
 support, for example, the \insql{TGroup} operation.
 
-\eat{\begin{figure}[t!]
-\includegraphics[width=3.2in]{figs/mgc.pdf}
-\caption{MGC representation of T1 from Figure~\ref{fig:tg}.}
-\label{fig:mgc}
-\end{figure}}
-
 {\bf OneGraph (OG).}  The most topologically compact representation is
 to store each vertex {\em and} each edge only once for the whole
 evolving graph, by taking a union of the snapshot vertex and edge
@@ -158,12 +143,6 @@ Pregel-based analytics in batch mode.  The drawback is that OG is much
 denser than individual snapshots.  As with MG, \insql{TSelect} is a
 subgraph operation, and \insql{TGroup} is a transform and filter
 operation --- for both vertices and edges.
-
-\eat{\begin{figure}[t!]
-\includegraphics[width=3.2in]{figs/og.pdf}
-\caption{OG of T1 from~\ref{fig:tg}.}
-\label{fig:og}
-\end{figure}}
 
 Similar to MGC, {\bf OneGraphColumn (OGC)} uses a single graph to
 represent the union of vertices and edges, with bit sets for presence
@@ -225,24 +204,11 @@ partitions. E2D can provide good performance for Pregel-style
 analytics.  This strategy is available in GraphX and was used without
 modification.
 
-\eat{\begin{figure}[t!]
-\includegraphics[width=3.2in]{figs/E2D.pdf}
-\caption{E2D partitioning over 4 partitions.}
-\label{fig:e2d}
-\end{figure}}
-
 {\bf Naive Temporal.} Let $n$ be the number of snapshots and $p$ be
 the number of partitions.  If $n \geq p$, then snapshot $i$ is placed
 into partition $i \% p$.  Otherwise, multiple partitions are grouped
 into a {\em run}, and the CRVC strategy is used to partition a
 snapshot within each run.
-
-\eat{ Provided there are more time intervals in the graph than there
-  are partitions, each edge is placed in the time index modulo number
-  of partitions place, round-robin fashion.  In the case where the
-  graph covers a small time interval, multiple partitions are used for
-  each interval (we term this a {\em run}), and the CRVC strategy is
-  applied within each run.}
 
 {\bf Consecutive Temporal.}  Let $n$ be the number of snapshots and
 $p$ be the number of partitions.  If $n \geq p$, then temporally
@@ -250,12 +216,6 @@ consecutive snapshots are assigned to the same partition.  Otherwise,
 each snapshot is assigned an equal number of consecutive partitions,
 and CRVC is used to partition the snapshot
 (Figure~\ref{fig:consecutive}).
-
-\eat{If there are more time intervals than partitions, consecutive
-  time intervals are assigned to the same partition in runs.  If there
-  are more partitions, each time interval is assigned an equal number
-  of consecutive partitions, within which CRVC strategy is applied
-  (Figure~\ref{fig:consecutive}).} 
 
 Many networks exhibit strong temporal skew, with later snapshots being
 significantly larger than earlier ones.  Consecutive temporal strategy
@@ -265,12 +225,6 @@ Furthermore, the number of cuts for a vertex is the number of
 intervals in which it exists with degree > 0.  In the worst case, a
 vertex will be cut $n$ times.  Therefore, if vertices persist across
 many time intervals, this strategy is not a good choice.
-
-\eat{\begin{figure}[t!]
-\includegraphics[width=3.2in]{figs/Consecutive.pdf}
-\caption{Consecutive strategy over 4 partitions and 3 time intervals.}
-\label{fig:consecutive}
-\end{figure}}
 
 {\bf Hybrid strategies.} Hybrid strategies combine elements of
 temporal and structural criteria.  We define two such strategies,
@@ -284,14 +238,6 @@ such as aggregation to co-locate edges that are to be grouped.  Run
 width is determined based on the operation.  For \insql{TGroup}, we
 take the number of snapshots in a group as the run width.  For other
 operations the default run width is 2.
-
-\eat{
-\begin{figure}[t!]
-\includegraphics[width=3.2in]{figs/Hybrid2D.pdf}
-\caption{Hybrid 2D Edge Temporal strategy over 4 partitions and 4 time
-  intervals in runs of width 2.}
-\label{fig:hybrid2d}
-\end{figure}}
 
 Note that not all partitioning strategies can be applied to every data
 structure.  For example, only purely structural strategies can be
