@@ -84,6 +84,7 @@ needs to (1) be balanced, assigning an approximately equal number of
 units to each partition, and (2) limit the number of cuts across
 partitions, to reduce cross-partition communication.
 
+\eat{
 There are two basic types of graph partitioning strategies. Vertex-cut
 (also known as edge partitioning) distributes edges across the
 available machines and replicates vertices as necessary, while
@@ -91,7 +92,7 @@ edge-cut (vertex partitioning) does the opposite.  Vertex-cut
 approaches have been shown to have better
 performance~\cite{Gonzalez2012}, and are the strategies of choice in
 GraphX.  \ql leverages these strategies.
-
+}
 In our experiments we compare performance of SG, OG and HG with (1) no
 repartitioning after load, and (2) with repartitioning using the 2D
 edge partitioning strategy (E2D).  This strategy is available in

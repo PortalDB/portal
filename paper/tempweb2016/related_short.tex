@@ -1,11 +1,6 @@
 \section{Related Work}
 \label{sec:related}
 
-\eat{The research related to our \ql system is in the areas of queries for
-evolving graphs, efficient evolving graph representation, on disk or
-in memory, and frameworks / graph partitioning.  We discuss each of
-these in turn.}
-
 {\bf Querying and analytics.} There has been much recent work on
 analytics for evolving graphs,
 see~\cite{DBLP:journals/csur/AggarwalS14} for a survey. This line of
@@ -35,6 +30,18 @@ Our work differs from query processing on dynamic graphs
 important, and from mining evolving graph streams
 (e.g.,~\cite{Liu2010}), where the focus is on discovering significant
 changes.}
+
+{\bf Temporal SQL.}  We borrow the definition of a time period from
+Temporal SQL defined in the SQL:2011
+standard~\cite{DBLP:journals/sigmod/KulkarniM12}.  We also support the
+same temporal predicates in the \insql{TWhere} clause, such as
+\insql{overlaps}, \insql{precedes}, \insql{contains}.  This is where
+similarities between \ql and SQL end.  SQL does not define temporal
+aggregation, nor support temporal intersections and unions.  In \ql,
+temporal aggregation is a key opreation that supports investigating
+periodic trends of different resolution.  In addition, our support for
+snapshot analytics is inherently graph-centric.  Users can register
+their own snapshot analytics through special Pregel-style UDFs.
 
 {\bf Data representation.}\eat{ Another important area of research is
   efficient storage, retrieval and in-memory representation of

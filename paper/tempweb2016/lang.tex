@@ -2,6 +2,7 @@
 \label{sec:language}
 
 \begin{figure}[t!]
+\centering
   \includegraphics[width=2.9in]{figs/4snaps_T1.pdf}
   \caption{\tg \insql{T1} with 4 snapshots.}
   \vspace{-0.5cm}
@@ -28,6 +29,7 @@
 \end{minipage}
 \end{figure*}
 }
+
 \ql is a declarative query language for evolving graphs.  The language
 operates on a novel kind of a relation, called a \tg, which can be
 provided as a base relation or computed as a view.  A \tg associates a
@@ -56,17 +58,19 @@ the distinction between \ql and SQL operations explicit.
   generic set-based operations such as a join.}
 
 Consider query \insql{Q1} below.  This query is concise, yet it
-specifies a sophisticated analysis task.\\
+specifies a sophisticated analysis task.
 
-{\footnotesize
+\eat{{\footnotesize}}
+\begin{small}
 \begin{verbatim}
  Q1:  TSelect V [vid, pagerank()] ; 
               E [vid1, vid2, sum(cnt)] 
       From    T1 TOr T2 
       TWhere  Start >= 2010 And End < 2014 
-      TGroup by 2 years
+      TGroup  by 2 years
 \end{verbatim}
-}
+\end{small}
+%}
 
 \begin{figure}[t!]
   \centering
@@ -106,16 +110,18 @@ temporally-adjacent snapshots.  The second are trend analytics,
 computed across groups of temporally-adjacent snapshots.  Both are
 illustrated in \insql{Q2} below.
 
-{\footnotesize
+\eat{{\footnotesize}}
+\begin{small}
 \begin{verbatim}
 Q2:  TSelect V [vid, trend(pr)];
              E [vid1, vid2]  
      From    ( TSelect V [vid, pagerank() as pr];   
                        E [vid1, vid2]
                From    T1 TAnd T2 )
-     TGroup   by Size
+     TGroup  by Size
 \end{verbatim}
-}
+\end{small}
+%}
 
 \insql{Q2} executes a temporal join of \insql{T1} and \insql{T2}, then
 invokes \insql{pagerank()}, a {\em snapshot analytic}, on consecutive
@@ -142,8 +148,8 @@ For example, consider the following query:
 \begin{verbatim}
 Q1:  TSelect Any V [vid, any(name), max(salary)] ; 
              Any E [vid1, vid2, sum(cnt)] 
-     From T1 
-     TGroup by 2 years
+     From    T1 
+     TGroup  by 2 years
 \end{verbatim}
 \end{small}
 
@@ -157,8 +163,8 @@ complex query using 5 operations:
 Q2:  TSelect Any V [vid, pagerank() as pr] ; 
              Any E [vid1, vid2] 
      From    T1 TAnd T2 
-     TWhere  Start >= 2012 And End <= 2014 
-     TGroup by 2 years
+     TWhere  Start >= 2012 And End < 2014 
+     TGroup  by 2 years
 \end{verbatim}
 \end{small}
 

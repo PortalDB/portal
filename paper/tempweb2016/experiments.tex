@@ -91,7 +91,7 @@ structure performance over varying number of snapshots:
 \begin{verbatim}
       TSelect V[vid, degrees()]; E[vid1, vid2]
       From    nGrams
-      TWhere  Start >= :x And End <= :y
+      TWhere  Start >= :x And End < :y
 \end{verbatim}
 \end{small}
 
@@ -123,7 +123,7 @@ snapshots:
 \begin{verbatim}
       TSelect V[vid, components()]; E[vid1, vid2]
       From    nGrams
-      TWhere  Start >= :x And End <= :y
+      TWhere  Start >= :x And End < :y
 \end{verbatim}
 \end{small}
 
@@ -202,7 +202,7 @@ and so HG is not used in this experiment.
  TSelect V[vid, trend(deg)]; E
  From    (TSelect V[vid, degrees() as deg]; E[vid1, vid2]
           From    nGrams
-          TWhere  Start >= :x And End <= :y)
+          TWhere  Start >= :x And End < :y)
  TGroup by 16 years
 \end{verbatim}
 \end{small}
@@ -232,7 +232,7 @@ the following SQL-\ql query:
        From (TSelect All V[vid, pagerank() as prank]; 
                      All E
              From nGrams
-             TWhere Start >= :x And End <= :y
+             TWhere Start >= :x And End < :y
              TGroup by 16 years)
       TGroup by size).toVerticesFlat()
  Order by pr

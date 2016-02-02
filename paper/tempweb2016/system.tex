@@ -36,6 +36,8 @@ partitioning strategies that are selected at the physical plan
 generation stage.  These are described in Section~\ref{sec:physical}.
 The \tgs are read from the distributed file system HDFS and processed
 by Spark Workers, with the tasks assigned and managed by the runtime.
+The System Catalog contains information about each data set, including
+the temporal and structural schema, and temporal bounds.
 
 {\bf Integration with SQL.} The \ql system
 includes an interactive shell for exploratory data analysis.  Shell
