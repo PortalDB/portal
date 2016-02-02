@@ -124,8 +124,8 @@ Figure~\ref{fig:tg_all_any}.
 \begin{verbatim}
 Q4: TSelect All V [vid, any(name), max(salary)] ; 
             Any E [vid1, vid2, sum(cnt)] 
-    From T1 
-    TGroup by 2 years
+    From    T1 
+    TGroup  by 2 years
 \end{verbatim}
 \end{small}
 
@@ -281,7 +281,7 @@ Q7:  TSelect Any V [vid, pagerank() as pr] ;
              Any E [vid1, vid2] 
      From    T1 TAnd T2 
      TWhere  Start >= 2012 And End < 2014 
-     TGroup by 2 years
+     TGroup  by 2 years
 \end{verbatim}
 \end{small}
 
@@ -342,7 +342,7 @@ Q9:  TSelect Any V[vid, trend(pr) as tr, max(pr) as mx];
      From    ( TSelect V[vid, pagerank() as pr];   
                        E[vid1, vid2]
                From    T1 )
-     TGroup   by Size
+     TGroup  by Size
 \end{verbatim}
 \end{small}
 
@@ -383,7 +383,7 @@ correspond to a view, as in query $Q11$.
 
 \begin{small}
 \begin{verbatim}
-Q10:  Create Tview T1 as 
+Q10:  Create TView T1 as 
         (TSelect V[vid:int, name:str, salary:int]; 
                  E[vid1:int, vid2:int, cnt:int]
          From    path/to/directory)
@@ -392,7 +392,7 @@ Q10:  Create Tview T1 as
 
 \begin{small}
 \begin{verbatim}
-Q11:  Create Tview T4 as (TSelect V; E
+Q11:  Create TView T4 as (TSelect V; E
          From    T1
          TWhere  Start >=  2010)
 \end{verbatim}

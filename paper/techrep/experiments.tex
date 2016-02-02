@@ -81,11 +81,11 @@ data size, we ran the following query on nGrams:
 
 \begin{small}
 \begin{verbatim}
-      TSelect V[vid:int, word:str]; 
-              E[vid1:int, vid2:int, cnt:int]
-      From    data/nGrams
-      Into    nGrams
-      TWhere  Start >= x and End < y
+      Create TView nGrams as 
+        (TSelect V[vid:int, word:str]; 
+                 E[vid1:int, vid2:int, cnt:int]
+         From    data/nGrams
+         TWhere  Start >= x and End < y)
 \end{verbatim}
 \end{small}
 
