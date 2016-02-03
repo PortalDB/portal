@@ -211,12 +211,13 @@ This query computes the degree of each vertex in each snapshot,
 aggregates snapshots in groups of 16, and uses \insql{trend} as the
 aggregation function on degrees.  We have shown above that in most
 cases SG provides the most efficient performance for snapshot
-analytics.  We have also shown in (under review) that aggregate data
-structures (OG, HG, others) take longer to load but are more efficient
-for a \insql{TGroup} operation.  Figure~\ref{fig:trend_deg} (warm
-start) shows that, when these operations are combined, OG outperforms
-SG.  This is because temporal aggregation is a more expensive
-operation in this scenario that the degrees analytic.
+analytics.  We have also shown in~\cite{PortalarXiv2016} that
+aggregate data structures (OG, HG, others) take longer to load but are
+more efficient for a \insql{TGroup} operation.
+Figure~\ref{fig:trend_deg} (warm start) shows that, when these
+operations are combined, OG outperforms SG.  This is because temporal
+aggregation is a more expensive operation in this scenario that the
+degrees analytic.
 
 \eat{
 \subsection{\insql{TSelect} with \insql{trend(pagerank())}}
