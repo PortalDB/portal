@@ -31,22 +31,25 @@ important, and from mining evolving graph streams
 (e.g.,~\cite{Liu2010}), where the focus is on discovering significant
 changes.}
 
-{\bf Temporal SQL.}  We borrow the definition of a time period from
-Temporal SQL defined in the SQL:2011
-standard~\cite{DBLP:journals/sigmod/KulkarniM12}.  We also support the
-same temporal predicates in the \insql{TWhere} clause, such as
-\insql{overlaps}, \insql{precedes}, and \insql{contains}.  There are
-several important distinctions between \ql and Temporal SQL.  SQL does
-not support period aggregates, so expressions like \insql{TGroup by 2
-  years} would require new user-defined functions on
-periods. Additionally, \ql aggregation functions are inherently
-time-centric on the level of individual node and edge attributes,
-which allows for such aggregates as \insql{first}, \insql{last}, and
-\insql{trend}.  \ql support for snapshot analytics is also
-graph-centric.  Snapshot analytics operate on the whole graph,
-i.e. both the node and edge relations together.  In \ql users can
-register their own snapshot analytics through special Pregel-style
-UDFs.
+{\bf Temporal SQL.}  Like Temporal
+SQL~\cite{DBLP:journals/sigmod/KulkarniM12}, \ql assigns temporal
+meaning to data.  To that effect, we use the definition of a time
+period from the SQL:2011 standard, and support temporal predicates
+including \insql{overlaps}, \insql{precedes} and \insql{contains} in
+the \insql{TWhere} clause.  Unlike Temporal SQL, \ql explicitly
+incorporates the temporal dimension into operations, including
+language primitives and aggregate functions, both built-in and
+user-defined.  Specifically, Temporal SQL does not support period
+aggregates, so expressions like \insql{TGroup by 2 years} would
+require new user-defined functions on periods. Additionally, \ql
+aggregation functions are inherently time-centric on the level of
+individual vertex and edge attributes, which allows for such
+aggregates as \insql{first}, \insql{last}, and \insql{trend}.  Another
+important difference between Temporal SQL and \ql is that \ql is
+graph-centric.  Our language natively supports snapshot analytics,
+which operate on vertex and edge relations in their entirety.  \ql
+users can register their own snapshot analytics through the
+User-Defined Analytics API.
 
 {\bf Data representation.}\eat{ Another important area of research is
   efficient storage, retrieval and in-memory representation of

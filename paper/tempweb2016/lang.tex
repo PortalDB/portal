@@ -30,8 +30,11 @@
 \end{figure*}
 }
 
-\ql is a declarative query language for evolving graphs.  The language
-operates on a novel kind of a relation, called a \tg, which can be
+\ql is a declarative query language for evolving graphs.  We give a
+brief overview of the language here, see~\cite{PortalarXiv2016} for a
+detailed description.
+
+\ql operates on a novel kind of a relation, called a \tg, which can be
 provided as a base relation or computed as a view.  A \tg associates a
 sequence of consecutive non-overlapping open-closed time periods of
 the same duration with a sequence of snapshots.  An example of a
@@ -83,21 +86,19 @@ specifies a sophisticated analysis task.
 
 \insql{Q1} combines \tgs \insql{T1} and \insql{T2}, restricts the
 result to the $[2010, 2014)$ range, groups the result into 2-year
-  windows, computes \insql{pagerank()} for each vertex, and sums
-  values of the attribute \insql{cnt} for each edge.
+  windows, computes \insql{pagerank()} for each vertex in each time
+  window, and sums values of the attribute \insql{cnt} for each edge.
 
-Note the use of \insql{TOr} in \insql{Q1}.  This is one a kind of a
+Note the use of \insql{TOr} in \insql{Q1}.  This is one kind of a
 temporal join supported in \ql, returning the union of the snapshots
 of the two operands.  (\ql also support temporal intersection
 \insql{TAnd}, illustrated in \insql{Q2}).  Temporal join is a binary
 operation that requires its operands to be {\em union-compatible}.
-There are two parts to \tg union-compatibility, structural and
-temporal.  Structural union-compatibility states that vertex and edge
-relations of the two \tgs must be union-compatible.  Temporal
+There are two parts to union-compatibility, structural and temporal.
+Structural union-compatibility states that vertex and edge relations
+of the two \tgs must be union-compatible.  Temporal
 union-compatibility states that temporal sequences of \insql{T1} and
-\insql{T2} must have the same resolution, and they must align. \eat{
-  We explain this concept further in Section~\ref{sec:demo}, under use
-  case 1.}
+\insql{T2} must have the same resolution, and they must align.
 
 As part of query \insql{Q1}, \ql performs {\em structural
   aggregation}.  This operation is part of temporal aggregation

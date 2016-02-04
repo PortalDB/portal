@@ -31,13 +31,13 @@ join query may be rewritten to include additional temporal selection
 conditions, based on information about the temporal schema of the \tgs
 being joined, which in turn significantly reduces data load time.
 
-We developed several different physical representations and
-partitioning strategies that are selected at the physical plan
-generation stage.  These are described in Section~\ref{sec:physical}.
-The \tgs are read from the distributed file system HDFS and processed
-by Spark Workers, with the tasks assigned and managed by the runtime.
-The System Catalog contains information about each data set, including
-the temporal and structural schema, and temporal bounds.
+We developed several physical representations and partitioning
+strategies, which are selected at the physical plan generation stage.
+These are described in Section~\ref{sec:physical}.  The \tgs are read
+from the distributed file system HDFS and processed by Spark Workers,
+with the tasks assigned and managed by the runtime.  The System
+Catalog contains information about each \tg, including its temporal
+and structural schema.
 
 {\bf Integration with SQL.} The \ql system includes an interactive
 shell for exploratory data analysis.  Shell users can define
