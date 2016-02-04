@@ -75,9 +75,10 @@ specifies a sophisticated analysis task.
 \begin{figure}[t!]
   \centering
 \includegraphics[width=3.5in]{figs/4snaps_T1_ve.pdf}
+  \vspace{-0.5cm}
   \caption{Vertex and edge attributes of \tg \insql{T1}.}{}
   \label{fig:tg_t1_ve}
-\vspace{-0.5cm}
+\vspace{-0.3cm}
 \end{figure}
 
 \insql{Q1} combines \tgs \insql{T1} and \insql{T2}, restricts the
@@ -123,11 +124,11 @@ Q2:  TSelect V [vid, trend(pr)];
 \end{small}
 %}
 
-\insql{Q2} executes a temporal join of \insql{T1} and \insql{T2}, then
-invokes \insql{pagerank()}, a {\em snapshot analytic}, on consecutive
-snapshots of the result.  Our current focus is on Pregel-style
-snapshot analytics.  We may accommodate additional classes of
-analytics in the future.
+\insql{Q2} executes a temporal join of \insql{T1} and \insql{T2} and
+\eat{, then}invokes \insql{pagerank()}, a {\em snapshot analytic}, on
+consecutive snapshots of the result.  Our current focus is on
+Pregel-style \eat{snapshot} analytics.  We may accommodate additional
+classes \eat{of analytics }in the future.
 
 Consider the use of the {\em trend analytic} function
 \insql{trend(pr)}, which aggregates the sequence of PageRank scores of

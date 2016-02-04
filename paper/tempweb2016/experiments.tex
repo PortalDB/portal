@@ -3,17 +3,17 @@
 
 \begin{figure*}[t!]
 \centering
-\begin{minipage}{3in}
+\begin{minipage}{3.3in}
   \centering
-  \includegraphics[width=2.6in]{figs/degrees_dblp.pdf}
+  \includegraphics[width=2.8in]{figs/degrees_dblp.pdf}
   \vspace{-0.1in}
   \caption{Degrees time, DBLP.}
   \label{fig:deg_dblp}
   \vspace{-0.1in}
 \end{minipage}
-\begin{minipage}{3in}
+\begin{minipage}{3.3in}
   \centering
-\includegraphics[width=2.6in]{figs/degrees_ngrams.pdf}
+\includegraphics[width=2.8in]{figs/degrees_ngrams.pdf}
   \vspace{-0.1in}
 \caption{Degrees time, nGrams.}
 \label{fig:deg_ngrams}
@@ -23,17 +23,17 @@
 
 \begin{figure*}[t]
 \centering
-\begin{minipage}{3in}
+\begin{minipage}{3.3in}
   \centering
-  \includegraphics[width=2.6in]{figs/connectedcs_ngrams.pdf}
+  \includegraphics[width=2.8in]{figs/connectedcs_ngrams.pdf}
   \vspace{-0.1in}
   \caption{Connected Components, nGrams.}
   \label{fig:connectc_ngrams}
   \vspace{-0.5cm}
 \end{minipage}
-\begin{minipage}{3in}
+\begin{minipage}{3.3in}
   \centering
-\includegraphics[width=2.6in]{figs/pagerank_ngrams.pdf}
+\includegraphics[width=2.8in]{figs/pagerank_ngrams.pdf}
   \vspace{-0.1in}
 \caption{PageRank, nGrams.}
 \label{fig:pagerank_ngrams}
@@ -76,9 +76,9 @@ lifespan, while the nGrams network grows over time, with nodes and
 edges persisting for long duration.  \eat{All figures in the body of
   this section are on the larger nGrams dataset.  Refer to the
   Appendix for the DBLP figures, which show similar trends as nGrams.}
-We plan to experiment with a larger
-DELIS\footnote{\url{law.di.unimi.it/webdata/uk-union-2006-06-2007-05}}
-dataset as we grow our cluster in the near future.
+We plan to experiment with a larger DELIS
+\eat{\footnote{\url{law.di.unimi.it/webdata/uk-union-2006-06-2007-05}}}
+dataset~\cite{BoVWFI} as we grow our cluster in the near future.
 
 %\subsection{Degrees}
 
@@ -140,17 +140,17 @@ to the following factors:
 
 \begin{figure*}[t!]
 \centering
-\begin{minipage}{3in}
+\begin{minipage}{3.3in}
   \centering
-  \includegraphics[width=2.6in]{figs/trend_degrees.pdf}
+  \includegraphics[width=2.8in]{figs/trend_degrees.pdf}
   \vspace{-0.1in}
   \caption{\insql{trend(degrees())}.}
   \label{fig:trend_deg}
   \vspace{-0.5cm}
 \end{minipage}
-\begin{minipage}{3in}
+\begin{minipage}{3.3in}
   \centering
-\includegraphics[width=2.6in]{figs/complexq.pdf}
+\includegraphics[width=2.8in]{figs/complexq.pdf}
   \vspace{-0.1in}
 \caption{\insql{TGroup}, PageRank, trend.}
 \label{fig:complexq}
@@ -181,7 +181,7 @@ using Pregel.  The query in this experiment is the same, replacing
 \insql{components} with \insql{pagerank}.  PageRank was executed for
 10 iterations or until convergence, whichever came first.  Results of
 this experiment (Figure~\ref{fig:pagerank_ngrams}) are similar to
-those of Connected Components SG outperforms the other data
+those of Connected Components.  SG outperforms the other data
 structures, but HG exhibits the same slope and its performance
 improves relative to the other data structures as the number of
 snapshots is increased.  E2D partitioning leads to performance
@@ -203,7 +203,7 @@ and so HG is not used in this experiment.
  From    (TSelect V[vid, degrees() as deg]; E[vid1, vid2]
           From    nGrams
           TWhere  Start >= :x And End < :y)
- TGroup by 16 years
+ TGroup  by 16 years
 \end{verbatim}
 \end{small}
 
@@ -213,11 +213,10 @@ aggregation function on degrees.  We have shown above that in most
 cases SG provides the most efficient performance for snapshot
 analytics.  We have also shown in~\cite{PortalarXiv2016} that
 aggregate data structures (OG, HG, others) take longer to load but are
-more efficient for a \insql{TGroup} operation.
-Figure~\ref{fig:trend_deg} (warm start) shows that, when these
-operations are combined, OG outperforms SG.  This is because temporal
-aggregation is a more expensive operation in this scenario that the
-degrees analytic.
+more efficient for \insql{TGroup}.  Figure~\ref{fig:trend_deg} (warm
+start) shows that, when these operations are combined, OG outperforms
+SG.  Temporal aggregation is a more expensive operation in this
+scenario that the degrees analytic.
 
 \eat{
 \subsection{\insql{TSelect} with \insql{trend(pagerank())}}

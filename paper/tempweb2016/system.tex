@@ -39,11 +39,11 @@ by Spark Workers, with the tasks assigned and managed by the runtime.
 The System Catalog contains information about each data set, including
 the temporal and structural schema, and temporal bounds.
 
-{\bf Integration with SQL.} The \ql system
-includes an interactive shell for exploratory data analysis.  Shell
-users can define (materialized) \tg views, inspect query execution
-plans and execute SQL queries with an embedded \ql view.  Consider
-query \insql{Q3}, a SQL query that returns \insql{vid} and \insql{tr}
+{\bf Integration with SQL.} The \ql system includes an interactive
+shell for exploratory data analysis.  Shell users can define
+\eat{(materialized) }\tg views, inspect query execution plans and
+execute SQL queries with an embedded \ql view.  Consider SQL query
+\insql{Q3}\eat{, a SQL query} that returns \insql{vid} and \insql{tr}
 values of 20 vertices with the most significantly increasing
 \insql{pagerank} trend.
 
@@ -79,4 +79,4 @@ collection and flattens it into \insql{VF} (\underline{vid}:int,
 \insql{VF} can be used in SQL queries.  \ql also provides an operation
 that returns a flattened collection of edges, called
 \insql{toEdgesFlat()}.
-
+%

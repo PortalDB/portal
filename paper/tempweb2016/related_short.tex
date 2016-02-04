@@ -35,13 +35,18 @@ changes.}
 Temporal SQL defined in the SQL:2011
 standard~\cite{DBLP:journals/sigmod/KulkarniM12}.  We also support the
 same temporal predicates in the \insql{TWhere} clause, such as
-\insql{overlaps}, \insql{precedes}, \insql{contains}.  This is where
-similarities between \ql and SQL end.  SQL does not define temporal
-aggregation, nor support temporal intersections and unions.  In \ql,
-temporal aggregation is a key opreation that supports investigating
-periodic trends of different resolution.  In addition, our support for
-snapshot analytics is inherently graph-centric.  Users can register
-their own snapshot analytics through special Pregel-style UDFs.
+\insql{overlaps}, \insql{precedes}, and \insql{contains}.  There are
+several important distinctions between \ql and Temporal SQL.  SQL does
+not support period aggregates, so expressions like \insql{TGroup by 2
+  years} would require new user-defined functions on
+periods. Additionally, \ql aggregation functions are inherently
+time-centric on the level of individual node and edge attributes,
+which allows for such aggregates as \insql{first}, \insql{last}, and
+\insql{trend}.  \ql support for snapshot analytics is also
+graph-centric.  Snapshot analytics operate on the whole graph,
+i.e. both the node and edge relations together.  In \ql users can
+register their own snapshot analytics through special Pregel-style
+UDFs.
 
 {\bf Data representation.}\eat{ Another important area of research is
   efficient storage, retrieval and in-memory representation of
