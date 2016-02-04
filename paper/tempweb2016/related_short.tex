@@ -51,11 +51,9 @@ which operate on vertex and edge relations in their entirety.  \ql
 users can register their own snapshot analytics through the
 User-Defined Analytics API.
 
-{\bf Data representation.}\eat{ Another important area of research is
-  efficient storage, retrieval and in-memory representation of
-  evolving graphs.  }The basic building block in \ql is a snapshot,
-which naturally limits the resolution at which changes can be
-retrieved. This deliberate choice is in contrast with delta-based
+{\bf Data representation.}  The basic building block in \ql is a
+snapshot, which naturally limits the resolution at which changes can
+be retrieved. This deliberate choice is in contrast with delta-based
 approaches~\cite{Khurana2013,Koloniari2012,DBLP:journals/tos/MiaoHLWYZPCC15}.
 
 Khurana and Deshpande~\cite{Khurana2013} investigate efficient
@@ -71,62 +69,30 @@ in~\cite{Khurana2013}.}
 
 Ren et al.~\cite{Ren2011} develop an in-memory representation of
 evolving graphs based on representative graphs for sets of snapshots.
-\eat{Representative graphs can be computed using structural
-  aggregation in \ql, and so this work provides additional motivation
-  for our temporal aggregation and join operators.}  Our OneGraph can
-be thought of as a representative graph for the whole selected time
-period, while HybridGraph is a sequence of representative graphs.\eat{  In
-the future we may consider a hybrid approach similar
-to~\cite{Ren2011}, materializing multiple OneGraphs for different sets
-of snapshots if a single representation becomes too dense.}
+Our OneGraph can be thought of as a representative graph for the whole
+selected time period, while HybridGraph is a sequence of
+representative graphs.
 
 Semertzidis et al.~\cite{Semertzidis2015} develop a version graph,
 where each node and edge are annotated with the set of time intervals
 in which they exist.  This is similar to our OneGraph, but we also
-store non-topological attributes.\eat{  We also do not compress consecutive
-existence intervals with the same value into one, because this would
-make \insql{TGroup} and snapshot analytics more complex and more
-difficult to parallelize.}
+store non-topological attributes.
 
 Boldi et al.~\cite{Boldi2008} present a space-efficient non-delta
 approach for storing a large evolving Web graph that they harvested.
-\eat{Their approach for encoding the presence or absence of nodes and
-  edges at each time interval using bits is similar to our MultiGraph
-  and its use of BitSets.  The primary difference is that t'}Their
-work represents purely topological information and does not address
-vertex and edge attributes.
-
-\eat{
-% We said this in experiments
-Miao, et al.~\cite{DBLP:journals/tos/MiaoHLWYZPCC15} demonstrate that
-there is a trade-off between temporal and spatial locality based on the
-type of query.  Their solution is to keep multiple data replicas on
-disk and pick the better one for the type of query requested.  In our
-work we also explore the trade-offs between structural and temporal
-locality.}  \eat{However, our focus is on in-memory query evaluation and not
-on on-disk layout.}
+Their work represents purely topological information and does not
+address vertex and edge attributes.
 
 {\bf Distributed frameworks.}  We build upon
 GraphX~\cite{DBLP:conf/osdi/GonzalezXDCFS14}, which provides an API
 for working with regular graphs (snapshots) in Apache Spark, but
 without the time dimension.  To improve performance, we modified the
 GraphX graph loading code, enabling concurrent distributed multi-file
-loading with a tuned number of partitions.
-%
-\eat{We use built-in GraphX partitioning and develop additional vertex-cut
-strategies that incorporate the temporal dimension.}
-%
-\eat{Another relevant framework is SparkSQL~\cite{Xin2013Shark}, which
-provides mid-query optimization of distributed execution.  Mid-query
-optimization is in our immediate plans for \ql.  In SparkSQL tables
-to be joined can be co-partitioned at creation time.  This is similar
-to what our data structures and partition strategies achieve for
-\insql{TGroup} and temporal join.}
-%
-Lin et al.~\cite{DBLP:conf/www/LinGR14} proposed Warcbase, an
-infrastructure for exploration and discovery of Web archives built on
-HBase.  Their work shares motivation with ours, but the technical
-choices are fairly different from ours.  Most importantly, we work
-with Apache Spark, a higher-level abstraction over MapReduce, and
-define a declarative query language on top of Apache Spark.
+loading with a tuned number of partitions.  Lin et
+al.~\cite{DBLP:conf/www/LinGR14} proposed Warcbase, an infrastructure
+for exploration and discovery of Web archives built on HBase.  Their
+work shares motivation with ours, but the technical choices are fairly
+different from ours.  Most importantly, we work with Apache Spark, a
+higher-level abstraction over MapReduce, and define a declarative
+query language on top of Apache Spark.
 
