@@ -10,7 +10,7 @@ import org.apache.spark.sql.{SQLContext, Row, DataFrame}
 import org.apache.spark.sql.types._
 
 
-object SQLInterface{
+object SQLInterface {
 
   private val sqlContext = new SQLContext(SparkContext.getOrCreate())
 
@@ -19,7 +19,7 @@ object SQLInterface{
     * @param temporalGraph The TemporalGraphWithSchema
     * @return The result dataframe after adding schema to vertexes RDD.
     */
-  private final def convertGraphVertexToDataframe(temporalGraph: TemporalGraphWithSchema):DataFrame = {
+  private final def convertGraphVertexToDataframe(temporalGraph: TemporalGraphWithSchema): DataFrame = {
     val vertexes: VertexRDD[(Interval, InternalRow)] = temporalGraph.verticesFlat
     val vertexSchema = temporalGraph.getSchema().getVertexSchema()
     var schema =
@@ -32,35 +32,35 @@ object SQLInterface{
     for (struct <- vertexSchema) {
       schema = schema.add(struct)
     }
-    var internalRowSchema = vertexSchema.map(x=>x.dataType);
-    val vertexRowRdd = vertexes.map(x=> Row.fromSeq(Seq(x._1.toLong, Date.valueOf(x._2._1.start), Date.valueOf(x._2._1.end)) ++ x._2._2.toSeq(internalRowSchema)))
+    var internalRowSchema = vertexSchema.map(x => x.dataType);
+    val vertexRowRdd = vertexes.map(x => Row.fromSeq(Seq(x._1.toLong, Date.valueOf(x._2._1.start), Date.valueOf(x._2._1.end)) ++ x._2._2.toSeq(internalRowSchema)))
     val vertexDF = sqlContext.createDataFrame(vertexRowRdd, schema)
     vertexDF
- 	}
+  }
 
   /**
     * Add schema to edges RDD of TemporalGraphWithSchema and return a dataframe
     * @param temporalGraph The TemporalGraphWithSchema
     * @return The result dataframe after adding schema to edges RDD.
     */
- 	private final def convertGraphEdgeToDataframe(temporalGraph: TemporalGraphWithSchema):DataFrame   = {
+  private final def convertGraphEdgeToDataframe(temporalGraph: TemporalGraphWithSchema): DataFrame = {
     val edges: EdgeRDD[(Interval, InternalRow)] = temporalGraph.edgesFlat
     val edgeSchema = temporalGraph.getSchema().getEdgeSchema()
     var schema =
       StructType(
         StructField("vid1", LongType, false) ::
-          StructField("vid2", LongType, false)::
+          StructField("vid2", LongType, false) ::
           StructField("Start", DateType, false) ::
           StructField("Last", DateType, false) ::
           Nil
       )
-    for (struct <- edgeSchema){
+    for (struct <- edgeSchema) {
       schema = schema.add(struct)
     }
-    var internalRowSchema = edgeSchema.map(x=>x.dataType);
-    val edgesRowRdd = edges.map(x=> Row.fromSeq(Seq(x.srcId.toLong, x.dstId.toLong, Date.valueOf(x.attr._1.start), Date.valueOf(x.attr._1.end)) ++ x.attr._2.toSeq(internalRowSchema)))
+    var internalRowSchema = edgeSchema.map(x => x.dataType);
+    val edgesRowRdd = edges.map(x => Row.fromSeq(Seq(x.srcId.toLong, x.dstId.toLong, Date.valueOf(x.attr._1.start), Date.valueOf(x.attr._1.end)) ++ x.attr._2.toSeq(internalRowSchema)))
     sqlContext.createDataFrame(edgesRowRdd, schema)
- 	}
+  }
 
   /**
     * Run sql query on the vertexes of a TemporalGraphWithSchema.
@@ -68,20 +68,20 @@ object SQLInterface{
     * @param temporalGraph The TemporalGraphWithSchema
     * @return The result dataframe after executing sql query on the graph
     */
- 	private final def runSQLQueryVertex (query: String, temporalGraph: TemporalGraphWithSchema):DataFrame = {
+  private final def runSQLQueryVertex(query: String, temporalGraph: TemporalGraphWithSchema): DataFrame = {
     //removing the function from the query
     val indexVertexFlat = query.indexOfSlice(".toVerticesFlat()")
     val sqlQuery = query.replace(".toVerticesFlat()", "")
 
     //find the table name
     val i = query.lastIndexOf(" ", indexVertexFlat)
-    val tableName = query.substring(i+1, indexVertexFlat)
+    val tableName = query.substring(i + 1, indexVertexFlat)
 
     //creating temp table and executing the query
     val vertexDF = convertGraphVertexToDataframe(temporalGraph)
     vertexDF.registerTempTable(tableName)
     sqlContext.sql(sqlQuery)
- 	}
+  }
 
 
   /**
@@ -90,14 +90,14 @@ object SQLInterface{
     * @param temporalGraph The TemporalGraphWithSchema
     * @return The result dataframe after executing sql query on the graph
     */
-  private final def runSQLQueryEdge(query: String, temporalGraph: TemporalGraphWithSchema):DataFrame = {
+  private final def runSQLQueryEdge(query: String, temporalGraph: TemporalGraphWithSchema): DataFrame = {
     //removing the function from the query
     val indexEdgesFlat = query.indexOfSlice(".toEdgesFlat()")
     val sqlQuery = query.replace(".toEdgesFlat()", "")
 
     //finding the table name
     val i = query.lastIndexOf(" ", indexEdgesFlat)
-    val tableName = query.substring(i+1, indexEdgesFlat)
+    val tableName = query.substring(i + 1, indexEdgesFlat)
 
     //creating temp table and executing the query
     val edgeDF = convertGraphEdgeToDataframe(temporalGraph)
@@ -116,19 +116,19 @@ object SQLInterface{
     * @return The result dataframe after executing sql query on the graph
     * @throws IllegalArgumentException if the query does not have either .toVerticesFlat() or .toEdgesFlat()
     */
-  final def runSQLQuery(query: String, temporalGraph: TemporalGraphWithSchema):DataFrame ={
+  final def runSQLQuery(query: String, temporalGraph: TemporalGraphWithSchema): DataFrame = {
     val indexVertexFlat = query.indexOfSlice(".toVerticesFlat()")
     val indexEdgesFlat = query.indexOfSlice(".toEdgesFlat()")
-    if(indexVertexFlat != -1 ){
+    if (indexVertexFlat != -1) {
       val output = runSQLQueryVertex(query, temporalGraph)
       return output
     }
-    else if(indexEdgesFlat != -1 ) {
+    else if (indexEdgesFlat != -1) {
       val output = runSQLQueryEdge(query, temporalGraph)
       return output
     }
-    else{
+    else {
       throw new IllegalArgumentException("Query does not contain .toVerticesFlat() or .toEdgesFlat()");
     }
   }
- }
+}
