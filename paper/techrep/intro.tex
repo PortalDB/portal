@@ -1,0 +1,123 @@
+\section{Introduction}
+\label{sec:intro}
+
+The importance of networks in scientific and commercial domains cannot
+be overstated.  Networks are represented by graphs, and we will use
+the terms ``network'' and ``graph'' interchangeably.  Considerable
+research and engineering effort is being devoted to developing
+effective and efficient graph representations and analytics.  As of
+late, efficient graph abstractions and analytics for {\em static
+  graphs} have become available in scope of open source platforms such
+as Apache Giraph~\cite{ApacheGiraph}, Apache Spark, through the GraphX
+API~\cite{DBLP:conf/osdi/GonzalezXDCFS14}, and GraphLab, through the
+PowerGraph library~\cite{DBLP:conf/osdi/GonzalezLGBG12}.  This in turn
+makes sophisticated graph analysis methods available to researchers
+and practitioners, facilitating their widespread adoption.  Further,
+because these systems are open source, this encourages development and
+dissemination of new graph analysis methods, and of more efficient
+implementations of existing methods.
+
+Arguably the most interesting and important questions one can ask
+about networks have to do with their evolution, rather than with their
+static state.  Analysis of {\em evolving graphs} has been receiving
+increasing attention, with most progress taking place in the last
+decade~\cite{DBLP:journals/csur/AggarwalS14,Chan2008,Kan2009,DBLP:journals/tos/MiaoHLWYZPCC15,Ren2011,Semertzidis2015}.
+Some areas where evolving graphs are being studied are social network
+analysis~\cite{DBLP:conf/icwsm/GoetzLMF09,DBLP:journals/tweb/LeskovecAH07,DBLP:conf/kdd/LeskovecBKT08,DBLP:conf/icml/SarkarCJ12},
+biological networks~\cite{DBLP:journals/tkdd/AsurPU09,DBLP:journals/tcsb/BeyerTLSF10,Stuart2003} and the Web~\cite{DBLP:journals/kais/ChanBL08,DBLP:journals/jisa/PapadimitriouDG10}.
+
+Yet, despite much recent interest and activity on the topic, and
+despite increased variety and availability of evolving graph data,
+{\em systematic support for scalable querying and analytics over
+  evolving graphs still lacks}.  This support is urgently needed, due
+first and foremost to the scalability and efficiency challenges
+inherent in evolving graph analysis, but also to considerations of
+usability and ease of dissemination.  {\em In this paper we present
+  \ql, a declarative query language, and its implementation in an
+  open-source distributed framework, that fills this gap.}
+
+To further motivate our work, let us consider several categories of
+questions one may ask about evolving networks, as part of exploratory
+analysis.
+
+{\em Which network nodes are showing an increasing popularity trend,
+  or have increasing influence, and which are on a downward spiral?}
+In the Web graph this information can help prioritize crawling.  In
+social networks -- for content recommendation and advertisement
+targeting.  In semantic knowledge bases -- to capture the dynamics of
+zeitgeist.  Here, node popularity can be quantified in a number of
+ways including, e.g., node degree, centrality, or PageRank score.  \ql
+supports efficient computation of node popularity with {\em snapshot
+  and trend analytics}.
+
+{\em Have any changes in network connectivity been observed, either
+  suddenly or gradually over time?}  For networks describing
+insulin-based metabolism pathways, gradual pathway disruption can be
+used to determine the onset of type-2
+diabetes~\cite{DBLP:journals/tcsb/BeyerTLSF10}.  For a website
+accessibility network, sudden loss of connectivity can signal that
+censorship is taking place, e.g., in response to a recent election or
+another exogenous event.  In a co-authorship network, increasing
+connectivity among topical communities indicates stronger
+collaboration across domains.  Here, again, connectivity can be
+quantified as, e.g., pair-wise distance, length of shortest path
+between communities, or graph density.  \ql supports this kind of
+analysis with {\em snapshot and trend analytics}.
+
+{\em At what time scale can interesting trends be observed?} The
+answer to this question may not be known apriori, at the time when
+graph evolution data is being recorded.  For example, changes in node
+centrality in a social network may be observable on the scale of
+weeks, but not months (coarser).  On the Web, periodic events may
+change popularity of websites, with observable trends on the scale of
+days, but not hours (finer) or months (coarser).  Furthermore, the
+same network may show different kinds of trends at different time
+scales, e.g., node popularity may be changing at a different rate, and
+thus be observable on a different scale, than over-all network
+density.  Understanding at what temporal scale to consider network
+evolution is an integral part of exploratory analysis.  This
+exploratory analysis is supported in \ql with {\em temporal
+  aggregation}.
+
+{\em Can information about graph evolution be used to make graph
+  analytics more stable, or representative?}  Algorithms that compute
+website popularly can be vulnerable to link spam, which is a
+persistent phenomenon on the Web, but the identity of spammers is
+transient~\cite{DBLP:conf/cikm/YangQZGL07}.  This suggests that
+persistence vs. transience of a node, edge, or, more generally, of a
+subgraph, is a meaningful aspect of quality.  Stable or representative
+subgraphs have also been used to improve performance of iterative
+computations in evolving graphs, e.g., for computing shortest
+paths~\cite{Ren2011}.  The {\em temporal aggregation} operation in \ql
+can be used to find a representative subgraph of an evolving graph.
+
+{\em How can multiple data sources be used jointly, to complement or
+  corroborate information about graph evolution?}  It may be the case
+that multiple datasets are available, each describing a series of
+crawls of different, but possibly overlapping, portions of the Web
+graph.  Further, network states may be recorded at different, possibly
+overlapping, time periods, or even at different temporal scales.  Can
+these datasets be unified, in a principled way, to support analysis or
+meta-analysis of network evolution trends?  \ql supports several
+variants of the {\em temporal join operator} to enable this kind of
+analysis.
+
+{\bf Contributions.} In this paper we develop \ql, a declarative query
+language for efficient querying and exploratory analysis of evolving
+graphs. Our language supports a variety of operations including
+temporal selection, join, and aggregation, and a rich class of
+analytics.  Further, we provide a scalable and extensible open-source
+implementation of \ql in scope of Apache Spark, an open-source
+distributed data processing framework.  We develop several novel
+physical representations of evolving graphs, and novel partitioning
+strategies that explore the trade-off between structural and temporal
+locality.  We experimentally demonstrate that good performance can be
+achieved with careful engineering.
+
+{\bf Roadmap.}  We present our model in Section~\ref{sec:model}.  We
+describe the \ql query language in Section~\ref{sec:example}, and
+discuss its implementation in an open-source prototype in
+Section~\ref{sec:sys}.  Section~\ref{sec:exp} describes our extensive
+experimental evaluation on real datasets.  We discuss related work in
+Section~\ref{sec:related}.  Future work and conclusions are given in
+Section~\ref{sec:conc}.
