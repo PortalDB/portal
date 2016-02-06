@@ -10,7 +10,7 @@ import org.apache.spark.sql.{SQLContext, Row, DataFrame}
 import org.apache.spark.sql.types._
 
 
-object SQLInterface {
+class SQLInterface {
 
   private val sqlContext = new SQLContext(SparkContext.getOrCreate())
 

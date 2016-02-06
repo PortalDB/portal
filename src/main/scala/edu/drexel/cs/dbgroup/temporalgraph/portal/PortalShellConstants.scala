@@ -17,5 +17,6 @@ object PortalShellConstants {
   def InvalidCommandFormat(message: String): String = {String.format("Invalid Command Format: use \'help %s\' command description", message) };
   
   def TViewDoesNotExist(tViewName: String): String = { String.format("TView \'%s\' Does Not Exist", tViewName)};
-
+  def InternalError(message: String): String = {String.format("Internal Error: %s", message) };
+  
 }
