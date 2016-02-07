@@ -5,8 +5,8 @@ import edu.drexel.cs.dbgroup.temporalgraph.portal.PortalParser;
 import edu.drexel.cs.dbgroup.temporalgraph.portal.PortalShellConstants;
 import edu.drexel.cs.dbgroup.temporalgraph.TemporalGraphWithSchema;
 
-class CreateViewCommand(portalContext: PortalContext, commandNum: Int, portalQuery: String, tViewName: String,
-  isMaterialized: Boolean) extends PortalCommand(portalContext, commandNum) {
+class CreateViewCommand(portalContext: PortalContext, portalQuery: String, tViewName: String,
+  isMaterialized: Boolean) extends PortalCommand(portalContext) {
 
   //val schemaDescriptionFormat: String = "TView \'%s\' schema => %s";
 

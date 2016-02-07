@@ -1,11 +1,12 @@
 package edu.drexel.cs.dbgroup.temporalgraph.portal;
 
 object PortalShellConstants {
+  //system message types
   def InfoText(message: String): String = { String.format("[info] %s", message) };
   def ErrText(message: String): String = { String.format("[error] %s", message) };
   def WarnText(message: String): String = { String.format("[warn] %s", message) };
   
-  def UnsupportedErrorText(): String = { "Unsupported Command" };
+  def UnsupportedErrorText(): String = {"Unsupported Command"};
   def UnsupportedErrorText(message: String): String = { String.format("Unsupported Command: %s", message) };
 
   def InvalidQuerySyntax(): String = { "Invalid Command Syntax" };
@@ -18,5 +19,8 @@ object PortalShellConstants {
   
   def TViewDoesNotExist(tViewName: String): String = { String.format("TView \'%s\' Does Not Exist", tViewName)};
   def InternalError(message: String): String = {String.format("Internal Error: %s", message) };
-  
+  def TViewExtractionFailed(message: String): String = {String.format("Unable to extract TViews from the query: %s", message) };
+  def CommandUnsuccesful(): String = {"Command execution was unsuccessful"};
+  def StatusCreatingTView(tViewName: String): String = { String.format("Creating TView \'%s\'...", tViewName) };
+
 }

@@ -6,7 +6,7 @@ import edu.drexel.cs.dbgroup.temporalgraph.TemporalGraphWithSchema;
 
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan;
 
-abstract class PortalCommand(portalContext: PortalContext, commandNum : Int) {
+abstract class PortalCommand(portalContext: PortalContext) {
   var timeExecuted: Long = System.currentTimeMillis();
   var tempGraph: TemporalGraphWithSchema = null;
   var queryExec: PortalContext#QueryExecution = null;
