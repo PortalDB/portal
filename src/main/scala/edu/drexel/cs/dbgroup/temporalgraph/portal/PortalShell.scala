@@ -209,7 +209,8 @@ object PortalShell {
       command.execute();
 
     } else if (commandType.equalsIgnoreCase("select")) {
-
+      var queryRewrite: String = null;
+      
       try {
 
         sqlInterface = new SQLInterface();
@@ -217,6 +218,8 @@ object PortalShell {
 
         if (portalQuery == null) {
           tViewName = extractTView(line, false)(0);
+          queryRewrite = line;
+          
         } else {
           var tViews = extractTView(portalQuery, true);
 
@@ -225,8 +228,8 @@ object PortalShell {
           }
 
           tViewName = tViews(0);
-          var newQuery = rewriteQueryWithTView(line, tViewName);
-          printInfo("revisedQuery --> " + newQuery);
+          queryRewrite = rewriteQueryWithTView(line, tViewName);
+          //printInfo("revisedQuery --> " + queryRewrite);
         }
 
         if (tViewName == null || tViewName.isEmpty()) {
@@ -241,7 +244,7 @@ object PortalShell {
         var cmd = retrieveCommand(tViewName).asInstanceOf[CreateViewCommand];
         
         printInfo(PortalShellConstants.StatusExecutingSQL(tViewName));
-        var res = sqlInterface.runSQLQuery(line, cmd.tempGraph)
+        var res = sqlInterface.runSQLQuery(queryRewrite, cmd.tempGraph)
 
         printInfo("Res from SQL:" + res.toString());
 
