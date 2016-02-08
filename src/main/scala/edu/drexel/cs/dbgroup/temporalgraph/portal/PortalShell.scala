@@ -21,7 +21,8 @@ object PortalShell {
   val TViewCreationSuccess: String = "TView \'%s\' created.";
   val TViewCreationFailed: String = "Unable to create TView \'%s\'.\n%s";
   val TViewExists: String = "TView \'%s\' already exists, replacing it.\n";
-  val GenericTViewName: String = "portalTView%d";
+  val GenericTViewName: String = "TView%d";
+  val queryRegex = new Regex("\\{.*\\}");
 
   var numGenericViews: Integer = 0;
   var commandList: Map[String, PortalCommand] = Map(); //tViewName -> PortalCommand
@@ -221,6 +222,8 @@ object PortalShell {
         }
 
         tViewName = tViews(0);
+        var newQuery = rewriteQueryWithTView(line, tViewName);
+        //println("newQuery --> " + newQuery);
       }
 
       if (tViewName == null || tViewName.isEmpty()) {
@@ -269,6 +272,8 @@ object PortalShell {
 
   def extractTView(line: String, hasPortal: Boolean): List[String] = {
     //println("Extracting from line --> " + line)
+    //println("hasPortal --> " + hasPortal)
+    
     var args = line.split(" ");
     var tViews = new ListBuffer[String]();
     var fromIndices = new ListBuffer[Integer]();
@@ -283,48 +288,15 @@ object PortalShell {
 
     //create unmaterialized tView
     var isCreated = createAndSaveView(portalContext, line, tViewName, false);
-
+    //var isCreated: Boolean = true;
+    
     if (isCreated) {
       tViews += tViewName;
     } else {
       numGenericViews -= 1;
     }
 
-    //    for (i <- 0 until args.length){
-    //      if (args(i).equalsIgnoreCase("from")){
-    //        fromIndices += i;
-    //      }
-    //    }
-    //    for (i <- 0 until fromIndices.length){
-    //      if (i+1 >= args.length){ //check that there is a next element
-    //        //TODO: better error message
-    //        printErr(PortalShellConstants.InternalError("unable to parse from command, invalid index"))
-    //        return null;
-    //      }
-    //      
-    //      var next = i+1;
-    //      var nextStr = args(i+1);
-    //      var nestType = getNestType(nextStr);
-    //      
-    //      if(nestType.equals("nest")){ //nested command
-    //        
-    //      } else { //tview
-    //        tViews += nextStr;
-    //      }     
-    //    }
-
     return tViews.toList;
-  }
-
-  def getNestType(sqlStr: String): String = {
-    //simple check 
-    //TODO: maybe more complex
-
-    if (sqlStr.startsWith("(")) {
-      return "nest";
-    } else {
-      return "tview";
-    }
   }
 
   def createAndSaveView(portalContext: PortalContext, portalQuery: String,
@@ -332,7 +304,7 @@ object PortalShell {
 
     try {
       printInfo(PortalShellConstants.StatusCreatingTView(tViewName));
-      
+
       var command = new CreateViewCommand(portalContext, portalQuery, tViewName, isMaterialized);
       command.execute();
 
@@ -375,13 +347,16 @@ object PortalShell {
   }
 
   def retrieveQuery(command: String): String = {
-    val queryRegex = "\\{.*\\}$"
-    val pattern = new Regex(queryRegex);
-    var res = (pattern findFirstIn command).getOrElse(null)
+    var res = (queryRegex findFirstIn command).getOrElse(null)
 
     if (res != null) {
       res = res.drop(1).dropRight(1); //replace beginning and ending "{" and "}"
     }
+    return res
+  }
+
+  def rewriteQueryWithTView(line: String, tViewName: String): String = {
+    var res = queryRegex.replaceFirstIn(line, tViewName);
     return res
   }
 
