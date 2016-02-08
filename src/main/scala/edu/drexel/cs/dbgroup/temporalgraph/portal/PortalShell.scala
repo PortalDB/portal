@@ -209,36 +209,47 @@ object PortalShell {
       command.execute();
 
     } else if (commandType.equalsIgnoreCase("select")) {
-      sqlInterface = new SQLInterface();
-      portalQuery = retrieveQuery(line);
 
-      if (portalQuery == null) {
-        tViewName = extractTView(line, false)(0);
-      } else {
-        var tViews = extractTView(portalQuery, true);
+      try {
 
-        if (tViews.isEmpty) {
-          return printErrAndReturnFalse(PortalShellConstants.TViewExtractionFailed(portalQuery))
+        sqlInterface = new SQLInterface();
+        portalQuery = retrieveQuery(line);
+
+        if (portalQuery == null) {
+          tViewName = extractTView(line, false)(0);
+        } else {
+          var tViews = extractTView(portalQuery, true);
+
+          if (tViews.isEmpty) {
+            return printErrAndReturnFalse(PortalShellConstants.TViewExtractionFailed(portalQuery))
+          }
+
+          tViewName = tViews(0);
+          var newQuery = rewriteQueryWithTView(line, tViewName);
+          printInfo("revisedQuery --> " + newQuery);
         }
 
-        tViewName = tViews(0);
-        var newQuery = rewriteQueryWithTView(line, tViewName);
-        //println("newQuery --> " + newQuery);
+        if (tViewName == null || tViewName.isEmpty()) {
+          return printErrAndReturnFalse(PortalShellConstants.TViewDoesNotExist(tViewName))
+        }
+
+        if (!tViewExists(tViewName)) {
+          return false
+        }
+
+        
+        var cmd = retrieveCommand(tViewName).asInstanceOf[CreateViewCommand];
+        
+        printInfo(PortalShellConstants.StatusExecutingSQL(tViewName));
+        var res = sqlInterface.runSQLQuery(line, cmd.tempGraph)
+
+        printInfo("Res from SQL:" + res.toString());
+
+      } catch {
+        case ex: Exception => {
+          return printErrAndReturnFalse(PortalShellConstants.StatusSQLExecutionFailed(ex.getMessage()));
+        }
       }
-
-      if (tViewName == null || tViewName.isEmpty()) {
-        return printErrAndReturnFalse(PortalShellConstants.TViewDoesNotExist(tViewName))
-      }
-
-      if (!tViewExists(tViewName)) {
-        return false
-      }
-
-      var cmd = retrieveCommand(tViewName).asInstanceOf[CreateViewCommand];
-      //var res = sqlInterface.runSqlQuery(line, cmd.tempGraph)
-
-      println("Executing SQL on tView -->" + tViewName);
-      //      print ("Res from SQL:"  + res.toStrign());
 
     } else if (commandType.equalsIgnoreCase("info")) {
       if (args.length < 2 && !args(1).equalsIgnoreCase("portalShell")) {
@@ -273,7 +284,7 @@ object PortalShell {
   def extractTView(line: String, hasPortal: Boolean): List[String] = {
     //println("Extracting from line --> " + line)
     //println("hasPortal --> " + hasPortal)
-    
+
     var args = line.split(" ");
     var tViews = new ListBuffer[String]();
     var fromIndices = new ListBuffer[Integer]();
@@ -289,7 +300,7 @@ object PortalShell {
     //create unmaterialized tView
     var isCreated = createAndSaveView(portalContext, line, tViewName, false);
     //var isCreated: Boolean = true;
-    
+
     if (isCreated) {
       tViews += tViewName;
     } else {
