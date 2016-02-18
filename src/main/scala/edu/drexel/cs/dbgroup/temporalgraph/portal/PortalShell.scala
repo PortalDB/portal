@@ -144,6 +144,7 @@ object PortalShell {
     if (commandType.equalsIgnoreCase("create")) {
       tViewName = args(2);
       portalQuery = retrieveQuery(line);
+      println ("Portal Query Extracted -->" + portalQuery);
 
       //TODO: confirm that second arg is "view"
 
@@ -208,45 +209,35 @@ object PortalShell {
       command = new HelpCommand(portalContext, helpType);
       command.execute();
 
-    } else if (commandType.equalsIgnoreCase("select")) {
-      var queryRewrite: String = null;
-      
+    } else if (commandType.equalsIgnoreCase("select")) {      
       try {
-
         sqlInterface = new SQLInterface();
-        portalQuery = retrieveQuery(line);
-
-        if (portalQuery == null) {
-          tViewName = extractTView(line, false)(0);
-          queryRewrite = line;
-          
-        } else {
-          var tViews = extractTView(portalQuery, true);
-
-          if (tViews.isEmpty) {
-            return printErrAndReturnFalse(PortalShellConstants.TViewExtractionFailed(portalQuery))
-          }
-
-          tViewName = tViews(0);
-          queryRewrite = rewriteQueryWithTView(line, tViewName);
-          //printInfo("revisedQuery --> " + queryRewrite);
+        var tViewName: String = null;
+        var queryRewrite: String = line;  
+        
+        if(containsPortalQuery(line)){
+          queryRewrite = parseAndRewriteLine(line).last;
+          tViewName = extractSimpleTViewName(queryRewrite);
+        }else{
+          tViewName = extractSimpleTViewName(line);
         }
+        
+        println ("Final Query Rewrite --> " + queryRewrite);
+        println ("Extracted TViewName --> " + tViewName);
 
         if (tViewName == null || tViewName.isEmpty()) {
-          return printErrAndReturnFalse(PortalShellConstants.TViewDoesNotExist(tViewName))
+          return printErrAndReturnFalse(PortalShellConstants.TViewDoesNotExist(tViewName));
+        } 
+        else if (!tViewExists(tViewName)) {
+          return false;
         }
 
-        if (!tViewExists(tViewName)) {
-          return false
-        }
-
-        
-        var cmd = retrieveCommand(tViewName).asInstanceOf[CreateViewCommand];
-        
         printInfo(PortalShellConstants.StatusExecutingSQL(tViewName));
-        var res = sqlInterface.runSQLQuery(queryRewrite, cmd.tempGraph)
+        //var cmd = retrieveCommand(tViewName).asInstanceOf[CreateViewCommand];
+        //var queryRewrite = replaceQueryWithTView(line, tViewName);        
+        //var res = sqlInterface.runSQLQuery(queryRewrite, cmd.tempGraph)
 
-        printInfo("Res from SQL:" + res.toString());
+        //printInfo("Res from SQL:" + res.toString());
 
       } catch {
         case ex: Exception => {
@@ -266,7 +257,8 @@ object PortalShell {
     return true;
   }
 
-  def extractSimpleTViewName(lineArgs: Array[String]): String = {
+  def extractSimpleTViewName(line: String): String = {
+    var lineArgs = line.split(" ");
     var tViewIndex: Integer = -1;
 
     for (i <- 0 until lineArgs.length) {
@@ -281,35 +273,39 @@ object PortalShell {
       return null
     }
 
-    return lineArgs(tViewIndex);
+    var tViewName = lineArgs(tViewIndex);
+    return tViewName.split('.')(0);
   }
 
-  def extractTView(line: String, hasPortal: Boolean): List[String] = {
+  def parseAndRewriteLine(line: String): List[String] = {
     //println("Extracting from line --> " + line)
-    //println("hasPortal --> " + hasPortal)
 
-    var args = line.split(" ");
-    var tViews = new ListBuffer[String]();
-    var fromIndices = new ListBuffer[Integer]();
+    var lineRewrite = line;
+    var portalQuery = retrieveQuery(lineRewrite);
+    var tViews = new ListBuffer[String](); //queryRewrite is returned as last element of the list
+    
+    println ("Portal Query Extracted -->" + portalQuery);
 
-    if (!hasPortal) { //simple query on a preview
-      tViews += extractSimpleTViewName(args);
-      return tViews.toList;
+    while (portalQuery != null){
+      numGenericViews += 1;
+      var tViewName = String.format(GenericTViewName, numGenericViews);
+
+      //create unmaterialized tView
+      var isCreated = createAndSaveView(portalContext, portalQuery, tViewName, false);
+
+      if (isCreated) {
+        tViews += tViewName;
+      } else {
+        numGenericViews -= 1;
+      }
+      
+      println ("LineRewrite before -->" + lineRewrite);
+      lineRewrite = replaceQueryWithTView(lineRewrite, tViewName);
+      println ("LineRewrite after -->" + lineRewrite);
+      portalQuery = retrieveQuery(lineRewrite);
     }
 
-    numGenericViews += 1;
-    var tViewName = String.format(GenericTViewName, numGenericViews);
-
-    //create unmaterialized tView
-    var isCreated = createAndSaveView(portalContext, line, tViewName, false);
-    //var isCreated: Boolean = true;
-
-    if (isCreated) {
-      tViews += tViewName;
-    } else {
-      numGenericViews -= 1;
-    }
-
+    tViews += lineRewrite;
     return tViews.toList;
   }
 
@@ -337,6 +333,10 @@ object PortalShell {
       }
     }
   }
+  
+  def containsPortalQuery(line: String): Boolean = {
+    return (retrieveQuery(line) != null);
+  }
 
   def isLineEnd(line: String): Boolean = {
     if (line.takeRight(1) == "\\") {
@@ -361,7 +361,7 @@ object PortalShell {
   }
 
   def retrieveQuery(command: String): String = {
-    var res = (queryRegex findFirstIn command).getOrElse(null)
+    var res = (queryRegex findFirstIn command).getOrElse(null);
 
     if (res != null) {
       res = res.drop(1).dropRight(1); //replace beginning and ending "{" and "}"
@@ -369,7 +369,7 @@ object PortalShell {
     return res
   }
 
-  def rewriteQueryWithTView(line: String, tViewName: String): String = {
+  def replaceQueryWithTView(line: String, tViewName: String): String = {
     var res = queryRegex.replaceFirstIn(line, tViewName);
     return res
   }

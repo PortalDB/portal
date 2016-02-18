@@ -2,7 +2,6 @@ package edu.drexel.cs.dbgroup.temporalgraph
 
 import java.sql.Date
 
-import _root_.edu.drexel.cs.dbgroup.temporalgraph.{Interval, TemporalGraphWithSchema}
 import org.apache.spark.SparkContext
 import org.apache.spark.graphx.{EdgeRDD, VertexId, VertexRDD}
 import org.apache.spark.sql.catalyst.InternalRow
