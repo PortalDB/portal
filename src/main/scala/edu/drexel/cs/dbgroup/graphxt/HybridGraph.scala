@@ -57,25 +57,33 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gps: ParSeq[
 
   override def vertices: VertexRDD[Map[Interval, VD]] = {
     val start = span.start
-    VertexRDD(vertexattrs.map{ case (k,v) => (k._1, Map[Interval,VD](resolution.getInterval(start, k._2) -> v))}
+    val res = resolution
+
+    VertexRDD(vertexattrs.map{ case (k,v) => (k._1, Map[Interval,VD](res.getInterval(start, k._2) -> v))}
     .reduceByKey((a: Map[Interval, VD], b: Map[Interval, VD]) => a ++ b))
   }
 
   override def verticesFlat: VertexRDD[(Interval, VD)] = {
     val start = span.start
-    VertexRDD(vertexattrs.map{ case (k,v) => (k._1, (resolution.getInterval(start, k._2), v))})
+    val res = resolution
+
+    VertexRDD(vertexattrs.map{ case (k,v) => (k._1, (res.getInterval(start, k._2), v))})
   }
 
   override def edges: EdgeRDD[Map[Interval, ED]] = {
     val start = span.start
-    EdgeRDD.fromEdges[Map[Interval,ED], VD](edgeattrs.map{ case (k,v) => ((k._1, k._2), Map[Interval,ED](resolution.getInterval(start, k._3) -> v))}
+    val res = resolution
+
+    EdgeRDD.fromEdges[Map[Interval,ED], VD](edgeattrs.map{ case (k,v) => ((k._1, k._2), Map[Interval,ED](res.getInterval(start, k._3) -> v))}
       .reduceByKey((a: Map[Interval, ED], b: Map[Interval, ED]) => a ++ b)
       .map(x => Edge(x._1._1, x._1._2, x._2)))
   }
 
   override def edgesFlat: EdgeRDD[(Interval, ED)] = {
     val start = span.start
-    EdgeRDD.fromEdges[(Interval, ED), VD](edgeattrs.map{ case (k,v) => Edge(k._1, k._2, (resolution.getInterval(start, k._3), v))})
+    val res = resolution
+
+    EdgeRDD.fromEdges[(Interval, ED), VD](edgeattrs.map{ case (k,v) => Edge(k._1, k._2, (res.getInterval(start, k._3), v))})
   }
 
   override def degrees: VertexRDD[Map[Interval, Int]] = {
@@ -113,12 +121,14 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gps: ParSeq[
 
   override def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2)(implicit eq: VD =:= VD2 = null): TemporalGraph[VD2, ED] = {
     val start = span.start
-    new HybridGraph[VD2, ED](intervals, graphs, vertexattrs.map{ case (k,v) => (k, map(k._1, resolution.getInterval(start, k._2), v))}, edgeattrs)
+    val res = resolution
+    new HybridGraph[VD2, ED](intervals, graphs, vertexattrs.map{ case (k,v) => (k, map(k._1, res.getInterval(start, k._2), v))}, edgeattrs)
   }
 
   override def mapEdges[ED2: ClassTag](map: (Edge[ED], Interval) => ED2): TemporalGraph[VD, ED2] = {
     val start = span.start
-    new HybridGraph[VD, ED2](intervals, graphs, vertexattrs, edgeattrs.map{ case (k,v) => (k, map(Edge(k._1, k._2, v), resolution.getInterval(start, k._3)))})
+    val res = resolution
+    new HybridGraph[VD, ED2](intervals, graphs, vertexattrs, edgeattrs.map{ case (k,v) => (k, map(Edge(k._1, k._2, v), res.getInterval(start, k._3)))})
   }
 
   override def outerJoinVertices[U: ClassTag, VD2: ClassTag](other: RDD[(VertexId, Map[Interval, U])])(mapFunc: (VertexId, Interval, VD, Option[U]) => VD2)(implicit eq: VD =:= VD2 = null): TemporalGraph[VD2, ED] = {
@@ -147,74 +157,12 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gps: ParSeq[
   }
 
   override def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): TemporalGraph[Double, Double] = {
-
-    def mergeFunc(a:Map[TimeIndex,Int], b:Map[TimeIndex,Int]): Map[TimeIndex,Int] = {
-      a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) }
-    }
-
-    def vertexProgram(id: VertexId, attr: Map[TimeIndex, (Double,Double)], msg: Map[TimeIndex, Double]): Map[TimeIndex, (Double,Double)] = {
-      var vals = attr
-      msg.foreach { x =>
-        val (k,v) = x
-        if (vals.contains(k)) {
-          val (oldPR, lastDelta) = vals(k)
-          val newPR = oldPR + (1.0 - resetProb) * msg(k)
-          vals = vals.updated(k,(newPR,newPR-oldPR))
-        }
-      }
-      vals
-    }
-
-    def sendMessage(edge: EdgeTriplet[Map[TimeIndex,(Double,Double)], Map[TimeIndex, (Double,Double)]]) = {
-      //need to generate an iterator of messages for each index
-      edge.attr.iterator.flatMap{ case (k,v) =>
-        if (edge.srcAttr(k)._2 > tol &&
-          edge.dstAttr(k)._2 > tol) {
-          Iterator((edge.dstId, Map((k -> edge.srcAttr(k)._2 * v._1))), (edge.srcId, Map((k -> edge.dstAttr(k)._2 * v._2))))
-        } else if (edge.srcAttr(k)._2 > tol) {
-          Iterator((edge.dstId, Map((k -> edge.srcAttr(k)._2 * v._1))))
-        } else if (edge.dstAttr(k)._2 > tol) {
-          Iterator((edge.srcId, Map((k -> edge.dstAttr(k)._2 * v._2))))
-        } else {
-          Iterator.empty
-        }
-      }
-        .toSeq.groupBy{ case (k,v) => k}
-      //we now have a Map[VertexId, Seq[(VertexId, Map[TimeIndex,Double])]]
-        .mapValues(v => v.map{case (k,m) => m}.reduce((a,b) => a ++ b))
-        .iterator
-    }
-
-    def messageCombiner(a: Map[TimeIndex,Double], b: Map[TimeIndex,Double]): Map[TimeIndex,Double] = {
-      (a.keySet ++ b.keySet).map { i =>
-        val count1Val:Double = a.getOrElse(i, 0.0)
-        val count2Val:Double = b.getOrElse(i, 0.0)
-        i -> (count1Val + count2Val)
-      }.toMap
-    }
-
     if (uni) {
       def prank(grp: Graph[BitSet,BitSet]): Graph[Map[TimeIndex,(Double,Double)], Map[TimeIndex,(Double,Double)]] = {
         if (grp.edges.isEmpty)
           Graph[Map[TimeIndex,(Double,Double)],Map[TimeIndex,(Double,Double)]](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
         else {
-          val degs: VertexRDD[Map[TimeIndex, Int]] = grp.aggregateMessages[Map[TimeIndex, Int]](
-            ctx => {
-              ctx.sendToSrc(ctx.attr.seq.map(x => (x,1)).toMap)
-              ctx.sendToDst(ctx.attr.seq.map(x => (x,1)).toMap)
-            },
-            mergeFunc, TripletFields.None)
-          val prankGraph: Graph[Map[TimeIndex, (Double,Double)], Map[TimeIndex, (Double,Double)]] = grp.outerJoinVertices(degs) {
-            case (vid, vdata, Some(deg)) => deg ++ vdata.filter(x => !deg.contains(x)).seq.map(x => (x,0)).toMap
-            case (vid, vdata, None) => vdata.seq.map(x => (x,0)).toMap
-          }
-            .mapTriplets( e =>  e.attr.seq.map(x => (x, (1.0 / e.srcAttr(x), 1.0 / e.dstAttr(x)))).toMap)
-            .mapVertices( (id,attr) => attr.mapValues{ x => (0.0,0.0)}.map(identity))
-            .cache()
-
-          val initialMessage: Map[TimeIndex,Double] = (for(i <- 0 to intervals.size) yield (i -> resetProb / (1.0 - resetProb)))(breakOut)
-
-          Pregel(prankGraph, initialMessage, numIter, activeDirection = EdgeDirection.Either)(vertexProgram, sendMessage, messageCombiner)
+          UndirectedPageRank.runHybrid(grp, intervals.size, tol, resetProb, numIter)
         }
       }
     
@@ -231,24 +179,11 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gps: ParSeq[
   }
 
   override def degree(): TemporalGraph[Double, Double] = {
-    def mergeFunc(a:Map[TimeIndex,Int], b:Map[TimeIndex,Int]): Map[TimeIndex,Int] = {
-      a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) }
-    }
     
-    def deg(grp: Graph[BitSet,BitSet]): Graph[Map[TimeIndex,Int],BitSet] = {
-      val degRDD = grp.aggregateMessages[Map[TimeIndex, Int]](
-        ctx => {
-          ctx.sendToSrc(ctx.attr.seq.map(x => (x,1)).toMap)
-          ctx.sendToDst(ctx.attr.seq.map(x => (x,1)).toMap)
-        },
-        mergeFunc, TripletFields.None)
-      grp.outerJoinVertices(degRDD) {
-        case (vid, vdata, Some(deg)) => deg ++ vdata.filter(x => !deg.contains(x)).seq.map(x => (x,0)).toMap
-        case (vid, vdata, None) => vdata.seq.map(x => (x,0)).toMap
-      }
-    }
+//    def deg(grp: Graph[BitSet,BitSet]): Graph[Map[TimeIndex,Int],BitSet] = {
+//    }
 
-    val allgs = graphs.map(deg)
+    val allgs = graphs.map(Degree.run(_))
 
     //now extract values
     val vattrs = allgs.map{ g => g.vertices.flatMap{ case (vid,vattr) => vattr.map{ case (k,v) => ((vid, k), v.toDouble)}}}.reduce(_ union _)
@@ -259,45 +194,10 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gps: ParSeq[
 
   override def connectedComponents(): TemporalGraph[VertexId, ED] = {
     def conc(grp: Graph[BitSet,BitSet]): Graph[Map[TimeIndex,VertexId],BitSet] = {
-      if (grp.vertices.isEmpty)
+    if (grp.vertices.isEmpty)
         Graph[Map[TimeIndex,VertexId],BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
       else {
-        val conGraph: Graph[Map[TimeIndex, VertexId], BitSet] = grp.mapVertices{ case (vid, bset) => bset.map(x => (x,vid)).toMap}
-        def vertexProgram(id: VertexId, attr: Map[TimeIndex, VertexId], msg: Map[TimeIndex, VertexId]): Map[TimeIndex, VertexId] = {
-          var vals = attr
-          msg.foreach { x =>
-            val (k,v) = x
-            if (vals.contains(k)) {
-              vals = vals.updated(k, math.min(v, vals(k)))
-            }
-          }
-          vals
-        }
-        def sendMessage(edge: EdgeTriplet[Map[TimeIndex, VertexId], BitSet]): Iterator[(VertexId, Map[TimeIndex, VertexId])] = {
-          edge.attr.iterator.flatMap{ k =>
-            if (edge.srcAttr(k) < edge.dstAttr(k))
-              Iterator((edge.dstId, Map(k -> edge.srcAttr(k))))
-            else if (edge.srcAttr(k) > edge.dstAttr(k))
-              Iterator((edge.srcId, Map(k -> edge.dstAttr(k))))
-            else
-              Iterator.empty
-          }
-            .toSeq.groupBy{ case (k,v) => k}
-            .mapValues(v => v.map{ case (k,m) => m}.reduce((a,b) => a ++ b))
-            .iterator
-        }
-        def messageCombiner(a: Map[TimeIndex, VertexId], b: Map[TimeIndex, VertexId]): Map[TimeIndex, VertexId] = {
-          (a.keySet ++ b.keySet).map { i =>
-            val val1: VertexId = a.getOrElse(i, Long.MaxValue)
-            val val2: VertexId = b.getOrElse(i, Long.MaxValue)
-            i -> math.min(val1, val2)
-          }.toMap
-        }
-
-        val i: Int = 0
-        val initialMessage: Map[TimeIndex, VertexId] = (for(i <- 0 to intervals.size) yield (i -> Long.MaxValue))(breakOut)
-
-        Pregel(conGraph, initialMessage, activeDirection = EdgeDirection.Either)(vertexProgram, sendMessage, messageCombiner)
+        ConnectedComponentsXT.runHybrid(grp, intervals.size)
       }
     }
 
@@ -384,7 +284,7 @@ object HybridGraph extends Serializable {
     if (minDate.isAfter(maxDate) || minDate.isEqual(maxDate))
       throw new IllegalArgumentException("invalid date range")
 
-    var intvs: Seq[Interval] = Seq[Interval]()
+    var intvs: Seq[Interval] = scala.collection.immutable.Seq[Interval]()
     var gps: ParSeq[Graph[BitSet,BitSet]] = ParSeq[Graph[BitSet,BitSet]]()
     var vatts: RDD[((VertexId,TimeIndex),String)] = ProgramContext.sc.emptyRDD
     var eatts: RDD[((VertexId,VertexId,TimeIndex),Int)] = ProgramContext.sc.emptyRDD
@@ -397,14 +297,17 @@ object HybridGraph extends Serializable {
     xx = minDate
     while (xx.isBefore(maxDate)) {
       //FIXME: make this more flexible based on similarity measure
-      val end = res.getInterval(xx, 7)
+      //for now it just takes 8 at a time
+      val remaining = res.numBetween(xx, maxDate) - 1
+      val take = math.min(7, remaining)
+      var end = res.getInterval(xx, take)
 
       //load some number of consecutive graphs into one
       val users: RDD[((VertexId,TimeIndex),String)] = MultifileLoad.readNodes(dataPath, xx, end.start).flatMap{ x =>
         val (filename, line) = x
         val dt = LocalDate.parse(filename.split('/').last.dropWhile(!_.isDigit).takeWhile(_ != '.'))
         val parts = line.split(",")
-        val index = res.numBetween(intvs.last.start, dt)
+        val index = res.numBetween(minDate, dt)
         if (parts.size > 1 && parts.head != "" && index > -1)
           Some((parts.head.toLong, index), parts(1).toString)
         else
@@ -421,7 +324,7 @@ object HybridGraph extends Serializable {
           if(lineArray.length > 2){
             attr = lineArray{2}.toInt
           }
-          val index = res.numBetween(intvs.last.start, dt)
+          val index = res.numBetween(minDate, dt)
           if (srcId > dstId)
             Some((dstId, srcId, index),attr)
           else
@@ -439,8 +342,28 @@ object HybridGraph extends Serializable {
       vatts = vatts union users
       eatts = eatts union links
       xx = end.end
+
     }
 
     new HybridGraph(intvs, gps, vatts, eatts)
+  }
+}
+
+object Degree {
+  def run(graph: Graph[BitSet,BitSet]): Graph[Map[TimeIndex,Int],BitSet] = {
+    def mergeFunc(a:Map[TimeIndex,Int], b:Map[TimeIndex,Int]): Map[TimeIndex,Int] = {
+      a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) }
+    }
+
+    val degRDD = graph.aggregateMessages[Map[TimeIndex, Int]](
+      ctx => {
+        ctx.sendToSrc(ctx.attr.seq.map(x => (x,1)).toMap)
+        ctx.sendToDst(ctx.attr.seq.map(x => (x,1)).toMap)
+      },
+      mergeFunc, TripletFields.None)
+    graph.outerJoinVertices(degRDD) {
+      case (vid, vdata, Some(deg)) => deg ++ vdata.filter(x => !deg.contains(x)).seq.map(x => (x,0)).toMap
+      case (vid, vdata, None) => vdata.seq.map(x => (x,0)).toMap
+    }
   }
 }

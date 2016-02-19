@@ -20,7 +20,7 @@ object GraphLoader {
     val path = set.toLowerCase() match {
       case "ngrams" => dataPath + "/nGrams"
       case "dblp" => dataPath + "/dblp"
-      case "ukdelis" => dataPath + "/ukDelis"
+      case "ukdelis" => dataPath + "/ukdelis"
     }
     graphType match {
       case "MG" =>

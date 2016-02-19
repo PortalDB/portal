@@ -4,6 +4,7 @@ import scala.reflect.ClassTag
 import org.apache.spark.graphx._
 import scala.collection.immutable.Map
 import scala.collection.breakOut
+import scala.collection.immutable.BitSet
 
 //pageRank implementation using Pregel interface, but for an undirected graph
 object UndirectedPageRank {
@@ -176,4 +177,71 @@ object UndirectedPageRank {
       .mapVertices((vid, attr) => attr.mapValues( x => x._1))
   } // end of runUntilConvergence
 
+  def runHybrid(graph: Graph[BitSet, BitSet], numInts: Int, tol: Double, resetProb: Double = 0.15, maxIter: Int = Int.MaxValue): Graph[Map[TimeIndex,(Double,Double)], Map[TimeIndex,(Double,Double)]] =
+  {
+    def mergeFunc(a:Map[TimeIndex,Int], b:Map[TimeIndex,Int]): Map[TimeIndex,Int] = {
+      a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) }
+    }
+
+    def vertexProgram(id: VertexId, attr: Map[TimeIndex, (Double,Double)], msg: Map[TimeIndex, Double]): Map[TimeIndex, (Double,Double)] = {
+      var vals = attr
+      msg.foreach { x =>
+        val (k,v) = x
+        if (vals.contains(k)) {
+          val (oldPR, lastDelta) = vals(k)
+          val newPR = oldPR + (1.0 - resetProb) * msg(k)
+          vals = vals.updated(k,(newPR,newPR-oldPR))
+        }
+      }
+      vals
+    }
+
+    def sendMessage(edge: EdgeTriplet[Map[TimeIndex,(Double,Double)], Map[TimeIndex, (Double,Double)]]) = {
+      //need to generate an iterator of messages for each index
+      edge.attr.iterator.flatMap{ case (k,v) =>
+        if (edge.srcAttr(k)._2 > tol &&
+          edge.dstAttr(k)._2 > tol) {
+          Iterator((edge.dstId, Map((k -> edge.srcAttr(k)._2 * v._1))), (edge.srcId, Map((k -> edge.dstAttr(k)._2 * v._2))))
+        } else if (edge.srcAttr(k)._2 > tol) {
+          Iterator((edge.dstId, Map((k -> edge.srcAttr(k)._2 * v._1))))
+        } else if (edge.dstAttr(k)._2 > tol) {
+          Iterator((edge.srcId, Map((k -> edge.dstAttr(k)._2 * v._2))))
+        } else {
+          Iterator.empty
+        }
+      }
+        .toSeq.groupBy{ case (k,v) => k}
+      //we now have a Map[VertexId, Seq[(VertexId, Map[TimeIndex,Double])]]
+        .mapValues(v => v.map{case (k,m) => m}.reduce((a,b) => a ++ b))
+        .iterator
+    }
+
+    def messageCombiner(a: Map[TimeIndex,Double], b: Map[TimeIndex,Double]): Map[TimeIndex,Double] = {
+      (a.keySet ++ b.keySet).map { i =>
+        val count1Val:Double = a.getOrElse(i, 0.0)
+        val count2Val:Double = b.getOrElse(i, 0.0)
+        i -> (count1Val + count2Val)
+      }.toMap
+    }
+    
+    val degs: VertexRDD[Map[TimeIndex, Int]] = graph.aggregateMessages[Map[TimeIndex, Int]](
+      ctx => {
+        ctx.sendToSrc(ctx.attr.seq.map(x => (x,1)).toMap)
+        ctx.sendToDst(ctx.attr.seq.map(x => (x,1)).toMap)
+      },
+      mergeFunc, TripletFields.None)
+    
+    val prankGraph: Graph[Map[TimeIndex, (Double,Double)], Map[TimeIndex, (Double,Double)]] = graph.outerJoinVertices(degs) {
+      case (vid, vdata, Some(deg)) => deg ++ vdata.filter(x => !deg.contains(x)).seq.map(x => (x,0)).toMap
+      case (vid, vdata, None) => vdata.seq.map(x => (x,0)).toMap
+    }
+      .mapTriplets( e =>  e.attr.seq.map(x => (x, (1.0 / e.srcAttr(x), 1.0 / e.dstAttr(x)))).toMap)
+      .mapVertices( (id,attr) => attr.mapValues{ x => (0.0,0.0)}.map(identity))
+      .cache()
+
+    val initialMessage: Map[TimeIndex,Double] = (for(i <- 0 to numInts) yield (i -> resetProb / (1.0 - resetProb)))(breakOut)
+
+    Pregel(prankGraph, initialMessage, maxIter, activeDirection = EdgeDirection.Either)(vertexProgram, sendMessage, messageCombiner)
+
+  }
 }

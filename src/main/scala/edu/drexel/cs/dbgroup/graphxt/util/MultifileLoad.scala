@@ -34,6 +34,8 @@ object MultifileLoad {
     NewFileInputFormat.addInputPath(job, new Path(path))
     DateFileFilter.setMinDate(min)
     DateFileFilter.setMaxDate(max)
+
+    //FIXME: make this work when multiple ranges are loaded for diff graphs
     NewFileInputFormat.setInputPathFilter(job, classOf[DateFileFilter])
     val updateConf = job.getConfiguration
     new CFTextFileRDD(
