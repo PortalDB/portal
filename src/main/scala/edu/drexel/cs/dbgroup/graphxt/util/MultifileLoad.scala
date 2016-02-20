@@ -16,27 +16,25 @@ object MultifileLoad {
 
   /** this is in the inclusive-inclusive model */
   def readNodes(path: String, min: LocalDate, max: LocalDate): RDD[(String, String)] = {
-    val nodesPath = path + "/nodes/nodes{" + NumberRangeRegex.generateRegex(min.getYear(), max.getYear()) + "}-{*}.txt"
+    val nodesPath = path + "/nodes/nodes{" + NumberRangeRegex.generateRegex(min.getYear(), max.getYear()) + "}-0{" + NumberRangeRegex.generateRegex(min.getMonthValue(), max.getMonthValue()) + "}-01.txt"
+
     val numParts = estimateParts(nodesPath)
-    println("loading with " + numParts + " partitions")
+    //println("loading with " + numParts + " partitions")
     readTextFiles(nodesPath, min, max, numParts)
   }
 
   def readEdges(path: String, min: LocalDate, max: LocalDate): RDD[(String, String)] = {
-    val edgesPath = path + "/edges/edges{" + NumberRangeRegex.generateRegex(min.getYear(), max.getYear()) + "}-{*}.txt"
+    val edgesPath = path + "/edges/edges{" + NumberRangeRegex.generateRegex(min.getYear(), max.getYear()) + "}-0{" + NumberRangeRegex.generateRegex(min.getMonthValue(), max.getMonthValue()) + "}-01.txt"
+
     val numParts = estimateParts(edgesPath)
-    println("loading with " + numParts + " partitions")
+    //println("loading with " + numParts + " partitions")
     readTextFiles(edgesPath, min, max, numParts)
   }
 
   private def readTextFiles(path: String, min: LocalDate, max: LocalDate, minPartitions: Int): RDD[(String, String)] = {
     val job = NewHadoopJob.getInstance(ProgramContext.sc.hadoopConfiguration)
-    NewFileInputFormat.addInputPath(job, new Path(path))
-    DateFileFilter.setMinDate(min)
-    DateFileFilter.setMaxDate(max)
+    NewFileInputFormat.setInputPaths(job, path)
 
-    //FIXME: make this work when multiple ranges are loaded for diff graphs
-    NewFileInputFormat.setInputPathFilter(job, classOf[DateFileFilter])
     val updateConf = job.getConfiguration
     new CFTextFileRDD(
       ProgramContext.sc,
@@ -44,7 +42,7 @@ object MultifileLoad {
       classOf[String],
       classOf[String],
       updateConf,
-      minPartitions).setName(path)
+      minPartitions).setName(path + min.toString)
   }
 
   def estimateParts(path: String): Int = {

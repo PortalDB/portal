@@ -569,12 +569,12 @@ object SnapshotGraphParallel extends Serializable {
     var xx:LocalDate = minDate
 
     while (xx.isBefore(maxDate)) {
-      var nodesPath = dataPath + "/nodes/nodes" + xx.toString() + ".txt"
-      var edgesPath = dataPath + "/edges/edges" + xx.toString() + ".txt"
-      var numNodeParts = MultifileLoad.estimateParts(nodesPath) 
-      var numEdgeParts = MultifileLoad.estimateParts(edgesPath) 
+      val nodesPath = dataPath + "/nodes/nodes" + xx.toString() + ".txt"
+      val edgesPath = dataPath + "/edges/edges" + xx.toString() + ".txt"
+      val numNodeParts = MultifileLoad.estimateParts(nodesPath) 
+      val numEdgeParts = MultifileLoad.estimateParts(edgesPath) 
       
-      val users: RDD[(VertexId, String)] = ProgramContext.sc.textFile(dataPath + "/nodes/nodes" + xx.toString() + ".txt", numNodeParts).map(line => line.split(",")).map { parts =>
+      val users: RDD[(VertexId, String)] = ProgramContext.sc.textFile(nodesPath, numNodeParts).map(line => line.split(",")).map { parts =>
         if (parts.size > 1 && parts.head != "")
           (parts.head.toLong, parts(1).toString)
         else
