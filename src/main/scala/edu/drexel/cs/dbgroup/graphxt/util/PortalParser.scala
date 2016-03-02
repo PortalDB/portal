@@ -157,7 +157,7 @@ object Interpreter {
                 println("Total edges count: " + count)
                 op = "Count"
               case i: Id =>
-                println("Edges:\n" + intRes.edges.map(e => (e.srcId, e.dstId)).collect.mkString(","))
+                println("Edges:\n" + intRes.edges.map{ case (k,v) => k}.collect.mkString(","))
                 op = "Ids"
               case a: Attr =>
                 println("Edges with attributes:\n" + intRes.edges.collect.mkString("\n"))
@@ -515,10 +515,10 @@ sealed abstract class Direction {
   def value: Boolean
 }
 case class Directed extends Direction {
-  def value() = true
+  def value() = false
 }
 case class Undirected extends Direction {
-  def value() = false
+  def value() = true
 }
 
 sealed abstract class Function extends Serializable

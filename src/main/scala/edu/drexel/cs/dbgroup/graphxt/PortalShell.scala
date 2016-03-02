@@ -19,7 +19,7 @@ object PortalShell {
     var graphType: String = "SG"
     var data = ""
     var partitionType: PartitionStrategyType.Value = PartitionStrategyType.None
-    var runWidth: Int = 2
+    var runWidth: Int = 8
     var query:Array[String] = Array.empty
 
     for (i <- 0 until args.length) {
@@ -65,6 +65,7 @@ object PortalShell {
     // environment specific settings for SparkConf must be passed through the command line
     // settings to pass are master, jars and other configurations
     var conf = new SparkConf().setAppName("TemporalGraph Project").setSparkHome(System.getenv("SPARK_HOME"))
+    //conf.registerKryoClasses(Array(classOf[scala.collection.mutable.LinkedHashMap[_,_]], classOf[scala.collection.immutable.BitSet]))
     val sc = new SparkContext(conf)
     ProgramContext.setContext(sc)
 

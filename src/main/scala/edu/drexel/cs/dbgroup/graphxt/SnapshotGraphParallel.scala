@@ -54,92 +54,85 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
     }
   }
 
-  override def vertices: VertexRDD[Map[Interval, VD]] = {
+  override def vertices: RDD[(VertexId,Map[Interval, VD])] = {
     if (size > 0) {
       val total = graphs.zipWithIndex.map(x => (x._1, intervals(x._2))).filterNot(x => x._1.vertices.isEmpty)
       if (total.size > 0)
-        VertexRDD(total.map(x => x._1.vertices.mapValues(y => Map[Interval, VD](x._2 -> y)))
+        total.map(x => x._1.vertices.mapValues(y => Map[Interval, VD](x._2 -> y)))
           .reduce((a: RDD[(VertexId,Map[Interval,VD])], b: RDD[(VertexId,Map[Interval,VD])]) => a union b)
-          .reduceByKey((a: Map[Interval, VD], b: Map[Interval, VD]) => a ++ b))
+          .reduceByKey((a: Map[Interval, VD], b: Map[Interval, VD]) => a ++ b)
       else {
-        val ret:VertexRDD[Map[Interval,VD]] = VertexRDD(ProgramContext.sc.emptyRDD)
+        val ret:RDD[(VertexId,Map[Interval,VD])] = ProgramContext.sc.emptyRDD
         ret
       }
     } else {
-      val ret:VertexRDD[Map[Interval,VD]] = VertexRDD(ProgramContext.sc.emptyRDD)
+      val ret:RDD[(VertexId,Map[Interval,VD])] = ProgramContext.sc.emptyRDD
       ret
     }
   }
 
-  override def verticesFlat: VertexRDD[(Interval, VD)] = {
+  override def verticesFlat: RDD[(VertexId,(Interval, VD))] = {
     if (size > 0) {
       val total = graphs.zipWithIndex
         .map(x => (x._1, intervals(x._2)))
         .filterNot(x => x._1.vertices.isEmpty)
       if (total.size > 0)
-        VertexRDD(total.map(x => x._1.vertices.mapValues(y => (x._2, y)))
-          .reduce((a, b) => VertexRDD(a union b)))
+        total.map(x => x._1.vertices.mapValues(y => (x._2, y)))
+          .reduce((a, b) => VertexRDD(a union b))
       else {
-        val ret:VertexRDD[(Interval,VD)] = VertexRDD(ProgramContext.sc.emptyRDD)
+        val ret:RDD[(VertexId,(Interval,VD))] = ProgramContext.sc.emptyRDD
         ret
       }
     } else {
-      val ret:VertexRDD[(Interval,VD)] = VertexRDD(ProgramContext.sc.emptyRDD)
+      val ret:RDD[(VertexId,(Interval,VD))] = ProgramContext.sc.emptyRDD
       ret
     }
   }
 
-  override def edges: EdgeRDD[Map[Interval, ED]] = {
+  override def edges: RDD[((VertexId,VertexId),Map[Interval, ED])] = {
     if (size > 0) {
       val total = graphs.zipWithIndex
         .map(x => (x._1, intervals(x._2)))
         .filterNot(x => x._1.edges.isEmpty)
       if (total.size > 0)
-        EdgeRDD.fromEdges[Map[Interval, ED], VD](total
-          .map(x => x._1.edges.mapValues(y => Map[Interval, ED](x._2 -> y.attr)))
+        total.map(x => x._1.edges.mapValues(y => Map[Interval, ED](x._2 -> y.attr)))
           .reduce((a: RDD[Edge[Map[Interval, ED]]], b: RDD[Edge[Map[Interval, ED]]]) => a union b)
           .map(x => ((x.srcId, x.dstId), x.attr))
           .reduceByKey((a: Map[Interval, ED], b: Map[Interval, ED]) => a ++ b)
-          .map(x => Edge(x._1._1, x._1._2, x._2))
-        )
       else
-        EdgeRDD.fromEdges[Map[Interval, ED], VD](ProgramContext.sc.emptyRDD)
+        ProgramContext.sc.emptyRDD
     } else
-      EdgeRDD.fromEdges[Map[Interval, ED], VD](ProgramContext.sc.emptyRDD)
+      ProgramContext.sc.emptyRDD
   }
 
-  override def edgesFlat: EdgeRDD[(Interval, ED)] = {
+  override def edgesFlat: RDD[((VertexId,VertexId),(Interval, ED))] = {
     if (size > 0) {
       val total = graphs.zipWithIndex
         .map(x => (x._1, intervals(x._2)))
         .filterNot(x => x._1.edges.isEmpty)
       if (total.size > 0)
-        EdgeRDD.fromEdges[(Interval, ED), VD](total
-          .map(x => x._1.edges.mapValues(y => (x._2,y.attr)))
-          .reduce((a: RDD[Edge[(Interval, ED)]], b: RDD[Edge[(Interval, ED)]]) => a union b))
+        total.map(x => x._1.edges.map(e => ((e.srcId, e.dstId), (x._2, e.attr))))
+          .reduce((a: RDD[((VertexId, VertexId), (Interval, ED))], b: RDD[((VertexId,VertexId),(Interval, ED))]) => a union b)
       else
-        EdgeRDD.fromEdges[(Interval, ED), VD](ProgramContext.sc.emptyRDD)
+        ProgramContext.sc.emptyRDD
     } else
-        EdgeRDD.fromEdges[(Interval, ED), VD](ProgramContext.sc.emptyRDD)
+        ProgramContext.sc.emptyRDD
   }
 
-  override def degrees: VertexRDD[Map[Interval, Int]] = {
+  override def degrees: RDD[(VertexId,Map[Interval, Int])] = {
     if (size > 0) {
       val total = graphs.zipWithIndex
         .map(x => (x._1, intervals(x._2)))
         .filterNot(x => x._1.edges.isEmpty)
         .map(x => x._1.degrees.mapValues(deg => Map[Interval, Int](x._2 -> deg)))
       if (total.size > 0)
-        VertexRDD(total
-          .reduce((x,y) => VertexRDD(x union y))
-          .reduceByKey((a: Map[Interval, Int], b: Map[Interval, Int]) => a ++ b))
+        total.reduce((x,y) => VertexRDD(x union y))
+          .reduceByKey((a: Map[Interval, Int], b: Map[Interval, Int]) => a ++ b)
       else {
-        val ret:VertexRDD[Map[Interval, Int]] = VertexRDD(ProgramContext.sc.emptyRDD)
-        ret
+        ProgramContext.sc.emptyRDD
       }
     } else {
-      val ret:VertexRDD[Map[Interval, Int]] = VertexRDD(ProgramContext.sc.emptyRDD)
-      ret
+      ProgramContext.sc.emptyRDD
     }
   }
 
@@ -592,6 +585,7 @@ object SnapshotGraphParallel extends Serializable {
       intvs = intvs :+ res.getInterval(xx)
       gps = gps :+ Graph(users, edges)
       xx = intvs.last.end
+
     }
     
     new SnapshotGraphParallel(intvs, gps)
@@ -658,6 +652,19 @@ object SnapshotGraphParallel extends Serializable {
       intvs = intvs :+ res.getInterval(xx)
       gps = gps :+ Graph(users, edges)
       xx = intvs.last.end
+
+      /*
+       val degs: RDD[Double] = gps.last.degrees.map{ case (vid,attr) => attr}
+       println("min degree: " + degs.min)
+       println("max degree: " + degs.max)
+       println("average degree: " + degs.mean)
+       val counts = degs.histogram(Array(0.0, 10, 50, 100, 1000, 5000, 10000, 50000, 100000, 250000))
+       println("histogram:" + counts.mkString(","))
+       println("number of vertices: " + gps.last.vertices.count)
+       println("number of edges: " + gps.last.edges.count)
+       println("number of partitions in edges: " + gps.last.edges.partitions.size)
+      */
+
     }
 
     new SnapshotGraphParallel(intvs, gps)

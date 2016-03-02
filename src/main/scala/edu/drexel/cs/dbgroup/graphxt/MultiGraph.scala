@@ -49,30 +49,28 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
     graphs.numEdges
   }
 
-  override def vertices: VertexRDD[Map[Interval, VD]] = {
+  override def vertices: RDD[(VertexId,Map[Interval, VD])] = {
     val start = span.start
     graphs.vertices.mapValues(v => v.map(x => (resolution.getInterval(start, x._1) -> x._2)))
   }
 
-  override def verticesFlat: VertexRDD[(Interval, VD)] = {
+  override def verticesFlat: RDD[(VertexId,(Interval, VD))] = {
     val start = span.start
-    VertexRDD(graphs.vertices.flatMap(v => v._2.map(x => (v._1, (resolution.getInterval(start, x._1), x._2)))))
+    graphs.vertices.flatMap(v => v._2.map(x => (v._1, (resolution.getInterval(start, x._1), x._2))))
   }
 
-  override def edges: EdgeRDD[Map[Interval, ED]] = {
+  override def edges: RDD[((VertexId,VertexId),Map[Interval, ED])] = {
     val start = span.start
-    EdgeRDD.fromEdges[Map[Interval, ED], VD](graphs.edges.map(x => ((x.srcId, x.dstId), Map[Interval, ED](resolution.getInterval(start, x.attr._1) -> x.attr._2)))
+    graphs.edges.map(x => ((x.srcId, x.dstId), Map[Interval, ED](resolution.getInterval(start, x.attr._1) -> x.attr._2)))
     .reduceByKey((a: Map[Interval, ED], b: Map[Interval, ED]) => a ++ b)
-    .map(x => Edge(x._1._1, x._1._2, x._2))
-    )
   }
 
-  override def edgesFlat: EdgeRDD[(Interval, ED)] = {
+  override def edgesFlat: RDD[((VertexId,VertexId),(Interval, ED))] = {
     val start = span.start
-    graphs.edges.mapValues(e => (resolution.getInterval(start, e.attr._1), e.attr._2))
+    graphs.edges.map(e => ((e.srcId, e.dstId), (resolution.getInterval(start, e.attr._1), e.attr._2)))
   }
 
-  override def degrees: VertexRDD[Map[Interval, Int]] = {
+  override def degrees: RDD[(VertexId,Map[Interval, Int])] = {
     def mergedFunc(a:Map[TimeIndex,Int], b:Map[TimeIndex,Int]): Map[TimeIndex,Int] = {
       a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) }
     }

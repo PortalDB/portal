@@ -27,7 +27,7 @@ abstract class TemporalGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * @return an RDD containing the vertices in this graph, across all intervals.
     * The vertex attributes are in a Map of TimeIndex->value.
     */
-  def vertices: VertexRDD[Map[Interval, VD]]
+  def vertices: RDD[(VertexId,Map[Interval, VD])]
 
   /**
     * An RDD containing the vertices and their associated attributes.
@@ -35,21 +35,23 @@ abstract class TemporalGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * The vertex attributes are a tuple of (TimeIndex, value),
     * which means that if the same vertex appears in multiple snapshots/time instances,
     * it will appear multiple times in the RDD.
+    * We are returning RDD rather than VertexRDD because VertexRDD
+    * cannot have duplicates for vid.
     */
-  def verticesFlat: VertexRDD[(Interval, VD)]
+  def verticesFlat: RDD[(VertexId,(Interval, VD))]
 
   /**
     * An RDD containing the edges and their associated attributes.
     * @return an RDD containing the edges in this graph, across all intervals.
     */
-  def edges: EdgeRDD[Map[Interval, ED]]
-  def edgesFlat: EdgeRDD[(Interval, ED)]
+  def edges: RDD[((VertexId,VertexId),Map[Interval, ED])]
+  def edgesFlat: RDD[((VertexId,VertexId),(Interval, ED))]
 
   /**
     * The degree of each vertex in the graph for each time index.
     * @note Vertices with no edges are not returned in the resulting RDD.
     */
-  def degrees: VertexRDD[Map[Interval, Int]]
+  def degrees: RDD[(VertexId,Map[Interval, Int])]
 
   /**
     * Get the temporal sequence for this graph.
@@ -78,6 +80,7 @@ abstract class TemporalGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * Select a temporal subset of the graph based on a temporal predicate.
     * @param tpred Time predicate to evalute for each time period of the temporal sequence.
     * @return temporalgraph with the temporal intersection. The structural schema of the graph is not affected.
+    * TODO: should the temporal bound of tgraph narrow?
     */
   def select(tpred: Interval => Boolean): TemporalGraph[VD, ED]
 

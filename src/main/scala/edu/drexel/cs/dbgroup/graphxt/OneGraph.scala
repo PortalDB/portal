@@ -50,27 +50,27 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Map[
     graphs.numEdges
   }
 
-  override def vertices: VertexRDD[Map[Interval, VD]] = {
+  override def vertices: RDD[(VertexId,Map[Interval, VD])] = {
     val start = span.start
     graphs.vertices.mapValues(v => v.map(x => (resolution.getInterval(start, x._1) -> x._2)))
   }
 
-  override def verticesFlat: VertexRDD[(Interval, VD)] = {
+  override def verticesFlat: RDD[(VertexId,(Interval, VD))] = {
     val start = span.start
-    VertexRDD(graphs.vertices.flatMap(v => v._2.map(x => (v._1, (resolution.getInterval(start, x._1), x._2)))))
+    graphs.vertices.flatMap(v => v._2.map(x => (v._1, (resolution.getInterval(start, x._1), x._2))))
   }
 
-  override def edges: EdgeRDD[Map[Interval, ED]] = {
+  override def edges: RDD[((VertexId,VertexId),Map[Interval, ED])] = {
     val start = span.start
-    graphs.edges.mapValues(e => e.attr.map(x => (resolution.getInterval(start, x._1) -> x._2)))
+    graphs.edges.map(e => ((e.srcId, e.dstId), (e.attr.map(x => (resolution.getInterval(start, x._1) -> x._2)))))
   }
 
-  override def edgesFlat: EdgeRDD[(Interval, ED)] = {
+  override def edgesFlat: RDD[((VertexId,VertexId),(Interval, ED))] = {
     val start = span.start
-    EdgeRDD.fromEdges[(Interval, ED), VD](graphs.edges.flatMap(e => e.attr.map(x => Edge(e.srcId, e.dstId, (resolution.getInterval(start, x._1), x._2)))))
+    graphs.edges.flatMap(e => e.attr.map(x => ((e.srcId, e.dstId), (resolution.getInterval(start, x._1), x._2))))
   }
 
-  override def degrees: VertexRDD[Map[Interval, Int]] = {
+  override def degrees: RDD[(VertexId,Map[Interval, Int])] = {
     def mergedFunc(a:Map[TimeIndex,Int], b:Map[TimeIndex,Int]): Map[TimeIndex,Int] = {
       a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) }
     }
