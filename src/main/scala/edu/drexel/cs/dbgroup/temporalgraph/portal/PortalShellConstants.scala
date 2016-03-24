@@ -1,6 +1,16 @@
 package edu.drexel.cs.dbgroup.temporalgraph.portal;
 
+import scala.util.matching.Regex
+
 object PortalShellConstants {
+  def GenericTViewName(viewNumber: Integer): String = { String.format("TView%d", viewNumber) };
+  def QueryRegex(): Regex = new Regex("\\{.*\\}");
+  
+  //tView creation
+  def TViewCreationSuccess(tViewName: String): String = { String.format("TView \'%s\' created.", tViewName) };
+  def TViewCreationFailed(tViewName: String, message: String): String = { String.format("Unable to create TView \'%s\'.%s", tViewName, message) };
+  def TViewExistsMessage(tViewName: String): String = { String.format("TView \'%s\' already exists, replacing it.", tViewName) };
+  
   //system message types
   def InfoText(message: String): String = { String.format("[info] %s", message) };
   def ErrText(message: String): String = { String.format("[error] %s", message) };
