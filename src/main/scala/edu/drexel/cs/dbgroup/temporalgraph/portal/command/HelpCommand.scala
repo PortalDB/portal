@@ -8,8 +8,8 @@ import edu.drexel.cs.dbgroup.temporalgraph.portal.command.PortalCommandType._;
 import edu.drexel.cs.dbgroup.temporalgraph.TemporalGraphWithSchema;
 
 
-class HelpCommand(portalContext: PortalContext, commandNum: Int, commandName: String)
-  extends PortalCommand(portalContext, commandNum) {
+class HelpCommand(portalContext: PortalContext, commandName: String)
+  extends PortalCommand(portalContext) {
   
   override def execute() = {
     if (commandName == null){

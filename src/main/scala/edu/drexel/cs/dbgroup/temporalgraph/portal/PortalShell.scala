@@ -11,17 +11,15 @@ import edu.drexel.cs.dbgroup.temporalgraph._;
 import edu.drexel.cs.dbgroup.temporalgraph.portal.command._;
 import edu.drexel.cs.dbgroup.temporalgraph.util.GraphLoader;
 
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.ListBuffer;
+import scala.collection.mutable.Stack;
 import scala.tools.jline.console.ConsoleReader;
 import scala.util.matching.Regex
 import scala.util.control._;
 import scala.util.Properties;
 
 object PortalShell {
-  val TViewCreationSuccess: String = "TView \'%s\' created.";
-  val TViewCreationFailed: String = "Unable to create TView \'%s\'.\n%s";
-  val TViewExists: String = "TView \'%s\' already exists, replacing it.\n";
-
+  var numGenericTViews: Integer = 0;
   var commandList: Map[String, PortalCommand] = Map(); //tViewName -> PortalCommand
   var portalContext: PortalContext = null;
 
@@ -31,11 +29,11 @@ object PortalShell {
     Logger.getLogger("org").setLevel(Level.OFF)
     Logger.getLogger("akka").setLevel(Level.OFF)
 
-    var graphType: String = "SG"
-    var data = ""
-    var partitionType: PartitionStrategyType.Value = PartitionStrategyType.None
-    var runWidth: Int = 2
-    var query: Array[String] = Array.empty
+    var graphType: String = "SG";
+    var data = "";
+    var partitionType: PartitionStrategyType.Value = PartitionStrategyType.None;
+    var runWidth: Int = 2;
+    var query: Array[String] = Array.empty;
 
     for (i <- 0 until args.length) {
       args(i) match {
@@ -90,7 +88,6 @@ object PortalShell {
     GraphLoader.setRunWidth(runWidth)
 
     val startAsMili = System.currentTimeMillis()
-    //PortalParser.parse(query.mkString(" "))
     startConsole()
     val stopAsMili = System.currentTimeMillis()
     val runTime = stopAsMili - startAsMili
@@ -102,7 +99,6 @@ object PortalShell {
   def startConsole() = {
     val consoleReader = new ConsoleReader();
     val loop = new Breaks;
-    var commandNum: Int = 0;
 
     printProgramStart();
 
@@ -110,7 +106,7 @@ object PortalShell {
       while (true) {
         var line = consoleReader.readLine("portal> ");
 
-        if (checkQuit(line) == true) {
+        if (checkQuit(line)) {
           loop.break;
         }
 
@@ -118,11 +114,10 @@ object PortalShell {
           line += consoleReader.readLine(">");
         }
 
-        line = line.dropRight(1); //remove terminating "\"
-        commandNum += 1;
-        if (parseCommand(line, commandNum) == false) {
-          //unsupported command
-          commandNum -= 1;
+        line = line.dropRight(1).trim(); //remove terminating "\" and whitespace
+
+        if (parseCommand(line) == false) {
+          printErr(PortalShellConstants.CommandUnsuccesful());
         }
       }
     }
@@ -130,12 +125,13 @@ object PortalShell {
     println("Exiting Portal Shell...\n")
   }
 
-  def parseCommand(line: String, commandNum: Integer): Boolean = {
+  def parseCommand(line: String): Boolean = {
     var command: PortalCommand = null;
     var args = line.split(" ");
     var commandType: String = args(0);
     var tViewName: String = null;
     var portalQuery: String = null;
+    var sqlInterface: SQLInterface = null;
     var isMaterialized: Boolean = false;
     var showType: String = null;
     var isNoop: Boolean = false;
@@ -143,66 +139,59 @@ object PortalShell {
     if (commandType.equalsIgnoreCase("create")) {
       tViewName = args(2);
       portalQuery = retrieveQuery(line);
-      //printf("portalQuery retrieved from command: %s\n", portalQuery);
+      println ("Portal Query Extracted -->" + portalQuery);
+
+      //TODO: confirm that second arg is "view"
 
       if (args(1).equalsIgnoreCase("materialized")) {
         isMaterialized = true;
         tViewName = args(3);
       }
 
-      try {
-        command = new CreateViewCommand(portalContext, commandNum, portalQuery, tViewName, isMaterialized);
-        command.execute();
-
-        if (commandList.contains(tViewName)) {
-          //FIXME: what is the correct action if tViewName already exists
-          return printErrAndReturn(String.format(TViewExists, tViewName))
-        }
-
-        //add new command to list of commands
-        commandList += (tViewName -> command)
-        printInfoMessage(String.format(TViewCreationSuccess, tViewName))
-
-      } catch {
-        case ex: Exception => {
-          return printErrAndReturn(String.format(TViewCreationFailed, tViewName, ex.getMessage()))
-        }
-      }
+      return createAndSaveView(portalContext, portalQuery, tViewName, isMaterialized);
 
     } else if (commandType.equalsIgnoreCase("describe")) {
 
       if (args.length < 2) {
-        return printErrAndReturn(PortalShellConstants.InvalidCommandFormat(commandType))
+        return printErrAndReturnFalse(PortalShellConstants.InvalidCommandFormat(commandType))
       }
 
       tViewName = args(1);
+
+      if (!tViewExists(tViewName)) {
+        return false
+      }
+
       var cmd = retrieveCommand(tViewName).asInstanceOf[CreateViewCommand];
-      if (cmd == null) return false;
 
       val description = cmd.describeSchema();
-      printInfoMessage(description);
+      printInfo(description);
 
     } else if (commandType.equalsIgnoreCase("show")) {
 
-      if (args.length < 2) {
-        return printErrAndReturn(PortalShellConstants.InvalidCommandFormat(commandType))
+      if (args.length < 3) {
+        return printErrAndReturnFalse(PortalShellConstants.InvalidCommandFormat(commandType))
       }
 
       showType = args(1);
       tViewName = args(2);
+
+      if (!tViewExists(tViewName)) {
+        return false
+      }
+
       var cmd = retrieveCommand(tViewName).asInstanceOf[CreateViewCommand];
-      if (cmd == null) return false;
 
       if (showType.equalsIgnoreCase("plan")) {
         val plan = cmd.getPlanDescription();
-        printInfoMessage(plan);
+        printInfo(plan);
 
       } else if (showType.equalsIgnoreCase("view")) {
         val view = cmd.getPortalQuery();
-        printInfoMessage(view);
+        printInfo(view);
 
       } else {
-        return printErrAndReturn(PortalShellConstants.UnsupportedErrorText())
+        return printErrAndReturnFalse(PortalShellConstants.UnsupportedErrorText())
       }
 
     } else if (commandType.equalsIgnoreCase("help")) {
@@ -212,22 +201,130 @@ object PortalShell {
         helpType = args(1);
       }
 
-      command = new HelpCommand(portalContext, commandNum, helpType);
+      command = new HelpCommand(portalContext, helpType);
       command.execute();
 
-    } else if (commandType.equalsIgnoreCase("select")) {
-      //TODO: sql statement processing
+    } else if (commandType.equalsIgnoreCase("select")) {      
+      try {
+        sqlInterface = new SQLInterface();
+        var tViewName: String = null;
+        var queryRewrite: String = line;  
+        
+        if(containsPortalQuery(line)){
+          queryRewrite = parseQueryAndRewriteLine(line);
+        }
+        
+        tViewName = extractSimpleTViewName(queryRewrite);
+        
+        if (tViewName == null || tViewName.isEmpty() || !tViewExists(tViewName)) {
+          return printErrAndReturnFalse(PortalShellConstants.TViewDoesNotExist(tViewName));
+        }
+
+        //println ("queryRewrite: " + queryRewrite + " ; tViewName: " + tViewName)
+        printInfo(PortalShellConstants.StatusExecutingSQL(tViewName));
+        
+        var cmd = retrieveCommand(tViewName).asInstanceOf[CreateViewCommand];
+        var res = sqlInterface.runSQLQuery(queryRewrite, cmd.tempGraph);
+        printInfo("Res from SQL:" + res.toString());
+
+      } catch {
+        case ex: Exception => {
+          return printErrAndReturnFalse(PortalShellConstants.StatusSQLExecutionFailed(ex.getMessage()));
+        }
+      }
 
     } else if (commandType.equalsIgnoreCase("info")) {
       if (args.length < 2 && !args(1).equalsIgnoreCase("portalShell")) {
-        return printErrAndReturn(PortalShellConstants.InvalidCommandFormat(commandType))
+        return printErrAndReturnFalse(PortalShellConstants.InvalidCommandFormat(commandType))
       }
 
     } else {
-      return printErrAndReturn(PortalShellConstants.UnsupportedErrorText())
+      return printErrAndReturnFalse(PortalShellConstants.UnsupportedErrorText())
     }
 
     return true;
+  }
+
+  def extractSimpleTViewName(line: String): String = {
+    var lineArgs = line.split(" ");
+    var tViewIndex: Integer = -1;
+
+    for (i <- 0 until lineArgs.length) {
+      if (lineArgs(i).equalsIgnoreCase("from")) {
+        //TODO: more vigorous check e.g parentheses in tViewName
+        tViewIndex = i + 1;
+      }
+    }
+
+    if (tViewIndex < 0 || tViewIndex >= lineArgs.length) {
+      //TODO: error checking
+      return null
+    }
+
+    var tViewName = lineArgs(tViewIndex);
+    return tViewName.split('.')(0);
+  }
+
+  def parseQueryAndRewriteLine(line: String): String = {
+    var tViewStack = new Stack[String]();  
+    var portalQuery: String = line;
+    var lineRewrite: String = null;
+
+    while(portalQuery != null){
+      tViewStack.push(portalQuery);
+      portalQuery = retrieveQuery(portalQuery);      
+    }
+        
+    while(tViewStack.size > 1){
+      numGenericTViews += 1;
+      var currentView = tViewStack.top;
+      var tViewName = PortalShellConstants.GenericTViewName(numGenericTViews);
+      var isCreated = createAndSaveView(portalContext, currentView, tViewName, false); //create unmaterialized tview
+      
+      if (!isCreated) {
+        numGenericTViews -= 1;
+        throw new Exception;
+      }
+      
+      tViewStack.pop;
+      lineRewrite = tViewStack.pop;
+
+      lineRewrite = replaceQueryWithTView(lineRewrite, tViewName);
+      tViewStack.push(lineRewrite);
+      portalQuery = retrieveQuery(lineRewrite);
+    }
+    
+    return tViewStack.top;
+  }
+
+  def createAndSaveView(portalContext: PortalContext, portalQuery: String,
+    tViewName: String, isMaterialized: Boolean): Boolean = {
+
+    try {
+      printInfo(PortalShellConstants.StatusCreatingTView(tViewName));
+
+      var command = new CreateViewCommand(portalContext, portalQuery, tViewName, isMaterialized);
+      command.execute();
+
+      if (commandList.contains(tViewName)) {
+        //FIXME: what is the correct action if tViewName already exists
+        return printErrAndReturnFalse(PortalShellConstants.TViewExistsMessage(tViewName))
+      }
+
+      //add new command to list of commands
+      commandList += (tViewName -> command)
+      printInfoAndReturnTrue(PortalShellConstants.TViewCreationSuccess(tViewName))
+
+    } catch {
+      case ex: Exception => {
+        printErrAndReturnFalse(PortalShellConstants.TViewCreationFailed(tViewName, ex.getMessage()))
+        
+      }
+    }
+  }
+  
+  def containsPortalQuery(line: String): Boolean = {
+    return (retrieveQuery(line) != null);
   }
 
   def isLineEnd(line: String): Boolean = {
@@ -238,32 +335,31 @@ object PortalShell {
   }
 
   def checkQuit(line: String): Boolean = {
-    if (line == "q" | line == Properties.lineSeparator) {
+    if (line == "q\\" | line == Properties.lineSeparator) {
       return true;
     }
     return false;
   }
 
+  def tViewExists(tViewName: String): Boolean = {
+    return commandList.contains(tViewName);
+  }
+
   def retrieveCommand(tViewName: String): PortalCommand = {
-    var command: PortalCommand = null;
-
-    if (commandList.contains(tViewName)) {
-      command = commandList.get(tViewName).getOrElse(null);
-    } else {
-      printErrMessage(PortalShellConstants.UnsupportedErrorText());
-    }
-
-    return command;
+    return commandList.get(tViewName).getOrElse(null);
   }
 
   def retrieveQuery(command: String): String = {
-    val queryRegex = "\\(.*\\)$"
-    val pattern = new Regex(queryRegex);
-    var res = (pattern findFirstIn command).getOrElse(null)
+    var res = (PortalShellConstants.QueryRegex findFirstIn command).getOrElse(null);
 
     if (res != null) {
-      res = res.drop(1).dropRight(1); //replace beginning and ending "(" and ")"
+      res = res.drop(1).dropRight(1); //replace beginning and ending "{" and "}"
     }
+    return res
+  }
+
+  def replaceQueryWithTView(line: String, tViewName: String): String = {
+    var res = PortalShellConstants.QueryRegex.replaceFirstIn(line, tViewName);
     return res
   }
 
@@ -275,19 +371,22 @@ object PortalShell {
       "==============================================================================="))
   }
 
-  def printInfoMessage(message: String) = {
-    //print info message
-    println(PortalShellConstants.InfoText(message));
-  }
-
-  def printErrMessage(message: String) = {
-    //print error message
+  def printErr(message: String) = {
     println(PortalShellConstants.ErrText(message));
   }
 
-  def printErrAndReturn(errMessage: String): Boolean = {
-    printErrMessage(errMessage);
+  def printInfo(message: String) = {
+    println(PortalShellConstants.InfoText(message));
+  }
+
+  def printErrAndReturnFalse(message: String): Boolean = {
+    println(PortalShellConstants.ErrText(message));
     return false;
+  }
+
+  def printInfoAndReturnTrue(message: String): Boolean = {
+    println(PortalShellConstants.InfoText(message));
+    return true;
   }
 
 }
