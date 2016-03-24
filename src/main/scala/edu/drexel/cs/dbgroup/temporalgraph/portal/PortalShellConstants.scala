@@ -3,7 +3,7 @@ package edu.drexel.cs.dbgroup.temporalgraph.portal;
 import scala.util.matching.Regex
 
 object PortalShellConstants {
-  def GenericTViewName(viewNumber: Integer): String = { String.format("TView%d", viewNumber) };
+  def GenericTViewName(viewNumber: Integer): String = { String.format("portalTView#%d", viewNumber) };
   def QueryRegex(): Regex = new Regex("\\{.*\\}");
   
   //tView creation
@@ -38,4 +38,6 @@ object PortalShellConstants {
   def StatusSQLExecutionFailed(): String = { String.format("Executing SQL command failed") };
   def StatusSQLExecutionFailed(message: String): String = { String.format("Executing SQL command failed with error: %s", message) };
 
+  //internal error
+  def InternalError(message: String): String = {String.format("Internal Error: %s", message) };
 }
