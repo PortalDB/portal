@@ -17,6 +17,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
+import org.apache.spark.HashPartitioner
 
 import org.apache.spark.graphx.impl.GraphXPartitionExtension._
 
@@ -27,7 +28,7 @@ import org.apache.spark.rdd._
 import edu.drexel.cs.dbgroup.graphxt.util.MultifileLoad
 import java.time.LocalDate
 
-class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[BitSet, BitSet], veratts: RDD[((VertexId,TimeIndex),VD)], edgatts: RDD[((VertexId,VertexId,TimeIndex),ED)]) extends TemporalGraph[VD, ED] with Serializable {
+class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[BitSet, BitSet], veratts: RDD[(VertexId,(TimeIndex,VD))], edgatts: RDD[((VertexId,VertexId),(TimeIndex,ED))]) extends TemporalGraph[VD, ED] with Serializable {
   val graphs: Graph[BitSet, BitSet] = grs
   val resolution:Resolution = if (intvs.size > 0) intvs.head.resolution else Resolution.zero
 
@@ -40,10 +41,10 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
   lazy val span: Interval = if (intervals.size > 0) Interval(intervals.head.start, intervals.last.end) else Interval(LocalDate.now, LocalDate.now)
 
   //vertex attributes are kept in a separate rdd with an id,time key
-  val vertexattrs: RDD[((VertexId,TimeIndex),VD)] = veratts
+  val vertexattrs: RDD[(VertexId,(TimeIndex,VD))] = veratts
 
   //edge attributes are kept in a separate rdd with an id,id,time key
-  val edgeattrs: RDD[((VertexId,VertexId,TimeIndex),ED)] = edgatts
+  val edgeattrs: RDD[((VertexId,VertexId),(TimeIndex,ED))] = edgatts
 
   /** Default constructor is provided to support serialization */
   protected def this() = this(Seq[Interval](), Graph[BitSet,BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD), ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
@@ -59,24 +60,31 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
 
   override def vertices: RDD[(VertexId,Map[Interval, VD])] = {
     val start = span.start
-    vertexattrs.map{ case (k,v) => (k._1, Map[Interval,VD](resolution.getInterval(start, k._2) -> v))}
-    .reduceByKey((a: Map[Interval, VD], b: Map[Interval, VD]) => a ++ b)
+    val res = resolution
+
+    vertexattrs.map{ case (k, v) => (k, Map[Interval,VD](res.getInterval(start, v._1) -> v._2))}.reduceByKey{case (a,b) => a ++ b}
   }
 
   override def verticesFlat: RDD[(VertexId,(Interval, VD))] = {
     val start = span.start
-    vertexattrs.map{ case (k,v) => (k._1, (resolution.getInterval(start, k._2), v))}
+    val res = resolution
+
+    vertexattrs.map{ case (k,v) => (k, (res.getInterval(start, v._1), v._2))}
   }
 
   override def edges: RDD[((VertexId,VertexId),Map[Interval, ED])] = {
     val start = span.start
-    edgeattrs.map{ case (k,v) => ((k._1, k._2), Map[Interval,ED](resolution.getInterval(start, k._3) -> v))}
+    val res = resolution
+
+    edgeattrs.map{ case (k,v) => (k, Map[Interval,ED](res.getInterval(start, v._1) -> v._2))}
       .reduceByKey((a: Map[Interval, ED], b: Map[Interval, ED]) => a ++ b)
   }
 
   override def edgesFlat: RDD[((VertexId,VertexId),(Interval, ED))] = {
     val start = span.start
-    edgeattrs.map{ case (k,v) => ((k._1, k._2), (resolution.getInterval(start, k._3), v))}
+    val res = resolution
+
+    edgeattrs.map{ case (k,v) => (k, (res.getInterval(start, v._1), v._2))}
   }
 
   override def degrees: RDD[(VertexId,Map[Interval, Int])] = {
@@ -87,6 +95,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
     //compute degree of each vertex for each interval
     //this should produce a map from interval to degree for each vertex
     val start = span.start
+    val res = resolution
     graphs.aggregateMessages[Map[TimeIndex,Int]](
       ctx => {
         ctx.sendToSrc(ctx.attr.seq.map(x => (x,1)).toMap)
@@ -94,18 +103,19 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
       },
       mergedFunc,
       TripletFields.None)
-    .mapValues(v => v.map(x => (resolution.getInterval(start, x._1) -> x._2)))
+    .mapValues(v => v.map(x => (res.getInterval(start, x._1) -> x._2)))
   }
 
   override def getTemporalSequence: Seq[Interval] = intervals
 
   override def getSnapshot(period: Interval): Graph[VD,ED] = {
     val index = intervals.indexOf(period)
-    val filteredvas: RDD[(VertexId,VD)] = vertexattrs.filter{ case (k,v) => k._2 == index}
-      .map{ case (k,v) => (k._1, v)}
-    val filterededs: RDD[Edge[ED]] = edgeattrs.filter{ case (k,v) => k._3 == index}
-      .map{ case (k,v) => Edge(k._1, k._2, v)}
-    Graph[VD,ED](filteredvas, EdgeRDD.fromEdges[ED,VD](filterededs))
+    val filteredvas: RDD[(VertexId,VD)] = vertexattrs.filter{ case (k,v) => v._1 == index}
+      .map{ case (k,v) => (k, v._2)}
+    val filterededs: RDD[Edge[ED]] = edgeattrs.filter{ case (k,v) => v._1 == index}.map{ case (k,v) => Edge(k._1, k._2, v._2)}
+    Graph[VD,ED](filteredvas, EdgeRDD.fromEdges[ED,VD](filterededs), 
+      edgeStorageLevel = getStorageLevel,
+      vertexStorageLevel = getStorageLevel)
   }
 
   /** Query operations */
@@ -137,8 +147,8 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
       val resg = subg.mapVertices((vid, vattr) => vattr.filter(x => x >= selectStart && x < selectStop).map(_ - selectStart)).mapEdges(e => e.attr.filter(x => x >= selectStart && x < selectStop).map(_ - selectStart))
 
       //now need to update the vertex attribute rdd and edge attr rdd
-      val vattrs = vertexattrs.filter{ case (k,v) => k._2 >= selectStart && k._2 <= selectStop}.map{ case (k,v) => ((k._1, k._2 - selectStart), v)}
-      val eattrs = edgeattrs.filter{ case (k,v) => k._3 >= selectStart && k._3 <= selectStop}.map{ case (k,v) => ((k._1, k._2, k._3 - selectStart), v)}
+      val vattrs = vertexattrs.filter{ case (k,v) => v._1 >= selectStart && v._1 < selectStop}.map{ case (k,v) => (k, (v._1 - selectStart, v._2))}
+      val eattrs = edgeattrs.filter{ case (k,v) => v._1 >= selectStart && v._1 < selectStop}.map{ case (k,v) => (k, (v._1 - selectStart, v._2))}
 
       new OneGraphColumn[VD, ED](newIntvs, resg, vattrs, eattrs)
 
@@ -152,13 +162,14 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
     //TODO: broadcast mask? it's prob too large
     val mask:BitSet = BitSet() ++ chosen
     val start = span.start
+    val res = resolution
 
     new OneGraphColumn[VD, ED](intervals, graphs.subgraph(
       vpred = (vid, attr) => !(attr & mask).isEmpty,
       epred = et => !(et.attr & mask).isEmpty)
       .mapVertices((vid, vattr) => vattr & mask),
-      vertexattrs.filter{ case (k,v) => tpred(resolution.getInterval(start, k._2))},
-      edgeattrs.filter{ case (k,v) => tpred(resolution.getInterval(start, k._3))})
+      vertexattrs.filter{ case (k,v) => tpred(res.getInterval(start, v._1))},
+      edgeattrs.filter{ case (k,v) => tpred(res.getInterval(start, v._1))})
   }
 
   override def select(epred: EdgeTriplet[VD,ED] => Boolean, vpred: (VertexId, VD) => Boolean): TemporalGraph[VD, ED] = {
@@ -250,9 +261,15 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
     //println(filtered.vertices.collect.mkString("\n"))
 
     //TODO: see if filtering can be done more efficiently
-    //FIXME: this doesn't filter out edges for which vertices went away!
-    val vattrs = if (sem == AggregateSemantics.Universal) vertexattrs.map{ case (k,v) => ((k._1, broadcastIndMap.value(k._2)), (v, 1))}.reduceByKey((x,y) => (vAggFunc(x._1, y._1), x._2 + y._2)).filter{ case (k, (attr,cnt)) => cnt == counts(k._2)}.map{ case (k,v) => (k, v._1)} else vertexattrs.map{ case (k,v) => ((k._1, broadcastIndMap.value(k._2)), v)}.reduceByKey(vAggFunc)
-    val eattrs = if (sem == AggregateSemantics.Universal) edgeattrs.map{ case (k,v) => ((k._1, k._2, broadcastIndMap.value(k._3)), (v, 1))}.reduceByKey((x,y) => (eAggFunc(x._1, y._1), x._2 + y._2)).filter{ case (k, (attr,cnt)) => cnt == counts(k._3)}.map{ case (k,v) => (k, v._1)} else edgeattrs.map{ case (k,v) => ((k._1, k._2, broadcastIndMap.value(k._3)), v)}.reduceByKey(eAggFunc)
+    val aveReductFactor = math.max(1, counts.head / 2)
+    val vattrs = if (sem == AggregateSemantics.Universal) vertexattrs.map{ case (k,v) => ((k, broadcastIndMap.value(v._1)), (v._2, 1))}.reduceByKey((x,y) => (vAggFunc(x._1, y._1), x._2 + y._2), math.max(4, vertexattrs.partitions.size / aveReductFactor)).filter{ case (k, (attr,cnt)) => cnt == counts(k._2)}.map{ case (k,v) => (k._1, (k._2, v._1))} else vertexattrs.map{ case (k,v) => ((k, broadcastIndMap.value(v._1)), v._2)}.reduceByKey(vAggFunc, math.max(4, vertexattrs.partitions.size / aveReductFactor)).map{ case (k,v) => (k._1, (k._2, v))}
+    //FIXME: this does not filter out edges for which vertices no longer exist
+    //such as would happen when vertex semantics is universal
+    //and edges semantics existential
+    val eattrs = if (sem == AggregateSemantics.Universal) 
+      edgeattrs.map{ case (k,v) => ((k._1, k._2, broadcastIndMap.value(v._1)), (v._2, 1))}.reduceByKey((x,y) => (eAggFunc(x._1, y._1), x._2 + y._2), math.max(4, edgeattrs.partitions.size / aveReductFactor)).filter{ case (k, (attr,cnt)) => cnt == counts(k._3)}.map{ case (k,v) => ((k._1, k._2), (k._3, v._1))}
+    else 
+      edgeattrs.map{ case (k,v) => ((k._1, k._2, broadcastIndMap.value(v._1)), v._2)}.reduceByKey(eAggFunc, math.max(4, edgeattrs.partitions.size / aveReductFactor)).map{ case (k,v) => ((k._1, k._2), (k._3, v))}
     
     //FIXME: figure out when this can be destroyed if ever
     //broadcastIndMap.destroy()
@@ -264,25 +281,29 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
 
   override def transform[ED2: ClassTag, VD2: ClassTag](emap: (Edge[ED], Interval) => ED2, vmap: (VertexId, Interval, VD) => VD2): TemporalGraph[VD2, ED2] = {
     val start = span.start
-    new OneGraphColumn[VD2, ED2](intervals, graphs, vertexattrs.map{ case (k,v) => (k, vmap(k._1, resolution.getInterval(start, k._2), v))}, edgeattrs.map{ case (k,v) => (k, emap(Edge(k._1, k._2, v), resolution.getInterval(start, k._3)))})
+    val res = resolution
+    new OneGraphColumn[VD2, ED2](intervals, graphs, vertexattrs.map{ case (k,v) => (k, (v._1, vmap(k, res.getInterval(start, v._1), v._2)))}, edgeattrs.map{ case (k,v) => (k, (v._1, emap(Edge(k._1, k._2, v._2), res.getInterval(start, v._1))))})
   }
 
   override def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2)(implicit eq: VD =:= VD2 = null): TemporalGraph[VD2, ED] = {
     val start = span.start
-    new OneGraphColumn[VD2, ED](intervals, graphs, vertexattrs.map{ case (k,v) => (k, map(k._1, resolution.getInterval(start, k._2), v))}, edgeattrs)
+val res = resolution
+    new OneGraphColumn[VD2, ED](intervals, graphs, vertexattrs.map{ case (k,v) => (k, (v._1, map(k, res.getInterval(start, v._1), v._2)))}, edgeattrs)
   }
 
   override def mapEdges[ED2: ClassTag](map: (Edge[ED], Interval) => ED2): TemporalGraph[VD, ED2] = {
     val start = span.start
-    new OneGraphColumn[VD, ED2](intervals, graphs, vertexattrs, edgeattrs.map{ case (k,v) => (k, map(Edge(k._1, k._2, v), resolution.getInterval(start, k._3)))})
+    val res = resolution
+    new OneGraphColumn[VD, ED2](intervals, graphs, vertexattrs, edgeattrs.map{ case (k,v) => (k, (v._1, map(Edge(k._1, k._2, v._2), res.getInterval(start, v._1))))})
   }
 
   override def outerJoinVertices[U: ClassTag, VD2: ClassTag](other: RDD[(VertexId, Map[Interval, U])])(mapFunc: (VertexId, Interval, VD, Option[U]) => VD2)(implicit eq: VD =:= VD2 = null): TemporalGraph[VD2, ED] = {
     val start = span.start
+    val res = resolution
 
-    val in: RDD[((VertexId,TimeIndex),U)] = other.flatMap(x => x._2.map(y => ((x._1, resolution.numBetween(start, y._1.start)), y._2)))
+    val in: RDD[((VertexId,TimeIndex),U)] = other.flatMap(x => x._2.map(y => ((x._1, res.numBetween(start, y._1.start)), y._2)))
 
-    new OneGraphColumn[VD2, ED](intervals, graphs, vertexattrs.leftOuterJoin(in).map{ case (k,v) => (k, mapFunc(k._1, resolution.getInterval(start, k._2), v._1, v._2))}, edgeattrs)
+    new OneGraphColumn[VD2, ED](intervals, graphs, vertexattrs.map{ case (k,v) => ((k, v._1), v._2)}.leftOuterJoin(in).map{ case (k,v) => (k._1, (k._2, mapFunc(k._1, res.getInterval(start, k._2), v._1, v._2)))}, edgeattrs)
   }
 
   override def union(other: TemporalGraph[VD, ED], sem: AggregateSemantics.Value, vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
@@ -323,23 +344,20 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
     val gr1Edges = if (gr1IndexStart > 0) graphs.edges.mapValues{ e => e.attr.map(_ + gr1IndexStart)} else graphs.edges
     val gr2Edges = if (gr2IndexStart > 0) grp2.graphs.edges.mapValues{ e => e.attr.map(_ + gr2IndexStart)} else grp2.graphs.edges
 
-    //now union
-    var target = if (sem == AggregateSemantics.Universal) 2 else 1
-
     //we want to keep those vertices that exist either in either or both graphs
     //depending on the semantics
     val newverts = if (sem == AggregateSemantics.Universal) (gr1Verts union gr2Verts).reduceByKey{ (a: BitSet, b: BitSet) => a & b }.filter{ case (vid, vattr) => !vattr.isEmpty} else (gr1Verts union gr2Verts).reduceByKey{ (a: BitSet, b: BitSet) => a.union(b)  }
     val newedges = if (sem == AggregateSemantics.Universal) (gr1Edges union gr2Edges).map{e => ((e.srcId, e.dstId), e.attr)}.reduceByKey{ (a: BitSet, b: BitSet) => a & b }.filter{ x => !x._2.isEmpty}.map{ case (k,v) => Edge(k._1, k._2, v)} else (gr1Edges union gr2Edges).map{e => ((e.srcId, e.dstId), e.attr)}.reduceByKey{ (a: BitSet, b: BitSet) => a.union(b) }.map{ case (k,v) => Edge(k._1, k._2, v)}
 
-    val gr1vattrs = if (gr1IndexStart > 0) vertexattrs.map{ case (k,v) => ((k._1, k._2 + gr1IndexStart), v)} else vertexattrs
-    val gr2vattrs = if (gr2IndexStart > 0) grp2.vertexattrs.map{ case (k,v) => ((k._1, k._2 + gr2IndexStart), v)} else grp2.vertexattrs
+    val gr1vattrs = vertexattrs.map{ case (k,v) => ((k, v._1 + gr1IndexStart), v._2)}
+    val gr2vattrs = grp2.vertexattrs.map{ case (k,v) => ((k, v._1 + gr2IndexStart), v._2)}
     //now put them together
-    val vattrs = if (sem == AggregateSemantics.Universal) (gr1vattrs join gr2vattrs).mapValues(x => vFunc(x._1, x._2)) else (gr1vattrs union gr2vattrs).reduceByKey(vFunc)
-    val gr1eattrs = if (gr1IndexStart > 0) edgeattrs.map{ case (k,v) => ((k._1, k._2, k._3 + gr1IndexStart), v)} else edgeattrs
-    val gr2eattrs = if (gr2IndexStart > 0) grp2.edgeattrs.map{ case (k,v) => ((k._1, k._2, k._3 + gr2IndexStart), v)} else grp2.edgeattrs
-    val eattrs = if (sem == AggregateSemantics.Universal) (gr1eattrs join gr2eattrs).mapValues(x => eFunc(x._1, x._2)) else (gr1eattrs union gr2eattrs).reduceByKey(eFunc)
+    val vattrs = if (sem == AggregateSemantics.Universal) (gr1vattrs join gr2vattrs).map{ case (k,v) => (k._1, (k._2, vFunc(v._1, v._2)))} else (gr1vattrs union gr2vattrs).reduceByKey(vFunc).map{ case (k,v) => (k._1, (k._2, v))}
+    val gr1eattrs = edgeattrs.map{ case (k,v) => ((k._1, k._2, v._1 + gr1IndexStart), v._2)}
+    val gr2eattrs = grp2.edgeattrs.map{ case (k,v) => ((k._1, k._2, v._1 + gr2IndexStart), v._2)}
+    val eattrs = if (sem == AggregateSemantics.Universal) (gr1eattrs join gr2eattrs).map{ case (k,v) => ((k._1, k._2), (k._3, eFunc(v._1, v._2)))} else (gr1eattrs union gr2eattrs).reduceByKey(eFunc).map{ case (k,v) => ((k._1, k._2), (k._3, v))}
 
-    new OneGraphColumn[VD, ED](mergedIntervals, Graph[BitSet,BitSet](newverts, EdgeRDD.fromEdges[BitSet,BitSet](newedges)), vattrs, eattrs)
+    new OneGraphColumn[VD, ED](mergedIntervals, Graph[BitSet,BitSet](newverts, EdgeRDD.fromEdges[BitSet,BitSet](newedges), edgeStorageLevel = getStorageLevel, vertexStorageLevel = getStorageLevel), vattrs, eattrs)
   }
 
   override def intersection(other: TemporalGraph[VD, ED], sem: AggregateSemantics.Value, vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
@@ -380,10 +398,12 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
       val newverts = if (sem == AggregateSemantics.Universal) (gr1Sel.graphs.vertices union gr2Sel.graphs.vertices).reduceByKey{ (a: BitSet, b: BitSet) => a & b }.filter{ case (vid, vattr) => !vattr.isEmpty} else (gr1Sel.graphs.vertices union gr2Sel.graphs.vertices).reduceByKey{ (a: BitSet, b: BitSet) => a.union(b)  }
     val newedges = if (sem == AggregateSemantics.Universal) (gr1Sel.graphs.edges union gr2Sel.graphs.edges).map{e => ((e.srcId, e.dstId), e.attr)}.reduceByKey{ (a: BitSet, b: BitSet) => a & b }.filter{ x => !x._2.isEmpty}.map{ case (k,v) => Edge(k._1, k._2, v)} else (gr1Sel.graphs.edges union gr2Sel.graphs.edges).map{e => ((e.srcId, e.dstId), e.attr)}.reduceByKey{ (a: BitSet, b: BitSet) => a.union(b) }.map{ case (k,v) => Edge(k._1, k._2, v)}
 
-      val vattrs = if (sem == AggregateSemantics.Universal) (gr1Sel.vertexattrs join gr2Sel.vertexattrs).mapValues(x => vFunc(x._1, x._2)) else (gr1Sel.vertexattrs union gr2Sel.vertexattrs).reduceByKey(vFunc)
-      val eattrs = if (sem == AggregateSemantics.Universal) (gr1Sel.edgeattrs join gr2Sel.edgeattrs).mapValues(x => eFunc(x._1, x._2)) else (gr1Sel.edgeattrs union gr2Sel.edgeattrs).reduceByKey(eFunc)
+      val vattrs = if (sem == AggregateSemantics.Universal) (gr1Sel.vertexattrs.map{ case (k,v) => ((k, v._1), v._2)} join gr2Sel.vertexattrs.map{ case (k,v) => ((k, v._1), v._2)}).map{ case (k,v) => (k._1, (k._2, vFunc(v._1, v._2)))} else (gr1Sel.vertexattrs.map{ case (k,v) => ((k, v._1), v._2)} union gr2Sel.vertexattrs.map{ case (k,v) => ((k, v._1), v._2)}).reduceByKey(vFunc).map{ case (k,v) => (k._1, (k._2, v))}
+      val eattrs = if (sem == AggregateSemantics.Universal) (gr1Sel.edgeattrs.map{ case (k,v) => ((k._1, k._2, v._1), v._2)} join gr2Sel.edgeattrs.map{ case (k,v) => ((k._1, k._2, v._1), v._2)}).map{ case (k,v) => ((k._1, k._2), (k._3, eFunc(v._1, v._2)))} else (gr1Sel.edgeattrs.map{ case (k,v) => ((k._1, k._2, v._1), v._2)} union gr2Sel.edgeattrs.map{ case (k,v) => ((k._1, k._2, v._1), v._2)}).reduceByKey(eFunc).map{case (k,v) => ((k._1, k._2), (k._3, v))}
 
-      new OneGraphColumn[VD, ED](gr2Sel.intervals, Graph[BitSet,BitSet](newverts, EdgeRDD.fromEdges[BitSet,BitSet](newedges)), vattrs, eattrs)
+      new OneGraphColumn[VD, ED](gr2Sel.intervals, Graph[BitSet,BitSet](newverts, EdgeRDD.fromEdges[BitSet,BitSet](newedges),
+        edgeStorageLevel = getStorageLevel,
+        vertexStorageLevel = getStorageLevel), vattrs, eattrs)
     }
   }
 
@@ -434,13 +454,15 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
     //need to put values into vertices and edges
     //FIXME: is this really necessary? they aren't used in the computations!
     val grph = Graph[Map[TimeIndex,VD], Map[TimeIndex,ED]](
-      vertexattrs.map{ case (k,v) => (k._1, Map[TimeIndex, VD](k._2 -> v))}.reduceByKey((a, b) => a ++ b),
-      EdgeRDD.fromEdges[Map[TimeIndex,ED],Map[TimeIndex,VD]](edgeattrs.map{ case (k,v) => ((k._1, k._2), Map(k._3 -> v))}.reduceByKey((a,b) => a ++ b).map{ case (k,v) => Edge(k._1, k._2, v)}))
+      vertexattrs.mapValues{ v => Map[TimeIndex, VD](v._1 -> v._2)}.reduceByKey((a, b) => a ++ b),
+      EdgeRDD.fromEdges[Map[TimeIndex,ED],Map[TimeIndex,VD]](edgeattrs.mapValues{ v => Map(v._1 -> v._2)}.reduceByKey((a,b) => a ++ b).map{ case (k,v) => Edge(k._1, k._2, v)}),
+      edgeStorageLevel = getStorageLevel,
+      vertexStorageLevel = getStorageLevel)
       
     val newgrp: Graph[Map[TimeIndex, VD], Map[TimeIndex, ED]] = Pregel(grph, initM, maxIterations, activeDirection)(vertexP, sendMsgC, mergeMsgC)
     //need to convert back to bitmap and vertexattrs
     //FIXME:? is it ok that we are throwing away the new edge values?
-    val newattrs: RDD[((VertexId, TimeIndex), VD)] = newgrp.vertices.flatMap{ case (vid, vattr) => vattr.map{ case (k,v) => ((vid, k),v)  }}
+    val newattrs: RDD[(VertexId, (TimeIndex, VD))] = newgrp.vertices.flatMap{ case (vid, vattr) => vattr.toSeq.map{ case (k,v) => (vid, (k,v))  }}
 
     new OneGraphColumn[VD, ED](intervals, graphs, newattrs, edgeattrs)
   }
@@ -521,8 +543,8 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
       val resultGraph: Graph[Map[TimeIndex,(Double,Double)], Map[TimeIndex,(Double,Double)]] = Pregel(pagerankGraph, initialMessage, numIter, activeDirection = EdgeDirection.Either)(vertexProgram, sendMessage, messageCombiner)
 
       //now need to extract the values into a separate rdd again
-      val vattrs = resultGraph.vertices.flatMap{ case (vid,vattr) => vattr.map{ case (k,v) => ((vid,k), v._1)}}
-      val eattrs = resultGraph.edges.flatMap{ e => e.attr.map{ case (k,v) => ((e.srcId, e.dstId, k), v._1)}}
+      val vattrs = resultGraph.vertices.flatMap{ case (vid,vattr) => vattr.toSeq.map{ case (k,v) => (vid,(k, v._1))}}
+      val eattrs = resultGraph.edges.flatMap{ e => e.attr.toSeq.map{ case (k,v) => ((e.srcId, e.dstId), (k, v._1))}}
 
       new OneGraphColumn[Double, Double](intervals, graphs, vattrs, eattrs)
 
@@ -545,8 +567,8 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
         mergeFunc, TripletFields.None)
 
 
-    val vattrs = degrees.flatMap{ case (vid, vattr) => vattr.map{ case (k,v) => ((vid, k), v.toDouble)}}
-    val eattrs = edgeattrs.map{ case (k, attr) => (k, 0.0)}
+    val vattrs = degrees.flatMap{ case (vid, vattr) => vattr.toSeq.map{ case (k,v) => (vid, (k, v.toDouble))}}
+    val eattrs = edgeattrs.map{ case (k, attr) => (k, (attr._1, 0.0))}
 
     new OneGraphColumn[Double, Double](intervals, graphs, vattrs, eattrs)
   }
@@ -595,7 +617,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
 
     val resultGraph: Graph[Map[TimeIndex, VertexId], BitSet] = Pregel(conGraph, initialMessage, activeDirection = EdgeDirection.Either)(vertexProgram, sendMessage, messageCombiner)
 
-    val vattrs = resultGraph.vertices.flatMap{ case (vid, vattr) => vattr.map{ case (k,v) => ((vid,k), v)}}
+    val vattrs = resultGraph.vertices.flatMap{ case (vid, vattr) => vattr.toSeq.map{ case (k,v) => (vid, (k, v))}}
 
     new OneGraphColumn[VertexId, ED](intervals, graphs, vattrs, edgeattrs)
    }
@@ -603,7 +625,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
   //run shortestPaths on each interval
   override def shortestPaths(landmarks: Seq[VertexId]): TemporalGraph[ShortestPathsXT.SPMap, ED] = {
     //TODO: implement this using pregel
-    throw new UnsupportedOperationException("directed version of pageRank not yet implemented")
+    throw new UnsupportedOperationException("directed version of shortestpaths not yet implemented")
   }
 
   /** Spark-specific */
@@ -615,8 +637,9 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
       graphs.edges.partitions.size
   }
 
+  def getStorageLevel: StorageLevel = graphs.edges.getStorageLevel
+
   override def persist(newLevel: StorageLevel = MEMORY_ONLY): TemporalGraph[VD, ED] = {
-    //just persist the graph itself
     graphs.persist(newLevel)
     vertexattrs.persist(newLevel)
     edgeattrs.persist(newLevel)
@@ -688,17 +711,19 @@ object OneGraphColumn {
       xx = intvs.last.end
     }
 
-    val users: RDD[((VertexId,TimeIndex),String)] = MultifileLoad.readNodes(dataPath, minDate, intvs.last.start).flatMap{ x => 
+    val usersnp: RDD[(VertexId,(TimeIndex,String))] = MultifileLoad.readNodes(dataPath, minDate, intvs.last.start).flatMap{ x => 
       val (filename, line) = x
       val dt = LocalDate.parse(filename.split('/').last.dropWhile(!_.isDigit).takeWhile(_ != '.'))
       val parts = line.split(",")
       val index = res.numBetween(minDate, dt)
       if (parts.size > 1 && parts.head != "" && index > -1) {
-        Some((parts.head.toLong, index), parts(1).toString)
+        Some(parts.head.toLong, (index, parts(1).toString))
       } else None
     }
 
-    val links: RDD[((VertexId,VertexId,TimeIndex),Int)] = MultifileLoad.readEdges(dataPath, minDate, intvs.last.start)
+    val users = usersnp.partitionBy(new HashPartitioner(usersnp.partitions.size))
+
+    val linksnp: RDD[((VertexId,VertexId),(TimeIndex,Int))] = MultifileLoad.readEdges(dataPath, minDate, intvs.last.start)
       .flatMap{ x =>
       val (filename, line) = x
       val dt = LocalDate.parse(filename.split('/').last.dropWhile(!_.isDigit).takeWhile(_ != '.'))
@@ -708,23 +733,25 @@ object OneGraphColumn {
         val dstId = lineArray(1).toLong
         var attr = 0
         if(lineArray.length > 2){
-          attr = lineArray{2}.toInt
+          attr = lineArray(2).toInt
         }
         val index = res.numBetween(minDate, dt)
         if (srcId > dstId)
-          Some((dstId, srcId, index),attr)
+          Some((dstId, srcId), (index,attr))
         else
-          Some((srcId, dstId, index),attr)
+          Some((srcId, dstId), (index,attr))
       } else None
     }
+    val links = linksnp.partitionBy(new HashPartitioner(linksnp.partitions.size))
 
-    //TODO: partition to a smaller number of partitions
-    //by passing it into reduceByKey, based on similarity and number of graphs
-    //loaded
-    val verts: RDD[(VertexId, BitSet)] = users.map{ case (k,v) => (k._1, BitSet(k._2))}.reduceByKey((a,b) => a union b )
-    val edges = EdgeRDD.fromEdges[BitSet, BitSet](links.map{ case (k,v) => ((k._1, k._2), BitSet(k._3))}.reduceByKey((a,b) => a union b).map{case (k,v) => Edge(k._1, k._2, v)})
+    //TODO: make these hard-coded parameters be dependent on  data size
+    //and evolution rate
+    val reductFact: Int = 2
+    val verts: RDD[(VertexId, BitSet)] = users.mapValues{ v => BitSet(v._1)}.reduceByKey((a,b) => a union b, math.max(4, users.partitions.size/reductFact) )
+    val edges = EdgeRDD.fromEdges[BitSet, BitSet](links.mapValues{ v => BitSet(v._1)}.reduceByKey((a,b) => a union b, math.max(4, links.partitions.size/reductFact)).map{case (k,v) => Edge(k._1, k._2, v)})
 
-    var graph: Graph[BitSet,BitSet] = Graph(verts, edges, BitSet())
+    //TODO: the storage level should depend on size becase MEMORY_ONLY is fine for small graphs
+    var graph: Graph[BitSet,BitSet] = Graph(verts, edges, BitSet(), edgeStorageLevel = StorageLevel.MEMORY_ONLY_SER, vertexStorageLevel = StorageLevel.MEMORY_ONLY_SER)
 
     if (strategy != PartitionStrategyType.None) {
       graph = graph.partitionBy(PartitionStrategies.makeStrategy(strategy, 0, intvs.size, runWidth))
@@ -742,7 +769,7 @@ object OneGraphColumn {
      println("number of partitions in edges: " + graph.edges.partitions.size)
     */
 
-    new OneGraphColumn[String, Int](intvs, graph.persist(), users, links)
+    new OneGraphColumn[String, Int](intvs, graph, users, links)
   }
 
   def emptyGraph[VD: ClassTag, ED: ClassTag]():OneGraphColumn[VD, ED] = new OneGraphColumn(Seq[Interval](), Graph[BitSet,BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD), ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)

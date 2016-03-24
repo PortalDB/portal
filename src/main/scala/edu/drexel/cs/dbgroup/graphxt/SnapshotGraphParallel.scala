@@ -198,6 +198,10 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
     var index:Integer = 0
     var num:Integer = 0
 
+    //FIXME: this is a bit of a hack
+    //grab any vd value to use as default
+    val defV:VD = graphs.dropWhile(g => g.vertices.isEmpty).head.vertices.take(1).head._2
+
     while (index < graphs.size) {
       val intv:Interval = intervals(index)
       num = 0
@@ -231,7 +235,8 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
         gps = gps :+ Graph(VertexRDD(firstVRDD.reduceByKey(vAggFunc)), EdgeRDD.fromEdges[ED, VD](firstERDD.map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eAggFunc).map { x =>
           val (k, v) = x
           Edge(k._1, k._2, v)
-        }))
+        }), defV, edgeStorageLevel = getStorageLevel,
+          vertexStorageLevel = getStorageLevel)
       } else if (sem == AggregateSemantics.Universal && num == expected) {
         //we only have a valid aggregated snapshot if we have all the datapoints from this interval
         gps = gps :+ Graph(firstVRDD.map(x => (x._1, (x._2, 1))).reduceByKey((x, y) => (vAggFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == expected).map { x =>
@@ -241,7 +246,8 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
           EdgeRDD.fromEdges[ED, VD](firstERDD.map(e => ((e.srcId, e.dstId), (e.attr, 1))).reduceByKey((x, y) => (eAggFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == expected).map { x =>
             val (k, v) = x
             Edge(k._1, k._2, v._1)
-          }))
+          }), defV, edgeStorageLevel = getStorageLevel,
+          vertexStorageLevel = getStorageLevel)
       } else { //empty graph
         gps = gps :+ Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
       }
@@ -326,6 +332,9 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
     val grseq2:ParSeq[Graph[VD, ED]] = grseq2start ++ grp2.graphs ++ grseq2pad
 
     //then zip them
+    //FIXME: this is a bit of a hack
+    //grab any vd value to use as default
+    val defV:VD = grseq1.dropWhile(g => g.vertices.isEmpty).head.vertices.take(1).head._2
     val mergedGraphs:ParSeq[Graph[VD, ED]] = grseq1.zip(grseq2).map { twogrs =>
       val (gr1:Graph[VD,ED],gr2:Graph[VD,ED]) = twogrs
       if (gr1.vertices.isEmpty) {
@@ -343,7 +352,8 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
           Graph(VertexRDD(gr1.vertices.union(gr2.vertices).reduceByKey(vFunc)), EdgeRDD.fromEdges[ED, VD](gr1.edges.union(gr2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eFunc).map { x =>
             val (k, v) = x
             Edge(k._1, k._2, v)
-          }))
+          }), defV, edgeStorageLevel = getStorageLevel,
+          vertexStorageLevel = getStorageLevel)
         } else { //universal
           Graph(gr1.vertices.union(gr2.vertices).map(x => (x._1, (x._2, 1))).reduceByKey((x, y) => (vFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == 2).map {x =>
             val (k, v) = x
@@ -351,7 +361,8 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
           }, EdgeRDD.fromEdges[ED, VD](gr1.edges.union(gr2.edges).map(e => ((e.srcId, e.dstId), (e.attr, 1))).reduceByKey((x, y) => (eFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == 2).map { x =>
             val (k, v) = x
             Edge(k._1, k._2, v._1)
-          }))
+          }), defV, edgeStorageLevel = getStorageLevel,
+          vertexStorageLevel = getStorageLevel)
         }
       }
     }
@@ -397,34 +408,47 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
       val grseq2:ParSeq[Graph[VD, ED]] = grp2.graphs.slice(gr2IndexStart, gr2IndexEnd)
 
       //then zip them
+      //FIXME: this is a bit of a hack
+      //grab any vd value to use as default
+      val defV:VD = grseq1.dropWhile(g => g.vertices.isEmpty).head.vertices.take(1).head._2
       val mergedGraphs:ParSeq[Graph[VD, ED]] = grseq1.zip(grseq2).map { twogrs =>
         val (gr1:Graph[VD,ED],gr2:Graph[VD,ED]) = twogrs
-        if (gr1.vertices.isEmpty) {
+        val verts:RDD[(VertexId,VD)] = if (gr1.vertices.isEmpty) {
           if (sem == AggregateSemantics.Existential)
-            gr2
+            gr2.vertices
           else
-            Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+            ProgramContext.sc.emptyRDD
         } else if (gr2.vertices.isEmpty) {
           if (sem == AggregateSemantics.Existential)
-            gr1
+            gr1.vertices
           else
-            Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+            ProgramContext.sc.emptyRDD
         } else {
-          if (sem == AggregateSemantics.Existential) {
-            Graph(VertexRDD(gr1.vertices.union(gr2.vertices).reduceByKey(vFunc)), EdgeRDD.fromEdges[ED, VD](gr1.edges.union(gr2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eFunc).map { x =>
-              val (k, v) = x
-              Edge(k._1, k._2, v)
-            }))
-          } else { //universal
-            Graph(gr1.vertices.union(gr2.vertices).map(x => (x._1, (x._2, 1))).reduceByKey((x, y) => (vFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == 2).map {x =>
+          if (sem == AggregateSemantics.Existential)
+            gr1.vertices.union(gr2.vertices).reduceByKey(vFunc)
+          else
+            gr1.vertices.union(gr2.vertices).map(x => (x._1, (x._2, 1))).reduceByKey((x, y) => (vFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == 2).map {x =>
               val (k, v) = x
               (k, v._1)
-            }, EdgeRDD.fromEdges[ED, VD](gr1.edges.union(gr2.edges).map(e => ((e.srcId, e.dstId), (e.attr, 1))).reduceByKey((x, y) => (eFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == 2).map { x =>
-              val (k, v) = x
-              Edge(k._1, k._2, v._1)
-            }))
-          }
+            }
         }
+        val eds:RDD[Edge[ED]] = if (gr1.edges.isEmpty) {
+          if (sem == AggregateSemantics.Existential)
+            gr2.edges
+          else
+            ProgramContext.sc.emptyRDD
+        } else if (gr2.edges.isEmpty) {
+          if (sem == AggregateSemantics.Existential)
+            gr1.edges
+          else
+            ProgramContext.sc.emptyRDD
+        } else {
+          if (sem == AggregateSemantics.Existential)
+            gr1.edges.union(gr2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eFunc).map { x => val (k, v) = x; Edge(k._1, k._2, v) }
+          else
+            gr1.edges.union(gr2.edges).map(e => ((e.srcId, e.dstId), (e.attr, 1))).reduceByKey((x, y) => (eFunc(x._1, y._1), x._2 + y._2)).filter(x => x._2._2 == 2).map { x => val (k, v) = x; Edge(k._1, k._2, v._1) }
+        }
+        Graph(VertexRDD(verts), EdgeRDD.fromEdges[ED, VD](eds), defV, edgeStorageLevel = getStorageLevel, vertexStorageLevel = getStorageLevel)
       }
 
       new SnapshotGraphParallel(mergedIntervals, mergedGraphs)
@@ -497,9 +521,13 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
     graphs.filterNot(_.edges.isEmpty).map(_.edges.partitions.size).reduce(_ + _)
   }
 
+  def getStorageLevel: StorageLevel = graphs.head.edges.getStorageLevel
+
   override def persist(newLevel: StorageLevel = MEMORY_ONLY): TemporalGraph[VD, ED] = {
     //persist each graph
-    graphs.map(_.persist(newLevel))
+    //this will throw an exception if the graphs are already persisted
+    //with a different storage level
+    graphs.map(g => g.persist(newLevel))
     this
   }
 
@@ -532,63 +560,7 @@ object SnapshotGraphParallel extends Serializable {
   //this assumes that the data is in the dataPath directory, each time period in its own files
   //end is not inclusive, i.e. [start, end)
   final def loadData(dataPath: String, start:LocalDate, end:LocalDate): SnapshotGraphParallel[String, Int] = {
-    var minDate: LocalDate = start
-    var maxDate: LocalDate = end
-
-    var source: scala.io.Source = null
-    var fs: FileSystem = null
-
-    val pt: Path = new Path(dataPath + "/Span.txt")
-    val conf: Configuration = new Configuration()
-    if (System.getenv("HADOOP_CONF_DIR") != "") {
-      conf.addResource(new Path(System.getenv("HADOOP_CONF_DIR") + "/core-site.xml"))
-    }
-    fs = FileSystem.get(conf)
-    source = scala.io.Source.fromInputStream(fs.open(pt))
-
-    val lines = source.getLines
-    val minin = LocalDate.parse(lines.next)
-    val maxin = LocalDate.parse(lines.next)
-    val res = Resolution.from(lines.next)
-
-    if (minin.isAfter(start)) 
-      minDate = minin
-    if (maxin.isBefore(end)) 
-      maxDate = maxin
-    source.close()
-
-    var intvs: Seq[Interval] = Seq[Interval]()
-    var gps: ParSeq[Graph[String, Int]] = ParSeq[Graph[String, Int]]()
-    var xx:LocalDate = minDate
-
-    while (xx.isBefore(maxDate)) {
-      val nodesPath = dataPath + "/nodes/nodes" + xx.toString() + ".txt"
-      val edgesPath = dataPath + "/edges/edges" + xx.toString() + ".txt"
-      val numNodeParts = MultifileLoad.estimateParts(nodesPath) 
-      val numEdgeParts = MultifileLoad.estimateParts(edgesPath) 
-      
-      val users: RDD[(VertexId, String)] = ProgramContext.sc.textFile(nodesPath, numNodeParts).map(line => line.split(",")).map { parts =>
-        if (parts.size > 1 && parts.head != "")
-          (parts.head.toLong, parts(1).toString)
-        else
-          (0L, "Default")
-      }
-      
-      var edges: EdgeRDD[Int] = EdgeRDD.fromEdges(ProgramContext.sc.emptyRDD)
-
-      val ept: Path = new Path(dataPath + "/edges/edges" + xx.toString() + ".txt")
-      if (fs.exists(ept) && fs.getFileStatus(ept).getLen > 0) {
-        //uses extended version of Graph Loader to load edges with attributes
-        edges = GraphLoaderAddon.edgeListFile(ProgramContext.sc, dataPath + "/edges/edges" + xx.toString() + ".txt", true, numEdgeParts).edges
-      }
-      
-      intvs = intvs :+ res.getInterval(xx)
-      gps = gps :+ Graph(users, edges)
-      xx = intvs.last.end
-
-    }
-    
-    new SnapshotGraphParallel(intvs, gps)
+    loadWithPartition(dataPath, start, end, PartitionStrategyType.None, 2)
   }
 
   final def loadWithPartition(dataPath: String, start: LocalDate, end: LocalDate, strategy: PartitionStrategyType.Value, runWidth: Int): SnapshotGraphParallel[String, Int] = {
@@ -622,15 +594,14 @@ object SnapshotGraphParallel extends Serializable {
     var xx:LocalDate = minDate
 
     val total = res.numBetween(minDate, maxDate)
-    //val numParts = MultifileLoad.estimateParts(dataPath + "/edges/edges{" + NumberRangeRegex.generateRegex(minDate.getYear(), maxDate.getYear()) + "}-{*}.txt")
 
     while (xx.isBefore(maxDate)) {
-      var nodesPath = dataPath + "/nodes/nodes" + xx.toString() + ".txt"
-      var edgesPath = dataPath + "/edges/edges" + xx.toString() + ".txt"
-      var numNodeParts = MultifileLoad.estimateParts(nodesPath) 
-      var numEdgeParts = MultifileLoad.estimateParts(edgesPath) 
+      val nodesPath = dataPath + "/nodes/nodes" + xx.toString() + ".txt"
+      val edgesPath = dataPath + "/edges/edges" + xx.toString() + ".txt"
+      val numNodeParts = MultifileLoad.estimateParts(nodesPath) 
+      val numEdgeParts = MultifileLoad.estimateParts(edgesPath) 
       
-      val users: RDD[(VertexId, String)] = ProgramContext.sc.textFile(dataPath + "/nodes/nodes" + xx.toString() + ".txt", numNodeParts).map(line => line.split(",")).map { parts =>
+      val users: RDD[(VertexId, String)] = ProgramContext.sc.textFile(nodesPath, numNodeParts).map(line => line.split(",")).map { parts =>
         if (parts.size > 1 && parts.head != "")
           (parts.head.toLong, parts(1).toString)
         else
@@ -639,10 +610,10 @@ object SnapshotGraphParallel extends Serializable {
       
       var edges: EdgeRDD[Int] = EdgeRDD.fromEdges(ProgramContext.sc.emptyRDD)
 
-      val ept: Path = new Path(dataPath + "/edges/edges" + xx.toString() + ".txt")
+      val ept: Path = new Path(edgesPath)
       if (fs.exists(ept) && fs.getFileStatus(ept).getLen > 0) {
         //uses extended version of Graph Loader to load edges with attributes
-        var g = GraphLoaderAddon.edgeListFile(ProgramContext.sc, dataPath + "/edges/edges" + xx.toString() + ".txt", true, numEdgeParts)
+        var g = GraphLoaderAddon.edgeListFile(ProgramContext.sc, edgesPath, true, numEdgeParts)
         if (strategy != PartitionStrategyType.None) {
           g = g.partitionBy(PartitionStrategies.makeStrategy(strategy, intvs.size + 1, total, runWidth), g.edges.partitions.size)
         }
@@ -650,7 +621,9 @@ object SnapshotGraphParallel extends Serializable {
       }
       
       intvs = intvs :+ res.getInterval(xx)
-      gps = gps :+ Graph(users, edges)
+      //TODO: should decide the storage level based on size
+      //for small graphs MEMORY_ONLY is fine
+      gps = gps :+ Graph(users, edges, "Default", edgeStorageLevel = StorageLevel.MEMORY_ONLY_SER, vertexStorageLevel = StorageLevel.MEMORY_ONLY_SER)
       xx = intvs.last.end
 
       /*

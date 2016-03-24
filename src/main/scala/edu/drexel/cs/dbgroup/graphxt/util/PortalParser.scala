@@ -2,6 +2,9 @@ package edu.drexel.cs.dbgroup.graphxt.util
 
 import scala.util.parsing.combinator.PackratParsers
 import scala.util.parsing.combinator.syntactical.StandardTokenParsers
+import org.apache.spark.storage.StorageLevel
+import org.apache.spark.storage.StorageLevel._
+
 import java.time.LocalDate
 
 import org.apache.spark.graphx.Edge
@@ -284,7 +287,7 @@ object Interpreter {
 
   def parseSelect(sel: Select): Either[TemporalGraph[String,Int], TemporalGraph[Double,Double]] = {
     val selStart = System.currentTimeMillis()
-    var res: TemporalGraph[String, Int] = GraphLoader.loadData(sel.dataset, sel.start,sel.end).persist()
+    var res: TemporalGraph[String, Int] = GraphLoader.loadData(sel.dataset, sel.start,sel.end).persist(StorageLevel.MEMORY_ONLY_SER)
     //FIXME: this is a hack for the experiment
     res.materialize
     val selEnd = System.currentTimeMillis()

@@ -2,7 +2,6 @@ package edu.drexel.cs.dbgroup.graphxt
 
 import scala.reflect.ClassTag
 import org.apache.spark.graphx._
-//import scala.collection.immutable.Map
 import scala.collection.mutable.LinkedHashMap
 import scala.collection.breakOut
 import scala.collection.immutable.BitSet

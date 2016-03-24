@@ -51,7 +51,7 @@ object PortalShell {
           partitionType = PartitionStrategyType.withName(args(i + 1))
         case "--query" =>
           query = args.drop(i+1)
-        case "--runwidth" =>
+        case "--runWidth" =>
           runWidth = args(i + 1).toInt
         case _ => ()
       }
