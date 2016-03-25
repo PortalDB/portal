@@ -38,6 +38,4 @@ object PortalShellConstants {
   def StatusSQLExecutionFailed(): String = { String.format("Executing SQL command failed") };
   def StatusSQLExecutionFailed(message: String): String = { String.format("Executing SQL command failed with error: %s", message) };
 
-  //internal error
-  def InternalError(message: String): String = {String.format("Internal Error: %s", message) };
 }
