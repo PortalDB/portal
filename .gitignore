@@ -11,3 +11,5 @@ src/graphxext/project
 src/graphxext/target
 src/main/driverUtils/project
 src/main/driverutils/target
+
+*.prefs
