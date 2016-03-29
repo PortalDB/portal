@@ -267,9 +267,19 @@ class SnapshotGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Seq[G
       x._1.mapVertices{ (id: VertexId, attr: VD) => map(id, intervals(x._2), attr) }))
   }
 
+  override def mapVerticesWIndex[VD2: ClassTag](map: (VertexId, TimeIndex, VD) => VD2)(implicit eq: VD =:= VD2 = null): TemporalGraph[VD2, ED] = {
+    new SnapshotGraph(intervals, graphs.zipWithIndex.map(x =>
+      x._1.mapVertices{ (id: VertexId, attr: VD) => map(id, x._2, attr) }))
+  }
+
   override def mapEdges[ED2: ClassTag](map: (Edge[ED], Interval) => ED2): TemporalGraph[VD, ED2] = {
     new SnapshotGraph(intervals, graphs.zipWithIndex.map(x =>
       x._1.mapEdges{ e: Edge[ED] => map(e, intervals(x._2))}))
+  }
+
+  override def mapEdgesWIndex[ED2: ClassTag](map: (Edge[ED], TimeIndex) => ED2): TemporalGraph[VD, ED2] = {
+    new SnapshotGraph(intervals, graphs.zipWithIndex.map(x =>
+      x._1.mapEdges{ e: Edge[ED] => map(e, x._2)}))
   }
 
   override def outerJoinVertices[U: ClassTag, VD2: ClassTag](other: RDD[(VertexId, Map[Interval, U])])(mapFunc: (VertexId, Interval, VD, Option[U]) => VD2)(implicit eq: VD =:= VD2 = null): TemporalGraph[VD2, ED] = {

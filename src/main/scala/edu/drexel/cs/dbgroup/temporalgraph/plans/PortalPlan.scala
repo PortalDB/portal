@@ -1,8 +1,12 @@
 package edu.drexel.cs.dbgroup.temporalgraph.plans
 
-import edu.drexel.cs.dbgroup.temporalgraph.{TemporalGraphWithSchema,VertexEdgeAttribute}
 import java.util.concurrent.atomic.AtomicBoolean
+
 import org.apache.spark.sql.catalyst.plans.QueryPlan
+import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.types.StructType
+
+import edu.drexel.cs.dbgroup.temporalgraph.{TemporalGraphWithSchema,VertexEdgeAttribute}
 
 abstract class PortalPlan extends QueryPlan[PortalPlan] {
 
@@ -10,6 +14,9 @@ abstract class PortalPlan extends QueryPlan[PortalPlan] {
    * Whether the "prepare" method is called.
    */
   private val prepareCalled = new AtomicBoolean(false)
+
+  def vertexSchema: StructType = schema("V").dataType match { case tp: StructType => tp }
+  def edgeSchema: StructType = schema("E").dataType match { case tp: StructType => tp }
 
   /**
    * Returns the result of this query as an TemporalGraphWithSchema by delegating to doExecute

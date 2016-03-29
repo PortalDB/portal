@@ -3,14 +3,38 @@ package edu.drexel.cs.dbgroup.temporalgraph.plans.logical
 import java.time.LocalDate
 
 import org.apache.spark.sql.catalyst.plans.logical.{UnaryNode,LogicalPlan}
-import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.{StructType,Metadata,StructField}
+import org.apache.spark.sql.catalyst.analysis.UnresolvedAlias
 
 import edu.drexel.cs.dbgroup.temporalgraph._
+import edu.drexel.cs.dbgroup.temporalgraph.portal.PortalException
 
-case class TGroup(resolution: Resolution, vertexSemantics: AggregateSemantics.Value, edgeSemantics: AggregateSemantics.Value, vertexAggregations: Seq[Expression], edgeAggregations: Seq[Expression], child: LogicalPlan) extends UnaryNode {
-  override def output: Seq[Attribute] = child.output
+case class TGroup(resolution: Resolution, vertexSemantics: AggregateSemantics.Value, edgeSemantics: AggregateSemantics.Value, vertexAggregations: Seq[NamedExpression], edgeAggregations: Seq[NamedExpression], child: LogicalPlan) extends UnaryNode {
+  override def output: Seq[Attribute] = catalog
+
+  protected lazy val catalog: Seq[Attribute] = {
+    val vatrs: Seq[StructField] = vertexAggregations.map(f => 
+      f match {
+        case UnresolvedAlias(child) => StructField(child.prettyName, child.dataType, child.nullable, Metadata.empty)
+        case ne: NamedExpression => StructField(ne.name, ne.dataType, ne.nullable, Metadata.empty)
+        case other => 
+          println("not a named expression or unresolved alias...")
+          throw new PortalException("argh")
+      }
+    )
+    val eatrs: Seq[StructField] = edgeAggregations.map(f => 
+      f match {
+        case UnresolvedAlias(child) => StructField(child.prettyName, child.dataType, child.nullable, Metadata.empty)
+        case ne: NamedExpression => StructField(ne.name, ne.dataType, ne.nullable, Metadata.empty)
+        case other => 
+          println("not a named expression or unresolved alias...")
+          throw new PortalException("argh")
+      }
+    )
+    Seq(AttributeReference("V", StructType(vatrs), false, Metadata.empty)(), AttributeReference("E", StructType(eatrs), false, Metadata.empty)())
+
+  }
 }
 
 case class TemporalSelect(start: LocalDate, end: LocalDate, child: LogicalPlan) extends UnaryNode {

@@ -231,10 +231,24 @@ class MultiGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Graph[Ma
     )
   }
 
+  override def mapVerticesWIndex[VD2: ClassTag](map: (VertexId, TimeIndex, VD) => VD2)(implicit eq: VD =:= VD2 = null): TemporalGraph[VD2, ED] = {
+    new MultiGraph[VD2, ED](intervals, graphs.mapVertices{ (id: VertexId, attr: Map[TimeIndex, VD]) =>
+      attr.map(x => (x._1, map(id, x._1, x._2)))
+    }
+    )
+  }
+
   override def mapEdges[ED2: ClassTag](map: (Edge[ED], Interval) => ED2): TemporalGraph[VD, ED2] = {
     val start = span.start
     new MultiGraph[VD, ED2](intervals, graphs.mapEdges{ e: Edge[(TimeIndex, ED)] =>
       (e.attr._1, map(Edge(e.srcId, e.dstId, e.attr._2), resolution.getInterval(start, e.attr._1)))
+    }
+    )
+  }
+
+  override def mapEdgesWIndex[ED2: ClassTag](map: (Edge[ED], TimeIndex) => ED2): TemporalGraph[VD, ED2] = {
+    new MultiGraph[VD, ED2](intervals, graphs.mapEdges{ e: Edge[(TimeIndex, ED)] =>
+      (e.attr._1, map(Edge(e.srcId, e.dstId, e.attr._2), e.attr._1))
     }
     )
   }

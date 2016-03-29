@@ -190,7 +190,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
     new SnapshotGraphParallel(intervals, graphs.map(x => x.subgraph(epred, vpred)))
   }
 
-  override def aggregate(res: Resolution, vsem: AggregateSemantics.Value, esem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TemporalGraph[VD, ED] = {
+  override def aggregate(res: Resolution, vsem: AggregateSemantics.Value, esem: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): SnapshotGraphParallel[VD, ED] = {
     if (size == 0)
       return SnapshotGraphParallel.emptyGraph[VD,ED]()
 
@@ -265,9 +265,21 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
       x._1.mapVertices{ (id: VertexId, attr: VD) => map(id, x._2, attr) }))
   }
 
+  override def mapVerticesWIndex[VD2: ClassTag](map: (VertexId, TimeIndex, VD) => VD2)(implicit eq: VD =:= VD2 = null): SnapshotGraphParallel[VD2, ED] = {
+    new SnapshotGraphParallel(intervals, graphs.zipWithIndex
+      .map(x =>
+      x._1.mapVertices{ (id: VertexId, attr: VD) => map(id, x._2, attr) }))
+  }
+
   override def mapEdges[ED2: ClassTag](map: (Edge[ED], Interval) => ED2): TemporalGraph[VD, ED2] = {
     new SnapshotGraphParallel(intervals, graphs.zipWithIndex
       .map(x => (x._1, intervals(x._2)))
+      .map(x =>
+      x._1.mapEdges{ e: Edge[ED] => map(e, x._2)}))
+  }
+
+  override def mapEdgesWIndex[ED2: ClassTag](map: (Edge[ED], TimeIndex) => ED2): SnapshotGraphParallel[VD, ED2] = {
+    new SnapshotGraphParallel(intervals, graphs.zipWithIndex
       .map(x =>
       x._1.mapEdges{ e: Edge[ED] => map(e, x._2)}))
   }

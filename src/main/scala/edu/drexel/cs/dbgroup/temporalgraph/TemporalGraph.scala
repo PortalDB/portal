@@ -132,6 +132,13 @@ abstract class TemporalGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     (implicit eq: VD =:= VD2 = null): TemporalGraph[VD2, ED]
 
   /**
+    * Like above, but uses 0-based time indices instead of intervals,
+    * which is faster where indices suffice.
+    */
+  def mapVerticesWIndex[VD2: ClassTag](map: (VertexId, TimeIndex, VD) => VD2)
+    (implicit eq: VD =:= VD2 = null): TemporalGraph[VD2, ED]
+
+  /**
    * Transforms each edge attribute in the graph using the map function.  The map function is not
    * passed the vertex value for the vertices adjacent to the edge.  If vertex values are desired,
    * use `mapTriplets`.
@@ -144,6 +151,11 @@ abstract class TemporalGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
    */
   def mapEdges[ED2: ClassTag](map: (Edge[ED], Interval) => ED2): TemporalGraph[VD, ED2]
 
+  /**
+    * Like above, but uses 0-based time indices instead of intervals,
+    * which is faster where indices suffice.
+    */
+  def mapEdgesWIndex[ED2: ClassTag](map: (Edge[ED], TimeIndex) => ED2): TemporalGraph[VD, ED2]
 
   /**
    * Joins the vertices with entries in the `table` RDD and merges the results using `mapFunc`.

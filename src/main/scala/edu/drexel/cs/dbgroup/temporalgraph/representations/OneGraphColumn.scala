@@ -269,9 +269,17 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], grs: Grap
     new OneGraphColumn[VD2, ED](intervals, graphs, vertexattrs.map{ case (k,v) => (k, map(k._1, resolution.getInterval(start, k._2), v))}, edgeattrs)
   }
 
+  override def mapVerticesWIndex[VD2: ClassTag](map: (VertexId, TimeIndex, VD) => VD2)(implicit eq: VD =:= VD2 = null): TemporalGraph[VD2, ED] = {
+    new OneGraphColumn[VD2, ED](intervals, graphs, vertexattrs.map{ case (k,v) => (k, map(k._1, k._2, v))}, edgeattrs)
+  }
+
   override def mapEdges[ED2: ClassTag](map: (Edge[ED], Interval) => ED2): TemporalGraph[VD, ED2] = {
     val start = span.start
     new OneGraphColumn[VD, ED2](intervals, graphs, vertexattrs, edgeattrs.map{ case (k,v) => (k, map(Edge(k._1, k._2, v), resolution.getInterval(start, k._3)))})
+  }
+
+  override def mapEdgesWIndex[ED2: ClassTag](map: (Edge[ED], TimeIndex) => ED2): TemporalGraph[VD, ED2] = {
+    new OneGraphColumn[VD, ED2](intervals, graphs, vertexattrs, edgeattrs.map{ case (k,v) => (k, map(Edge(k._1, k._2, v), k._3))})
   }
 
   override def outerJoinVertices[U: ClassTag, VD2: ClassTag](other: RDD[(VertexId, Map[Interval, U])])(mapFunc: (VertexId, Interval, VD, Option[U]) => VD2)(implicit eq: VD =:= VD2 = null): TemporalGraph[VD2, ED] = {

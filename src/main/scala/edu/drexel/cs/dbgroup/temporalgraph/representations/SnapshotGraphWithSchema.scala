@@ -4,6 +4,7 @@ import scala.collection.parallel.ParSeq
 import scala.collection.mutable.Buffer
 import scala.reflect.ClassTag
 import scala.util.control._
+import scala.language.implicitConversions
 import java.time.LocalDate
 
 import org.apache.hadoop.conf._
@@ -22,8 +23,21 @@ import org.apache.spark.sql.types.StructField
 import edu.drexel.cs.dbgroup.temporalgraph._
 import edu.drexel.cs.dbgroup.temporalgraph.util.{MultifileLoad,GraphLoader,TypeParser}
 
-class SnapshotGraphWithSchema(intvs: Seq[Interval], gps: ParSeq[Graph[InternalRow,InternalRow]], schema: GraphSpec) extends SnapshotGraphParallel[InternalRow,InternalRow](intvs, gps) with TemporalGraphWithSchema with Serializable {
+class SnapshotGraphWithSchema(intvs: Seq[Interval], gps: ParSeq[Graph[InternalRow,InternalRow]]) extends SnapshotGraphParallel[InternalRow,InternalRow](intvs, gps) with TemporalGraphWithSchema with Serializable {
+  private var schema: GraphSpec = GraphSpec(Seq(), Seq())
+
   override def getSchema(): GraphSpec = schema
+  def setSchema(sch: GraphSpec): Unit = { schema = sch }
+
+  private def parentWrapper(g: SnapshotGraphParallel[InternalRow,InternalRow], newSchema: GraphSpec): SnapshotGraphWithSchema = {
+    val res = new SnapshotGraphWithSchema(g.intervals, g.graphs)
+    res.setSchema(newSchema)
+    res
+  }
+
+  override def mapVerticesWIndex(map: (VertexId, TimeIndex, InternalRow) => InternalRow, newSchema: GraphSpec): SnapshotGraphWithSchema = parentWrapper(super.mapVerticesWIndex(map), newSchema)
+  override def mapEdgesWIndex(map: (Edge[InternalRow], TimeIndex) => InternalRow, newSchema: GraphSpec): SnapshotGraphWithSchema = parentWrapper(super.mapEdgesWIndex(map), newSchema)
+  override def aggregate(res: Resolution, vsem: AggregateSemantics.Value, esem: AggregateSemantics.Value, vAggFunc: (InternalRow, InternalRow) => InternalRow, eAggFunc: (InternalRow, InternalRow) => InternalRow): SnapshotGraphWithSchema = parentWrapper(super.aggregate(res, vsem, esem, vAggFunc, eAggFunc), schema)
 
   //we can support filtering (i.e. keeping only certain columsn)
   //and aliasing
@@ -32,9 +46,11 @@ class SnapshotGraphWithSchema(intvs: Seq[Interval], gps: ParSeq[Graph[InternalRo
     //before going through the effort
     val projection = new InterpretedProjection(input, schema.vertexSchemaAsAttributes)
 
-    new SnapshotGraphWithSchema(intervals, graphs.map { g =>
+    val res = new SnapshotGraphWithSchema(intervals, graphs.map { g =>
       g.mapVertices( (id: VertexId, attr: InternalRow) => projection(attr))
-    }, GraphSpec(input.map(_.toAttribute).map(a => StructField(a.name, a.dataType,a.nullable, a.metadata)), schema.getEdgeSchema))
+    })
+    res.setSchema(GraphSpec(input.map(_.toAttribute).map(a => StructField(a.name, a.dataType,a.nullable, a.metadata)), schema.getEdgeSchema))
+    res
   }
 
   override def projectEdges(input: Seq[NamedExpression]): TemporalGraphWithSchema = {
@@ -42,9 +58,11 @@ class SnapshotGraphWithSchema(intvs: Seq[Interval], gps: ParSeq[Graph[InternalRo
     //before going through the effort
     val projection = new InterpretedProjection(input, schema.edgeSchemaAsAttributes)
 
-    new SnapshotGraphWithSchema(intervals, graphs.map { g =>
+    val res = new SnapshotGraphWithSchema(intervals, graphs.map { g =>
       g.mapEdges{ e: Edge[InternalRow] => projection(e.attr)}
-    }, GraphSpec(schema.getVertexSchema, input.map(_.toAttribute).map(a => StructField(a.name, a.dataType,a.nullable, a.metadata))))
+    })
+    res.setSchema(GraphSpec(schema.getVertexSchema, input.map(_.toAttribute).map(a => StructField(a.name, a.dataType,a.nullable, a.metadata))))
+    res
   }
 }
 
@@ -134,6 +152,8 @@ object SnapshotGraphWithSchema {
       xx = intvs.last.end
     }
 
-    new SnapshotGraphWithSchema(intvs, gps, schema)
+    val result = new SnapshotGraphWithSchema(intvs, gps)
+    result.setSchema(schema)
+    result
   }
 }

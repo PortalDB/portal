@@ -1,12 +1,12 @@
 package edu.drexel.cs.dbgroup.temporalgraph
 
-import edu.drexel.cs.dbgroup.temporalgraph.portal.{PortalParser,PortalAnalyzer,PortalPlanner,PortalOptimizer}
+import edu.drexel.cs.dbgroup.temporalgraph.portal._
 import edu.drexel.cs.dbgroup.temporalgraph.plans.PortalPlan
 
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.catalyst.{SimpleCatalystConf}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.catalyst.analysis.{Catalog,SimpleCatalog,EmptyFunctionRegistry,FunctionRegistry,Analyzer}
+import org.apache.spark.sql.catalyst.analysis.{Catalog,SimpleCatalog,FunctionRegistry,Analyzer}
 import org.apache.spark.sql.catalyst.optimizer.Optimizer
 
 class PortalContext(@transient val sparkContext: SparkContext) {
@@ -14,7 +14,7 @@ class PortalContext(@transient val sparkContext: SparkContext) {
   lazy val catalog: Catalog = new SimpleCatalog(new SimpleCatalystConf(false))
 
   //TODO: create a new object with a valid registry
-  lazy val functionRegistry: FunctionRegistry = EmptyFunctionRegistry
+  lazy val functionRegistry: FunctionRegistry = PortalFunctionRegistry.builtin
 
   protected[temporalgraph] lazy val analyzer: Analyzer = 
     new PortalAnalyzer(catalog, functionRegistry)

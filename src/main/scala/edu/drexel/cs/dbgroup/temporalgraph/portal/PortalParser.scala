@@ -95,22 +95,28 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
       twhere.? ~
       tgroup.? ^^ {
         case vsem ~ vproj ~ _ ~ esem ~ eproj ~ id ~ tw ~ tg =>
+          val vprojt = vproj.getOrElse(Seq()).map(e => UnresolvedAlias(e.transformDown{
+            case u @ UnresolvedAttribute(nameParts) => UnresolvedAttribute("V." + u.name)
+            //case a @ Alias(child, nameParts) => Alias(a.child, "V." + a.name)()
+          }))
+          val eprojt = eproj.getOrElse(Seq()).map(e => UnresolvedAlias(e.transformDown{case u @ UnresolvedAttribute(nameParts) => UnresolvedAttribute("E." + u.name)}))
+
           val haveJoin: Boolean = id match {
             case tj: TemporalJoin => 
-              tj.vertexAggregations = vproj.getOrElse(Seq())
-              tj.edgeAggregations = eproj.getOrElse(Seq())
+              tj.vertexAggregations = vprojt
+              tj.edgeAggregations = eprojt
               true
             case _ => false
           }
           if ((vsem.isDefined || esem.isDefined) && (tg.isEmpty && !haveJoin))
-            throw new IllegalArgumentException("invalid expression: grouping/joining semantics without group or join")
+            throw new PortalException("invalid expression: grouping/joining semantics without group or join")
           val twh: TWhere = tw.getOrElse(TWhere(StartDate(Date(-999999,1,1))))
           val sel = tw.map(_ => TemporalSelect(twh.start, twh.end, id)).getOrElse(id)
           //empty vproj or eproj means projecting out
           //not defined vproj or eproj means all attributes kept, with any semantics
-          val withTGroup = tg.map(g => TGroup(Resolution.from(g.value), vsem.getOrElse(AggregateSemantics.Any), esem.getOrElse(AggregateSemantics.Any), vproj.getOrElse(Seq()).map(UnresolvedAlias(_)), eproj.getOrElse(Seq()).map(UnresolvedAlias(_)), sel)).getOrElse(sel)
-          val withVProject = if (vproj.isDefined) ProjectVertices("vid", vproj.get.map(UnresolvedAlias(_)), withTGroup) else withTGroup
-          val withEProject = if (eproj.isDefined) ProjectEdges("vid1, vid2", eproj.get.map(UnresolvedAlias(_)), withVProject) else withVProject
+          val withTGroup = tg.map(g => TGroup(Resolution.from(g.value), vsem.getOrElse(AggregateSemantics.Any), esem.getOrElse(AggregateSemantics.Any), vprojt, eprojt, sel)).getOrElse(sel)
+          val withVProject = if (vproj.isDefined) ProjectVertices("vid", vprojt, withTGroup) else withTGroup
+          val withEProject = if (eproj.isDefined) ProjectEdges("vid1, vid2", eprojt, withVProject) else withVProject
           withEProject
       }
 

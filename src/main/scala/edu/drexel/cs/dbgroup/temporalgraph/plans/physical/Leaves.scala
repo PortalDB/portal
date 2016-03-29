@@ -1,8 +1,10 @@
 package edu.drexel.cs.dbgroup.temporalgraph.plans.physical
 
 import java.time.LocalDate
+
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.catalyst.expressions.Attribute
+import org.apache.spark.sql.catalyst.InternalRow
 
 import edu.drexel.cs.dbgroup.temporalgraph._
 import edu.drexel.cs.dbgroup.temporalgraph.util.GraphLoader
