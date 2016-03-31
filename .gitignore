@@ -5,7 +5,7 @@
 **/*.settings
 **/*.classpath
 **/*.pyc
-
+**/.idea/
 
 /bin
 **/project
@@ -13,4 +13,10 @@
 **/refs
 
 src/main/lib/graphx-extensions_2.10-1.0.jar
-/doc/PortalShell\ Info.txt
+src/graphxext/project
+src/graphxext/target
+src/main/driverUtils/project
+src/main/driverutils/target
+
+*.prefs
+*.iml

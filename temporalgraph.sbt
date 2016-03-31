@@ -12,6 +12,7 @@ settings(
     libraryDependencies += "org.apache.spark" %% "spark-graphx" % "1.6.0" % "provided",
     libraryDependencies += "org.apache.spark" %% "spark-sql" % "1.6.0",
     libraryDependencies += "org.apache.hadoop" % "hadoop-client" % "2.6.0" % "provided",
+    libraryDependencies += "it.unimi.dsi" % "fastutil" % "7.0.11",
     libraryDependencies += "org.scala-lang.modules" % "scala-jline" % "2.12.1",
     libraryDependencies += "org.scalactic" % "scalactic_2.10" % "3.0.0-M16-SNAP3",
     libraryDependencies += "org.scalatest" % "scalatest_2.10" % "3.0.0-M16-SNAP3",
