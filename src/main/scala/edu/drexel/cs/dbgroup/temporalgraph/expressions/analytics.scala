@@ -16,10 +16,10 @@ abstract class SnapshotAnalytic extends LeafExpression with Unevaluable {
 
 }
 
-case class Degree extends SnapshotAnalytic {
+case class Degree() extends SnapshotAnalytic {
   override def dataType: DataType = IntegerType
 }
 
-case class PageRank extends SnapshotAnalytic {
+case class PageRank() extends SnapshotAnalytic {
   override def dataType: DataType = DoubleType
 }

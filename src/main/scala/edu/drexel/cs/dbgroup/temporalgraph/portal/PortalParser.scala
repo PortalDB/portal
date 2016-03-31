@@ -392,13 +392,13 @@ protected case class TWhere(datec: Datecond) {
 sealed abstract class Period {
   val value:String
 }
-case class Months extends Period {
+case class Months() extends Period {
   override val value = "M"
 }
-case class Years extends Period {
+case class Years() extends Period {
   override val value = "Y"
 }
-case class Days extends Period {
+case class Days() extends Period {
   override val value = "D"
 }
 
