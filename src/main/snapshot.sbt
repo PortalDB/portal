@@ -11,5 +11,6 @@ settings(
     libraryDependencies += "org.apache.spark" %% "spark-core" % "1.6.0" % "provided",
     libraryDependencies += "org.apache.spark" %% "spark-graphx" % "1.6.0" % "provided",
     libraryDependencies += "org.apache.hadoop" % "hadoop-client" % "2.6.0" % "provided",
+    libraryDependencies += "it.unimi.dsi" % "fastutil" % "7.0.11",
     dependencyOverrides += "org.apache.hadoop" % "hadoop-client" % "2.6.0"
 )
