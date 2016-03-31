@@ -1,0 +1,22 @@
+Commands:
+- create view <viewName> as {portal query}\
+- create materialized view <viewName> as {portal query}\
+- describe <viewName>\
+- show plan <viewName>\
+- show view <viewName>\
+- help\
+
+To start the shell:
+goto: temporal/src/main
+run: sbt package
+run: sbt run
+
+Example queries you can run 
+- create view testview as {tselect V; E from "file:///<path-to-directoy>/temporaldata/resources/dblp"}\
+- select vid from {tselect V; E from "file:///<path-to-directoy>/temporaldata/resources/dblp"}.toVerticesFlat()\
+
+NOTES:
+	- Be sure to change the file path to the dblp directory on your laptop
+	- Also include the graph.info file in the dblp directory
+
+After creating the views, you can run other commands like describe and show.

@@ -1,12 +1,17 @@
+*.txt.sb*
 **/.DS_Store
 **/*.swp
 **/*.project
+**/*.settings
 **/*.classpath
 **/*.pyc
 **/.idea/
+
 /bin
-src/main/project
-src/main/target
+**/project
+**/target
+**/refs
+
 src/main/lib/graphx-extensions_2.10-1.0.jar
 src/graphxext/project
 src/graphxext/target
@@ -15,4 +20,3 @@ src/main/driverutils/target
 
 *.prefs
 *.iml
-

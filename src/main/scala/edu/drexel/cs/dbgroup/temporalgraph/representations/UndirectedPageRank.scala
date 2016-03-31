@@ -1,0 +1,257 @@
+package edu.drexel.cs.dbgroup.temporalgraph.representations
+
+import scala.reflect.ClassTag
+import org.apache.spark.graphx._
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.breakOut
+import scala.collection.immutable.BitSet
+
+import edu.drexel.cs.dbgroup.temporalgraph._
+
+//pageRank implementation using Pregel interface, but for an undirected graph
+object UndirectedPageRank {
+
+  /**
+   * Run a dynamic version of PageRank returning a graph with vertex attributes containing the
+   * PageRank and edge attributes containing the normalized edge weight.
+   *
+   * @tparam VD the original vertex attribute (not used)
+   * @tparam ED the original edge attribute (not used)
+   *
+   * @param graph the graph on which to compute PageRank
+   * @param tol the tolerance allowed at convergence (smaller => more accurate).
+   * @param resetProb the random reset probability (alpha)
+   *
+   * @return the graph containing with each vertex containing the PageRank and each edge
+   *         containing the normalized weight.
+   */
+  def run[VD: ClassTag, ED: ClassTag](
+      graph: Graph[VD, ED], tol: Double, resetProb: Double = 0.15, maxIter: Int = Int.MaxValue): Graph[Double, Double] =
+  {
+    // Initialize the pagerankGraph with each edge attribute
+    // having weight 1/degree and each vertex with attribute 1.0.
+    val pagerankGraph: Graph[(Double, Double), (Double,Double)] = graph
+      // Associate the degree with each vertex
+      .outerJoinVertices(graph.degrees) {
+        (vid, vdata, deg) => deg.getOrElse(0)
+      }
+      // Set the weight on the edges based on the degree
+      .mapTriplets( e => (1.0 / e.srcAttr, 1.0 / e.dstAttr) )
+      // Set the vertex attributes to (initalPR, delta = 0)
+      .mapVertices( (id, attr) => (0.0, 0.0) )
+      .cache()
+
+    // Define the three functions needed to implement PageRank in the GraphX
+    // version of Pregel
+    def vertexProgram(id: VertexId, attr: (Double, Double), msgSum: Double): (Double, Double) = {
+      val (oldPR, lastDelta) = attr
+      val newPR = oldPR + (1.0 - resetProb) * msgSum
+      (newPR, newPR - oldPR)
+    }
+
+    def sendMessage(edge: EdgeTriplet[(Double, Double), (Double, Double)]): Iterator[(VertexId, Double)] = {
+      if (edge.srcAttr._2 > tol && edge.dstAttr._2 > tol) {
+        Iterator((edge.dstId, edge.srcAttr._2 * edge.attr._1),(edge.srcId, edge.dstAttr._2 * edge.attr._2))
+      } else if (edge.srcAttr._2 > tol) { //means dstAttr is not >
+        Iterator((edge.dstId, edge.srcAttr._2 * edge.attr._1))
+      } else if (edge.dstAttr._2 > tol) { //means srcAttr is not >
+        Iterator((edge.srcId, edge.dstAttr._2 * edge.attr._2))
+      } else {
+        Iterator.empty
+      }
+    }
+
+    def messageCombiner(a: Double, b: Double): Double = a + b
+
+    // The initial message received by all vertices in PageRank
+    val initialMessage = resetProb / (1.0 - resetProb)
+
+    // Execute a dynamic version of Pregel.
+    Pregel(pagerankGraph, initialMessage, maxIter, 
+      activeDirection = EdgeDirection.Either)(
+      vertexProgram, sendMessage, messageCombiner)
+      .mapTriplets(e => e.attr._1) //I don't think it matters which we pick
+      .mapVertices((vid, attr) => attr._1)
+  } // end of runUntilConvergence
+
+  /** 
+   * Run an undirected dynamic version of PageRank on a multigraph
+   *  returning a graph with vertex attributes containing the list of
+   * PageRank and edge attributes containing the list of normalized edge weights.
+   *
+   * @tparam VD the original vertex attribute (not used)
+   * @tparam ED the original edge attribute (not used)
+   *
+   * @param graph the graph on which to compute PageRank
+   * @param tol the tolerance allowed at convergence (smaller => more accurate).
+   * @param resetProb the random reset probability (alpha)
+   *
+   * @return the graph containing with each vertex a list of pagerank and each edge
+   *         containing the list of normalized weights.
+   */
+  def runCombined[VD: ClassTag, ED: ClassTag](
+      graph: Graph[Map[TimeIndex,VD], (TimeIndex, ED)], numInts: Int, tol: Double, resetProb: Double = 0.15, maxIter: Int = Int.MaxValue): Graph[Map[TimeIndex, Double], (TimeIndex, Double)] =
+  {
+    //we need to exchange one message with the info for each edge interval
+
+    def mergedFunc(a:Map[TimeIndex,Int], b:Map[TimeIndex,Int]): Map[TimeIndex,Int] = {
+      a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) }
+    }
+
+    //compute degree of each vertex for each interval
+    //this should produce a map from interval to degree for each vertex
+    //since edge is treated by MultiGraph as undirectional, can use the edge markings
+    val degrees: VertexRDD[Map[TimeIndex,Int]] = graph.aggregateMessages[Map[TimeIndex,Int]](
+      ctx => { 
+        ctx.sendToSrc(Map(ctx.attr._1 -> 1))
+        ctx.sendToDst(Map(ctx.attr._1 -> 1)) 
+      },
+      mergedFunc,
+      TripletFields.None)
+
+    // Initialize the pagerankGraph with each edge attribute
+    // having weight 1/degree and each vertex with attribute 1.0.
+    val pagerankGraph: Graph[Map[TimeIndex,(Double,Double)], (TimeIndex,Double,Double)] = graph
+      // Associate the degree with each vertex for each interval
+      .outerJoinVertices(degrees) {
+      case (vid, vdata, Some(deg)) => deg
+      case (vid, vdata, None) => vdata.mapValues(x => 0).map(identity)
+      }
+      // Set the weight on the edges based on the degree of that interval
+      .mapTriplets( e => (e.attr._1, 1.0 / e.srcAttr(e.attr._1), 1.0 / e.dstAttr(e.attr._1)) )
+      // Set the vertex attributes to (initalPR, delta = 0) for each interval
+      .mapVertices( (id, attr) => attr.mapValues { x => (0.0,0.0) }.map(identity) )
+      .cache()
+
+    // Define the three functions needed to implement PageRank in the GraphX
+    // version of Pregel
+    def vertexProgram(id: VertexId, attr: Map[TimeIndex,(Double, Double)], msg: Map[TimeIndex,Double]): Map[TimeIndex,(Double, Double)] = {
+      //need to compute new values for each interval
+     //each edge carries a message for one interval,
+      //which are combined by the combiner into a hash
+      //for each interval in the msg hash, update
+      var vals = attr
+      msg.foreach { x =>
+        val (k,v) = x
+        if (vals.contains(k)) {
+          val (oldPR, lastDelta) = vals(k)
+          val newPR = oldPR + (1.0 - resetProb) * msg(k)
+          vals = vals.updated(k,(newPR,newPR-oldPR))
+        }
+      }
+      vals
+    }
+
+    def sendMessage(edge: EdgeTriplet[Map[TimeIndex,(Double, Double)], (TimeIndex, Double, Double)]) = {
+        //This is a hack because of a bug in GraphX that
+        //does not fetch edge triplet attributes otherwise
+        edge.srcAttr
+        edge.dstAttr
+
+      //each edge attribute is supposed to be a triple of (year index, 1/degree, 1/degree)
+      //each vertex attribute is supposed to be a map of (double,double) for each index
+      if (edge.srcAttr(edge.attr._1)._2 > tol && 
+        edge.dstAttr(edge.attr._1)._2 > tol) {
+        Iterator((edge.dstId, Map((edge.attr._1 -> edge.srcAttr(edge.attr._1)._2 * edge.attr._2))), (edge.srcId, Map((edge.attr._1 -> edge.dstAttr(edge.attr._1)._2 * edge.attr._3))))
+      } else if (edge.srcAttr(edge.attr._1)._2 > tol) { 
+        Iterator((edge.dstId, Map((edge.attr._1 -> edge.srcAttr(edge.attr._1)._2 * edge.attr._2))))
+      } else if (edge.dstAttr(edge.attr._1)._2 > tol) {
+        Iterator((edge.srcId, Map((edge.attr._1 -> edge.dstAttr(edge.attr._1)._2 * edge.attr._3))))
+      } else {
+        Iterator.empty
+      }
+    }
+
+    def messageCombiner(a: Map[TimeIndex,Double], b: Map[TimeIndex,Double]): Map[TimeIndex,Double] = {
+     (a.keySet ++ b.keySet).map { i =>
+        val count1Val:Double = a.getOrElse(i, 0.0)
+        val count2Val:Double = b.getOrElse(i, 0.0)
+        (i,(count1Val + count2Val))
+      }.toMap
+     }
+
+    // The initial message received by all vertices in PageRank
+    //has to be a map from every interval index
+    var i:Int = 0
+    val initialMessage:Map[TimeIndex,Double] = (for(i <- 0 to numInts) yield (i -> resetProb / (1.0 - resetProb)))(breakOut)
+
+    // Execute a dynamic version of Pregel.
+    Pregel(pagerankGraph, initialMessage, maxIter,
+      activeDirection = EdgeDirection.Either)(
+      vertexProgram, sendMessage, messageCombiner)
+      .mapTriplets(e => (e.attr._1, e.attr._2)) //I don't think it matters which we pick
+    //take just the new ranks from vertices, and the indices
+      .mapVertices((vid, attr) => attr.mapValues( x => x._1))
+  } // end of runUntilConvergence
+
+  def runHybrid(graph: Graph[BitSet, BitSet], minIndex: Int, maxIndex: Int, tol: Double, resetProb: Double = 0.15, maxIter: Int = Int.MaxValue): Graph[LinkedHashMap[TimeIndex,(Double,Double)], LinkedHashMap[TimeIndex,(Double,Double)]] =
+  {
+    def mergeFunc(a:LinkedHashMap[TimeIndex,Int], b:LinkedHashMap[TimeIndex,Int]): LinkedHashMap[TimeIndex,Int] = {
+      a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) }
+    }
+
+    def vertexProgram(id: VertexId, attr: LinkedHashMap[TimeIndex, (Double,Double)], msg: LinkedHashMap[TimeIndex, Double]): LinkedHashMap[TimeIndex, (Double,Double)] = {
+      val vals = attr.clone
+      msg.foreach { x =>
+        val (k,v) = x
+        if (vals.contains(k)) {
+          val (oldPR, lastDelta) = vals(k)
+          val newPR = oldPR + (1.0 - resetProb) * msg(k)
+          vals.update(k,(newPR,newPR-oldPR))
+        }
+      }
+
+      vals
+    }
+
+    def sendMessage(edge: EdgeTriplet[LinkedHashMap[TimeIndex,(Double,Double)], LinkedHashMap[TimeIndex, (Double,Double)]]): Iterator[(VertexId, LinkedHashMap[TimeIndex,Double])] = {
+        //This is a hack because of a bug in GraphX that
+        //does not fetch edge triplet attributes otherwise
+        edge.srcAttr
+        edge.dstAttr
+      //need to generate an iterator of messages for each index
+      edge.attr.iterator.flatMap{ case (k,v) =>
+        if (edge.srcAttr(k)._2 > tol &&
+          edge.dstAttr(k)._2 > tol) {
+          Iterator((edge.dstId, LinkedHashMap((k -> edge.srcAttr(k)._2 * v._1))), (edge.srcId, LinkedHashMap((k -> edge.dstAttr(k)._2 * v._2))))
+        } else if (edge.srcAttr(k)._2 > tol) {
+          Iterator((edge.dstId, LinkedHashMap((k -> edge.srcAttr(k)._2 * v._1))))
+        } else if (edge.dstAttr(k)._2 > tol) {
+          Iterator((edge.srcId, LinkedHashMap((k -> edge.dstAttr(k)._2 * v._2))))
+        } else {
+          Iterator.empty
+        }
+      }
+        .toSeq.groupBy{ case (k,v) => k}
+      //we now have a Map[VertexId, Seq[(VertexId, Map[TimeIndex,Double])]]
+        .mapValues(v => v.map{case (k,m) => m}.reduce((a,b) => a ++ b))
+        .iterator
+    }
+
+    def messageCombiner(a: LinkedHashMap[TimeIndex,Double], b: LinkedHashMap[TimeIndex,Double]): LinkedHashMap[TimeIndex,Double] = {
+      a ++ b.map { case (index, count) => index -> (count + a.getOrElse(index,0.0))}
+    }
+    
+    val degs: VertexRDD[LinkedHashMap[TimeIndex, Int]] = graph.aggregateMessages[LinkedHashMap[TimeIndex, Int]](
+      ctx => {
+        ctx.sendToSrc(LinkedHashMap[TimeIndex,Int]() ++ ctx.attr.seq.map(x => (x,1)))
+        ctx.sendToDst(LinkedHashMap[TimeIndex,Int]() ++ ctx.attr.seq.map(x => (x,1)))
+      },
+      mergeFunc, TripletFields.None)
+    
+    val joined: Graph[LinkedHashMap[TimeIndex,Int], BitSet] = graph.outerJoinVertices(degs) {
+      case (vid, vdata, Some(deg)) => deg ++ vdata.filter(x => !deg.contains(x)).seq.map(x => (x,0))
+      case (vid, vdata, None) => LinkedHashMap[TimeIndex,Int]() ++ vdata.seq.map(x => (x,0))
+    }
+
+    val withtrips: Graph[LinkedHashMap[TimeIndex,Int], LinkedHashMap[TimeIndex, (Double,Double)]] = joined.mapTriplets{ e:EdgeTriplet[LinkedHashMap[TimeIndex,Int], BitSet] =>
+      new LinkedHashMap[TimeIndex, (Double, Double)]() ++ e.attr.seq.map(x => (x, (1.0 / e.srcAttr(x), 1.0 / e.dstAttr(x))))}
+
+    val prankGraph:Graph[LinkedHashMap[TimeIndex, (Double,Double)], LinkedHashMap[TimeIndex, (Double,Double)]] = withtrips.mapVertices( (id,attr) => attr.map{ case (k,x) => (k,(0.0,0.0))}).cache()
+
+    val initialMessage: LinkedHashMap[TimeIndex,Double] = (for(i <- minIndex to maxIndex) yield (i -> resetProb / (1.0 - resetProb)))(breakOut)
+
+    Pregel(prankGraph, initialMessage, maxIter, activeDirection = EdgeDirection.Either)(vertexProgram, sendMessage, messageCombiner)
+
+  }
+}
