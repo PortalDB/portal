@@ -239,8 +239,6 @@ object Driver {
   def loadData(data: String, sc: SparkContext, gtype: String, from: LocalDate, to: LocalDate, strategy: PartitionStrategyType.Value, runWidth: Int): TemporalGraph[String, Int] = {
     println("Loading data with " + gtype + " data structure, using " + strategy.toString + " strategy and " + runWidth + " runWidth")
     gtype match {
-      case "SG" =>
-        SnapshotGraph.loadData(data, from, to)
       case "MG" =>
         MultiGraph.loadWithPartition(data, from, to, strategy, runWidth)
       case "SGP" =>
