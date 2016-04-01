@@ -1,13 +1,21 @@
 package edu.drexel.cs.dbgroup.temporalgraph.representations
 
-import java.time.LocalDate
-import edu.drexel.cs.dbgroup.temporalgraph.{Interval, ProgramContext}
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkConf
 import org.apache.log4j.Level
 import org.apache.log4j.Logger
-import org.scalatest.BeforeAndAfter
+
 import org.scalatest.FunSuite
+import org.scalatest.BeforeAndAfter
+
+import java.time.LocalDate
+import edu.drexel.cs.dbgroup.temporalgraph.{Interval, ProgramContext}
+
+import scala.collection.parallel.ParSeq
+import org.apache.spark.graphx.Graph
+
+
+
 
 
 class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter {
@@ -32,5 +40,11 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter {
     val size3 = "graph3 size " + graph3.size()
     info(size1)
     info(size3)
+  }
+
+  test("Testing creating new graph"){
+    var intvs: Seq[Interval] = Seq[Interval]()
+    var gps: ParSeq[Graph[String, Int]] = ParSeq[Graph[String, Int]]()
+    new SnapshotGraphParallel(intvs, gps)
   }
 }
