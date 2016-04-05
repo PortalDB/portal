@@ -2,11 +2,14 @@
 \label{sec:model}
 
 The basic element of our model is a \tg, which represents a graph that
-evolves over time.  We define the structure of an evolving graph in
-Section~\ref{sec:model:structure}.  We then show the relationship with
-other models in Section~\ref{sec:model:others}.  Finally, in
-Section~\ref{sec:model:algebra} we define the algebraic operations on
-our model.
+evolves over time.  Our representation is based on a continuous time
+domain.  This is in contrast to representing a graph as a sequence of
+discrete states. We will discuss this distinction in detail in
+Section~\ref{sec:model:others}.  We define the structure of an
+evolving graph in Section~\ref{sec:model:structure}.  We then show the
+relationship with other models in Section~\ref{sec:model:others}.
+Finally, in Section~\ref{sec:model:algebra} we define the algebraic
+operations on our model.
 
 \subsection{Evolving Graphs}
 \label{sec:model:structure}
@@ -36,12 +39,21 @@ $p_i.contains(p_j)$ and $p_i.contains(p_k)$.
 \label{def:tg}
 \end{definition}
 
+\begin{figure}
+\includegraphics[width=3in]{figs/T1.pdf}
+\caption{\tg \insql{T1} example.}
+\label{fig:tg}
+\end{figure}
+
+An example of a \tg is given in Figure~\ref{fig:tg}, with vertex
+schema name:string and salary:int and edge schema count:int.
+
 The time periods of all graph entities, i.e. vertices and edges, are
 maximally coalesced.  That means that all the tuples in $V$ and $E$
 are distinct in all attributes, including the time periods, and that
-time periods do not overlap for any individual entity.  The above
-evolving graph definition~\ref{def:tg} can be expressed in temporal
-SQL as follows (without attributes):
+time periods do not overlap for any individual entity and are maximal.
+The above evolving graph definition~\ref{def:tg} can be expressed in
+temporal SQL as follows (without attributes):
 
 \begin{small}
 \begin{verbatim}
@@ -59,8 +71,10 @@ CREATE TABLE E (
   eend DATE,
   PERIOD for eperiod (estart, eend),
   PRIMARY KEY (vid1, vid2, eperiod WITHOUT OVERLAPS),
-  FOREIGN KEY (vid1, PERIOD eperiod) REFERENCES V(vid, PERIOD eperiod),
-  FOREIGN KEY (vid2, PERIOD eperiod) REFERENCES V(vid, PERIOD eperiod)
+  FOREIGN KEY (vid1, PERIOD eperiod) 
+           REFERENCES V(vid, PERIOD eperiod),
+  FOREIGN KEY (vid2, PERIOD eperiod) 
+           REFERENCES V(vid, PERIOD eperiod)
 )
 \end{verbatim}
 \end{small}
@@ -68,18 +82,22 @@ CREATE TABLE E (
 \vera{placeholder for schema on load explanation}
 
 \subsection{Other Models}
-\label{sec:model:other}
+\label{sec:model:others}
 
-Most commonly an evolving graph is considered to be a sequence of
-graph snapshots corresponding to time instances in the discreet time
-domain $T$ (\cite{Khurana2013,DBLP:journals/tos/MiaoHLWYZPCC15}).
-Such a model has point semantics on the time domain.  Point semantics
-has several limitations:
+There are two common ways to represent entities in time: continuous
+and discrete.  We use a continous representation which is more general.
+
+Much of the work on evolving graphs is on snapshot retrieval and
+snapshot analytics in a discrete time domain.  In this case an
+evolving graph is considered to be a sequence of graph snapshots
+corresponding to time instances in the time domain $T$
+(\cite{Khurana2013,DBLP:journals/tos/MiaoHLWYZPCC15,Ren2011}).  Such a
+model has several limitations:
 
 \begin{itemize}[noitemsep,topsep=0pt]
-\item It requires a discreet time domain.  The state of the graph can
+\item It requires a discrete time domain.  The state of the graph can
   be undefined at some time $t_i$ unless a snapshot is associated with
-  each possible value of $T$ in the discreet range $[t_{start}, now)$.
+  each possible value of $T$ in the discrete range $[t_{start}, now)$.
 \item It is not compact.  Every change to an entity (vertex or edge)
   requires a new snapshot.  For large graphs, consecutive snapshots
   have degree of similarity approaching 1 (on the scale of 0 of no
@@ -92,9 +110,10 @@ has several limitations:
 \label{fig:getsnap}
 \end{figure}
 
-In our model a snapshot at any time $t$ is state at time $t$ and can
-be retrieved by selection on $p$ (Figure~\ref{fig:getsnap}). In SQL
-(similarly for E):
+Snapshot retrieval, however, is a useful operation for many types of
+analysis and thus should be supported.  In our model a snapshot at any
+time $t$ is state at time $t$ and can be retrieved simply by selection
+on $p$ (Figure~\ref{fig:getsnap}). In SQL (similarly for E):
 
 \begin{small}
 \begin{verbatim}
@@ -104,19 +123,30 @@ WHERE eperiod CONTAINS DATE ':date';
 \end{verbatim}
 \end{small}
 
-Another commonly used model is a change stream model~\cite{?}.  In
-this model a stream $S$ emits a sequence of graph change events $e$,
-each associated with a time $t$ at which it was emitted.  An event can
-be of entity creation, deletion, or change in the value of one of the
-entity attributes.  Multiple events may be associated with one time
-instance and the event emit rate is not constant.
+Observe that many discrete dates can lead to equivalent snapshots if
+no changes to the graph occurred in the intervening time.  It may be
+desirable to instead retrieve a sequence of deduplicated snapshots
+with respect to a subset of graph attributes.  We discuss how our
+model supports such operations in the next section.
 
-\begin{figure}
+Another commonly used graph model in the research literature is a
+continuous time model based on change
+streams~\cite{Cheng2012,Ediger2012}, usually for the purposes of
+supporting analysis of the latest state of the graph quickly and
+efficiently.  In this model a stream $S$ emits a sequence of graph
+change events $e$, each associated with a time $t$ at which it was
+emitted.  An event can be of entity creation, deletion, or change in
+the value of one of the entity attributes.  Multiple events may be
+associated with one time instance and the event emit rate is not
+constant.
+
+\begin{figure*}[t]
+\centering
 \includegraphics[width=6in]{figs/stream_to_state.pdf}
 \caption{Stream $S$ emits graph change events which are converted to
   evolving graph state model $TG$.}
 \label{fig:streamtotg}
-\end{figure}
+\end{figure*}
 
 Because the stream emits {\em individual entities} rather than {\em
   whole graphs}, graph snapshots can only be reconstructed by
@@ -149,3 +179,190 @@ maintain the integrity of the model by computing the value of $V$,
 followed by the value of $E$, maintaining the foreign key constraint
 from $E$ to $V$ and the maximally condensed non-overlapping time
 period contraint on both $V$ and $E$.
+
+\begin{definition}[Selection]
+Temporal and structural selection on $TG$ is a selection on the
+attributes of $V$ and $E$.  Subgraph is $\sigma_{a \theta v}(TG)$,
+where $a$ are attributes of $V$ and/or $E$, $\theta$ is a binary
+operation in the set $\{<, \leq, =, \neq, \geq, >\}$, and $v$ is a
+value constant.  Temporal selection over $TG$ is $\sigma_{[a,b)}(TG) =
+  \{t: t \in TG, t(p).overlaps(period(a,b))\}$ which returns a subset
+  of $TG$ within the bounds of $[a,b)$.
+\label{def:selection}
+\end{definition}
+
+In SQL, temporal selection can be expressed as follows for $V$
+(similarly for $E$):
+
+\begin{small}
+\begin{verbatim}
+SELECT vid, a1, ..., an, greatest(estart, DATE ':date1'), 
+       least(eend, DATE ':date2')
+FROM V
+WHERE eperiod OVERLAPS PERIOD (DATE ':date1', DATE ':date2')
+\end{verbatim}
+\end{small}
+
+Temporal and structural selection are supported by the same selection
+operator and can be used together.  For example, one could select a
+sub-graph in an evolving co-citation network of only authors whose
+names start with letter A, over the past decade.  Because of the
+constraint on $E$, even if the structural selection is only on
+attributes of $V$, only edges connecting selected vertices are
+retained.  Neither deduplication nor coalescing is required as a
+post-operation.
+
+\begin{definition}[Projection]
+Projection on $TG$ is projection on attributes of $V$ and $E$ with
+coalescing, i.e. \\$\Pi vid, p, a_1, \ldots, a_n(V); \Pi vid_1, vid_2,
+p, b_1, \ldots, b_m(E)$. 
+\label{def:projection}
+\end{definition}
+
+The primary key is always retained, so deduplication is not necessary.
+However, coalescing is always performed.  Projection and coalescing
+can be expressed in temporal SQL as follows in a structure-only case:
+
+\begin{small}
+\begin{verbatim}
+CREATE VIEW ProjV(vid, estart, eend) AS (
+  SELECT vid, estart, eend FROM V);
+CREATE VIEW ProjE(vid1, vid2, estart, eend) AS (
+  SELECT vid1, vid2, estart, eeend FROM E);
+CREATE VIEW CoalescV(vid, estart, eend) AS (
+  SELECT DISTINCT F.vid, F.estart, L.eend
+  FROM ProjV F, ProjV L
+  WHERE F.estart < L.eend AND F.vid = L.vid
+  AND NOT EXISTS (SELECT * FROM ProjV M
+    WHERE M.vid = F.vid
+    AND F.estart < M.estart AND M.estart <= L.eend
+    AND NOT EXISTS (SELECT * From ProjV M1
+      WHERE M1.vid = F.vid
+      AND M1.estart < M.estart
+      AND V.estart <= M1.eend ) )
+  AND NOT EXISTS (SELECT * from ProjV M2
+    WHERE M2.vid = F.vid
+    AND ( (M2.estart < F.estart AND F.estart <= M2.eend)
+    OR (M2.estart <= L.eend AND L.eend < M2.eend) ) ) );
+CREATE VIEW CoalescE(vid1, vid2, estart, eend) AS (
+  SELECT DISTINCT F.vid1, F.vid2, F.estart, L.eend
+  FROM ProjE F, ProjE L
+  WHERE F.estart < L.eend AND F.vid1 = L.vid1 
+  AND F.vid2 = L.vid2
+  AND NOT EXISTS (SELECT * FROM ProjE M
+    WHERE M.vid1 = F.vid1 AND M.vid2 = F.vid2
+    AND F.estart < M.estart AND M.estart <= L.eend
+    AND NOT EXISTS (SELECT * From ProjE M1
+      WHERE M1.vid1 = F.vid1
+      AND M1.vid2 = F.vid2
+      AND M1.estart < M.estart
+      AND V.estart <= M1.eend ) )
+  AND NOT EXISTS (SELECT * from ProjE M2
+    WHERE M2.vid1 = F.vid1 AND M2.vid2 = F.vid2
+    AND ( (M2.estart < F.estart AND F.estart <= M2.eend)
+    OR (M2.estart <= L.eend AND L.eend < M2.eend) ) ) )
+\end{verbatim}
+\end{small}
+
+As already mentioned, snapshots represent the state of the graph at a
+particular time instant $t$.  It is often useful to instead analyze
+the graph as an aggregation over some time period $p$.  We call such a
+graph a {\em representative graph}.  For example, a union of all
+vertices/edges over 1 month is representative of that graph during
+that month.  Analysis of representative graphs can lead to deeper
+insight than of a snapshot.  For example, a co-authorship network DBLP
+is very sparse - one can only publish so many papers in any given
+month - on a daily or even monthly level of granularity, but can show
+community formation and affiliation when aggregated over multiples of
+years.  From this perspective, an evolving graph is a sequence of
+representative graphs over consecutive arbitrary-length periods.
+
+In SQL, the representative graph periods can be computed as follows:
+
+\begin{small}
+\begin{verbatim}
+CREATE VIEW Changes(day) as (
+  SELECT DISTINCT estart FROM V
+  UNION SELECT DISTINCT eend FROM E
+  UNION SELECT DISTINCT estart from E
+  UNION SELECT DISTINCT eend FROM E);
+CREATE VIEW ChangePeriods(estart, eend) as (
+  SELECT P1.day, P2.day
+  FROM Changes P1, Changes P2
+  WHERE P1.day < P2.day AND NOT EXISTS (
+     SELECT * from Changes P3
+     WHERE P1.day < P3.day and P3.day < P2.day ) )
+\end{verbatim}
+\end{small}
+
+\begin{figure}
+\centering
+\includegraphics[width=3.4in]{figs/change_timeline.pdf}
+\caption{The regions of constant value within the whole graph compose
+  representative graphs.}
+\label{fig:changes}
+\end{figure}
+
+An example in Figure~\ref{fig:changes} illustrates this concept.
+
+Here we propose a general way to aggregate evolving graphs over our
+model.  This approach is based on the stream aggregation work by Li,
+et al.~\cite{Li2005} with addition of quantifiers.  Aggregation is
+performed through specification of time windows, starting from the
+$TG.p.end$ backwards, consistent with the streaming approach.  Windows
+can be defined in terms of {\em time} or {\em change}.  The time
+window is semantic and can be any multiples of $\{minutes, hours,
+days, weeks, \\ months, years\}$, i.e. the usual time units.  The {\em
+  change} type is equivalent to the time period of one representative
+graph, i.e. period during which all the graph values are constant
+(this is similar to the slide-by-row type in stream aggregation).
+
+Aggregation in relational algebra produces results for each grouping
+irrespective of how many results there are, unless a \insql{HAVING}
+restriction is applied.  The quantification over the aggregation
+results in evolving graphs is useful for producing different kinds of
+representative graphs.  For example, to produce a representative graph
+with only strong connections over a volatile evolving graph, we want
+to restrict results to those edges that span the entire window or a
+large subset of that window.  For this purpose we introduce
+quantifiers.
+
+Hsu and Parker define a ``{\em generalized quantifier} $Q(R)$ as a
+Boolean-valued function of a relation'' ~\cite{Hsu1995}.  A quantifier
+contains an {\em n-place determiner}.
+
+For example, ``at least one vertex in each window for each group'' is
+a 2-place determiner quantifier which has the existential semantics.
+Many kinds of quantifiers are possible.  In our work we restrict the
+determiners to be from the set $\{at\ least\ one, all, most,
+at\ least\ n\}$, where $n$ is an integer representing a ratio.  $all$
+is a usual universal quantifier that in standard SQL can be achieved
+with the use of two \insql{NOT EXISTS}.
+
+Now that we have the window semantics and quantification defined, we
+can define the aggregation operation over an evolving graph $TG$.
+
+\begin{definition}[Evolving Graph Aggregation]
+An {\em aggregation} operation over $TG$ is a function \\ $G_1, G_2,
+\ldots, G_n, W, Q g f_1(A_1), f_2(A_2), \ldots, f_m(A_m)(TG)$, where
+each $G_i$ is a grouping attribute from $TG$ with the exception of
+$p$; $W$ is the window specification; $Q$ is a generalized quantifier
+specification for vertices and edges on the coverage of the window;
+each $F_i$ is an aggregation function; and each $A_i$ is an attribute
+name from $TG$.
+\label{def:agg}
+\end{definition}
+
+This definition is similar to the regular relational algebra
+aggregation definition, with the addition of the window specification
+and the restriction of grouping attributes to exclude the time
+periods.  However, both $V$ and $E$ relations are aggregated by the
+same operation and the constraint on $E$ to contain only those
+vertices that exist in $V$ is maintained.  The aggregation defined
+this way allows to aggregate graphs structurally, temporally, or in
+combination.  To aggregate only temporally, the grouping attribute
+must be $vid$ for $V$ and $(vid1, vid2)$ for $E$.  To aggregate only
+structurally, the window specification must be of 1 change range and
+slide.
+
+

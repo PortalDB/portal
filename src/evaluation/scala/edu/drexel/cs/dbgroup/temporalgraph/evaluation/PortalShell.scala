@@ -1,4 +1,4 @@
-package edu.drexel.cs.dbgroup.temporalgraph
+package edu.drexel.cs.dbgroup.temporalgraph.evaluation
 
 import edu.drexel.cs.dbgroup.temporalgraph.{ProgramContext, PartitionStrategyType}
 import org.apache.spark.SparkContext

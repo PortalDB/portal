@@ -1,4 +1,4 @@
-package edu.drexel.cs.dbgroup.temporalgraph
+package edu.drexel.cs.dbgroup.temporalgraph.evaluation
 
 import scala.util.parsing.combinator.PackratParsers
 import scala.util.parsing.combinator.syntactical.StandardTokenParsers
@@ -9,7 +9,7 @@ import java.time.LocalDate
 
 import org.apache.spark.graphx.Edge
 
-import edu.drexel.cs.dbgroup.temporalgraph.TemporalGraph
+import edu.drexel.cs.dbgroup.temporalgraph._
 import edu.drexel.cs.dbgroup.temporalgraph.util.{LinearTrendEstimate, GraphLoader}
 
 object PortalParser extends StandardTokenParsers with PackratParsers {
