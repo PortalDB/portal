@@ -28,7 +28,7 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter {
     }
   }
 
-  test("Testing select method"){
+  test("select function - the given inverval is present in the graph"){
     var intvs: Seq[Interval] = Seq[Interval]()
     var gps: ParSeq[Graph[String, Int]] = ParSeq[Graph[String, Int]]()
 
@@ -69,9 +69,24 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter {
 
     val intervalExpected = testInterval2
     val expectedSGP = new SnapshotGraphParallel(Seq[Interval](intervalExpected), ParSeq[Graph[String, Int]](graph2))
-    val testSGP = sgp1.select(testInterval2)
 
-    assert(expectedSGP.graphs == testSGP.graphs)
-    assert(expectedSGP.intervals == testSGP.intervals)
+    //casting graph to SnapshotGraphParallel
+    val testSGP = sgp1.select(testInterval2) match {
+      case e: SnapshotGraphParallel[String, Int] => e
+      case _ => null
+    }
+
+    assert(expectedSGP === testSGP)
   }
+
+  test("select function - the given inverval is inside the graph interaval but the graph does not have that interval")(pending)
+
+  test("select function - the given inverval is outside the graph interaval")(pending)
+
+  test("select function - the start of given inverval is inside but end is outside the graph interaval")(pending)
+
+  test("select function - the graph has only one time interval")(pending)
+
+  test("select function - the graph is empty")(pending)
+
 }
