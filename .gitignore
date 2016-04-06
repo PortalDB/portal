@@ -7,6 +7,7 @@
 **/*.pyc
 **/.idea/
 
+# Directories to ignore
 /bin
 **/project
 **/target
@@ -18,6 +19,7 @@ src/graphxext/target
 src/main/driverUtils/project
 src/main/driverutils/target
 
+# Always-ignore extensions
 *.prefs
 *.iml
-doc/PortalShell Info.txt
+*.log
