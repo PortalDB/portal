@@ -77,7 +77,6 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter {
   test("select function - the given inverval is present"){
     var intervals: Seq[Interval] = Seq[Interval]()
     var graphs: ParSeq[Graph[String, Int]] = ParSeq[Graph[String, Int]]()
-
     //creating the first graph
     val testInterval1 = Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2015-01-01"))
     val testInterval2 = Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2016-01-01"))
@@ -204,5 +203,4 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter {
     assert(expectedSGP.vertices.collect() === actualSGP.vertices.collect())
     assert(expectedSGP.edges.collect() === actualSGP.edges.collect())
   }
-
 }

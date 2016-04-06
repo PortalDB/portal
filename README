@@ -26,3 +26,12 @@ To run Experiment driver on mesos:
     $SPARK_HOME/bin/spark-submit --class edu.drexel.cs.dbgroup.graphxt.Driver --master mesos://master:5050 target/scala-2.10/tgraph-assembly-1.0.jar {params}
         ** where {params} could be for example: "AggU16by2 --select 2000 2015 --agg 2 universal -p CanonicalRandomVertexCut 8 --data hdfs://master:9000/data/dblp --type SG --env mesos"
 
+
+TESTING:
+To run all tests:
+    sbt test
+
+To run a specific test:
+    sbt compile "test-only <test path>"
+        e.g. sbt compile "test-only edu.drexel.cs.dbgroup.temporalgraph.representations.SnapshotGraphParallelSuite"
+

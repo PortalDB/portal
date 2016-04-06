@@ -177,7 +177,7 @@ All operations in our model take one or two \tgs and return a \tg,
 i.e. the algebra is compositional.  More importantly, all operations
 maintain the integrity of the model by computing the value of $V$,
 followed by the value of $E$, maintaining the foreign key constraint
-from $E$ to $V$ and the maximally condensed non-overlapping time
+from $E$ to $V$ and the maximally coalesced non-overlapping time
 period contraint on both $V$ and $E$.
 
 \begin{definition}[Selection]
@@ -308,14 +308,17 @@ An example in Figure~\ref{fig:changes} illustrates this concept.
 Here we propose a general way to aggregate evolving graphs over our
 model.  This approach is based on the stream aggregation work by Li,
 et al.~\cite{Li2005} with addition of quantifiers.  Aggregation is
-performed through specification of time windows, starting from the
-$TG.p.end$ backwards, consistent with the streaming approach.  Windows
-can be defined in terms of {\em time} or {\em change}.  The time
-window is semantic and can be any multiples of $\{minutes, hours,
-days, weeks, \\ months, years\}$, i.e. the usual time units.  The {\em
-  change} type is equivalent to the time period of one representative
-graph, i.e. period during which all the graph values are constant
-(this is similar to the slide-by-row type in stream aggregation).
+performed through specification of time windows.  Windows can be
+defined in terms of {\em time} or {\em change}.  The time window is
+semantic and can be any multiples of $\{minutes, hours, days, weeks,
+\\ months, years\}$, i.e. the usual time units.  The window span
+itself is based on absolute values rather than from some starting
+point and direction.  Thus, window specification of 1 year would
+produce windows for each calendar year occurring in the data.  The
+{\em change} type is equivalent to the time period of one
+representative graph, i.e. period during which all the graph values
+are constant (this is similar to the slide-by-row type in stream
+aggregation).
 
 Aggregation in relational algebra produces results for each grouping
 irrespective of how many results there are, unless a \insql{HAVING}
@@ -362,7 +365,76 @@ vertices that exist in $V$ is maintained.  The aggregation defined
 this way allows to aggregate graphs structurally, temporally, or in
 combination.  To aggregate only temporally, the grouping attribute
 must be $vid$ for $V$ and $(vid1, vid2)$ for $E$.  To aggregate only
-structurally, the window specification must be of 1 change range and
-slide.
+structurally, the window specification must be by 1 change.  Observe
+that aggregation by 1 change with grouping by id is a no-op, and in
+fact the sequence of representative graphs on the source data is equal
+to the deduplicated sequence of snapshots.
 
+The quantifier is applied to the coverage of the window period within
+each grouping.  For example, to construct the persistent edges graph
+from the example above, we use the $all$ quantifier over the $E$ relation.
+Only the edges that span the duration of the window period are
+produced.  Since the universal quantification is very restrictive,
+$most$ and $at\ least\ n$ quantifiers are more appropriate in some
+aggregations, especially over long windows.  To obtain a stable
+1-month graph over an evolving network connections graph, we may ask
+for connections that exist in at least 90\% of the period.
 
+Remember that the schema for $V$ has a $(vid, p)$ primary key.  Any
+aggregation operation must produce both a valid $vid$ and valid time
+interval for each tuple.  We produce a $vid$ by using the hash of the
+grouping variables to maintain temporal consistency.  The time
+interval is produced by the window extent from the window
+specification. Similarly for $E$.
+
+The aggregation functions over the selected graph attributes are used
+to compute the new value representative of the whole window.  We
+support the standard set $\{count, min,$ $max, sum, average\}$, as
+well as $\{any, first, last, list\}$.  $first$ and $last$ refer to
+first/last non-null value in the window and are possible because the
+aggregating tuples have the time dimension, and the ties are decided
+arbitrarily.  $count$ is the count of the number of distinct values
+over the aggregation window.  Additional aggregation functions can be
+defined by the user.
+
+\begin{figure*}
+\includegraphics[width=6.5in]{figs/agg1.pdf}
+\caption{1-month window aggregation with grouping by id, with
+  existential vertex/edge quantifier.  Structure only.}
+\label{fig:agg1}
+\end{figure*}
+
+An example in Figure~\ref{fig:agg1} shows a small \tg and a result of
+aggregation by 1 month on that graph with $at\ least\ one$ quantifier,
+with group by id.
+
+It is possible but difficult to express the aggregation operation as
+defined above in temporal SQL because each tuple may belong to
+multiple windows.
+
+\begin{definition}[Union]
+Union of $TG1\ \cup\ TG2$ = $\{v, e: v \in TG1.V$ or $v \in TG2.V$ or
+$v(vid$, $f_1(a_{11}$, $a_{21})$, \ldots, $f_n(a_{1n}, a_{2n})$,
+$period(least(p_1, p_2), greatest(p_1, p_2)))$, $e \in TG1.E$ or $e
+\in TG2.E$ or $e(vid1, vid2, g_1(b_{11}, b_{21}), \ldots, g_m(b_{1m},
+b_{2m})$, $period(least(p_1, p_2), greatest(p_1, p_2))) \}$, where
+each $f$, respectively $G$, is an aggregation function over one
+vertex, respectively edge, attribute where the values intersect over
+some period $p$.
+\label{def:union}
+\end{definition}
+
+\begin{figure*}
+\includegraphics[width=6.5in]{figs/union.pdf}
+\caption{Union of TG1 and TG2.}
+\label{fig:union}
+\end{figure*}
+
+In other words, union of two \tgs is simply all vertices and edges
+from both \tgs, with vertex/edge attributes decided by specified
+aggregation functions for each period where both values are present,
+with coalescing.  Figure~\ref{fig:union} illustrates this concept.
+
+Similarly, intersection of two \tgs is an intersection of
+vertices/edges of two graphs, with values for each overlapping
+attribute computed by a specified aggregate function.
