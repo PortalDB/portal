@@ -54,7 +54,7 @@ class Interval(st: LocalDate, en: LocalDate) extends Ordered[Interval] with Seri
 
   //if the other interval has any (including complete) overlap in years, return true
   def intersects(other: Interval):Boolean = {
-    if (other.start.isAfter(end) || other.end.isBefore(start))
+    if (other.start.isAfter(end) || other.start.equals(end) || other.end.isBefore(start) || other.end.equals(start))
       false
     else
       true
