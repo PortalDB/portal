@@ -308,14 +308,17 @@ An example in Figure~\ref{fig:changes} illustrates this concept.
 Here we propose a general way to aggregate evolving graphs over our
 model.  This approach is based on the stream aggregation work by Li,
 et al.~\cite{Li2005} with addition of quantifiers.  Aggregation is
-performed through specification of time windows, starting from the
-$TG.p.end$ backwards, consistent with the streaming approach.  Windows
-can be defined in terms of {\em time} or {\em change}.  The time
-window is semantic and can be any multiples of $\{minutes, hours,
-days, weeks, \\ months, years\}$, i.e. the usual time units.  The {\em
-  change} type is equivalent to the time period of one representative
-graph, i.e. period during which all the graph values are constant
-(this is similar to the slide-by-row type in stream aggregation).
+performed through specification of time windows.  Windows can be
+defined in terms of {\em time} or {\em change}.  The time window is
+semantic and can be any multiples of $\{minutes, hours, days, weeks,
+\\ months, years\}$, i.e. the usual time units.  The window span
+itself is based on absolute values rather than from some starting
+point and direction.  Thus, window specification of 1 year would
+produce windows for each calendar year occurring in the data.  The
+{\em change} type is equivalent to the time period of one
+representative graph, i.e. period during which all the graph values
+are constant (this is similar to the slide-by-row type in stream
+aggregation).
 
 Aggregation in relational algebra produces results for each grouping
 irrespective of how many results there are, unless a \insql{HAVING}
