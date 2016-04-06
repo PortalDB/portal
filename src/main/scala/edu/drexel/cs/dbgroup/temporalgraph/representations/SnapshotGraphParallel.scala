@@ -549,14 +549,6 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], gp
     } else
       this
   }
-
-  override def equals(that: Any): Boolean = {
-    that match {
-      case that: SnapshotGraphParallel[String,Int] =>  that.isInstanceOf[SnapshotGraphParallel[String,Int]] && this.graphs == that.graphs && this.intervals == that.intervals
-      case _ => false
-    }
-  }
-
 }
 
 object SnapshotGraphParallel extends Serializable {
