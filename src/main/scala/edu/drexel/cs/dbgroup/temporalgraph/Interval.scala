@@ -91,5 +91,9 @@ class Interval(st: LocalDate, en: LocalDate) extends Ordered[Interval] with Seri
 }
 
 object Interval {
-  def apply(mn: LocalDate, mx: LocalDate) = new Interval(mn,mx)
+  def apply(mn: LocalDate, mx: LocalDate) =
+   if(mn.isAfter(mx))
+     throw new IllegalArgumentException("StartDate cannot be after end date")
+   else
+      new Interval(mn,mx)
 }
