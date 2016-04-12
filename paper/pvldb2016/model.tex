@@ -283,7 +283,7 @@ In SQL, the representative graph periods can be computed as follows:
 \begin{verbatim}
 CREATE VIEW Changes(day) as (
   SELECT DISTINCT estart FROM V
-  UNION SELECT DISTINCT eend FROM E
+  UNION SELECT DISTINCT eend FROM V
   UNION SELECT DISTINCT estart from E
   UNION SELECT DISTINCT eend FROM E);
 CREATE VIEW ChangePeriods(estart, eend) as (
