@@ -11,15 +11,11 @@ import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
 
 import java.time.LocalDate
 
-abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))]) extends TGraph[VD, ED] {
+abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))]) extends TGraph[VD, ED] {
 
   val allVertices: RDD[(VertexId, (Interval, VD))] = verts
   val allEdges: RDD[((VertexId, VertexId), (Interval, ED))] = edgs
-
-  lazy val intervals: Seq[Interval] = {
-    val dates: RDD[LocalDate] = verts.flatMap{ case (id, (intv, attr)) => List(intv.start, intv.end)}.union(edgs.flatMap { case (ids, (intv, attr)) => List(intv.start, intv.end)}).distinct
-    dates.sortBy(c => c, true).collect.sliding(2).map(lst => Interval(lst(0), lst(1))).toSeq
-  }
+  val intervals: Seq[Interval] = intvs
 
   lazy val span: Interval = if (intervals.size > 0) Interval(intervals.head.start, intervals.last.end) else Interval(LocalDate.now, LocalDate.now)
 
@@ -101,13 +97,48 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, 
   /** Utility methods **/
 
   /*
+   * Given an RDD of vertices and an RDD of edges,
+   * remove the edges for which there is no src or dst vertex
+   * at the indicated time period,
+   * shorten the periods as needed to meet the integrity constraint.
+   * Warning: This is a very expensive operation, use only when needed.
+   */
+  protected def constrainEdges[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))]): RDD[((VertexId, VertexId), (Interval, E))] = {
+    val coalescV: RDD[(VertexId, Interval)] = TGraphNoSchema.coalesceStructure(verts)
+
+    //get edges that are valid for each of their two vertices
+    val e1: RDD[((VertexId, VertexId), (Interval, E))] = edgs.map(e => (e._1._1, e))
+      .join(coalescV) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
+      .filter{case (vid, (e, v)) => e._2._1.intersects(v) } //this keeps only matches of vertices and edges where periods overlap
+      .map{case (vid, (e, v)) => (e._1, (Interval(maxDate(e._2._1.start, v.start), minDate(e._2._1.end, v.end)), e._2._2))} //because the periods overlap we don't have to worry that maxdate is after mindate
+    val e2: RDD[((VertexId, VertexId), (Interval, E))] = edgs.map(e => (e._1._2, e))
+      .join(coalescV) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
+      .filter{case (vid, (e, v)) => e._2._1.intersects(v) } //this keeps only matches of vertices and edges where periods overlap
+      .map{case (vid, (e, v)) => (e._1, (Interval(maxDate(e._2._1.start, v.start), minDate(e._2._1.end, v.end)), e._2._2))} //because the periods overlap we don't have to worry that maxdate is after mindate
+
+    //now join them to keep only those that satisfy both foreign key constraints
+    e1.join(e2)
+    //keep only an edge that meets constraints on both vertex ids
+      .filter{ case (k, (e1, e2)) => e1._1.intersects(e2._1) && e1._2 == e2._2 }
+      .map{ case (k, (e1, e2)) => (k, (Interval(maxDate(e1._1.start, e2._1.start), minDate(e1._1.end, e2._1.end)), e1._2))}
+  }
+
+}
+
+object TGraphNoSchema {
+  def computeIntervals[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))]): Seq[Interval] = {
+    val dates: RDD[LocalDate] = verts.flatMap{ case (id, (intv, attr)) => List(intv.start, intv.end)}.union(edgs.flatMap { case (ids, (intv, attr)) => List(intv.start, intv.end)}).distinct
+    dates.sortBy(c => c, true).collect.sliding(2).map(lst => Interval(lst(0), lst(1))).toSeq
+  }
+
+  /*
    * given an RDD where for a key there is a value over time period
    * coalesce consecutive periods with the same value
    * i.e. (1, (1-3, "blah")) and (1, (3-4, "blah")) become
    * single tuple (1, (1-4, "blah"))
    * Warning: This is a very expensive operation, use sparingly
    */
-  protected def coalesce[K: ClassTag, V: ClassTag](rdd: RDD[(K, (Interval, V))]): RDD[(K, (Interval, V))] = {
+  def coalesce[K: ClassTag, V: ClassTag](rdd: RDD[(K, (Interval, V))]): RDD[(K, (Interval, V))] = {
     rdd.groupByKey.mapValues{ seq =>  //groupbykey produces RDD[(K, Seq[(p, V)])]
       seq.toSeq.sortBy(x => x._1.start)
       //TODO: see if using list and :: is faster
@@ -125,7 +156,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, 
    * single tuple (1, 1-4)
    * Warning: This is a very expensive operation, use sparingly
    */
-  protected def coalesceStructure[K: ClassTag, V: ClassTag](rdd: RDD[(K, (Interval, V))]): RDD[(K, Interval)] = {
+  def coalesceStructure[K: ClassTag, V: ClassTag](rdd: RDD[(K, (Interval, V))]): RDD[(K, Interval)] = {
     rdd.groupByKey.mapValues{ seq =>  //groupbykey produces RDD[(K, Seq[(p, V)])]
       seq.toSeq.sortBy(x => x._1.start)
       //TODO: see if using list and :: is faster
