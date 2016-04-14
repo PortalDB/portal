@@ -99,10 +99,72 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
   }
 
   def aggregate(res: WindowSpecification, vgroupby: (VertexId, VD) => VertexId, egroupby: EdgeTriplet[VD, ED] => (VertexId, VertexId), vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraph[VD, ED] = {
-    //TODO!!
-//    if (allVertices.isEmpty)
-    return SnapshotGraphParallel.emptyGraph[VD,ED](defaultValue)
+    if (allVertices.isEmpty)
+      return SnapshotGraphParallel.emptyGraph[VD,ED](defaultValue)
 
+    /* for aggregation by change, there are two ways to do this:
+     * 1. aggregate consecutive graphs by the required number of changes. within each group, map entities with new keys, and finally reducebykey
+     * 2. compute intervals, then use the same method as for aggregate by time
+     * 
+     * for aggregation by time, split each entity into as many as there are periods into which it falls, with new id based on groupby,
+     * reduce by key, and finally filter out those that don't meet quantification criteria. coalesce.
+     */
+    res match {
+      case c : ChangeSpec => aggregateByChange(c, vgroupby, egroupby, vquant, equant, vAggFunc, eAggFunc)
+      case t : TimeSpec => aggregateByTime(t, vgroupby, egroupby, vquant, equant, vAggFunc, eAggFunc)
+      case _ => throw new IllegalArgumentException("unsupported window specification")
+    }
+  }
+
+  protected def aggregateByChange(c: ChangeSpec, vgroupby: (VertexId, VD) => VertexId, egroupby: EdgeTriplet[VD, ED] => (VertexId, VertexId), vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraph[VD, ED] = {
+    val size: Integer = c.num
+    var groups: ParSeq[List[Graph[VD, ED]]] = if (size > 1) 
+      graphs.foldLeft(List[List[Graph[VD, ED]]](), 0) { (r, c) => r match {
+        case (head :: tail, num) =>
+          if (num < size)  ( (c :: head) :: tail , num + 1 )
+          else             ( List(c) :: head :: tail , 1 )
+        case (Nil, num) => (List(List(c)), 1)
+      }
+      }._1.foldLeft(List[List[Graph[VD, ED]]]())( (r,c) => c.reverse :: r).par
+    else
+      graphs.map(g => List(g))
+
+    //drop the last group if we have Always quantification
+    groups = vquant match {
+      case a: Always if (groups.last.length < size) => groups.take(groups.length - 1)
+      case _ => groups
+
+    }
+
+    //for each group, reduce into vertices and edges
+    //compute new value, filter by quantification
+    val reduced: ParSeq[(RDD[(VertexId, (VD, Int))], RDD[((VertexId, VertexId),(ED, Int))])] = groups.map(group => group.map(g => (g.vertices, g.triplets))
+      .reduce((a: (RDD[(VertexId, VD)], RDD[EdgeTriplet[VD,ED]]), b: (RDD[(VertexId, VD)], RDD[EdgeTriplet[VD,ED]])) => (a._1.union(b._1), a._2.union(b._2)))
+      //map each vertex into its new key
+      //reduce by key with aggregate functions
+    ).map{ case (vs, es) => 
+        (vs.map{ case (vid, vattr) => (vgroupby(vid, vattr), (vattr, 1))}
+          .reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 + b._2))
+          .filter(v => vquant.keep(v._2._2 / size.toDouble)),
+          es.map{ e => (egroupby(e), (e.attr, 1))}
+            .reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 + b._2))
+          .filter(e => equant.keep(e._2._2 / size.toDouble))
+        )
+    }
+
+    //now we can create new graphs
+    //to enforce constraint on edges, subgraph vertices that have default attribute value
+    val newGraphs: ParSeq[Graph[VD, ED]] = reduced.map { case (vs, es) =>
+      Graph(vs.mapValues(v => v._1), es.map(e => Edge(e._1._1, e._1._2, e._2._1)), defaultValue, storLevel, storLevel).subgraph(vpred = (vid, attr) => attr != defValue)
+    }
+    val newIntervals: Seq[Interval] = intervals.grouped(size).map{group => group.reduce((a,b) => Interval(a.start, b.end))}.toSeq
+
+    return SnapshotGraphParallel.fromGraphs(newIntervals, newGraphs, defaultValue, storLevel)
+  }
+
+  protected def aggregateByTime(c: TimeSpec, vgroupby: (VertexId, VD) => VertexId, egroupby: EdgeTriplet[VD, ED] => (VertexId, VertexId), vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraph[VD, ED] = {
+
+    return SnapshotGraphParallel.emptyGraph[VD,ED](defaultValue)
   }
 
   override def project[ED2: ClassTag, VD2: ClassTag](emap: (Edge[ED], Interval) => ED2, vmap: (VertexId, Interval, VD) => VD2): SnapshotGraphParallel[VD2, ED2] = {
