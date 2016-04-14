@@ -27,20 +27,15 @@ import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
 
 import java.time.LocalDate
 
-class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY) extends TGraphNoSchema[VD, ED](verts, edgs) with Serializable {
+class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], grphs: ParSeq[Graph[VD,ED]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY) extends TGraphNoSchema[VD, ED](intvs, verts, edgs) with Serializable {
 
   val storageLevel = storLevel
   val defaultValue: VD = defValue
+  private val graphs: ParSeq[Graph[VD, ED]] = grphs
+
   //TODO: we should enforce the integrity constraint
   //by removing edges which connect nonexisting vertices at some time t
   //or throw an exception upon construction
-
-  //compute the graphs. due to spark lazy evaluation,
-  //if these graphs are not needed, they aren't actually materialized
-  val graphs: ParSeq[Graph[VD,ED]] = intervals.map( p =>
-    Graph(verts.filter(v => v._2._1.intersects(p)).map(v => (v._1, v._2._2)), 
-      edgs.filter(e => e._2._1.intersects(p)).map(e => Edge(e._1._1, e._1._2, e._2._2)),
-      defaultValue, storageLevel, storageLevel)).par
 
   override def materialize() = {
     graphs.foreach { x =>
@@ -72,16 +67,13 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (I
     val endBound = if (bound.end.isBefore(span.end)) bound.end else span.end
     val selectBound:Interval = Interval(startBound, endBound)
 
-    new SnapshotGraphParallel(allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(maxDate(y._1.start, startBound), minDate(y._1.end, endBound)), y._2)), allEdges.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(maxDate(y._1.start, startBound), minDate(y._1.end, endBound)), y._2)), defaultValue, storageLevel)
+    SnapshotGraphParallel.fromRDDs(allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(maxDate(y._1.start, startBound), minDate(y._1.end, endBound)), y._2)), allEdges.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(maxDate(y._1.start, startBound), minDate(y._1.end, endBound)), y._2)), defaultValue, storageLevel)
   }
 
   override def select(vtpred: Interval => Boolean, etpred: Interval => Boolean): SnapshotGraphParallel[VD, ED] = {
-    //FIXME: what if anything should be done with the period values of
-    //remaining vertices?
-
     //because of the integrity constraint on edges, they have to 
     //satisfy both predicates
-    new SnapshotGraphParallel(allVertices.filter{ case (vid, (intv, attr)) => vtpred(intv)}, allEdges.filter{ case (ids, (intv, attr)) => vtpred(intv) && etpred(intv)}, defaultValue, storageLevel)
+    SnapshotGraphParallel.fromRDDs(allVertices.filter{ case (vid, (intv, attr)) => vtpred(intv)}, allEdges.filter{ case (ids, (intv, attr)) => vtpred(intv) && etpred(intv)}, defaultValue, storageLevel)
 
   }
 
@@ -96,29 +88,17 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (I
 
     //this is method 2
     val newVerts: RDD[(VertexId, (Interval, VD))] = allVertices.filter{ case (vid, attrs) => vpred(vid, attrs)}
-    val coalescV: RDD[(VertexId, Interval)] = coalesceStructure(newVerts)
     val filteredEdges: RDD[((VertexId, VertexId), (Interval, ED))] = allEdges.filter{ case (ids, attrs) => epred(ids, attrs)}
-    //get edges that are valid for each of their two vertices
-    val e1: RDD[((VertexId, VertexId), (Interval, ED))] = filteredEdges.map(e => (e._1._1, e))
-      .join(coalescV) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
-      .filter{case (vid, (e, v)) => e._2._1.intersects(v) } //this keeps only matches of vertices and edges where periods overlap
-      .map{case (vid, (e, v)) => (e._1, (Interval(maxDate(e._2._1.start, v.start), minDate(e._2._1.end, v.end)), e._2._2))} //because the periods overlap we don't have to worry that maxdate is after mindate
-    val e2: RDD[((VertexId, VertexId), (Interval, ED))] = filteredEdges.map(e => (e._1._2, e))
-      .join(coalescV) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
-      .filter{case (vid, (e, v)) => e._2._1.intersects(v) } //this keeps only matches of vertices and edges where periods overlap
-      .map{case (vid, (e, v)) => (e._1, (Interval(maxDate(e._2._1.start, v.start), minDate(e._2._1.end, v.end)), e._2._2))} //because the periods overlap we don't have to worry that maxdate is after mindate
-    //now join them to keep only those that satisfy both foreign key constraints
-    val newEdges: RDD[((VertexId, VertexId), (Interval, ED))] = e1.join(e2)
-    //keep only an edge that meets constraints on both vertex ids
-      .filter{ case (k, (e1, e2)) => e1._1.intersects(e2._1) && e1._2 == e2._2 }
-      .map{ case (k, (e1, e2)) => (k, (Interval(maxDate(e1._1.start, e2._1.start), minDate(e1._1.end, e2._1.end)), e1._2))}
+
+    val newEdges = if (filteredEdges.isEmpty) filteredEdges else constrainEdges(newVerts, filteredEdges)
+
     //no need to coalesce either vertices or edges because we are removing some entities, but not extending them or modifying attributes
 
-    new SnapshotGraphParallel(newVerts, newEdges, defaultValue, storageLevel)
+    SnapshotGraphParallel.fromRDDs(newVerts, newEdges, defaultValue, storageLevel)
 
   }
 
-  def aggregate(res: Resolution, vgroupby: (VertexId, VD) => VertexId, egroupby: EdgeTriplet[VD, ED] => (VertexId, VertexId), vquant: AggregateSemantics.Value, equant: AggregateSemantics.Value, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraph[VD, ED] = {
+  def aggregate(res: WindowSpecification, vgroupby: (VertexId, VD) => VertexId, egroupby: EdgeTriplet[VD, ED] => (VertexId, VertexId), vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraph[VD, ED] = {
     //TODO!!
 //    if (allVertices.isEmpty)
     return SnapshotGraphParallel.emptyGraph[VD,ED](defaultValue)
@@ -220,94 +200,28 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (I
 }
 
 object SnapshotGraphParallel extends Serializable {
-/*
-  //this assumes that the data is in the dataPath directory, each time period in its own files
-  //end is not inclusive, i.e. [start, end)
-  final def loadData(dataPath: String, start:LocalDate, end:LocalDate): SnapshotGraphParallel[String, Int] = {
-    loadWithPartition(dataPath, start, end, PartitionStrategyType.None, 2)
+  def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY): SnapshotGraphParallel[V, E] = {
+    val intervals = TGraphNoSchema.computeIntervals(verts, edgs)
+
+    //compute the graphs. due to spark lazy evaluation,
+    //if these graphs are not needed, they aren't actually materialized
+    val graphs: ParSeq[Graph[V,E]] = intervals.map( p =>
+      Graph(verts.filter(v => v._2._1.intersects(p)).map(v => (v._1, v._2._2)),
+        edgs.filter(e => e._2._1.intersects(p)).map(e => Edge(e._1._1, e._1._2, e._2._2)),
+        defVal, storLevel, storLevel)).par
+
+    new SnapshotGraphParallel(intervals, verts, edgs, graphs, defVal, storLevel)
+
   }
 
-  final def loadWithPartition(dataPath: String, start: LocalDate, end: LocalDate, strategy: PartitionStrategyType.Value, runWidth: Int): SnapshotGraphParallel[String, Int] = {
-    var minDate: LocalDate = start
-    var maxDate: LocalDate = end
+  def fromGraphs[V: ClassTag, E: ClassTag](intervals: Seq[Interval], graphs: ParSeq[Graph[V, E]], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY): SnapshotGraphParallel[V, E] = {
 
-    var source: scala.io.Source = null
-    var fs: FileSystem = null
+    val verts: RDD[(VertexId, (Interval, V))] = TGraphNoSchema.coalesce(graphs.zip(intervals).map{ case (g,i) => g.vertices.map{ case (vid, attr) => (vid, (i, attr))}}.reduce((a, b) => a union b))
+    val edges: RDD[((VertexId, VertexId), (Interval, E))] = TGraphNoSchema.coalesce(graphs.zip(intervals).map{ case (g,i) => g.edges.map(e => ((e.srcId, e.dstId), (i, e.attr)))}.reduce((a, b) => a union b))
 
-    val pt: Path = new Path(dataPath + "/Span.txt")
-    val conf: Configuration = new Configuration()
-    if (System.getenv("HADOOP_CONF_DIR") != "") {
-      conf.addResource(new Path(System.getenv("HADOOP_CONF_DIR") + "/core-site.xml"))
-    }
-    fs = FileSystem.get(conf)
-    source = scala.io.Source.fromInputStream(fs.open(pt))
-
-    val lines = source.getLines
-    val minin = LocalDate.parse(lines.next)
-    val maxin = LocalDate.parse(lines.next)
-    val res = Resolution.from(lines.next)
-
-    if (minin.isAfter(start)) 
-      minDate = minin
-    if (maxin.isBefore(end)) 
-      maxDate = maxin
-    source.close()
-
-    var intvs: Seq[Interval] = Seq[Interval]()
-    var gps: ParSeq[Graph[String, Int]] = ParSeq[Graph[String, Int]]()
-    var xx:LocalDate = minDate
-
-    val total = res.numBetween(minDate, maxDate)
-
-    while (xx.isBefore(maxDate)) {
-      val nodesPath = dataPath + "/nodes/nodes" + xx.toString() + ".txt"
-      val edgesPath = dataPath + "/edges/edges" + xx.toString() + ".txt"
-      val numNodeParts = MultifileLoad.estimateParts(nodesPath) 
-      val numEdgeParts = MultifileLoad.estimateParts(edgesPath) 
-      
-      val users: RDD[(VertexId, String)] = ProgramContext.sc.textFile(nodesPath, numNodeParts).map(line => line.split(",")).map { parts =>
-        if (parts.size > 1 && parts.head != "")
-          (parts.head.toLong, parts(1).toString)
-        else
-          (0L, "Default")
-      }
-      
-      var edges: EdgeRDD[Int] = EdgeRDD.fromEdges(ProgramContext.sc.emptyRDD)
-
-      val ept: Path = new Path(edgesPath)
-      if (fs.exists(ept) && fs.getFileStatus(ept).getLen > 0) {
-        //uses extended version of Graph Loader to load edges with attributes
-        var g = GraphLoaderAddon.edgeListFile(ProgramContext.sc, edgesPath, true, numEdgeParts)
-        if (strategy != PartitionStrategyType.None) {
-          g = g.partitionBy(PartitionStrategies.makeStrategy(strategy, intvs.size + 1, total, runWidth), g.edges.partitions.size)
-        }
-        edges = g.edges
-      }
-      
-      intvs = intvs :+ res.getInterval(xx)
-      //TODO: should decide the storage level based on size
-      //for small graphs MEMORY_ONLY is fine
-      gps = gps :+ Graph(users, edges, "Default", edgeStorageLevel = StorageLevel.MEMORY_ONLY_SER, vertexStorageLevel = StorageLevel.MEMORY_ONLY_SER)
-      xx = intvs.last.end
-
-      /*
-       val degs: RDD[Double] = gps.last.degrees.map{ case (vid,attr) => attr}
-       println("min degree: " + degs.min)
-       println("max degree: " + degs.max)
-       println("average degree: " + degs.mean)
-       val counts = degs.histogram(Array(0.0, 10, 50, 100, 1000, 5000, 10000, 50000, 100000, 250000))
-       println("histogram:" + counts.mkString(","))
-       println("number of vertices: " + gps.last.vertices.count)
-       println("number of edges: " + gps.last.edges.count)
-       println("number of partitions in edges: " + gps.last.edges.partitions.size)
-      */
-
-    }
-
-    new SnapshotGraphParallel(intvs, gps)
+    new SnapshotGraphParallel(intervals, verts, edges, graphs, defVal, storLevel)
   }
 
- */
-  def emptyGraph[VD: ClassTag, ED: ClassTag](defVal: VD):SnapshotGraphParallel[VD, ED] = new SnapshotGraphParallel(ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD, defVal)
+  def emptyGraph[V: ClassTag, E: ClassTag](defVal: V):SnapshotGraphParallel[V, E] = new SnapshotGraphParallel(Seq[Interval](), ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD, ParSeq[Graph[V,E]](), defVal)
  
 }

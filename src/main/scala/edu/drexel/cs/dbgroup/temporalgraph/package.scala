@@ -8,13 +8,12 @@ package object temporalgraph {
     */
   type TimeIndex = Int
 
-  object AggregateSemantics extends Enumeration {
-    val All, Any = Value
-  }
+  trait Quantification extends Serializable
+  case class Always extends Quantification
+  case class Exists extends Quantification
+  case class Most extends Quantification
+  case class AtLeast(ratio: Double) extends Quantification
 
-  object JoinSemantics extends Enumeration {
-    val And, Or = Value
-  }
 
   object ProgramContext {
     var sc:SparkContext = null
@@ -25,5 +24,7 @@ package object temporalgraph {
   object PartitionStrategyType extends Enumeration {
     val CanonicalRandomVertexCut, EdgePartition2D, NaiveTemporal, NaiveTemporalEdge, ConsecutiveTemporal, ConsecutiveTemporalEdge, HybridRandomTemporal, HybridRandomEdgeTemporal, Hybrid2DTemporal, Hybrid2DEdgeTemporal, None = Value
   }
+
+  trait WindowSpecification extends Serializable
 
 }
