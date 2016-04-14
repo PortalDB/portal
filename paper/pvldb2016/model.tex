@@ -180,18 +180,15 @@ followed by the value of $E$, maintaining the foreign key constraint
 from $E$ to $V$ and the maximally coalesced non-overlapping time
 period contraint on both $V$ and $E$.
 
-\begin{definition}[Selection]
-Temporal and structural selection on $TG$ is a selection on the
-attributes of $V$ and $E$.  Subgraph is $\sigma_{a \theta v}(TG)$,
-where $a$ are attributes of $V$ and/or $E$, $\theta$ is a binary
-operation in the set $\{<, \leq, =, \neq, \geq, >\}$, and $v$ is a
-value constant.  Temporal selection over $TG$ is $\sigma_{[a,b)}(TG) =
-  \{t: t \in TG, t(p).overlaps(period(a,b))\}$ which returns a subset
-  of $TG$ within the bounds of $[a,b)$.
-\label{def:selection}
+\begin{definition}[Slice]
+Slice on $TG$ is a selection on periods of $V$ and $E$ such that
+$slice_{[a,b)}(TG) = \{t': t \in TG$, $t(p).overlaps(period(a,b)), t'
+  = fit(t, period(a,b))\}$ and $fit(t, period(a,b))$ shortens the
+  entity period $p$ to be within $[a,b)$.
+\label{def:slice}
 \end{definition}
 
-In SQL, temporal selection can be expressed as follows for $V$
+In SQL, slice can be expressed as follows for $V$
 (similarly for $E$):
 
 \begin{small}
@@ -203,6 +200,15 @@ WHERE eperiod OVERLAPS PERIOD (DATE ':date1', DATE ':date2')
 \end{verbatim}
 \end{small}
 
+\begin{definition}[Selection]
+Temporal and structural selection on $TG$ is a selection on the
+attributes of $V$ and $E$, including entity periods.  $\sigma_{a
+  \theta c}(TG)$, where $a$ are attributes of $V$ and/or $E$,
+including periods, $\theta$ is a binary operation in the set $\{<,
+\leq, =, \neq, \geq, >\}$, and $c$ is a value constant.
+\label{def:selection}
+\end{definition}
+
 Temporal and structural selection are supported by the same selection
 operator and can be used together.  For example, one could select a
 sub-graph in an evolving co-citation network of only authors whose
@@ -210,7 +216,11 @@ names start with letter A, over the past decade.  Because of the
 constraint on $E$, even if the structural selection is only on
 attributes of $V$, only edges connecting selected vertices are
 retained.  Neither deduplication nor coalescing is required as a
-post-operation.
+post-operation.  Note that temporal selection and slice are different
+because temporal selection does not modify entity periods, only
+selects some of them.
+
+In SQL, selection can be expressed as a regular selection on V, followed by a selection on E with integrity constraint enforced.
 
 \begin{definition}[Projection]
 Projection on $TG$ is projection on attributes of $V$ and $E$ with
@@ -311,14 +321,15 @@ et al.~\cite{Li2005} with addition of quantifiers.  Aggregation is
 performed through specification of time windows.  Windows can be
 defined in terms of {\em time} or {\em change}.  The time window is
 semantic and can be any multiples of $\{minutes, hours, days, weeks,
-\\ months, years\}$, i.e. the usual time units.  The window span
-itself is based on absolute values rather than from some starting
-point and direction.  Thus, window specification of 1 year would
-produce windows for each calendar year occurring in the data.  The
-{\em change} type is equivalent to the time period of one
-representative graph, i.e. period during which all the graph values
-are constant (this is similar to the slide-by-row type in stream
-aggregation).
+\\ months, years\}$, i.e. the usual time units.  Window specification
+of 1 year would produce windows for each calendar year occurring in
+the data.  The {\em change} type is equivalent to the time period of
+one representative graph, i.e. period during which all the graph
+values are constant (this is similar to the slide-by-row type in
+stream aggregation).
+
+\vera{I realized that we still need to define the window direction for
+  cases like 2 years or 3 months.}
 
 Aggregation in relational algebra produces results for each grouping
 irrespective of how many results there are, unless a \insql{HAVING}
