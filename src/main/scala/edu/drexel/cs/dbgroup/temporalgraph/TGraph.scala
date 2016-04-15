@@ -81,8 +81,7 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
   /**
     * Aggregate into representative graphs over time windows.
     * @param resolution The desired duration of time intervals in the temporal sequence in sematic units (days, months, years) or number of changes
-    * @param vgroupby The grouping function for vertices
-    * @param egroupby The grouping function for edges
+    * @param vgroupby The grouping function for vertices for structural aggregation
     * @param vquant The quantification over vertices
     * @param equant The quantification over edges
     * @param vAggFunction The function to apply to vertex attributes during aggregation.
@@ -93,7 +92,7 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * performed in pairs (ala reduce).
     * @return New tgraph 
     */
-  def aggregate(window: WindowSpecification, vgroupby: (VertexId, VD) => VertexId, egroupby: EdgeTriplet[VD, ED] => (VertexId, VertexId), vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraph[VD, ED]
+  def aggregate(window: WindowSpecification, vgroupby: (VertexId, VD) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraph[VD, ED]
 
   /**
     * Transforms the structural schema of the graph

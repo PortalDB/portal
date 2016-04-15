@@ -98,7 +98,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
 
   }
 
-  def aggregate(res: WindowSpecification, vgroupby: (VertexId, VD) => VertexId, egroupby: EdgeTriplet[VD, ED] => (VertexId, VertexId), vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraph[VD, ED] = {
+  def aggregate(res: WindowSpecification, vgroupby: (VertexId, VD) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraph[VD, ED] = {
     if (allVertices.isEmpty)
       return SnapshotGraphParallel.emptyGraph[VD,ED](defaultValue)
 
@@ -110,13 +110,13 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
      * reduce by key, and finally filter out those that don't meet quantification criteria. coalesce.
      */
     res match {
-      case c : ChangeSpec => aggregateByChange(c, vgroupby, egroupby, vquant, equant, vAggFunc, eAggFunc)
-      case t : TimeSpec => aggregateByTime(t, vgroupby, egroupby, vquant, equant, vAggFunc, eAggFunc)
+      case c : ChangeSpec => aggregateByChange(c, vgroupby, vquant, equant, vAggFunc, eAggFunc)
+      case t : TimeSpec => aggregateByTime(t, vgroupby, vquant, equant, vAggFunc, eAggFunc)
       case _ => throw new IllegalArgumentException("unsupported window specification")
     }
   }
 
-  protected def aggregateByChange(c: ChangeSpec, vgroupby: (VertexId, VD) => VertexId, egroupby: EdgeTriplet[VD, ED] => (VertexId, VertexId), vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraph[VD, ED] = {
+  protected def aggregateByChange(c: ChangeSpec, vgroupby: (VertexId, VD) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraph[VD, ED] = {
     val size: Integer = c.num
     var groups: ParSeq[List[Graph[VD, ED]]] = if (size > 1) 
       graphs.foldLeft(List[List[Graph[VD, ED]]](), 0) { (r, c) => r match {
@@ -146,7 +146,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
         (vs.map{ case (vid, vattr) => (vgroupby(vid, vattr), (vattr, 1))}
           .reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 + b._2))
           .filter(v => vquant.keep(v._2._2 / size.toDouble)),
-          es.map{ e => (egroupby(e), (e.attr, 1))}
+          es.map{ e => ((vgroupby(e.srcId, e.srcAttr), vgroupby(e.dstId, e.dstAttr)), (e.attr, 1))}
             .reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 + b._2))
           .filter(e => equant.keep(e._2._2 / size.toDouble))
         )
@@ -159,12 +159,32 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
     }
     val newIntervals: Seq[Interval] = intervals.grouped(size).map{group => group.reduce((a,b) => Interval(a.start, b.end))}.toSeq
 
-    return SnapshotGraphParallel.fromGraphs(newIntervals, newGraphs, defaultValue, storLevel)
+    SnapshotGraphParallel.fromGraphs(newIntervals, newGraphs, defaultValue, storLevel)
   }
 
-  protected def aggregateByTime(c: TimeSpec, vgroupby: (VertexId, VD) => VertexId, egroupby: EdgeTriplet[VD, ED] => (VertexId, VertexId), vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraph[VD, ED] = {
+  protected def aggregateByTime(c: TimeSpec, vgroupby: (VertexId, VD) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraph[VD, ED] = {
+    val start = span.start
+    //TODO: if there is no structural aggregation, i.e. vgroupby is vid => vid
+    //then we can skip the expensive joins
 
-    return SnapshotGraphParallel.emptyGraph[VD,ED](defaultValue)
+    //for each vertex, we split it into however many intervals it falls into
+    //using the new id from vgroupby
+    val splitVerts: RDD[((VertexId, Interval), (VD, Double))] = allVertices.flatMap{ case (vid, (intv, attr)) => intv.split(c.res, start).map(ii => ((vgroupby(vid,attr), ii._3), (attr, ii._2)))}
+    val newVIds: RDD[(VertexId, (Interval, VertexId))] = allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vgroupby(vid, attr)))}
+
+    //for each edge, similar except computing the new ids requires joins with V
+    val edgesWithIds: RDD[((VertexId, VertexId), (Interval, ED))] = allEdges.map(e => (e._1._1, e)).join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => (e._1._2, (vid, (Interval(maxDate(e._2._1.start, v._1.start), minDate(e._2._1.end, v._1.end)), e._2._2)))}.join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => ((e._1, vid), (Interval(maxDate(e._2._1.start, v._1.start), minDate(e._2._1.end, v._1.end)), e._2._2))}
+    val splitEdges: RDD[((VertexId, VertexId, Interval),(ED, Double))] = edgesWithIds.flatMap{ case (ids, (intv, attr)) => intv.split(c.res, start).map(ii => ((ids._1, ids._2, ii._3), (attr, ii._2)))}
+
+    //reduce vertices by key, also computing the total period occupied
+    //filter out those that do not meet quantification criteria
+    //map to final result
+    val newVerts: RDD[(VertexId, (Interval, VD))] = splitVerts.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 + b._2)).filter(v => vquant.keep(v._2._2)).map(v => (v._1._1, (v._1._2, v._2._1)))
+    //same for edges
+    val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 + b._2)).filter(e => equant.keep(e._2._2)).map(e => ((e._1._1, e._1._2), (e._1._3, e._2._1)))
+    val newEdges = if (aggEdges.isEmpty) aggEdges else constrainEdges(newVerts, aggEdges)
+
+    SnapshotGraphParallel.fromRDDs(newVerts, newEdges, defaultValue, storageLevel)
   }
 
   override def project[ED2: ClassTag, VD2: ClassTag](emap: (Edge[ED], Interval) => ED2, vmap: (VertexId, Interval, VD) => VD2): SnapshotGraphParallel[VD2, ED2] = {

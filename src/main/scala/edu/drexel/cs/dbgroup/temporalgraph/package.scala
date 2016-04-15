@@ -1,7 +1,6 @@
 package edu.drexel.cs.dbgroup
 
 import org.apache.spark.SparkContext
-import java.time.Period
 
 package object temporalgraph {
   /**
@@ -37,6 +36,6 @@ package object temporalgraph {
 
   trait WindowSpecification extends Serializable
   case class ChangeSpec(num: Integer) extends WindowSpecification
-  case class TimeSpec(period: Period) extends WindowSpecification
+  case class TimeSpec(res: Resolution) extends WindowSpecification
 
 }
