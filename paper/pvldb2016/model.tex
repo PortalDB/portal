@@ -2,58 +2,89 @@
 \label{sec:model}
 
 The basic element of our model is a \tg, which represents a graph that
-evolves over time.  Our representation is based on a continuous time
-domain.  This is in contrast to representing a graph as a sequence of
-discrete states. We will discuss this distinction in detail in
-Section~\ref{sec:model:others}.  We define the structure of an
-evolving graph in Section~\ref{sec:model:structure}.  We then show the
-relationship with other models in Section~\ref{sec:model:others}.
-Finally, in Section~\ref{sec:model:algebra} we define the algebraic
-operations on our model.
+evolves over time.  We formally define \tgs in
+Section~\ref{sec:model:structure}.  In our model both the structure of
+the graph, i.e., the presence or absence of its vertices and edges,
+and the values of vertex and edge attributes, evolve continuously over
+time.  This is in contrast to representing graph evolution as a
+sequence of discrete states.  We will discuss this distinction in
+detail in Section~\ref{sec:model:others}.  Finally, in
+Section~\ref{sec:model:algebra} we define the operations of the \tg
+algebra.
 
 \subsection{Evolving Graphs}
 \label{sec:model:structure}
 
-First we describe how time is represented in our model.  Following the
+First we describe how time is represented in our model. Following the
 SQL:2011 standard~\cite{DBLP:journals/sigmod/KulkarniM12}, we adopt
-the {\em closed-open} period model, where a period represents all
-times starting from and including the start time, continuing to but
-excluding the end time.
+the {\em closed-open} period model, where a time period represents a
+continuous set of time instances, starting from and including the
+start time, continuing to but excluding the end time.
 
 \begin{definition}[Time period]
-A {\em time period} \\$p = [start, end)$ is an interval on the
+A {\em time period} $p = [start, end)$ is an interval of the
   continuous time domain $T$, subject to the constraint $start < end$.
 \label{def:period} 
 \end{definition}
 
+\begin{definition}[Period sequence]
+A {\em sequence of time periods} $P = \{p_1, \ldots, p_n \}$ is a
+finite union of consecutive non-overlapping time periods, subject to
+the constraint $p_i.end < p_{i+1}.start$.  Because we require that the
+start of period $p_{i+1}$ is strictly greater than the end of the
+preceeding period $p_i$, $P$ corresponds to a {\em coalesced period
+  sequence}.
+\label{def:seq}
+\end{definition}
+
+We use time period sequences to assign temporal meaning to entities
+that make up an evolving graph.  Conceptually, since an entity
+corresponds to a coalesced period sequence, the entity exists
+continuously through each time period of its validity.  Coalescing
+requires that the system automatically merge adjacent and overlapping
+time periods.  This operation, which is similar to duplicate
+elimination in conventional databases, has been
+studied~\cite{DBLP:conf/vldb/BohlenSS96,DBLP:journals/sigmod/Zimanyi06}
+but is not supported by the SQL:2011 standard.  That period sequences
+be coalesced is an important property of our logical model, but it
+does not have to be mirrored in the physcal representation.
+
+
+Armed with Definitions~\ref{def:period} and~\ref{def:seq}, we now
+focus on assigning temporal meaning to structural elements --- graph
+vertices and edges, and will later consider vertex and edge
+attributes.
+
+The basic element of our model is a \tg, which is conceptually a pair
+of temporal SQL relations $V(\underline{vid}, \underline{p})$ and
+$E(\underline{vid_1}, \underline{vid_2}, \underline{p})$, with the
+natural integrity constraint that an edge in $E$ links two vertices
+that exist at the time when the edge exists.  This is stated formally
+next.
+
 \begin{definition}[TGraph]
 An {\em evolving graph} $TG$ is a pair $(V;E)$, where $V$ is a finite
-set of nodes with schema $(\underline{vid}, a_1, \ldots, a_n,
-\underline{p})$, and $E$ is a finite set of edges connecting pairs of
-nodes from $V$, with schema $(\underline{vid_1}, \underline{vid_2},
-b_1, \ldots, b_m, \underline{p})$, and $p$ is a {\em maximally
-  coalesced} time period.  Formally stated, the relationship between
-$V$ and $E$ is through a constraint on $E$: $\forall e(vid_1, vid_2,
-p_i) \in E, \exists v1(vid_1, p_j)$ and $v2(vid_2, p_k)$ and
-$p_i.contains(p_j)$ and $p_i.contains(p_k)$.
+set of nodes with schema $V(\underline{vid}, \underline{p})$, and $E$
+is a finite set of edges connecting pairs of nodes from $V$, with
+schema $E(\underline{vid_1}, \underline{vid_2}, \underline{p})$.
+Relations $V$ and $E$ are subject to the following constraints:
+\begin{itemize}
+\item non-overlapping (state formally) 
+\item coalesced (state formally)
+\item  $\forall e(vid_1, vid_2, p_i) \in E, \exists v1(vid_1, p_j)$ and
+ $v2(vid_2, p_k)$ and $p_i.contains(p_j)$ and $p_i.contains(p_k)$.
+\end{itemize}
 \label{def:tg}
 \end{definition}
 
-\begin{figure}
-\includegraphics[width=3in]{figs/T1.pdf}
-\caption{\tg \insql{T1} example.}
-\label{fig:tg}
-\end{figure}
+\eat{The time periods of all graph entities, i.e. vertices and edges,
+  are maximally coalesced.  That means that all the tuples in $V$ and
+  $E$ are distinct in all attributes, including the time periods, and
+  that time periods do not overlap for any individual entity and are
+  maximal.} 
 
-An example of a \tg is given in Figure~\ref{fig:tg}, with vertex
-schema name:string and salary:int and edge schema count:int.
-
-The time periods of all graph entities, i.e. vertices and edges, are
-maximally coalesced.  That means that all the tuples in $V$ and $E$
-are distinct in all attributes, including the time periods, and that
-time periods do not overlap for any individual entity and are maximal.
 The above evolving graph definition~\ref{def:tg} can be expressed in
-temporal SQL as follows (without attributes):
+temporal SQL as follows:
 
 \begin{small}
 \begin{verbatim}
@@ -79,7 +110,15 @@ CREATE TABLE E (
 \end{verbatim}
 \end{small}
 
-\vera{placeholder for schema on load explanation}
+An example of a \tg is given in Figure~\ref{fig:tg}, with 
+$V(vid,p,name,salary)$ and $E(vid_1, vid_2, p, cnt)$.
+
+\begin{figure}
+\includegraphics[width=3in]{figs/T1.pdf}
+\caption{\tg \insql{T1} example.}
+\label{fig:tg}
+\end{figure}
+
 
 \subsection{Other Models}
 \label{sec:model:others}
@@ -449,3 +488,8 @@ with coalescing.  Figure~\ref{fig:union} illustrates this concept.
 Similarly, intersection of two \tgs is an intersection of
 vertices/edges of two graphs, with values for each overlapping
 attribute computed by a specified aggregate function.
+
+\subsection{Attributes}
+
+Attributes --- temporal implementation, schema on load.
+
