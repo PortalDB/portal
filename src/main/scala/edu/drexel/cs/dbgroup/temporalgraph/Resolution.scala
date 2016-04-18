@@ -9,7 +9,7 @@ import java.time.temporal.ChronoUnit
   * Resolution of a time period, in semantic units,
   * i.e. days, months, weeks, years
   */
-class Resolution(per:Period) extends Serializable {
+class Resolution(per:Period) extends WindowSpecification {
 
   val period:Period = per
 

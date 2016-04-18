@@ -8,12 +8,21 @@ package object temporalgraph {
     */
   type TimeIndex = Int
 
-  trait Quantification extends Serializable
-  case class Always extends Quantification
-  case class Exists extends Quantification
-  case class Most extends Quantification
-  case class AtLeast(ratio: Double) extends Quantification
-
+  trait Quantification extends Serializable {
+    def keep(in: Double): Boolean
+  }
+  case class Always extends Quantification {
+    override def keep(in: Double): Boolean = in > 0.99
+  }
+  case class Exists extends Quantification {
+    override def keep(in: Double): Boolean = true
+  }
+  case class Most extends Quantification {
+    override def keep(in: Double): Boolean = in > 0.5
+  }
+  case class AtLeast(ratio: Double) extends Quantification {
+    override def keep(in: Double): Boolean = in > ratio
+  }
 
   object ProgramContext {
     var sc:SparkContext = null
@@ -26,5 +35,7 @@ package object temporalgraph {
   }
 
   trait WindowSpecification extends Serializable
+  case class ChangeSpec(num: Integer) extends WindowSpecification
+  case class TimeSpec(res: Resolution) extends WindowSpecification
 
 }

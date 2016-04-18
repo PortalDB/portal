@@ -2,8 +2,9 @@ package edu.drexel.cs.dbgroup.temporalgraph
 
 import scala.math.Ordered.orderingToOrdered
 import scala.math.Ordering._
-import java.time.LocalDate
-import java.time.Period
+import java.time.{LocalDate,Duration}
+
+import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
 
 /**
   * Time period with a closed-open model, i.e. [start, end)
@@ -40,16 +41,12 @@ class Interval(st: LocalDate, en: LocalDate) extends Ordered[Interval] with Seri
   }
 
   def compare(other: Interval): Int = {
-    if (resolution.equals(other.resolution)) {
-      if (start.isEqual(other.start) && end.isEqual(other.end))
-        0
-      else if (start.isBefore(other.start))
-        -1
-      else
-        1
-    } else {
-      throw new IllegalArgumentException("intervals of different resolutions are not comparable")
-    }
+    if (start.isEqual(other.start) && end.isEqual(other.end))
+      0
+    else if (start.isBefore(other.start))
+      -1
+    else
+      1
   }
 
   //if the other interval has any (including complete) overlap in years, return true
@@ -62,32 +59,44 @@ class Interval(st: LocalDate, en: LocalDate) extends Ordered[Interval] with Seri
 
   def isEmpty():Boolean = start == end
 
-  def isUnionCompatible(other:Interval):Boolean = {
-    if (resolution.isEqual(other.resolution)) {
-      var st:LocalDate = start
-      var en:LocalDate = end
-      if (start.isBefore(other.start)) {
-        st = start
-        en = other.start
-      } else {
-        st = other.start
-        en = start
-      }
-      val distance:Period = Period.between(st, en)
-
-      if (distance.isZero())
-        true
-      else {
-        if (distance.get(resolution.unit) % resolution.get(resolution.unit) == 0)
-          true
-        else
-          false
-      }
-    } else
-      false
+  /*
+   * Calculate how much of this interval covers the other interval
+   * as a ratio from 0 to 1 where 1 means they are equal,
+   * and 0 means they do not intersect.
+   * This interval should be a subset of other
+   * to get meaningful results.
+   */
+  def ratio(other: Interval): Double = {
+    if (this == other)
+      1.0
+    else
+      Duration.between(other.start, other.end).getSeconds / Duration.between(this.start, this.end).getSeconds
   }
 
-  lazy val resolution:Resolution = Resolution.between(start, end)
+  /*
+   * Splits this period into as many parts as time windows it covers.
+   * The results are in reverse order, from latest to earliest.
+   * For each period, the coverage is computed as a ratio (0-1)
+   */
+  def split(period: Resolution, mark: LocalDate): Seq[(Interval, Double, Interval)] = {
+    var res: List[(Interval,Double,Interval)] = List()
+    var markStart: LocalDate = start
+    var markEnd: LocalDate = mark
+
+    while (end.isAfter(markEnd)) {
+      val step = period.getInterval(markEnd)
+      if (markStart.isBefore(step.end)) {
+        val nextIntv: Interval = if (markStart == step.start && end == step.end) step else Interval(markStart, minDate(step.end, end))
+        val ratio: Double = nextIntv.ratio(step)
+        res = (nextIntv, ratio, step) :: res
+        markStart = step.end
+      }
+      markEnd = step.end
+    }
+
+    res
+  }
+
 }
 
 object Interval {
