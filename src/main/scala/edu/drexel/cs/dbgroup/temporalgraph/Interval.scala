@@ -2,7 +2,8 @@ package edu.drexel.cs.dbgroup.temporalgraph
 
 import scala.math.Ordered.orderingToOrdered
 import scala.math.Ordering._
-import java.time.{LocalDate,Duration}
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
 
@@ -70,7 +71,7 @@ class Interval(st: LocalDate, en: LocalDate) extends Ordered[Interval] with Seri
     if (this == other)
       1.0
     else
-      Duration.between(other.start, other.end).getSeconds / Duration.between(this.start, this.end).getSeconds
+      ChronoUnit.DAYS.between(other.start, other.end) / ChronoUnit.DAYS.between(this.start, this.end).toDouble
   }
 
   /*
