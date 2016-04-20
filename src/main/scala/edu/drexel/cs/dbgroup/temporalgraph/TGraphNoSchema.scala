@@ -30,7 +30,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     * The vertex attributes are in a Map of Interval->value.
     * The interval is maximal.
     */
-  override def vertices: RDD[(VertexId,Map[Interval, VD])] = {
+  override def verticesAggregated: RDD[(VertexId,Map[Interval, VD])] = {
     allVertices.mapValues(y => Map[Interval, VD](y._1 -> y._2))
       .reduceByKey((a: Map[Interval, VD], b: Map[Interval, VD]) => a ++ b)
   }
@@ -45,18 +45,18 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     * We are returning RDD rather than VertexRDD because VertexRDD
     * cannot have duplicates for vid.
     */
-  def verticesFlat: RDD[(VertexId,(Interval, VD))] = allVertices
+  override def vertices: RDD[(VertexId,(Interval, VD))] = allVertices
 
   /**
     * An RDD containing the edges and their associated attributes.
     * @return an RDD containing the edges in this graph, across all intervals.
     */
-  override def edges: RDD[((VertexId,VertexId),Map[Interval, ED])] = {
+  override def edgesAggregated: RDD[((VertexId,VertexId),Map[Interval, ED])] = {
     allEdges.mapValues(y => Map[Interval, ED](y._1 -> y._2))
       .reduceByKey((a: Map[Interval, ED], b: Map[Interval, ED]) => a ++ b)
   }
 
-  def edgesFlat: RDD[((VertexId,VertexId),(Interval, ED))] = allEdges
+  override def edges: RDD[((VertexId,VertexId),(Interval, ED))] = allEdges
 
   /**
     * Get the temporal sequence for the representative graphs
@@ -121,6 +121,32 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     //keep only an edge that meets constraints on both vertex ids
       .filter{ case (k, (e1, e2)) => e1._1.intersects(e2._1) && e1._2 == e2._2 }
       .map{ case (k, (e1, e2)) => (k, (Interval(maxDate(e1._1.start, e2._1.start), minDate(e1._1.end, e2._1.end)), e1._2))}
+  }
+
+  protected def intervalUnion(other: Seq[Interval]): Seq[Interval] = {
+    (intervals.map(in => in.start)
+      .union(other.map(in => in.start))
+      .sortBy(c => c)
+      .distinct
+      :+ (maxDate(span.end, other.last.end)))
+      .sliding(2)
+      .map(x => Interval(x(0), x(1)))
+      .toSeq
+  }
+
+  protected def intervalIntersect(other: Seq[Interval]): Seq[Interval] = {
+    val st: LocalDate = maxDate(span.start, other.last.start)
+    val en: LocalDate = minDate(span.end, other.last.end)
+
+    (intervals.dropWhile(in => in.start.isBefore(st)).map(in => in.start)
+      .union(other.dropWhile(in => in.start.isBefore(st)).map(in => in.start))
+      .sortBy(c => c)
+      .distinct
+      .takeWhile(c => c.isBefore(en))
+      :+ en)
+      .sliding(2)
+      .map(x => Interval(x(0), x(1)))
+      .toSeq
   }
 
 }

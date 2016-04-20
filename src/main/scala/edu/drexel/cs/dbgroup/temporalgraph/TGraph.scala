@@ -25,16 +25,37 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
   /**
     * An RDD containing the vertices and their associated attributes.
     * @return an RDD containing the vertices in this graph, across all intervals.
+    * The vertex attributes are a tuple of (Interval, value),
+    * which means that if the same vertex appears in multiple periods,
+    * it will appear multiple times in the RDD.
+    * The interval is maximal.
+    * This is the direct match to our model.
+    * We are returning RDD rather than VertexRDD because VertexRDD
+    * cannot have duplicates for vid.
+    */
+  def vertices: RDD[(VertexId,(Interval, VD))]
+
+  /**
+    * An RDD containing the vertices and their associated attributes.
+    * @return an RDD containing the vertices in this graph, across all intervals.
     * The vertex attributes are in a Map of Interval->value.
     * The interval is maximal.
     */
-  def vertices: RDD[(VertexId,Map[Interval, VD])]
+  def verticesAggregated: RDD[(VertexId,Map[Interval, VD])]
 
   /**
     * An RDD containing the edges and their associated attributes.
     * @return an RDD containing the edges in this graph, across all intervals.
     */
-  def edges: RDD[((VertexId,VertexId),Map[Interval, ED])]
+  def edges: RDD[((VertexId,VertexId),(Interval, ED))]
+
+  /**
+    * An RDD containing the edges and their associated attributes.
+    * @return an RDD containing the edges in this graph, across all intervals.
+    * The edge attributes are in a Map of Interval->value.
+    * The interval is maximal.
+    */
+  def edgesAggregated: RDD[((VertexId,VertexId),Map[Interval, ED])]
 
   /**
     * Get the temporal sequence for the representative graphs
@@ -98,9 +119,10 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * Transforms the structural schema of the graph
     * @param emap The mapping function for edges
     * @param vmap The mapping function for vertices
+    * @param defaultValue The default value for attribute VD2. Should be something that is not an available value, like Null
     * @return tgraph The transformed graph. The temporal schema is unchanged.
     */
-  def project[ED2: ClassTag, VD2: ClassTag](emap: (Edge[ED], Interval) => ED2, vmap: (VertexId, Interval, VD) => VD2): TGraph[VD2, ED2]
+  def project[ED2: ClassTag, VD2: ClassTag](emap: (Edge[ED], Interval) => ED2, vmap: (VertexId, Interval, VD) => VD2, defaultValue: VD2): TGraph[VD2, ED2]
 
   /**
     * Transforms each vertex attribute in the graph for each time period
@@ -108,11 +130,11 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * Special case of general transform, included here for better compatibility with GraphX.
     *
     * @param map the function from a vertex object to a new vertex value
-    *
+    * @param defaultValue The default value for attribute VD2. Should be something that is not an available value, like Null
     * @tparam VD2 the new vertex data type
     *
     */
-  def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2)
+  def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defaultValue: VD2)
     (implicit eq: VD =:= VD2 = null): TGraph[VD2, ED]
 
   /**
@@ -129,26 +151,6 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
   def mapEdges[ED2: ClassTag](map: (Edge[ED], Interval) => ED2): TGraph[VD, ED2]
 
   /**
-   * Joins the vertices with entries in the `table` RDD and merges the results using `mapFunc`.
-   * The input table should contain at most one entry for each vertex per time slice.  If no entry in `other` is
-   * provided for a particular vertex in the graph, the map function receives `None`.
-   *
-   * @tparam U the type of entry in the table of updates
-   * @tparam VD2 the new vertex value type
-   *
-   * @param other the table to join with the vertices in the graph.
-   *              The table should contain at most one entry for each vertex.
-   * @param mapFunc the function used to compute the new vertex values.
-   *                The map function is invoked for all vertices, even those
-   *                that do not have a corresponding entry in the table.
-   *
-   * @example This function is used to update the vertices with new values based on external data.
-   */
-  def outerJoinVertices[U: ClassTag, VD2: ClassTag](other: RDD[(VertexId, Map[Interval, U])])
-  (mapFunc: (VertexId, Interval, VD, Option[U]) => VD2)(implicit eq: VD =:= VD2 = null)
-      : TGraph[VD2, ED]
-
-  /**
     * Produce a union of two temporal graphs. 
     * For the overlaps in attribute value over time period,
     * the transformation function vFunc/eFunc is applied.
@@ -156,7 +158,6 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * @param vFunc The combination function when the same vertex is found within the same time period
     * @param eFunc The combination function when the same edge is found within the same time period
     * @return new TGraph with the union of entities from both graphs
-    * @throws IllegalArgumentException if the graphs are not union-compatible.
     */
   @throws(classOf[IllegalArgumentException])
   def union(other: TGraph[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TGraph[VD, ED]
@@ -169,7 +170,6 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * @param vFunc The combination function when the same vertex is found within the same time period
     * @param eFunc The combination function when the same edge is found within the same time period
     * @return new TemporaGraph with the intersection of entities from both graphs
-    * @throws IllegalArgumentException if the graphs are not union-compatible
     */
   @throws(classOf[IllegalArgumentException])
   def intersection(other: TGraph[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TGraph[VD, ED]
@@ -240,7 +240,7 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * The degree of each vertex in the graph by interval.
     * @note Vertices with no edges are not returned in the resulting RDD.
     */
-  def degree(): RDD[(VertexId, Map[Interval, Int])]
+  def degree(): RDD[(VertexId, (Interval, Int))]
 
   /**
     * Run pagerank on all intervals. It is up to the implementation to run sequantially,
@@ -251,9 +251,9 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * @param resetProb probability of reset/jump
     * @param numIter number of iterations of the algorithm to run. If omitted, will run
     * until convergence of the tol argument.
-    * @return RDD of vertex pageranks for each interval
+    * @return RDD of vertex pageranks for each interval (coalesced)
     */
-  def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): RDD[(VertexId, Map[Interval, Double])]
+  def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): RDD[(VertexId, (Interval, Double))]
 
   /**
    * Run connected components algorithm on a temporal graph
@@ -263,7 +263,7 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
    * @return RDD of the smallest vertex in each connected component 
    * for Intervals in which the vertex appears
    */
-  def connectedComponents(): RDD[(VertexId, Map[Interval, VertexId])]
+  def connectedComponents(): RDD[(VertexId, (Interval, VertexId))]
   
   /**
    * Computes shortest paths to the given set of landmark vertices.
@@ -272,7 +272,7 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
    * @return RDD of vertices where each vertex attribute 
    * is the shortest-path distance to each reachable landmark vertex.
    */
-  def shortestPaths(landmarks: Seq[VertexId]): RDD[(VertexId, Map[Interval, Map[VertexId, Int]])]
+  def shortestPaths(landmarks: Seq[VertexId]): RDD[(VertexId, (Interval, Map[VertexId, Int]))]
 
   /**
     * The spark-specific partitioning-related methods

@@ -10,13 +10,6 @@ import org.scalatest.{BeforeAndAfter, FunSuite}
 class IntervalSuite extends FunSuite with BeforeAndAfter{
 
   before {
-    if(ProgramContext.sc == null){
-      Logger.getLogger("org").setLevel(Level.OFF)
-      Logger.getLogger("akka").setLevel(Level.OFF)
-      var conf = new SparkConf().setAppName("TemporalGraph Project").setSparkHome(System.getenv("SPARK_HOME")).setMaster("local[2]")
-      val sc = new SparkContext(conf)
-      ProgramContext.setContext(sc)
-    }
   }
 
   test("StartDate should not be after end date (IllegalArgumentException)"){
@@ -37,16 +30,10 @@ class IntervalSuite extends FunSuite with BeforeAndAfter{
 
 
     val spilttedByMonth = Interval(LocalDate.parse("2011-06-16"), LocalDate.parse("2012-04-10")).split(resolution1Month, LocalDate.parse("2011-06-01"))
-    println("by month")
-    spilttedByMonth.foreach(println)
 
     val spilttedByYear = Interval(LocalDate.parse("2011-06-16"), LocalDate.parse("2013-04-10")).split(resolution1Year, LocalDate.parse("2011-06-01"))
-    println("by Year")
-    spilttedByYear.foreach(println)
 
-    println("by days")
     val spilttedByDays = Interval(LocalDate.parse("2011-06-02"), LocalDate.parse("2011-06-11")).split(resolution1Day, LocalDate.parse("2011-06-01"))
-    spilttedByDays.foreach(println)
 
 
     val expectedSplittedByMonth = Seq(
@@ -65,8 +52,7 @@ class IntervalSuite extends FunSuite with BeforeAndAfter{
 
     val ratio1: Double = ChronoUnit.DAYS.between(LocalDate.parse("2013-01-01"), LocalDate.parse("2013-04-10")) / ChronoUnit.DAYS.between(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")).toDouble
     val ratio2: Double = ChronoUnit.DAYS.between(LocalDate.parse("2011-06-16"), LocalDate.parse("2012-01-01")) / ChronoUnit.DAYS.between(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")).toDouble
-    println(ratio1)
-    println(ratio2)
+
     val expectedSplittedByYear = Seq(
       (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2013-04-10")),ratio1,Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01"))),
       (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01")),1.0,Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01"))),
@@ -93,5 +79,11 @@ class IntervalSuite extends FunSuite with BeforeAndAfter{
     info("splitted by days passed")
   }
 
+  test("Intersect with empty"){
+    val one: Interval = Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2014-02-01"))
+    val empty: Interval = new Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2014-01-01"))
+    assert(one.intersects(empty) == false)
+    assert(empty.intersects(one) == false)
+  }
 
 }
