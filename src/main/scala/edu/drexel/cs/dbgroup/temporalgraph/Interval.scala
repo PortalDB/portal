@@ -58,6 +58,18 @@ class Interval(st: LocalDate, en: LocalDate) extends Ordered[Interval] with Seri
       true
   }
 
+  /*
+   * Calculate a period of intersection.
+   */
+  def intersection(other: Interval): Option[Interval] = {
+    val rest: LocalDate = maxDate(start, other.start)
+    val ree: LocalDate = minDate(end, other.end)
+    if (rest.isAfter(ree) || rest.equals(ree))
+      None
+    else
+      Some(Interval(rest, ree))
+  }
+
   def isEmpty():Boolean = start == end
 
   /*
@@ -71,7 +83,7 @@ class Interval(st: LocalDate, en: LocalDate) extends Ordered[Interval] with Seri
     if (this == other)
       1.0
     else
-      ChronoUnit.DAYS.between(other.start, other.end) / ChronoUnit.DAYS.between(this.start, this.end).toDouble
+      ChronoUnit.DAYS.between(this.start, this.end) / ChronoUnit.DAYS.between(other.start, other.end).toDouble
   }
 
   /*
