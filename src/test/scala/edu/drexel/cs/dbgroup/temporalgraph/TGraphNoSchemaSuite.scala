@@ -48,7 +48,7 @@ class TGraphNoSchemaSuite extends FunSuite with BeforeAndAfter{
       (4L, (Interval(LocalDate.parse("2017-01-01"), LocalDate.parse("2019-07-14")), "Vera"))
     ))
 
-    //During collapsing, the rdd dont save the order so they are sorted for the test.
+    //The rdd dont save the order so they are sorted for the test.
     assert(expectedCoalesce.collect().sortBy(_._1) === actualCoalesce.collect().sortBy(_._1))
     assert(expectedCoalesce.collect().sortBy(_._1) === actualCoalesce.collect().sortBy(_._1))
   }
@@ -79,7 +79,7 @@ class TGraphNoSchemaSuite extends FunSuite with BeforeAndAfter{
     ))
 
 
-    //During collapsing, the rdd dont save the order so they are sorted for the test.
+    //The rdds dont save the order so they are sorted for the test.
     assert(expectedCoalesce.collect().sortBy(_._1) === actualCoalesce.collect().sortBy(_._1))
     assert(expectedCoalesce.collect().sortBy(_._1) === actualCoalesce.collect().sortBy(_._1))
   }
@@ -122,11 +122,6 @@ class TGraphNoSchemaSuite extends FunSuite with BeforeAndAfter{
     ))
 
     val actualSGP = SnapshotGraphParallel.fromRDDs(vertices, edges, "Default", StorageLevel.MEMORY_ONLY_SER )
-
-    println("actual vertices")
-    actualSGP.vertices.collect().foreach(println)
-    println("actual edges")
-    actualSGP.edges.collect().foreach(println)
 
     //The rdds dont save the order so they are sorted for the test.
     assert(actualSGP.vertices.sortBy(_._1).collect() === expectedVertices.sortBy(_._1).collect())
