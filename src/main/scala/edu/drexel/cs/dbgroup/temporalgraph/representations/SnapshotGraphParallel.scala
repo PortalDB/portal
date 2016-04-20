@@ -8,8 +8,7 @@ import scala.util.control._
 import org.apache.hadoop.conf._
 import org.apache.hadoop.fs._
 
-import org.apache.spark.SparkContext
-import org.apache.spark.Partition
+import org.apache.spark.{SparkContext,SparkException,Partition}
 
 import org.apache.spark.graphx._
 import org.apache.spark.graphx.Graph
@@ -187,28 +186,108 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
     SnapshotGraphParallel.fromRDDs(newVerts, newEdges, defaultValue, storageLevel)
   }
 
-  override def project[ED2: ClassTag, VD2: ClassTag](emap: (Edge[ED], Interval) => ED2, vmap: (VertexId, Interval, VD) => VD2): SnapshotGraphParallel[VD2, ED2] = {
-    throw new UnsupportedOperationException("not yet implemented")
+  override def project[ED2: ClassTag, VD2: ClassTag](emap: (Edge[ED], Interval) => ED2, vmap: (VertexId, Interval, VD) => VD2, defVal: VD2): SnapshotGraphParallel[VD2, ED2] = {
+    //project may cause coalesce but it does not affect the integrity constraint on E
+    //so we don't need to check it
+    SnapshotGraphParallel.fromRDDs(TGraphNoSchema.coalesce(allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vmap(vid, intv, attr)))}), TGraphNoSchema.coalesce(allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, emap(Edge(ids._1, ids._2, attr), intv)))}), defVal, storageLevel)
   }
 
-  override def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2)(implicit eq: VD =:= VD2 = null): SnapshotGraphParallel[VD2, ED] = {
-    throw new UnsupportedOperationException("not yet implemented")
+  override def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): SnapshotGraphParallel[VD2, ED] = {
+    SnapshotGraphParallel.fromRDDs(TGraphNoSchema.coalesce(allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, intv, attr)))}), allEdges, defaultValue, storageLevel)
   }
 
   override def mapEdges[ED2: ClassTag](map: (Edge[ED], Interval) => ED2): SnapshotGraphParallel[VD, ED2] = {
-    throw new UnsupportedOperationException("not yet implemented")
-  }
-
-  override def outerJoinVertices[U: ClassTag, VD2: ClassTag](other: RDD[(VertexId, Map[Interval, U])])(mapFunc: (VertexId, Interval, VD, Option[U]) => VD2)(implicit eq: VD =:= VD2 = null): SnapshotGraphParallel[VD2, ED] = {
-    throw new UnsupportedOperationException("not yet implemented")
+    SnapshotGraphParallel.fromRDDs(allVertices, TGraphNoSchema.coalesce(allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(Edge(ids._1, ids._2, attr), intv)))}), defaultValue, storageLevel)
   }
 
   override def union(other: TGraph[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): SnapshotGraphParallel[VD, ED] = {
-    throw new UnsupportedOperationException("not yet implemented")
+    var grp2: SnapshotGraphParallel[VD, ED] = other match {
+      case grph: SnapshotGraphParallel[VD, ED] => grph
+      case _ => throw new ClassCastException
+    }
+
+    if (span.intersects(grp2.span)) {
+      //there are two methods to do this:
+      //A: by graphs. union by pairs of each two graphs that have the same periods
+      //then reducebykey to compute attribute value
+      //B: by tuples using fullouterjoin
+
+      //this is method A
+      //compute new intervals
+      val newIntvs: Seq[Interval] = intervalUnion(grp2.intervals)
+
+      var ii: Integer = 0
+      var jj: Integer = 0
+      val empty: Interval = new Interval(LocalDate.MAX, LocalDate.MAX)
+
+      val newGraphs: ParSeq[Graph[VD, ED]] = newIntvs.map { intv =>
+        if (intervals.lift(ii).getOrElse(empty).intersects(intv) && grp2.intervals.lift(jj).getOrElse(empty).intersects(intv)) {
+          val ret = Graph(graphs(ii).vertices.union(grp2.graphs(jj).vertices).reduceByKey(vFunc), graphs(ii).edges.union(grp2.graphs(jj).edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eFunc).map(e => Edge(e._1._1, e._1._2, e._2)), defaultValue, storageLevel)
+          if (intervals(ii).end == intv.end)
+            ii = ii+1
+          if (grp2.intervals(jj).end == intv.end)
+            jj = jj+1
+          ret
+        } else if (intervals.lift(ii).getOrElse(empty).intersects(intv)) {
+          if (intervals(ii).end == intv.end)
+            ii = ii+1
+          graphs(ii-1)
+        } else if (grp2.intervals.lift(jj).getOrElse(empty).intersects(intv)) {
+          if (grp2.intervals(jj).end == intv.end)
+            jj = jj+1
+          grp2.graphs(jj-1)
+        } else { //should never get here
+          throw new SparkException("bug in union")
+        }
+      }.par
+
+      SnapshotGraphParallel.fromGraphs(newIntvs, newGraphs, defaultValue, storageLevel)
+
+    } else {
+      //if there is no temporal intersection, then we can just add them together
+      //no need to worry about coalesce or constraint on E; all still holds
+      SnapshotGraphParallel.fromRDDs(allVertices.union(grp2.vertices), allEdges.union(grp2.edges), defaultValue, storageLevel)
+    }
   }
 
   override def intersection(other: TGraph[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): SnapshotGraphParallel[VD, ED] = {
-    throw new UnsupportedOperationException("not yet implemented")
+    var grp2: SnapshotGraphParallel[VD, ED] = other match {
+      case grph: SnapshotGraphParallel[VD, ED] => grph
+      case _ => throw new ClassCastException
+    }
+
+    if (span.intersects(grp2.span)) {
+      //similar to union, there are two ways to do this
+      //by graphs or by tuples with join
+      //this is by graphs
+
+      //compute new intervals
+      val newIntvs: Seq[Interval] = intervalIntersect(grp2.intervals)
+
+      var ii: Integer = 0
+      var jj: Integer = 0
+      val empty: Interval = new Interval(LocalDate.MAX, LocalDate.MAX)
+      while (!intervals.lift(ii).getOrElse(empty).intersects(newIntvs.head)) ii = ii + 1
+      while (!grp2.intervals.lift(jj).getOrElse(empty).intersects(newIntvs.head)) jj = jj + 1
+
+      val newGraphs: ParSeq[Graph[VD, ED]] = newIntvs.map { intv =>
+        if (intervals.lift(ii).getOrElse(empty).intersects(intv) && grp2.intervals.lift(jj).getOrElse(empty).intersects(intv)) {
+          val ret = Graph(graphs(ii).vertices.join(grp2.graphs(jj).vertices).mapValues{ case (a,b) => vFunc(a,b)}, graphs(ii).edges.innerJoin(grp2.graphs(jj).edges)((srcid, dstid, a, b) => eFunc(a,b)), defaultValue, storageLevel)
+          if (intervals(ii).end == intv.end)
+            ii = ii+1
+          if (grp2.intervals(jj).end == intv.end)
+            jj = jj+1
+          ret
+        } else { //should never get here
+          throw new SparkException("bug in intersection")
+        }
+      }.par
+
+      SnapshotGraphParallel.fromGraphs(newIntvs, newGraphs, defaultValue, storageLevel)
+
+    } else {
+      SnapshotGraphParallel.emptyGraph(defaultValue)
+    }
   }
 
   override def pregel[A: ClassTag]
@@ -217,18 +296,17 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
      (vprog: (VertexId, VD, A) => VD,
        sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
        mergeMsg: (A, A) => A): SnapshotGraphParallel[VD, ED] = {
-    throw new UnsupportedOperationException("not yet implemented")
+    SnapshotGraphParallel.fromGraphs(intervals, graphs.map(x => Pregel(x, initialMsg,
+      maxIterations, activeDirection)(vprog, sendMsg, mergeMsg)), defaultValue, storageLevel)
   }
 
-  override def degree: RDD[(VertexId, Map[Interval, Int])] = {
+  override def degree: RDD[(VertexId, (Interval, Int))] = {
     if (!allEdges.isEmpty) {
-      val total = graphs.zipWithIndex
-        .map(x => (x._1, intervals(x._2)))
+      val total = graphs.zip(intervals)
         .filterNot(x => x._1.edges.isEmpty)
-        .map(x => x._1.degrees.mapValues(deg => Map[Interval, Int](x._2 -> deg)))
+        .map(x => x._1.degrees.mapValues(deg => (x._2,deg)))
       if (total.size > 0)
-        total.reduce((x,y) => VertexRDD(x union y))
-          .reduceByKey((a: Map[Interval, Int], b: Map[Interval, Int]) => a ++ b)
+        TGraphNoSchema.coalesce(total.reduce((x,y) => VertexRDD(x union y)))
       else {
         ProgramContext.sc.emptyRDD
       }
@@ -238,16 +316,49 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
   }
 
   //run PageRank on each contained snapshot
-  override def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): RDD[(VertexId, Map[Interval, Double])] = {
-    throw new UnsupportedOperationException("not yet implemented")
+  override def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): RDD[(VertexId, (Interval, Double))] = {
+
+    def safePagerank(grp: Graph[VD, ED]): Graph[Double, Double] = {
+      if (grp.edges.isEmpty) {
+        Graph[Double, Double](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+      } else {
+        if (uni) {
+          UndirectedPageRank.run(grp, tol, resetProb, numIter)
+        } else if (numIter < Int.MaxValue)
+          grp.staticPageRank(numIter, resetProb)
+        else
+          grp.pageRank(tol, resetProb)
+      }
+    }
+
+    TGraphNoSchema.coalesce(graphs.map(safePagerank).zip(intervals).map{case (g,intv) => g.vertices.mapValues((vid, attr) => (intv, attr))}.reduce((a: RDD[(VertexId, (Interval, Double))], b: RDD[(VertexId, (Interval, Double))]) => a.union(b)))
+
   }
 
-  override def connectedComponents(): RDD[(VertexId, Map[Interval, VertexId])] = {
-    throw new UnsupportedOperationException("not yet implemented")
+  override def connectedComponents(): RDD[(VertexId, (Interval, VertexId))] = {
+    def safeConnectedComponents(grp: Graph[VD, ED]): Graph[VertexId, ED] = {
+      if (grp.vertices.isEmpty) {
+        Graph[VertexId, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+      } else {
+        grp.connectedComponents()
+      }
+    }
+
+    TGraphNoSchema.coalesce(graphs.map(safeConnectedComponents).zip(intervals).map{case (g,intv) => g.vertices.mapValues((vid, attr) => (intv, attr))}.reduce((a: RDD[(VertexId, (Interval, VertexId))], b: RDD[(VertexId, (Interval, VertexId))]) => a.union(b)))
+
   }
 
-  override def shortestPaths(landmarks: Seq[VertexId]): RDD[(VertexId, Map[Interval, Map[VertexId, Int]])] = {
-    throw new UnsupportedOperationException("not yet implemented")
+  override def shortestPaths(landmarks: Seq[VertexId]): RDD[(VertexId, (Interval, Map[VertexId, Int]))] = {
+    def safeShortestPaths(grp: Graph[VD, ED]): Graph[ShortestPathsXT.SPMap, ED] = {
+      if (grp.vertices.isEmpty) {
+        Graph[ShortestPathsXT.SPMap, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+      } else {
+        ShortestPathsXT.run(grp, landmarks)
+      }
+    }
+
+    TGraphNoSchema.coalesce(graphs.map(safeShortestPaths).zip(intervals).map{case (g,intv) => g.vertices.mapValues((vid, attr) => (intv, attr))}.reduce((a: RDD[(VertexId, (Interval, Map[VertexId, Int]))], b: RDD[(VertexId, (Interval, Map[VertexId, Int]))]) => a.union(b)))
+
   }
 
   /** Spark-specific */
@@ -276,7 +387,17 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
   }
 
   override def partitionBy(pst: PartitionStrategyType.Value, runs: Int, parts: Int): SnapshotGraphParallel[VD, ED] = {
-    throw new UnsupportedOperationException("not yet implemented")
+    if (pst != PartitionStrategyType.None) {
+      //not changing the intervals, only the graphs at their indices
+      //each partition strategy for SG needs information about the graph
+
+      //use that strategy to partition each of the snapshots
+      new SnapshotGraphParallel(intervals, allVertices, allEdges, graphs.zipWithIndex.map { case (g,i) =>
+        val numParts: Int = if (parts > 0) parts else g.edges.partitions.size
+        g.partitionBy(PartitionStrategies.makeStrategy(pst, i, graphs.size, runs), numParts)
+      }, defaultValue, storageLevel)
+    } else
+      this
   }
 
 }

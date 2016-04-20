@@ -129,8 +129,8 @@ class TGraphNoSchemaSuite extends FunSuite with BeforeAndAfter{
     actualSGP.edges.collect().foreach(println)
 
     //The rdds dont save the order so they are sorted for the test.
-    assert(actualSGP.vertices.sortBy(_._1).collect() === expectedVertices.sortBy(_._1).collect())
-    assert(actualSGP.edges.sortBy(_._1).collect().sortBy(_._1) === expectedEdges.sortBy(_._1).collect())
+    assert(actualSGP.verticesAggregated.sortBy(_._1).collect() === expectedVertices.sortBy(_._1).collect())
+    assert(actualSGP.edgesAggregated.sortBy(_._1).collect().sortBy(_._1) === expectedEdges.sortBy(_._1).collect())
   }
 
   test("constrainEdges function"){
