@@ -355,16 +355,15 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter {
       ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 42))
     ))
 
-    //failing because the method does not coalesce
-    assert(expectedVertices.collect().sortBy(_._1) === actualSgp.vertices.collect().sortBy(_._1))
-    assert(expectedEdges.collect().sortBy(_._1) === actualSgp.edges.collect().sortBy(_._1))
+    assert(expectedVertices.collect().toSet === actualSgp.vertices.collect().toSet)
+    assert(expectedEdges.collect().toSet === actualSgp.edges.collect().toSet)
 
     val actualSgp2 = sgp.aggregate(new TimeSpec(resolution3Years), (vid, attr1) => vid, Always(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => Math.max(attr1, attr2))
 
     val expectedVertices2 : RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), "John")),
       (3L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2012-01-01")), "Ron")),
-      (4L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), "Julia")),
+      (4L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2018-01-01")), "Julia")),
       (5L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), "Vera")),
       (6L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), "Halima")),
       (2L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), "Mike"))
@@ -375,9 +374,8 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter {
       ((4L, 6L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 72))
     ))
 
-    //failing because aggregate function does not work
-    assert(expectedVertices2.collect().sortBy(_._1) === actualSgp2.vertices.collect().sortBy(_._1))
-    assert(expectedEdges2.collect().sortBy(_._1) === actualSgp2.edges.collect().sortBy(_._1))
+    assert(expectedVertices2.collect().toSet === actualSgp2.vertices.collect().toSet)
+    assert(expectedEdges2.collect().toSet === actualSgp2.edges.collect().toSet)
 
   }
 
@@ -453,9 +451,8 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter {
     val sgp = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
     val actualSgp = sgp.aggregate(new ChangeSpec(1), (vid, attr1) => vid, Exists(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => attr1)
 
-    //failing for all aggregation by change
-    //      assert(users.collect().sortBy(_._1) === actualSgp.vertices.collect().sortBy(_._1))
-    //      assert(edges.collect().sortBy(_._1) === actualSgp.edges.collect().sortBy(_._1))
+    assert(users.collect().toSet === actualSgp.vertices.collect().toSet)
+    assert(edges.collect().toSet === actualSgp.edges.collect().toSet)
   }
 
   test("aggregateByChange -with structural") {

@@ -27,6 +27,8 @@ class Interval(st: LocalDate, en: LocalDate) extends Ordered[Interval] with Seri
     
   }
 
+  override def hashCode: Int = toString.hashCode()
+
   def contains(other: Interval):Boolean = {
     if ((other.start.isAfter(start) || other.start.isEqual(start)) && (other.end.isBefore(end) || other.end.isEqual(end)))
       true
