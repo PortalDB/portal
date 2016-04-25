@@ -340,7 +340,7 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter {
     val resolution1Month = Resolution.between(LocalDate.parse("2011-01-01"), LocalDate.parse("2011-02-01"))
     val resolution3Years = Resolution.between(LocalDate.parse("2011-01-01"), LocalDate.parse("2014-01-01"))
 
-    val actualSgp = sgp.aggregate(new TimeSpec(resolution3Years), (vid, attr1) => vid, Always(), Always(), (attr1, attr2) => attr2, (attr1, attr2) => attr2)
+    val actualSgp = sgp.aggregate(new TimeSpec(resolution3Years), Always(), Always(), (attr1, attr2) => attr2, (attr1, attr2) => attr2)()
 
     val expectedVertices : RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), "John")),
@@ -358,7 +358,7 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter {
     assert(expectedVertices.collect().toSet === actualSgp.vertices.collect().toSet)
     assert(expectedEdges.collect().toSet === actualSgp.edges.collect().toSet)
 
-    val actualSgp2 = sgp.aggregate(new TimeSpec(resolution3Years), (vid, attr1) => vid, Always(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => Math.max(attr1, attr2))
+    val actualSgp2 = sgp.aggregate(new TimeSpec(resolution3Years), Always(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => Math.max(attr1, attr2))()
 
     val expectedVertices2 : RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), "John")),
@@ -410,7 +410,7 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter {
       else if(a.length < b.length) b
       else
       if(a.compareTo(b) > 0) a else b
-    val actualSgp = sgp.aggregate(new TimeSpec(resolution3Years), (vid, attr1) => if(attr1.length < 5) 1L else 2L , Always(), Always(), (attr1, attr2) => longerString(attr1, attr2), (attr1, attr2) => attr2)
+    val actualSgp = sgp.aggregate(new TimeSpec(resolution3Years), Always(), Always(), (attr1, attr2) => longerString(attr1, attr2), (attr1, attr2) => attr2)((vid, attr1) => if(attr1.length < 5) 1L else 2L)
 
 //    actualSgp.vertices.collect().foreach(println)
 //    actualSgp.edges.collect().foreach(println)
@@ -449,7 +449,7 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter {
     val resolution3Years = Resolution.between(LocalDate.parse("2011-01-01"), LocalDate.parse("2014-01-01"))
 
     val sgp = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
-    val actualSgp = sgp.aggregate(new ChangeSpec(1), (vid, attr1) => vid, Exists(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => attr1)
+    val actualSgp = sgp.aggregate(new ChangeSpec(1), Exists(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => attr1)()
 
     assert(users.collect().toSet === actualSgp.vertices.collect().toSet)
     assert(edges.collect().toSet === actualSgp.edges.collect().toSet)

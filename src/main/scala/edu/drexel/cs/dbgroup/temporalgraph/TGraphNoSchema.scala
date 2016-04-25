@@ -1,6 +1,7 @@
 package edu.drexel.cs.dbgroup.temporalgraph
 
 import scala.reflect.ClassTag
+import scala.collection.immutable.BitSet
 
 import org.apache.spark.graphx._
 import org.apache.spark.storage.StorageLevel
@@ -11,11 +12,13 @@ import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
 
 import java.time.LocalDate
 
-abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))]) extends TGraph[VD, ED] {
+abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY) extends TGraph[VD, ED] {
 
   val allVertices: RDD[(VertexId, (Interval, VD))] = verts
   val allEdges: RDD[((VertexId, VertexId), (Interval, ED))] = edgs
   val intervals: Seq[Interval] = intvs
+  val storageLevel = storLevel
+  val defaultValue: VD = defValue
 
   lazy val span: Interval = if (intervals.size > 0) Interval(intervals.head.start, intervals.last.end) else Interval(LocalDate.now, LocalDate.now)
 
@@ -23,17 +26,6 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     * The duration the temporal sequence
     */
   override def size(): Interval = span
-
-  /**
-    * An RDD containing the vertices and their associated attributes.
-    * @return an RDD containing the vertices in this graph, across all intervals.
-    * The vertex attributes are in a Map of Interval->value.
-    * The interval is maximal.
-    */
-  override def verticesAggregated: RDD[(VertexId,Map[Interval, VD])] = {
-    allVertices.mapValues(y => Map[Interval, VD](y._1 -> y._2))
-      .reduceByKey((a: Map[Interval, VD], b: Map[Interval, VD]) => a ++ b)
-  }
 
   /**
     * An RDD containing the vertices and their associated attributes.
@@ -48,6 +40,19 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
   override def vertices: RDD[(VertexId,(Interval, VD))] = allVertices
 
   /**
+    * An RDD containing the vertices and their associated attributes.
+    * @return an RDD containing the vertices in this graph, across all intervals.
+    * The vertex attributes are in a Map of Interval->value.
+    * The interval is maximal.
+    */
+  override def verticesAggregated: RDD[(VertexId,Map[Interval, VD])] = {
+    allVertices.mapValues(y => Map[Interval, VD](y._1 -> y._2))
+      .reduceByKey((a: Map[Interval, VD], b: Map[Interval, VD]) => a ++ b)
+  }
+
+  override def edges: RDD[((VertexId,VertexId),(Interval, ED))] = allEdges
+
+  /**
     * An RDD containing the edges and their associated attributes.
     * @return an RDD containing the edges in this graph, across all intervals.
     */
@@ -56,14 +61,33 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
       .reduceByKey((a: Map[Interval, ED], b: Map[Interval, ED]) => a ++ b)
   }
 
-  override def edges: RDD[((VertexId,VertexId),(Interval, ED))] = allEdges
-
   /**
     * Get the temporal sequence for the representative graphs
     * composing this tgraph. Intervals are consecutive but
     * not equally sized.
     */
   override def getTemporalSequence: Seq[Interval] = intervals
+
+  override def slice(bound: Interval): TGraphNoSchema[VD, ED] = {
+    if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
+
+    if (!span.intersects(bound)) {
+      return emptyGraph[VD,ED](defaultValue)
+    }
+
+    val startBound = if (bound.start.isAfter(span.start)) bound.start else span.start
+    val endBound = if (bound.end.isBefore(span.end)) bound.end else span.end
+    val selectBound:Interval = Interval(startBound, endBound)
+
+    fromRDDs(allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(maxDate(y._1.start, startBound), minDate(y._1.end, endBound)), y._2)), allEdges.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(maxDate(y._1.start, startBound), minDate(y._1.end, endBound)), y._2)), defaultValue, storageLevel)
+  }
+
+  override def select(vtpred: Interval => Boolean, etpred: Interval => Boolean): TGraphNoSchema[VD, ED] = {
+    //because of the integrity constraint on edges, they have to 
+    //satisfy both predicates
+    fromRDDs(allVertices.filter{ case (vid, (intv, attr)) => vtpred(intv)}, allEdges.filter{ case (ids, (intv, attr)) => vtpred(intv) && etpred(intv)}, defaultValue, storageLevel)
+
+  }
 
   /**
     * Restrict the graph to only the vertices and edges that satisfy the predicates.
@@ -76,7 +100,232 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     * that satisfy the predicates. The result is coalesced which
     * may cause different representative intervals.
     */
-  def select(epred: ((VertexId, VertexId), (Interval, ED)) => Boolean, vpred: (VertexId, (Interval, VD)) => Boolean): TGraph[VD, ED]
+  protected val defvp = (vid: VertexId, attrs: (Interval, VD)) => true
+  def select(epred: ((VertexId, VertexId), (Interval, ED)) => Boolean = ((ids, ed) => true), vpred: (VertexId, (Interval, VD)) => Boolean = defvp): TGraph[VD, ED] = {
+    //if the vpred is not provided, i.e. is true
+    //then we can skip most of the work on enforcing integrity constraints with V
+    //simple select on vertices, then join the coalesced by structure result
+    //to modify edges
+
+    val vpreddef = (v: VertexId, vd: VD) => true
+    val newVerts: RDD[(VertexId, (Interval, VD))] = if (vpred == defvp) allVertices else allVertices.filter{ case (vid, attrs) => vpred(vid, attrs)}
+    val filteredEdges: RDD[((VertexId, VertexId), (Interval, ED))] = allEdges.filter{ case (ids, attrs) => epred(ids, attrs)}
+
+    val newEdges = if (filteredEdges.isEmpty || vpred == defvp) filteredEdges else constrainEdges(newVerts, filteredEdges)
+
+    //no need to coalesce either vertices or edges because we are removing some entities, but not extending them or modifying attributes
+
+    fromRDDs(newVerts, newEdges, defaultValue, storageLevel)
+
+  }
+
+  protected val vgb = (vid: VertexId, attr: Any) => vid
+  override def aggregate(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): TGraphNoSchema[VD, ED] = {
+    if (allVertices.isEmpty)
+      return emptyGraph[VD,ED](defaultValue)
+
+    res match {
+      case c : ChangeSpec => aggregateByChange(c, vgroupby, vquant, equant, vAggFunc, eAggFunc)
+      case t : TimeSpec => aggregateByTime(t, vgroupby, vquant, equant, vAggFunc, eAggFunc)
+      case _ => throw new IllegalArgumentException("unsupported window specification")
+    }
+  }
+
+  protected def aggregateByChange(c: ChangeSpec, vgroupby: (VertexId, VD) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED] = {
+    val size: Integer = c.num
+
+    //each tuple interval must be split based on the overall intervals
+    val locali = intervals.sliding(size)
+    val split = (interval: Interval) => {
+      locali.flatMap{ group =>
+        val res = BitSet() ++ group.zipWithIndex.flatMap{ case (intv,index) =>
+          if (intv.intersects(interval)) Some(index) else None
+        }
+        if (res.isEmpty)
+          None
+        else
+          Some(Interval(group.head.start, group.last.end), res)
+      }
+    }
+    val splitVerts: RDD[((VertexId, Interval), (VD, BitSet))] = if (vgroupby == vgb) {
+      allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii._1), (attr, ii._2)))}
+    } else {
+      allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vgroupby(vid,attr), ii._1), (attr, ii._2)))}
+    }
+
+    val splitEdges: RDD[((VertexId, VertexId, Interval),(ED, BitSet))] = if (vgroupby == vgb) {
+      allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii._1), (attr, ii._2)))}
+    } else {
+      val newVIds: RDD[(VertexId, (Interval, VertexId))] = allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vgroupby(vid, attr)))}
+
+      //for each edge, similar except computing the new ids requires joins with V
+      val edgesWithIds: RDD[((VertexId, VertexId), (Interval, ED))] = allEdges.map(e => (e._1._1, e)).join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => (e._1._2, (vid, (Interval(maxDate(e._2._1.start, v._1.start), minDate(e._2._1.end, v._1.end)), e._2._2)))}.join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => ((e._1, vid), (Interval(maxDate(e._2._1.start, v._1.start), minDate(e._2._1.end, v._1.end)), e._2._2))}
+      edgesWithIds.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii._1), (attr, ii._2)))}
+    }
+
+    //reduce vertices by key, also computing the total period occupied
+    //filter out those that do not meet quantification criteria
+    //map to final result
+    val newVerts: RDD[(VertexId, (Interval, VD))] = TGraphNoSchema.coalesce(splitVerts.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 ++ b._2)).filter(v => vquant.keep(v._2._2.size / size.toDouble)).map(v => (v._1._1, (v._1._2, v._2._1))))
+    //same for edges
+    val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 ++ b._2)).filter(e => equant.keep(e._2._2.size / size.toDouble)).map(e => ((e._1._1, e._1._2), (e._1._3, e._2._1)))
+
+    val newEdges = if (aggEdges.isEmpty) aggEdges else constrainEdges(newVerts, aggEdges)
+
+    fromRDDs(newVerts, TGraphNoSchema.coalesce(newEdges), defaultValue, storageLevel)
+
+  }
+
+  protected def aggregateByTime(c: TimeSpec, vgroupby: (VertexId, VD) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED] = {
+    val start = span.start
+
+    //if there is no structural aggregation, i.e. vgroupby is vid => vid
+    //then we can skip the expensive joins
+    val splitVerts: RDD[((VertexId, Interval), (VD, Double))] = if (vgroupby == vgb) {
+      //for each vertex, we split it into however many intervals it falls into
+      allVertices.flatMap{ case (vid, (intv, attr)) => intv.split(c.res, start).map(ii => ((vid, ii._3), (attr, ii._2)))}
+    } else {
+      allVertices.flatMap{ case (vid, (intv, attr)) => intv.split(c.res, start).map(ii => ((vgroupby(vid,attr), ii._3), (attr, ii._2)))}
+    }
+
+    val splitEdges: RDD[((VertexId, VertexId, Interval),(ED, Double))] = if (vgroupby == vgb) {
+      allEdges.flatMap{ case (ids, (intv, attr)) => intv.split(c.res, start).map(ii => ((ids._1, ids._2, ii._3), (attr, ii._2)))}
+    } else {
+      val newVIds: RDD[(VertexId, (Interval, VertexId))] = allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vgroupby(vid, attr)))}
+
+      //for each edge, similar except computing the new ids requires joins with V
+      val edgesWithIds: RDD[((VertexId, VertexId), (Interval, ED))] = allEdges.map(e => (e._1._1, e)).join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => (e._1._2, (vid, (Interval(maxDate(e._2._1.start, v._1.start), minDate(e._2._1.end, v._1.end)), e._2._2)))}.join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => ((e._1, vid), (Interval(maxDate(e._2._1.start, v._1.start), minDate(e._2._1.end, v._1.end)), e._2._2))}
+      edgesWithIds.flatMap{ case (ids, (intv, attr)) => intv.split(c.res, start).map(ii => ((ids._1, ids._2, ii._3), (attr, ii._2)))}
+    }
+
+    //reduce vertices by key, also computing the total period occupied
+    //filter out those that do not meet quantification criteria
+    //map to final result
+    //FIXME: quantification may not produce correct results
+    //if both structural and temporal aggregation is being performed
+    val newVerts: RDD[(VertexId, (Interval, VD))] = TGraphNoSchema.coalesce(splitVerts.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 + b._2)).filter(v => vquant.keep(v._2._2)).map(v => (v._1._1, (v._1._2, v._2._1))))
+    //same for edges
+    val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 + b._2)).filter(e => equant.keep(e._2._2)).map(e => ((e._1._1, e._1._2), (e._1._3, e._2._1)))
+
+    val newEdges = if (aggEdges.isEmpty) aggEdges else constrainEdges(newVerts, aggEdges)
+
+    fromRDDs(newVerts, TGraphNoSchema.coalesce(newEdges), defaultValue, storageLevel)
+  }
+
+  override def project[ED2: ClassTag, VD2: ClassTag](emap: (Edge[ED], Interval) => ED2, vmap: (VertexId, Interval, VD) => VD2, defVal: VD2): TGraphNoSchema[VD2, ED2] = {
+    //project may cause coalesce but it does not affect the integrity constraint on E
+    //so we don't need to check it
+    fromRDDs(TGraphNoSchema.coalesce(allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vmap(vid, intv, attr)))}), TGraphNoSchema.coalesce(allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, emap(Edge(ids._1, ids._2, attr), intv)))}), defVal, storageLevel)
+  }
+
+  override def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): TGraphNoSchema[VD2, ED] = {
+    fromRDDs(TGraphNoSchema.coalesce(allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, intv, attr)))}), allEdges, defaultValue, storageLevel)
+  }
+
+  override def mapEdges[ED2: ClassTag](map: (Edge[ED], Interval) => ED2): TGraphNoSchema[VD, ED2] = {
+    fromRDDs(allVertices, TGraphNoSchema.coalesce(allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(Edge(ids._1, ids._2, attr), intv)))}), defaultValue, storageLevel)
+  }
+
+  override def union(other: TGraph[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED] = {
+    var grp2: TGraphNoSchema[VD, ED] = other match {
+      case grph: TGraphNoSchema[VD, ED] => grph
+      case _ => throw new ClassCastException
+    }
+
+    if (span.intersects(grp2.span)) {
+      //compute new intervals
+      val newIntvs: Seq[Interval] = intervalUnion(grp2.intervals)
+
+      val split = (interval: Interval) => {
+        newIntvs.flatMap{ intv =>
+          if (intv.intersects(interval))
+            Some(intv)
+          else
+            None
+        }
+      }
+
+      val newVerts = allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}.union(grp2.allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}).reduceByKey((a,b) => vFunc(a,b)).map{ case (v, attr) => (v._1, (v._2, attr))}
+      val newEdges = allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}.union(grp2.allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}).reduceByKey((a,b) => eFunc(a,b)).map{ case (e, attr) => ((e._1, e._2), (e._3, attr))}
+      fromRDDs(TGraphNoSchema.coalesce(newVerts), TGraphNoSchema.coalesce(newEdges), defaultValue, storageLevel)
+
+
+    } else if (span.end == grp2.span.start || span.start == grp2.span.end) {
+      //if the two spans are one right after another but do not intersect
+      //then we need to coalesce
+      fromRDDs(TGraphNoSchema.coalesce(allVertices.union(grp2.vertices)), TGraphNoSchema.coalesce(allEdges.union(grp2.edges)), defaultValue, storageLevel)
+    } else {
+      //if there is no temporal intersection, then we can just add them together
+      //no need to worry about coalesce or constraint on E; all still holds
+      fromRDDs(allVertices.union(grp2.vertices), allEdges.union(grp2.edges), defaultValue, storageLevel)
+    }
+  }
+
+  override def intersection(other: TGraph[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED] = {
+    var grp2: TGraphNoSchema[VD, ED] = other match {
+      case grph: TGraphNoSchema[VD, ED] => grph
+      case _ => throw new ClassCastException
+    }
+
+    if (span.intersects(grp2.span)) {
+      //compute new intervals
+      val newIntvs: Seq[Interval] = intervalIntersect(grp2.intervals)
+
+      val split = (interval: Interval) => {
+        newIntvs.flatMap{ intv =>
+          if (intv.intersects(interval))
+            Some(intv)
+          else
+            None
+        }
+      }
+
+      //split the intervals
+      //then perform inner join
+      val newVertices = allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}.join(grp2.allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}).map{ case ((vid, intv), (attr1, attr2)) => (vid, (intv, vFunc(attr1, attr2)))}
+
+      val newEdges = allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}.join(grp2.allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}).map{ case ((id1, id2, intv), (attr1, attr2)) => ((id1, id2), (intv, eFunc(attr1, attr2)))}
+
+      fromRDDs(TGraphNoSchema.coalesce(newVertices), TGraphNoSchema.coalesce(newEdges), defaultValue, storageLevel)
+
+    } else {
+      emptyGraph(defaultValue)
+    }
+
+  }
+
+  /**
+    * Run pagerank on all intervals. It is up to the implementation to run sequantially,
+    * in parallel, incrementally, etc. The number of iterations will depend on both
+    * the numIter argument and the rate of convergence, whichever occurs first.
+    * @param uni Treat the graph as undirected or directed. true = undirected
+    * @param tol epsilon, measure of convergence
+    * @param resetProb probability of reset/jump
+    * @param numIter number of iterations of the algorithm to run. If omitted, will run
+    * until convergence of the tol argument.
+    * @return New graph with pageranks for each interval (coalesced)
+    */
+  def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): TGraphNoSchema[Double, Double]
+
+  /**
+   * Run connected components algorithm on a temporal graph
+   * return a graph with the vertex value containing the lowest vertex
+   * id in the connected component containing that vertex.
+   *
+   * @return New graph with vertex attribute the id of 
+   * the smallest vertex in each connected component 
+   * for Intervals in which the vertex appears
+   */
+  def connectedComponents(): TGraphNoSchema[VertexId, ED]
+  
+  /**
+   * Computes shortest paths to the given set of landmark vertices.
+   * @param landmarks the list of landmark vertex ids to which shortest paths will be computed 
+   *
+   * @return Graph with vertices where each vertex attribute 
+   * is the shortest-path distance to each reachable landmark vertex.
+   */
+  def shortestPaths(landmarks: Seq[VertexId]): TGraphNoSchema[Map[VertexId, Int], ED]
 
   /** Spark-specific */
 
@@ -91,8 +340,6 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     allEdges.unpersist(blocking)
     this
   }
-
-
 
   /** Utility methods **/
 
@@ -148,6 +395,10 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
       .map(x => Interval(x(0), x(1)))
       .toSeq
   }
+
+  protected def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY): TGraphNoSchema[V, E]
+
+  protected def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): TGraphNoSchema[V, E]
 
 }
 

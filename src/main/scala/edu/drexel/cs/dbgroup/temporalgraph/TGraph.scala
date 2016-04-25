@@ -113,7 +113,7 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * performed in pairs (ala reduce).
     * @return New tgraph 
     */
-  def aggregate(window: WindowSpecification, vgroupby: (VertexId, VD) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraph[VD, ED]
+  def aggregate(window: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId): TGraph[VD, ED]
 
   /**
     * Transforms the structural schema of the graph
@@ -241,38 +241,6 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * @note Vertices with no edges are not returned in the resulting RDD.
     */
   def degree(): RDD[(VertexId, (Interval, Int))]
-
-  /**
-    * Run pagerank on all intervals. It is up to the implementation to run sequantially,
-    * in parallel, incrementally, etc. The number of iterations will depend on both
-    * the numIter argument and the rate of convergence, whichever occurs first.
-    * @param uni Treat the graph as undirected or directed. true = undirected
-    * @param tol epsilon, measure of convergence
-    * @param resetProb probability of reset/jump
-    * @param numIter number of iterations of the algorithm to run. If omitted, will run
-    * until convergence of the tol argument.
-    * @return RDD of vertex pageranks for each interval (coalesced)
-    */
-  def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): RDD[(VertexId, (Interval, Double))]
-
-  /**
-   * Run connected components algorithm on a temporal graph
-   * return a graph with the vertex value containing the lowest vertex
-   * id in the connected component containing that vertex.
-   *
-   * @return RDD of the smallest vertex in each connected component 
-   * for Intervals in which the vertex appears
-   */
-  def connectedComponents(): RDD[(VertexId, (Interval, VertexId))]
-  
-  /**
-   * Computes shortest paths to the given set of landmark vertices.
-   * @param landmarks the list of landmark vertex ids to which shortest paths will be computed 
-   *
-   * @return RDD of vertices where each vertex attribute 
-   * is the shortest-path distance to each reachable landmark vertex.
-   */
-  def shortestPaths(landmarks: Seq[VertexId]): RDD[(VertexId, (Interval, Map[VertexId, Int]))]
 
   /**
     * The spark-specific partitioning-related methods

@@ -26,10 +26,8 @@ import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
 
 import java.time.LocalDate
 
-class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], grphs: ParSeq[Graph[VD,ED]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY) extends TGraphNoSchema[VD, ED](intvs, verts, edgs) with Serializable {
+class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], grphs: ParSeq[Graph[VD,ED]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY) extends TGraphNoSchema[VD, ED](intvs, verts, edgs, defValue, storLevel) with Serializable {
 
-  val storageLevel = storLevel
-  val defaultValue: VD = defValue
   private val graphs: ParSeq[Graph[VD, ED]] = grphs
 
   //TODO: we should enforce the integrity constraint
@@ -65,59 +63,17 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
     val startBound = if (bound.start.isAfter(span.start)) bound.start else span.start
     val endBound = if (bound.end.isBefore(span.end)) bound.end else span.end
     val selectBound:Interval = Interval(startBound, endBound)
+    //compute indices of start and stop
+    val selectStart:Int = intervals.indexWhere(intv => intv.intersects(selectBound))
+    var selectStop:Int = intervals.lastIndexWhere(intv => intv.intersects(selectBound))
+    if (selectStop < 0) selectStop = intervals.size
+    val newIntvs: Seq[Interval] = intervals.slice(selectStart, selectStop)
 
-    //TODO: it is more efficient to also slice the intervals and graphs
-    //and pass along to constructor rather than recompute
-    SnapshotGraphParallel.fromRDDs(allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(maxDate(y._1.start, startBound), minDate(y._1.end, endBound)), y._2)), allEdges.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(maxDate(y._1.start, startBound), minDate(y._1.end, endBound)), y._2)), defaultValue, storageLevel)
-  }
-
-  override def select(vtpred: Interval => Boolean, etpred: Interval => Boolean): SnapshotGraphParallel[VD, ED] = {
-    //because of the integrity constraint on edges, they have to 
-    //satisfy both predicates
-    SnapshotGraphParallel.fromRDDs(allVertices.filter{ case (vid, (intv, attr)) => vtpred(intv)}, allEdges.filter{ case (ids, (intv, attr)) => vtpred(intv) && etpred(intv)}, defaultValue, storageLevel)
+    new SnapshotGraphParallel(newIntvs, allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(maxDate(y._1.start, startBound), minDate(y._1.end, endBound)), y._2)), allEdges.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(maxDate(y._1.start, startBound), minDate(y._1.end, endBound)), y._2)), graphs.slice(selectStart, selectStop), defaultValue, storageLevel)
 
   }
 
-  override def select(epred: ((VertexId, VertexId), (Interval, ED)) => Boolean = (ids, attrs) => true, vpred: (VertexId, (Interval, VD)) => Boolean = (vid, attrs) => true): SnapshotGraphParallel[VD, ED] = {
-    //TODO: if the vpred is not provided, i.e. is true
-    //then we can skip most of the work on enforcing integrity constraints with V
-
-    //can do this in two ways:
-    //1. subgraph each representative graph, which takes care of integrity constraint on E, then pull new vertex and edge rdds, and coalesce
-    //2. simple select on vertices, then join the coalesced by structure result
-    //to modify edges
-
-    //this is method 2
-    val newVerts: RDD[(VertexId, (Interval, VD))] = allVertices.filter{ case (vid, attrs) => vpred(vid, attrs)}
-    val filteredEdges: RDD[((VertexId, VertexId), (Interval, ED))] = allEdges.filter{ case (ids, attrs) => epred(ids, attrs)}
-
-    val newEdges = if (filteredEdges.isEmpty) filteredEdges else constrainEdges(newVerts, filteredEdges)
-
-    //no need to coalesce either vertices or edges because we are removing some entities, but not extending them or modifying attributes
-
-    SnapshotGraphParallel.fromRDDs(newVerts, newEdges, defaultValue, storageLevel)
-
-  }
-
-  def aggregate(res: WindowSpecification, vgroupby: (VertexId, VD) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): SnapshotGraphParallel[VD, ED] = {
-    if (allVertices.isEmpty)
-      return SnapshotGraphParallel.emptyGraph[VD,ED](defaultValue)
-
-    /* for aggregation by change, there are two ways to do this:
-     * 1. aggregate consecutive graphs by the required number of changes. within each group, map entities with new keys, and finally reducebykey
-     * 2. compute intervals, then use the same method as for aggregate by time
-     * 
-     * for aggregation by time, split each entity into as many as there are periods into which it falls, with new id based on groupby,
-     * reduce by key, and finally filter out those that don't meet quantification criteria. coalesce.
-     */
-    res match {
-      case c : ChangeSpec => aggregateByChange(c, vgroupby, vquant, equant, vAggFunc, eAggFunc)
-      case t : TimeSpec => aggregateByTime(t, vgroupby, vquant, equant, vAggFunc, eAggFunc)
-      case _ => throw new IllegalArgumentException("unsupported window specification")
-    }
-  }
-
-  protected def aggregateByChange(c: ChangeSpec, vgroupby: (VertexId, VD) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): SnapshotGraphParallel[VD, ED] = {
+  override protected def aggregateByChange(c: ChangeSpec, vgroupby: (VertexId, VD) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): SnapshotGraphParallel[VD, ED] = {
     val size: Integer = c.num
     var groups: ParSeq[List[Graph[VD, ED]]] = if (size > 1) 
       graphs.foldLeft(List[List[Graph[VD, ED]]](), 0) { (r, c) => r match {
@@ -162,51 +118,12 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
       Graph(vs.mapValues(v => v._1), es.map(e => Edge(e._1._1, e._1._2, e._2._1)), defaultValue, storageLevel).subgraph(epred = et => true, vpred = vp)
     }
 
+    //FIXME: it is unlikely but possible for some consecutive graphs
+    //in the result to be the same
+    //in which case they should be combined into one
     val newIntervals: Seq[Interval] = intervals.grouped(size).map{group => group.reduce((a,b) => Interval(a.start, b.end))}.toSeq
 
     SnapshotGraphParallel.fromGraphs(newIntervals, newGraphs, defaultValue, storageLevel)
-  }
-
-  protected def aggregateByTime(c: TimeSpec, vgroupby: (VertexId, VD) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): SnapshotGraphParallel[VD, ED] = {
-    val start = span.start
-    //TODO: if there is no structural aggregation, i.e. vgroupby is vid => vid
-    //then we can skip the expensive joins
-
-    //for each vertex, we split it into however many intervals it falls into
-    //using the new id from vgroupby
-    val splitVerts: RDD[((VertexId, Interval), (VD, Double))] = allVertices.flatMap{ case (vid, (intv, attr)) => intv.split(c.res, start).map(ii => ((vgroupby(vid,attr), ii._3), (attr, ii._2)))}
-    val newVIds: RDD[(VertexId, (Interval, VertexId))] = allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vgroupby(vid, attr)))}
-
-    //for each edge, similar except computing the new ids requires joins with V
-    val edgesWithIds: RDD[((VertexId, VertexId), (Interval, ED))] = allEdges.map(e => (e._1._1, e)).join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => (e._1._2, (vid, (Interval(maxDate(e._2._1.start, v._1.start), minDate(e._2._1.end, v._1.end)), e._2._2)))}.join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => ((e._1, vid), (Interval(maxDate(e._2._1.start, v._1.start), minDate(e._2._1.end, v._1.end)), e._2._2))}
-    val splitEdges: RDD[((VertexId, VertexId, Interval),(ED, Double))] = edgesWithIds.flatMap{ case (ids, (intv, attr)) => intv.split(c.res, start).map(ii => ((ids._1, ids._2, ii._3), (attr, ii._2)))}
-
-    //reduce vertices by key, also computing the total period occupied
-    //filter out those that do not meet quantification criteria
-    //map to final result
-    //FIXME: quantification may not produce correct results
-    //if both structural and temporal aggregation is being performed
-    val newVerts: RDD[(VertexId, (Interval, VD))] = TGraphNoSchema.coalesce(splitVerts.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 + b._2)).filter(v => vquant.keep(v._2._2)).map(v => (v._1._1, (v._1._2, v._2._1))))
-    //same for edges
-    val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 + b._2)).filter(e => equant.keep(e._2._2)).map(e => ((e._1._1, e._1._2), (e._1._3, e._2._1)))
-
-    val newEdges = if (aggEdges.isEmpty) aggEdges else constrainEdges(newVerts, aggEdges)
-
-    SnapshotGraphParallel.fromRDDs(newVerts, TGraphNoSchema.coalesce(newEdges), defaultValue, storageLevel)
-  }
-
-  override def project[ED2: ClassTag, VD2: ClassTag](emap: (Edge[ED], Interval) => ED2, vmap: (VertexId, Interval, VD) => VD2, defVal: VD2): SnapshotGraphParallel[VD2, ED2] = {
-    //project may cause coalesce but it does not affect the integrity constraint on E
-    //so we don't need to check it
-    SnapshotGraphParallel.fromRDDs(TGraphNoSchema.coalesce(allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vmap(vid, intv, attr)))}), TGraphNoSchema.coalesce(allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, emap(Edge(ids._1, ids._2, attr), intv)))}), defVal, storageLevel)
-  }
-
-  override def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): SnapshotGraphParallel[VD2, ED] = {
-    SnapshotGraphParallel.fromRDDs(TGraphNoSchema.coalesce(allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, intv, attr)))}), allEdges, defaultValue, storageLevel)
-  }
-
-  override def mapEdges[ED2: ClassTag](map: (Edge[ED], Interval) => ED2): SnapshotGraphParallel[VD, ED2] = {
-    SnapshotGraphParallel.fromRDDs(allVertices, TGraphNoSchema.coalesce(allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(Edge(ids._1, ids._2, attr), intv)))}), defaultValue, storageLevel)
   }
 
   override def union(other: TGraph[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): SnapshotGraphParallel[VD, ED] = {
@@ -251,7 +168,10 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
       }.par
 
       SnapshotGraphParallel.fromGraphs(newIntvs, newGraphs, defaultValue, storageLevel)
-
+    } else if (span.end == grp2.span.start || span.start == grp2.span.end) {
+      //if the two spans are one right after another but do not intersect
+      //then we need to coalesce
+      SnapshotGraphParallel.fromRDDs(TGraphNoSchema.coalesce(allVertices.union(grp2.vertices)), TGraphNoSchema.coalesce(allEdges.union(grp2.edges)), defaultValue, storageLevel)
     } else {
       //if there is no temporal intersection, then we can just add them together
       //no need to worry about coalesce or constraint on E; all still holds
@@ -325,7 +245,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
   }
 
   //run PageRank on each contained snapshot
-  override def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): RDD[(VertexId, (Interval, Double))] = {
+  override def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): SnapshotGraphParallel[Double, Double] = {
 
     def safePagerank(grp: Graph[VD, ED]): Graph[Double, Double] = {
       if (grp.edges.isEmpty) {
@@ -340,11 +260,11 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
       }
     }
 
-    TGraphNoSchema.coalesce(graphs.map(safePagerank).zip(intervals).map{case (g,intv) => g.vertices.mapValues((vid, attr) => (intv, attr))}.reduce((a: RDD[(VertexId, (Interval, Double))], b: RDD[(VertexId, (Interval, Double))]) => a.union(b)))
+    SnapshotGraphParallel.fromGraphs(intervals, graphs.map(safePagerank), 0.0, storageLevel)
 
   }
 
-  override def connectedComponents(): RDD[(VertexId, (Interval, VertexId))] = {
+  override def connectedComponents(): SnapshotGraphParallel[VertexId, ED] = {
     def safeConnectedComponents(grp: Graph[VD, ED]): Graph[VertexId, ED] = {
       if (grp.vertices.isEmpty) {
         Graph[VertexId, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
@@ -353,11 +273,11 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
       }
     }
 
-    TGraphNoSchema.coalesce(graphs.map(safeConnectedComponents).zip(intervals).map{case (g,intv) => g.vertices.mapValues((vid, attr) => (intv, attr))}.reduce((a: RDD[(VertexId, (Interval, VertexId))], b: RDD[(VertexId, (Interval, VertexId))]) => a.union(b)))
+    SnapshotGraphParallel.fromGraphs(intervals, graphs.map(safeConnectedComponents), -1, storageLevel)
 
   }
 
-  override def shortestPaths(landmarks: Seq[VertexId]): RDD[(VertexId, (Interval, Map[VertexId, Int]))] = {
+  override def shortestPaths(landmarks: Seq[VertexId]): SnapshotGraphParallel[Map[VertexId, Int], ED] = {
     def safeShortestPaths(grp: Graph[VD, ED]): Graph[ShortestPathsXT.SPMap, ED] = {
       if (grp.vertices.isEmpty) {
         Graph[ShortestPathsXT.SPMap, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
@@ -366,7 +286,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
       }
     }
 
-    TGraphNoSchema.coalesce(graphs.map(safeShortestPaths).zip(intervals).map{case (g,intv) => g.vertices.mapValues((vid, attr) => (intv, attr))}.reduce((a: RDD[(VertexId, (Interval, Map[VertexId, Int]))], b: RDD[(VertexId, (Interval, Map[VertexId, Int]))]) => a.union(b)))
+    SnapshotGraphParallel.fromGraphs(intervals, graphs.map(safeShortestPaths), Map[VertexId,Int](), storageLevel)
 
   }
 
@@ -409,6 +329,11 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
       this
   }
 
+  override protected def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY): SnapshotGraphParallel[V, E] = {
+    SnapshotGraphParallel.fromRDDs(verts, edgs, defVal, storLevel)
+  }
+
+  protected def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): SnapshotGraphParallel[V, E] = SnapshotGraphParallel.emptyGraph(defVal)
 }
 
 object SnapshotGraphParallel extends Serializable {
