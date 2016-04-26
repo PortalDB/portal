@@ -68,6 +68,17 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     */
   override def getTemporalSequence: Seq[Interval] = intervals
 
+  override def getSnapshot(time: LocalDate): Graph[VD,ED] = {
+    val index = intervals.indexWhere(a => a.contains(time))
+    if (index >= 0) {
+      val filteredvas: RDD[(VertexId,VD)] = allVertices.filter{ case (k,v) => v._1.contains(time)}
+        .map{ case (k,v) => (k, v._2)}
+      val filterededs: RDD[Edge[ED]] = allEdges.filter{ case (k,v) => v._1.contains(time)}.map{ case (k,v) => Edge(k._1, k._2, v._2)}
+      Graph[VD,ED](filteredvas, filterededs, defaultValue, storageLevel, storageLevel)
+    } else
+      Graph[VD,ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+  }
+
   override def slice(bound: Interval): TGraphNoSchema[VD, ED] = {
     if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
 
@@ -181,31 +192,34 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
 
     //if there is no structural aggregation, i.e. vgroupby is vid => vid
     //then we can skip the expensive joins
-    val splitVerts: RDD[((VertexId, Interval), (VD, Double))] = if (vgroupby == vgb) {
+    val splitVerts: RDD[((VertexId, Interval), (VD, List[Interval]))] = if (vgroupby == vgb) {
       //for each vertex, we split it into however many intervals it falls into
-      allVertices.flatMap{ case (vid, (intv, attr)) => intv.split(c.res, start).map(ii => ((vid, ii._3), (attr, ii._2)))}
+      allVertices.flatMap{ case (vid, (intv, attr)) => intv.split(c.res, start).map(ii => ((vid, ii._3), (attr, List(ii._1))))}
     } else {
-      allVertices.flatMap{ case (vid, (intv, attr)) => intv.split(c.res, start).map(ii => ((vgroupby(vid,attr), ii._3), (attr, ii._2)))}
+      allVertices.flatMap{ case (vid, (intv, attr)) => intv.split(c.res, start).map(ii => ((vgroupby(vid,attr), ii._3), (attr, List(ii._1))))}
     }
 
-    val splitEdges: RDD[((VertexId, VertexId, Interval),(ED, Double))] = if (vgroupby == vgb) {
-      allEdges.flatMap{ case (ids, (intv, attr)) => intv.split(c.res, start).map(ii => ((ids._1, ids._2, ii._3), (attr, ii._2)))}
+    val splitEdges: RDD[((VertexId, VertexId, Interval),(ED, List[Interval]))] = if (vgroupby == vgb) {
+      allEdges.flatMap{ case (ids, (intv, attr)) => intv.split(c.res, start).map(ii => ((ids._1, ids._2, ii._3), (attr, List(ii._1))))}
     } else {
       val newVIds: RDD[(VertexId, (Interval, VertexId))] = allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vgroupby(vid, attr)))}
 
       //for each edge, similar except computing the new ids requires joins with V
       val edgesWithIds: RDD[((VertexId, VertexId), (Interval, ED))] = allEdges.map(e => (e._1._1, e)).join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => (e._1._2, (vid, (Interval(maxDate(e._2._1.start, v._1.start), minDate(e._2._1.end, v._1.end)), e._2._2)))}.join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => ((e._1, vid), (Interval(maxDate(e._2._1.start, v._1.start), minDate(e._2._1.end, v._1.end)), e._2._2))}
-      edgesWithIds.flatMap{ case (ids, (intv, attr)) => intv.split(c.res, start).map(ii => ((ids._1, ids._2, ii._3), (attr, ii._2)))}
+      edgesWithIds.flatMap{ case (ids, (intv, attr)) => intv.split(c.res, start).map(ii => ((ids._1, ids._2, ii._3), (attr, List(ii._1))))}
     }
 
     //reduce vertices by key, also computing the total period occupied
     //filter out those that do not meet quantification criteria
     //map to final result
-    //FIXME: quantification may not produce correct results
-    //if both structural and temporal aggregation is being performed
-    val newVerts: RDD[(VertexId, (Interval, VD))] = TGraphNoSchema.coalesce(splitVerts.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 + b._2)).filter(v => vquant.keep(v._2._2)).map(v => (v._1._1, (v._1._2, v._2._1))))
+    val combine = (lst: List[Interval]) => lst.sortBy(x => x.start).foldLeft(List[Interval]()){ (r,c) => r match {
+      case head :: tail =>
+        if (head.intersects(c)) Interval(head.start, maxDate(head.end, c.end)) :: tail else c :: head :: tail
+      case Nil => List(c)
+    }}
+    val newVerts: RDD[(VertexId, (Interval, VD))] = TGraphNoSchema.coalesce(splitVerts.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 ++ b._2)).filter(v => vquant.keep(combine(v._2._2).map(ii => ii.ratio(v._1._2)).reduce(_ + _))).map(v => (v._1._1, (v._1._2, v._2._1))))
     //same for edges
-    val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 + b._2)).filter(e => equant.keep(e._2._2)).map(e => ((e._1._1, e._1._2), (e._1._3, e._2._1)))
+    val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 ++ b._2)).filter(e => equant.keep(combine(e._2._2).map(ii => ii.ratio(e._1._3)).reduce(_ + _))).map(e => ((e._1._1, e._1._2), (e._1._3, e._2._1)))
 
     val newEdges = if (aggEdges.isEmpty) aggEdges else constrainEdges(newVerts, aggEdges)
 
@@ -418,12 +432,13 @@ object TGraphNoSchema {
   def coalesce[K: ClassTag, V: ClassTag](rdd: RDD[(K, (Interval, V))]): RDD[(K, (Interval, V))] = {
     rdd.groupByKey.mapValues{ seq =>  //groupbykey produces RDD[(K, Seq[(p, V)])]
       seq.toSeq.sortBy(x => x._1.start)
-      //TODO: see if using list and :: is faster
-        .foldLeft(Seq[(Interval, V)]()){ (r,c) => r match {
-          case head :+ last => if (last._2 == c._2 && last._1.end == c._1.start) head :+ (Interval(last._1.start, c._1.end), last._2) else r :+ c
-          case Nil => Seq(c)
-        }}
-    }.flatMap{ case (k,v) => v.map(x => (k, x))}
+        .foldLeft(List[(Interval, V)]()){ (r,c) => r match {
+          case head :: tail =>
+            if (head._2 == c._2 && head._1.end == c._1.start) (Interval(head._1.start, c._1.end), head._2) :: tail
+            else c :: head :: tail
+          case Nil => List(c)
+        }
+      }}.flatMap{ case (k,v) => v.map(x => (k, x))}
   }
 
   /*
@@ -436,10 +451,9 @@ object TGraphNoSchema {
   def coalesceStructure[K: ClassTag, V: ClassTag](rdd: RDD[(K, (Interval, V))]): RDD[(K, Interval)] = {
     rdd.groupByKey.mapValues{ seq =>  //groupbykey produces RDD[(K, Seq[(p, V)])]
       seq.toSeq.sortBy(x => x._1.start)
-      //TODO: see if using list and :: is faster
-        .foldLeft(Seq[(Interval, V)]()){ (r,c) => r match {
-          case head :+ last => if (last._1.end == c._1.start) head :+ (Interval(last._1.start, c._1.end), last._2) else r :+ c
-          case Nil => Seq(c)
+        .foldLeft(List[(Interval, V)]()){ (r,c) => r match {
+          case head :: tail => if (head._1.end == c._1.start) (Interval(head._1.start, c._1.end), head._2) :: tail else c :: r
+          case Nil => List(c)
         }}
     }.flatMap{ case (k,v) => v.map(x => (k, x._1))}
   }

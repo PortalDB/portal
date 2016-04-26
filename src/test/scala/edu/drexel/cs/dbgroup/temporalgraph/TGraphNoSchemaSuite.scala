@@ -49,8 +49,8 @@ class TGraphNoSchemaSuite extends FunSuite with BeforeAndAfter{
     ))
 
     //The rdd dont save the order so they are sorted for the test.
-    assert(expectedCoalesce.collect().sortBy(_._1) === actualCoalesce.collect().sortBy(_._1))
-    assert(expectedCoalesce.collect().sortBy(_._1) === actualCoalesce.collect().sortBy(_._1))
+    assert(expectedCoalesce.collect().toSet === actualCoalesce.collect().toSet)
+    assert(expectedCoalesce.collect().toSet === actualCoalesce.collect().toSet)
   }
 
   test("coalesce Structure function"){
@@ -80,8 +80,8 @@ class TGraphNoSchemaSuite extends FunSuite with BeforeAndAfter{
 
 
     //The rdds dont save the order so they are sorted for the test.
-    assert(expectedCoalesce.collect().sortBy(_._1) === actualCoalesce.collect().sortBy(_._1))
-    assert(expectedCoalesce.collect().sortBy(_._1) === actualCoalesce.collect().sortBy(_._1))
+    assert(expectedCoalesce.collect().toSet === actualCoalesce.collect().toSet)
+    assert(expectedCoalesce.collect().toSet === actualCoalesce.collect().toSet)
   }
 
   test("vertices and edges functions"){
