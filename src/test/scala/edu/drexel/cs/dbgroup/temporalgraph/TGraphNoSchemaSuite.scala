@@ -8,9 +8,9 @@ import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.{SparkContext, SparkConf}
-import org.scalatest.{BeforeAndAfter, FunSuite}
+import org.scalatest.{PrivateMethodTester, BeforeAndAfter, FunSuite}
 
-class TGraphNoSchemaSuite extends FunSuite with BeforeAndAfter{
+class TGraphNoSchemaSuite extends FunSuite with BeforeAndAfter with PrivateMethodTester{
 
   before {
     if(ProgramContext.sc == null){
@@ -48,9 +48,8 @@ class TGraphNoSchemaSuite extends FunSuite with BeforeAndAfter{
       (4L, (Interval(LocalDate.parse("2017-01-01"), LocalDate.parse("2019-07-14")), "Vera"))
     ))
 
-    //The rdd dont save the order so they are sorted for the test.
-    assert(expectedCoalesce.collect().toSet === actualCoalesce.collect().toSet)
-    assert(expectedCoalesce.collect().toSet === actualCoalesce.collect().toSet)
+    assert(expectedCoalesce.collect.toSet === actualCoalesce.collect.toSet)
+    assert(expectedCoalesce.collect.toSet === actualCoalesce.collect.toSet)
   }
 
   test("coalesce Structure function"){
@@ -78,13 +77,11 @@ class TGraphNoSchemaSuite extends FunSuite with BeforeAndAfter{
       (4L, (Interval(LocalDate.parse("2006-01-01"), LocalDate.parse("2019-07-14"))))
     ))
 
-
-    //The rdds dont save the order so they are sorted for the test.
-    assert(expectedCoalesce.collect().toSet === actualCoalesce.collect().toSet)
-    assert(expectedCoalesce.collect().toSet === actualCoalesce.collect().toSet)
+    assert(expectedCoalesce.collect.toSet === actualCoalesce.collect.toSet)
+    assert(expectedCoalesce.collect.toSet === actualCoalesce.collect.toSet)
   }
 
-  test("vertices and edges functions"){
+  test("verticesAggregated and edgesAggregated functions"){
     val vertices: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2022-01-01")), "John")),
       (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), "Mike")),
@@ -123,13 +120,11 @@ class TGraphNoSchemaSuite extends FunSuite with BeforeAndAfter{
 
     val actualSGP = SnapshotGraphParallel.fromRDDs(vertices, edges, "Default", StorageLevel.MEMORY_ONLY_SER )
 
-    //The rdds dont save the order so they are sorted for the test.
-    assert(actualSGP.verticesAggregated.sortBy(_._1).collect() === expectedVertices.sortBy(_._1).collect())
-    assert(actualSGP.edgesAggregated.sortBy(_._1).collect() === expectedEdges.sortBy(_._1).collect())
+    assert(actualSGP.verticesAggregated.collect.toSet === expectedVertices.collect.toSet)
+    assert(actualSGP.edgesAggregated.collect.toSet === expectedEdges.collect.toSet)
   }
 
   test("constrainEdges function"){
-    //The method is protected, also it should have been tested with slice and select functions
     val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2017-01-01")), "John")),
       (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), "Mike")),
@@ -148,11 +143,24 @@ class TGraphNoSchemaSuite extends FunSuite with BeforeAndAfter{
       ((1L, 2L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22)),
     //completely outside
       ((5L, 7L), (Interval(LocalDate.parse("2008-01-01"), LocalDate.parse("2009-01-01")), 22)),
+    //inside in the boundries
       ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 22)),
     //partially outside, partially inside
       ((4L, 9L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2016-01-01")), 22))
     ))
     val sgp = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER )
+
+    val actualEdges = TGraphNoSchema.constrainEdges(users, edges)
+
+    val expectedEdges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 22)),
+      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 22)),
+      ((1L, 2L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22)),
+      ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 22)),
+      ((4L, 9L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 22))
+    ))
+
+    assert(actualEdges.collect.toSet === expectedEdges.collect.toSet)
   }
 
 
