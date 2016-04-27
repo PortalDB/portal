@@ -8,9 +8,9 @@ import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.{SparkContext, SparkConf}
-import org.scalatest.{PrivateMethodTester, BeforeAndAfter, FunSuite}
+import org.scalatest.{BeforeAndAfter, FunSuite}
 
-class TGraphNoSchemaSuite extends FunSuite with BeforeAndAfter with PrivateMethodTester{
+class TGraphNoSchemaSuite extends FunSuite with BeforeAndAfter{
 
   before {
     if(ProgramContext.sc == null){
