@@ -21,7 +21,7 @@ package object temporalgraph {
     override def keep(in: Double): Boolean = in > 0.5
   }
   case class AtLeast(ratio: Double) extends Quantification {
-    override def keep(in: Double): Boolean = in > ratio
+    override def keep(in: Double): Boolean = in >= ratio
   }
 
   object ProgramContext {

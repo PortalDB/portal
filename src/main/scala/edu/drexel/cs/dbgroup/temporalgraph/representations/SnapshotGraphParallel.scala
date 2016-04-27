@@ -13,10 +13,8 @@ import org.apache.spark.{SparkContext,SparkException,Partition}
 
 import org.apache.spark.graphx._
 import org.apache.spark.graphx.Graph
-import org.apache.spark.graphx.GraphLoaderAddon
 import org.apache.spark.rdd._
 import org.apache.spark.rdd.EmptyRDD
-import org.apache.spark.rdd.PairRDDFunctions
 import org.apache.spark.storage.RDDBlockId
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
@@ -35,6 +33,8 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
   //or throw an exception upon construction
 
   override def materialize() = {
+    allVertices.count
+    allEdges.count
     graphs.foreach { x =>
       if (!x.edges.isEmpty)
         x.numEdges
@@ -235,7 +235,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
         .filterNot(x => x._1.edges.isEmpty)
         .map(x => x._1.degrees.mapValues(deg => (x._2,deg)))
       if (total.size > 0)
-        TGraphNoSchema.coalesce(total.reduce((x,y) => VertexRDD(x union y)))
+        TGraphNoSchema.coalesce(total.reduce((x: RDD[(VertexId, (Interval, Int))] ,y: RDD[(VertexId, (Interval, Int))]) => x union y))
       else {
         ProgramContext.sc.emptyRDD
       }

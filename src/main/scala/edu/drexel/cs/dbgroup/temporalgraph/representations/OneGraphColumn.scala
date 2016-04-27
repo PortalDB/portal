@@ -35,6 +35,8 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
   private val graphs: Graph[BitSet, BitSet] = grs
 
   override def materialize() = {
+    allVertices.count
+    allEdges.count
     graphs.numVertices
     graphs.numEdges
   }
@@ -300,7 +302,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
     val intvs = intervals
     val vattrs = TGraphNoSchema.coalesce(resultGraph.vertices.flatMap{ case (vid, vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs(k), v))}})
 
-    new OneGraphColumn[VertexId, ED](intervals, vattrs, allEdges, graphs, 0L, storageLevel)
+    new OneGraphColumn[VertexId, ED](intervals, vattrs, allEdges, graphs, -1L, storageLevel)
   }
   
   //run shortestPaths on each interval
@@ -411,11 +413,11 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
       this
   }
 
-  protected def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY): OneGraphColumn[V, E] = {
+  override protected def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY): OneGraphColumn[V, E] = {
     OneGraphColumn.fromRDDs(verts, edgs, defVal, storLevel)
   }
 
-  protected def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): OneGraphColumn[V, E] = OneGraphColumn.emptyGraph(defVal)
+  override protected def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): OneGraphColumn[V, E] = OneGraphColumn.emptyGraph(defVal)
 }
 
 object OneGraphColumn {
