@@ -60,6 +60,8 @@ class Interval(st: LocalDate, en: LocalDate) extends Ordered[Interval] with Seri
       true
   }
 
+  def union(other: Interval): Interval = Interval(minDate(start, other.start), maxDate(end, other.end))
+
   /*
    * Calculate a period of intersection.
    */

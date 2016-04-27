@@ -75,38 +75,37 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
 
   override protected def aggregateByChange(c: ChangeSpec, vgroupby: (VertexId, VD) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): SnapshotGraphParallel[VD, ED] = {
     val size: Integer = c.num
-    var groups: ParSeq[List[Graph[VD, ED]]] = if (size > 1) 
-      graphs.foldLeft(List[List[Graph[VD, ED]]](), 0) { (r, c) => r match {
+    var groups: ParSeq[List[(Graph[VD, ED], Interval)]] = if (size > 1) 
+      graphs.zip(intervals).foldLeft(List[List[(Graph[VD, ED], Interval)]](), 0) { (r, c) => r match {
         case (head :: tail, num) =>
           if (num < size)  ( (c :: head) :: tail , num + 1 )
           else             ( List(c) :: head :: tail , 1 )
         case (Nil, num) => (List(List(c)), 1)
       }
-      }._1.foldLeft(List[List[Graph[VD, ED]]]())( (r,c) => c.reverse :: r).par
+      }._1.foldLeft(List[List[(Graph[VD, ED], Interval)]]())( (r,c) => c.reverse :: r).par
     else
-      graphs.map(g => List(g))
+      graphs.zip(intervals).map(g => List(g))
 
-    //drop the last group if we have Always quantification
-    groups = vquant match {
-      case a: Always if (groups.last.length < size) => groups.take(groups.length - 1)
-      case _ => groups
-
-    }
+    val combine = (lst: List[Interval]) => lst.sortBy(x => x.start).foldLeft(List[Interval]()){ (r,c) => r match {
+      case head :: tail =>
+        if (head.intersects(c)) Interval(head.start, maxDate(head.end, c.end)) :: tail else c :: head :: tail
+      case Nil => List(c)
+    }}
 
     //for each group, reduce into vertices and edges
     //compute new value, filter by quantification
-    val reduced: ParSeq[(RDD[(VertexId, (VD, BitSet))], RDD[((VertexId, VertexId),(ED, BitSet))])] = groups.map(group => 
-      group.zipWithIndex.map{ case (g,ii) => 
+    val reduced: ParSeq[(RDD[(VertexId, (VD, List[Interval]))], RDD[((VertexId, VertexId),(ED, List[Interval]))])] = groups.map(group => 
+      group.map{ case (g,ii) => 
         //map each vertex into its new key
-        (g.vertices.map{ case (vid, vattr) => (vgroupby(vid, vattr), (vattr, BitSet(ii)))}, 
-          g.triplets.map{ e => ((vgroupby(e.srcId, e.srcAttr), vgroupby(e.dstId, e.dstAttr)), (e.attr, BitSet(ii)))})}
-        .reduce((a: (RDD[(VertexId, (VD, BitSet))], RDD[((VertexId, VertexId), (ED,BitSet))]), b: (RDD[(VertexId, (VD, BitSet))], RDD[((VertexId, VertexId),(ED, BitSet))])) => (a._1.union(b._1), a._2.union(b._2)))
+        (g.vertices.map{ case (vid, vattr) => (vgroupby(vid, vattr), (vattr, List(ii)))}, 
+          g.triplets.map{ e => ((vgroupby(e.srcId, e.srcAttr), vgroupby(e.dstId, e.dstAttr)), (e.attr, List(ii)))}, ii)}
+        .reduce((a: (RDD[(VertexId, (VD, List[Interval]))], RDD[((VertexId, VertexId), (ED, List[Interval]))], Interval), b: (RDD[(VertexId, (VD, List[Interval]))], RDD[((VertexId, VertexId),(ED, List[Interval]))], Interval)) => (a._1.union(b._1), a._2.union(b._2), a._3.union(b._3)))
         //reduce by key with aggregate functions
-    ).map{ case (vs, es) =>
+    ).map{ case (vs, es, intv) =>
         (vs.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 ++ b._2))
-          .filter(v => vquant.keep(v._2._2.size / size.toDouble)),
+          .filter(v => vquant.keep(combine(v._2._2).map(ii => ii.ratio(intv)).reduce(_ + _))),
           es.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 ++ b._2))
-          .filter(e => equant.keep(e._2._2.size / size.toDouble))
+          .filter(e => equant.keep(combine(e._2._2).map(ii => ii.ratio(intv)).reduce(_ + _)))
         )
     }
 

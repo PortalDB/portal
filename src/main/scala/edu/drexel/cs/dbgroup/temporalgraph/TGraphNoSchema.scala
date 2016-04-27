@@ -1,7 +1,6 @@
 package edu.drexel.cs.dbgroup.temporalgraph
 
 import scala.reflect.ClassTag
-import scala.collection.immutable.BitSet
 
 import org.apache.spark.graphx._
 import org.apache.spark.storage.StorageLevel
@@ -149,22 +148,22 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     val locali = intervals.sliding(size)
     val split = (interval: Interval) => {
       locali.flatMap{ group =>
-        val res = BitSet() ++ group.zipWithIndex.flatMap{ case (intv,index) =>
-          if (intv.intersects(interval)) Some(index) else None
-        }
+        val res = group.flatMap{ case intv =>
+          if (intv.intersects(interval)) Some(intv) else None
+        }.toList
         if (res.isEmpty)
           None
         else
           Some(Interval(group.head.start, group.last.end), res)
       }
     }
-    val splitVerts: RDD[((VertexId, Interval), (VD, BitSet))] = if (vgroupby == vgb) {
+    val splitVerts: RDD[((VertexId, Interval), (VD, List[Interval]))] = if (vgroupby == vgb) {
       allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii._1), (attr, ii._2)))}
     } else {
       allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vgroupby(vid,attr), ii._1), (attr, ii._2)))}
     }
 
-    val splitEdges: RDD[((VertexId, VertexId, Interval),(ED, BitSet))] = if (vgroupby == vgb) {
+    val splitEdges: RDD[((VertexId, VertexId, Interval),(ED, List[Interval]))] = if (vgroupby == vgb) {
       allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii._1), (attr, ii._2)))}
     } else {
       val newVIds: RDD[(VertexId, (Interval, VertexId))] = allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vgroupby(vid, attr)))}
@@ -177,9 +176,15 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     //reduce vertices by key, also computing the total period occupied
     //filter out those that do not meet quantification criteria
     //map to final result
-    val newVerts: RDD[(VertexId, (Interval, VD))] = TGraphNoSchema.coalesce(splitVerts.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 ++ b._2)).filter(v => vquant.keep(v._2._2.size / size.toDouble)).map(v => (v._1._1, (v._1._2, v._2._1))))
+    val combine = (lst: List[Interval]) => lst.sortBy(x => x.start).foldLeft(List[Interval]()){ (r,c) => r match {
+      case head :: tail =>
+        if (head.intersects(c)) Interval(head.start, maxDate(head.end, c.end)) :: tail else c :: head :: tail
+      case Nil => List(c)
+    }}
+
+    val newVerts: RDD[(VertexId, (Interval, VD))] = TGraphNoSchema.coalesce(splitVerts.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 ++ b._2)).filter(v => vquant.keep(combine(v._2._2).map(ii => ii.ratio(v._1._2)).reduce(_ + _))).map(v => (v._1._1, (v._1._2, v._2._1))))
     //same for edges
-    val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 ++ b._2)).filter(e => equant.keep(e._2._2.size / size.toDouble)).map(e => ((e._1._1, e._1._2), (e._1._3, e._2._1)))
+    val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 ++ b._2)).filter(e => equant.keep(combine(e._2._2).map(ii => ii.ratio(e._1._3)).reduce(_ + _))).map(e => ((e._1._1, e._1._2), (e._1._3, e._2._1)))
 
     val newEdges = if (aggEdges.isEmpty) aggEdges else TGraphNoSchema.constrainEdges(newVerts, aggEdges)
 
