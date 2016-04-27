@@ -122,7 +122,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     val newVerts: RDD[(VertexId, (Interval, VD))] = if (vpred == defvp) allVertices else allVertices.filter{ case (vid, attrs) => vpred(vid, attrs)}
     val filteredEdges: RDD[((VertexId, VertexId), (Interval, ED))] = allEdges.filter{ case (ids, attrs) => epred(ids, attrs)}
 
-    val newEdges = if (filteredEdges.isEmpty || vpred == defvp) filteredEdges else constrainEdges(newVerts, filteredEdges)
+    val newEdges = if (filteredEdges.isEmpty || vpred == defvp) filteredEdges else TGraphNoSchema.constrainEdges(newVerts, filteredEdges)
 
     //no need to coalesce either vertices or edges because we are removing some entities, but not extending them or modifying attributes
 
@@ -181,7 +181,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     //same for edges
     val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 ++ b._2)).filter(e => equant.keep(e._2._2.size / size.toDouble)).map(e => ((e._1._1, e._1._2), (e._1._3, e._2._1)))
 
-    val newEdges = if (aggEdges.isEmpty) aggEdges else constrainEdges(newVerts, aggEdges)
+    val newEdges = if (aggEdges.isEmpty) aggEdges else TGraphNoSchema.constrainEdges(newVerts, aggEdges)
 
     fromRDDs(newVerts, TGraphNoSchema.coalesce(newEdges), defaultValue, storageLevel)
 
@@ -221,7 +221,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     //same for edges
     val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 ++ b._2)).filter(e => equant.keep(combine(e._2._2).map(ii => ii.ratio(e._1._3)).reduce(_ + _))).map(e => ((e._1._1, e._1._2), (e._1._3, e._2._1)))
 
-    val newEdges = if (aggEdges.isEmpty) aggEdges else constrainEdges(newVerts, aggEdges)
+    val newEdges = if (aggEdges.isEmpty) aggEdges else TGraphNoSchema.constrainEdges(newVerts, aggEdges)
 
     fromRDDs(newVerts, TGraphNoSchema.coalesce(newEdges), defaultValue, storageLevel)
   }
@@ -248,7 +248,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
 
     if (span.intersects(grp2.span)) {
       //compute new intervals
-      val newIntvs: Seq[Interval] = intervalUnion(grp2.intervals)
+      val newIntvs: Seq[Interval] = intervalUnion(intervals, grp2.intervals)
 
       val split = (interval: Interval) => {
         newIntvs.flatMap{ intv =>
@@ -283,7 +283,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
 
     if (span.intersects(grp2.span)) {
       //compute new intervals
-      val newIntvs: Seq[Interval] = intervalIntersect(grp2.intervals)
+      val newIntvs: Seq[Interval] = intervalIntersect(intervals, grp2.intervals)
 
       val split = (interval: Interval) => {
         newIntvs.flatMap{ intv =>
@@ -356,60 +356,6 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
   }
 
   /** Utility methods **/
-
-  /*
-   * Given an RDD of vertices and an RDD of edges,
-   * remove the edges for which there is no src or dst vertex
-   * at the indicated time period,
-   * shorten the periods as needed to meet the integrity constraint.
-   * Warning: This is a very expensive operation, use only when needed.
-   */
-  protected def constrainEdges[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))]): RDD[((VertexId, VertexId), (Interval, E))] = {
-    val coalescV: RDD[(VertexId, Interval)] = TGraphNoSchema.coalesceStructure(verts)
-
-    //get edges that are valid for each of their two vertices
-    val e1: RDD[((VertexId, VertexId), (Interval, E))] = edgs.map(e => (e._1._1, e))
-      .join(coalescV) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
-      .filter{case (vid, (e, v)) => e._2._1.intersects(v) } //this keeps only matches of vertices and edges where periods overlap
-      .map{case (vid, (e, v)) => (e._1, (Interval(maxDate(e._2._1.start, v.start), minDate(e._2._1.end, v.end)), e._2._2))} //because the periods overlap we don't have to worry that maxdate is after mindate
-    val e2: RDD[((VertexId, VertexId), (Interval, E))] = edgs.map(e => (e._1._2, e))
-      .join(coalescV) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
-      .filter{case (vid, (e, v)) => e._2._1.intersects(v) } //this keeps only matches of vertices and edges where periods overlap
-      .map{case (vid, (e, v)) => (e._1, (Interval(maxDate(e._2._1.start, v.start), minDate(e._2._1.end, v.end)), e._2._2))} //because the periods overlap we don't have to worry that maxdate is after mindate
-
-    //now join them to keep only those that satisfy both foreign key constraints
-    e1.join(e2)
-    //keep only an edge that meets constraints on both vertex ids
-      .filter{ case (k, (e1, e2)) => e1._1.intersects(e2._1) && e1._2 == e2._2 }
-      .map{ case (k, (e1, e2)) => (k, (Interval(maxDate(e1._1.start, e2._1.start), minDate(e1._1.end, e2._1.end)), e1._2))}
-  }
-
-  protected def intervalUnion(other: Seq[Interval]): Seq[Interval] = {
-    (intervals.map(in => in.start)
-      .union(other.map(in => in.start))
-      .sortBy(c => c)
-      .distinct
-      :+ (maxDate(span.end, other.last.end)))
-      .sliding(2)
-      .map(x => Interval(x(0), x(1)))
-      .toSeq
-  }
-
-  protected def intervalIntersect(other: Seq[Interval]): Seq[Interval] = {
-    val st: LocalDate = maxDate(span.start, other.last.start)
-    val en: LocalDate = minDate(span.end, other.last.end)
-
-    (intervals.dropWhile(in => in.start.isBefore(st)).map(in => in.start)
-      .union(other.dropWhile(in => in.start.isBefore(st)).map(in => in.start))
-      .sortBy(c => c)
-      .distinct
-      .takeWhile(c => c.isBefore(en))
-      :+ en)
-      .sliding(2)
-      .map(x => Interval(x(0), x(1)))
-      .toSeq
-  }
-
   protected def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY): TGraphNoSchema[V, E]
 
   protected def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): TGraphNoSchema[V, E]
@@ -456,6 +402,33 @@ object TGraphNoSchema {
           case Nil => List(c)
         }}
     }.flatMap{ case (k,v) => v.map(x => (k, x._1))}
+  }
+
+  /*
+   * Given an RDD of vertices and an RDD of edges,
+   * remove the edges for which there is no src or dst vertex
+   * at the indicated time period,
+   * shorten the periods as needed to meet the integrity constraint.
+   * Warning: This is a very expensive operation, use only when needed.
+   */
+  def constrainEdges[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))]): RDD[((VertexId, VertexId), (Interval, E))] = {
+    val coalescV: RDD[(VertexId, Interval)] = TGraphNoSchema.coalesceStructure(verts)
+
+    //get edges that are valid for each of their two vertices
+    val e1: RDD[((VertexId, VertexId), (Interval, E))] = edgs.map(e => (e._1._1, e))
+      .join(coalescV) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
+      .filter{case (vid, (e, v)) => e._2._1.intersects(v) } //this keeps only matches of vertices and edges where periods overlap
+      .map{case (vid, (e, v)) => (e._1, (Interval(maxDate(e._2._1.start, v.start), minDate(e._2._1.end, v.end)), e._2._2))} //because the periods overlap we don't have to worry that maxdate is after mindate
+    val e2: RDD[((VertexId, VertexId), (Interval, E))] = edgs.map(e => (e._1._2, e))
+      .join(coalescV) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
+      .filter{case (vid, (e, v)) => e._2._1.intersects(v) } //this keeps only matches of vertices and edges where periods overlap
+      .map{case (vid, (e, v)) => (e._1, (Interval(maxDate(e._2._1.start, v.start), minDate(e._2._1.end, v.end)), e._2._2))} //because the periods overlap we don't have to worry that maxdate is after mindate
+
+    //now join them to keep only those that satisfy both foreign key constraints
+    e1.join(e2)
+    //keep only an edge that meets constraints on both vertex ids
+      .filter{ case (k, (e1, e2)) => e1._1.intersects(e2._1) && e1._2 == e2._2 }
+      .map{ case (k, (e1, e2)) => (k, (Interval(maxDate(e1._1.start, e2._1.start), minDate(e1._1.end, e2._1.end)), e1._2))}
   }
 
 }

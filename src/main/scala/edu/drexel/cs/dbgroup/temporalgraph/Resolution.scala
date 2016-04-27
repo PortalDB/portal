@@ -129,6 +129,23 @@ class Resolution(per:Period) extends WindowSpecification {
   }
 
   /**
+    * Compute the start date of the interval that precedes the input date.
+    * I.e., Interval(output, input) in this resolution
+    */
+  def minus(input: LocalDate):LocalDate = {
+    unit match {
+      case ChronoUnit.DAYS =>
+        input.minusDays(period.getDays())
+      case ChronoUnit.MONTHS =>
+        input.withDayOfMonth(1).minusMonths(period.getMonths())
+      case ChronoUnit.YEARS =>
+        input.withDayOfYear(1).minusYears(period.getYears())
+      case _ => //should never get here
+        input
+    }
+  }
+
+  /**
     * Compute the number of intervals that fit within this new resolution.
     * I.e., if going from intervals in days to months, dates in april will return 30
     */
