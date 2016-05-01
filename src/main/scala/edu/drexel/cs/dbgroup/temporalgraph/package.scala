@@ -1,6 +1,7 @@
 package edu.drexel.cs.dbgroup
 
 import org.apache.spark.SparkContext
+import org.apache.spark.sql.SQLContext
 
 package object temporalgraph {
   /**
@@ -25,9 +26,14 @@ package object temporalgraph {
   }
 
   object ProgramContext {
-    var sc:SparkContext = null
+    @transient var sc:SparkContext = _
+    @transient private var sqlc:SQLContext = _
 
     def setContext(c: SparkContext):Unit = sc = c
+    def getSqlContext:SQLContext = {
+      if (sqlc == null) sqlc = new org.apache.spark.sql.SQLContext(sc)
+      sqlc
+    }
   }
 
   object PartitionStrategyType extends Enumeration {

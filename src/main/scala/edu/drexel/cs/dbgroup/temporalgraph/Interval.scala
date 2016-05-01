@@ -3,6 +3,7 @@ package edu.drexel.cs.dbgroup.temporalgraph
 import scala.math.Ordered.orderingToOrdered
 import scala.math.Ordering._
 import java.time.LocalDate
+import java.sql.Date
 import java.time.temporal.ChronoUnit
 
 import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
@@ -124,4 +125,10 @@ object Interval {
      throw new IllegalArgumentException("StartDate cannot be after end date")
    else
       new Interval(mn,mx)
+
+  def apply(mn: Date, mx: Date) = 
+    if (mn.after(mx))
+      throw new IllegalArgumentException("Start date cannot be after end date")
+    else
+      new Interval(mn.toLocalDate(), mx.toLocalDate())
 }

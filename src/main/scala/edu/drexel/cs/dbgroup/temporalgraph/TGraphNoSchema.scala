@@ -6,6 +6,7 @@ import org.apache.spark.graphx._
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
 import org.apache.spark.rdd.RDD
+import org.apache.spark.mllib.rdd.RDDFunctions._
 
 import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
 
@@ -111,13 +112,12 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     * may cause different representative intervals.
     */
   protected val defvp = (vid: VertexId, attrs: (Interval, VD)) => true
-  def select(epred: ((VertexId, VertexId), (Interval, ED)) => Boolean = ((ids, ed) => true), vpred: (VertexId, (Interval, VD)) => Boolean = defvp): TGraph[VD, ED] = {
+  def select(epred: ((VertexId, VertexId), (Interval, ED)) => Boolean = ((ids, ed) => true), vpred: (VertexId, (Interval, VD)) => Boolean = defvp): TGraphNoSchema[VD, ED] = {
     //if the vpred is not provided, i.e. is true
     //then we can skip most of the work on enforcing integrity constraints with V
     //simple select on vertices, then join the coalesced by structure result
     //to modify edges
 
-    val vpreddef = (v: VertexId, vd: VD) => true
     val newVerts: RDD[(VertexId, (Interval, VD))] = if (vpred == defvp) allVertices else allVertices.filter{ case (vid, attrs) => vpred(vid, attrs)}
     val filteredEdges: RDD[((VertexId, VertexId), (Interval, ED))] = allEdges.filter{ case (ids, attrs) => epred(ids, attrs)}
 
@@ -370,7 +370,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
 object TGraphNoSchema {
   def computeIntervals[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))]): Seq[Interval] = {
     val dates: RDD[LocalDate] = verts.flatMap{ case (id, (intv, attr)) => List(intv.start, intv.end)}.union(edgs.flatMap { case (ids, (intv, attr)) => List(intv.start, intv.end)}).distinct
-    dates.sortBy(c => c, true).collect.sliding(2).map(lst => Interval(lst(0), lst(1))).toSeq
+    dates.sortBy(c => c, true).sliding(2).map(lst => Interval(lst(0), lst(1))).collect()
   }
 
   /*
