@@ -827,7 +827,7 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter{
       ((2L, 3L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 52)),
       ((3L, 3L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2018-01-01")), 22)),
       ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 52)),
-      ((2L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2013-01-01")), 22))
+      ((5L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), 22))
     ))
 
     val sgp2 = SnapshotGraphParallel.fromRDDs(users2, edges2, "Default", StorageLevel.MEMORY_ONLY_SER)
@@ -851,7 +851,8 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter{
       ((3L,3L),(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),42)),
       ((3L,3L),(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")),22)),
       ((4L,4L),(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),52)),
-      ((2L,5L),(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),42))
+      ((2L,5L),(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),42)),
+      ((5L,5L),(Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")),22))
     ))
 
 
@@ -865,13 +866,12 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter{
     val expectedVerticesIntersection: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (3L,(Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")),"c")),
       (4L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),"d1")),
-      (5L,(Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2013-01-01")),"e"))
+      (5L,(Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")),"e"))
     ))
 
     val expectedEdgesIntersection: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
       ((3L,3L),(Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")),42)),
-      ((4L,4L),(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),52)),
-      ((2L,5L),(Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2013-01-01")),42))
+      ((4L,4L),(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),52))
     ))
 
     assert(resultSgpIntersection.vertices.collect.toSet === expectedVerticesIntersection.collect.toSet)
