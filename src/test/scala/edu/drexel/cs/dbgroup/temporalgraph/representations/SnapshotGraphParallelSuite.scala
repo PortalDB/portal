@@ -728,4 +728,35 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter{
     assert(resultSgpIntersection.edges.collect.toSet === expectedEdgesIntersection.collect.toSet)
   }
 
+  test("Project") {
+    //Checks for projection and coalescing of vertices and edges
+    val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "B")),
+      (1L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), "b")),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "c")),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "d"))
+    ))
+    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2012-01-01")), 4)),
+      ((1L, 2L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2014-01-01")), -4)),
+      ((1L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 2))
+    ))
+    val sgp = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
+
+    val actualSGP = sgp.project((edge, interval) => (edge.attr*edge.attr) , (vertex, interval, name) => name.toUpperCase, "Default")
+
+    val expectedVertices: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2016-01-01")), "B")),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "C")),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "D"))
+    ))
+    val expectedEdges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 16)),
+      ((1L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 4))
+    ))
+
+    assert(expectedVertices.collect().toSet === actualSGP.vertices.collect().toSet)
+    assert(expectedEdges.collect().toSet === actualSGP.edges.collect().toSet)
+  }
+
 }
