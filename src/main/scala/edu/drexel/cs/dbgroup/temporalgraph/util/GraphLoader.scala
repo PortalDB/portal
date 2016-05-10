@@ -104,18 +104,75 @@ object GraphLoader {
     }
   }
 
-/*
-  def loadDataWithSchema(url: String, from: LocalDate, to: LocalDate, schema: GraphSpec): TemporalGraphWithSchema = {
-    //TODO: make the data type not string
+  def loadDataParquet(url: String): TGraphNoSchema[Array[Any], Array[Any]] = {
+    val sqlContext = ProgramContext.getSqlContext
+    import sqlContext.implicits._
+
+    val users = sqlContext.read.parquet(url + "/nodes.parquet")
+    val links = sqlContext.read.parquet(url + "/edges.parquet")
+
+    val vs: RDD[(VertexId, (Interval, Array[Any]))] = users.map(row => (row.getLong(0), (Interval(row.getDate(1).toLocalDate(), row.getDate(2).toLocalDate()), row.toSeq.drop(3).toArray)))
+    val es: RDD[((VertexId, VertexId), (Interval, Array[Any]))] = links.map(row => ((row.getLong(0), row.getLong(1)), (Interval(row.getDate(2).toLocalDate(), row.getDate(3).toLocalDate()), row.toSeq.drop(4).toArray)))
+
     graphType match {
       case "SG" =>
-        SnapshotGraphWithSchema.loadWithSchema(url, from, to, schema)
+        SnapshotGraphParallel.fromRDDs(vs, es, Array[Any](), StorageLevel.MEMORY_ONLY_SER)
+      case "OG" =>
+        OneGraphColumn.fromRDDs(vs, es, Array[Any](), StorageLevel.MEMORY_ONLY_SER)
+      case "HG" =>
+        HybridGraph.fromRDDs(vs, es, Array[Any](), StorageLevel.MEMORY_ONLY_SER)
+    }
+  }
+
+  def loadStructureOnlyParquet(url: String): TGraphNoSchema[Null, Null] = {
+    val sqlContext = ProgramContext.getSqlContext
+    import sqlContext.implicits._
+
+    val users = sqlContext.read.parquet(url + "/nodes.parquet").select($"vid", $"estart", $"eend")
+    val links = sqlContext.read.parquet(url + "/edges.parquet").select($"vid1", $"vid2", $"estart", $"eend")
+
+    //map to rdds, coalesce
+    val vs: RDD[(VertexId, (Interval, Null))] = users.map(row => (row.getLong(0), (Interval(row.getDate(1).toLocalDate(), row.getDate(2).toLocalDate()), null)))
+    val es: RDD[((VertexId, VertexId), (Interval, Null))] = links.map(row => ((row.getLong(0), row.getLong(1)), (Interval(row.getDate(2).toLocalDate(), row.getDate(3).toLocalDate()), null)))
+
+    graphType match {
+      case "SG" =>
+        SnapshotGraphParallel.fromRDDs(TGraphNoSchema.coalesce(vs), TGraphNoSchema.coalesce(es), null, StorageLevel.MEMORY_ONLY_SER)
+      case "OG" =>
+        OneGraphColumn.fromRDDs(TGraphNoSchema.coalesce(vs), TGraphNoSchema.coalesce(es), null, StorageLevel.MEMORY_ONLY_SER)
+      case "HG" =>
+        HybridGraph.fromRDDs(TGraphNoSchema.coalesce(vs), TGraphNoSchema.coalesce(es), null, StorageLevel.MEMORY_ONLY_SER)
+    }
+
+  }
+
+  def loadDataWithSchema(url: String, schema: GraphSpec): TGraphWithSchema = {
+    //TODO: make the data type not string
+
+    val sqlContext = ProgramContext.getSqlContext
+    val cov = schema.getVertexSchema.map(f => f.name)
+    val coe = schema.getEdgeSchema.map(f => f.name)
+    //TODO: we are ignoring the data types passed in the schema
+    //and relying on the names being correct
+    //add handling to match up fields and give them desired names and types
+    val users = sqlContext.read.parquet(url + "/nodes.parquet").select(cov.head, cov.tail: _*)
+    val links = sqlContext.read.parquet(url + "/edges.parquet").select(coe.head, coe.tail: _*)
+
+    //if we are not loading all the columns, we need to coalesce
+    val vs = if (schema.getVertexSchema.length == users.columns.length) users else TGraphWithSchema.coalesceV(users)
+    val es = if (schema.getEdgeSchema.length == links.columns.length) links else TGraphWithSchema.coalesceE(links)
+
+    graphType match {
+      case "SG" =>
+        SnapshotGraphWithSchema.fromDataFrames(vs, es, StorageLevel.MEMORY_ONLY_SER)
+      case "OG" =>
+        OneGraphWithSchema.fromDataFrames(vs, es, StorageLevel.MEMORY_ONLY_SER)
       case _ => throw new IllegalArgumentException("Unknown data structure type " + graphType)
     }
   }
- */
 
-  def loadGraphSpan(url: String): (Interval, Resolution) = {
+
+  def loadGraphSpan(url: String): Interval = {
     var source: scala.io.Source = null
     var fs: FileSystem = null
 
@@ -130,9 +187,8 @@ object GraphLoader {
     val lines = source.getLines
     val minin = LocalDate.parse(lines.next)
     val maxin = LocalDate.parse(lines.next)
-    val res = Resolution.from(lines.next)
     source.close()
-    (Interval(minin,maxin),res)
+    Interval(minin,maxin)
   }
 
 /*

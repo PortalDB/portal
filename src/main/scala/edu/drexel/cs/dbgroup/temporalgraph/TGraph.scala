@@ -116,41 +116,6 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
   def aggregate(window: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId): TGraph[VD, ED]
 
   /**
-    * Transforms the structural schema of the graph
-    * @param emap The mapping function for edges
-    * @param vmap The mapping function for vertices
-    * @param defaultValue The default value for attribute VD2. Should be something that is not an available value, like Null
-    * @return tgraph The transformed graph. The temporal schema is unchanged.
-    */
-  def project[ED2: ClassTag, VD2: ClassTag](emap: (Edge[ED], Interval) => ED2, vmap: (VertexId, Interval, VD) => VD2, defaultValue: VD2): TGraph[VD2, ED2]
-
-  /**
-    * Transforms each vertex attribute in the graph for each time period
-    * using the map function. 
-    * Special case of general transform, included here for better compatibility with GraphX.
-    *
-    * @param map the function from a vertex object to a new vertex value
-    * @param defaultValue The default value for attribute VD2. Should be something that is not an available value, like Null
-    * @tparam VD2 the new vertex data type
-    *
-    */
-  def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defaultValue: VD2)
-    (implicit eq: VD =:= VD2 = null): TGraph[VD2, ED]
-
-  /**
-   * Transforms each edge attribute in the graph using the map function.  The map function is not
-   * passed the vertex value for the vertices adjacent to the edge.  If vertex values are desired,
-   * use `mapTriplets`.
-   * Special case of general transform, included here for better compatibility with GraphX.
-   *
-   * @param map the function from an edge object with a time index to a new edge value.
-   *
-   * @tparam ED2 the new edge data type
-   *
-   */
-  def mapEdges[ED2: ClassTag](map: (Edge[ED], Interval) => ED2): TGraph[VD, ED2]
-
-  /**
     * Produce a union of two temporal graphs. 
     * For the overlaps in attribute value over time period,
     * the transformation function vFunc/eFunc is applied.

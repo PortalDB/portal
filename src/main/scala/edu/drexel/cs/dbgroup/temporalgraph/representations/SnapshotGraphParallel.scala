@@ -2,7 +2,6 @@ package edu.drexel.cs.dbgroup.temporalgraph.representations
 
 import scala.collection.parallel.ParSeq
 import scala.collection.mutable.Buffer
-import scala.collection.immutable.BitSet
 import scala.reflect.ClassTag
 import scala.util.control._
 
@@ -12,7 +11,6 @@ import org.apache.hadoop.fs._
 import org.apache.spark.{SparkContext,SparkException,Partition}
 
 import org.apache.spark.graphx._
-import org.apache.spark.graphx.Graph
 import org.apache.spark.rdd._
 import org.apache.spark.rdd.EmptyRDD
 import org.apache.spark.storage.RDDBlockId
@@ -20,11 +18,11 @@ import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
 
 import edu.drexel.cs.dbgroup.temporalgraph._
-import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
+import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps
 
 import java.time.LocalDate
 
-class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], grphs: ParSeq[Graph[VD,ED]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY) extends TGraphNoSchema[VD, ED](intvs, verts, edgs, defValue, storLevel) with Serializable {
+class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], grphs: ParSeq[Graph[VD,ED]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY) extends TGraphNoSchema[VD, ED](intvs, verts, edgs, defValue, storLevel) {
 
   protected val graphs: ParSeq[Graph[VD, ED]] = grphs
 
@@ -69,7 +67,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
     if (selectStop < 0) selectStop = intervals.size
     val newIntvs: Seq[Interval] = intervals.slice(selectStart, selectStop)
 
-    new SnapshotGraphParallel(newIntvs, allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(maxDate(y._1.start, startBound), minDate(y._1.end, endBound)), y._2)), allEdges.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(maxDate(y._1.start, startBound), minDate(y._1.end, endBound)), y._2)), graphs.slice(selectStart, selectStop), defaultValue, storageLevel)
+    new SnapshotGraphParallel(newIntvs, allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), allEdges.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), graphs.slice(selectStart, selectStop), defaultValue, storageLevel)
 
   }
 
@@ -86,9 +84,10 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
     else
       graphs.zip(intervals).map(g => List(g))
 
+    implicit val ord = TempGraphOps.dateOrdering
     val combine = (lst: List[Interval]) => lst.sortBy(x => x.start).foldLeft(List[Interval]()){ (r,c) => r match {
       case head :: tail =>
-        if (head.intersects(c)) Interval(head.start, maxDate(head.end, c.end)) :: tail else c :: head :: tail
+        if (head.intersects(c)) Interval(head.start, TempGraphOps.maxDate(head.end, c.end)) :: tail else c :: head :: tail
       case Nil => List(c)
     }}
 
@@ -139,7 +138,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
 
       //this is method A
       //compute new intervals
-      val newIntvs: Seq[Interval] = intervalUnion(intervals, grp2.intervals)
+      val newIntvs: Seq[Interval] = TempGraphOps.intervalUnion(intervals, grp2.intervals)
 
       var ii: Integer = 0
       var jj: Integer = 0
@@ -190,7 +189,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
       //this is by graphs
 
       //compute new intervals
-      val newIntvs: Seq[Interval] = intervalIntersect(intervals, grp2.intervals)
+      val newIntvs: Seq[Interval] = TempGraphOps.intervalIntersect(intervals, grp2.intervals)
 
       var ii: Integer = 0
       var jj: Integer = 0

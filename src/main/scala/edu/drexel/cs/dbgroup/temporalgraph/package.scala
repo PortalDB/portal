@@ -16,7 +16,7 @@ package object temporalgraph {
     override def keep(in: Double): Boolean = in > 0.99
   }
   case class Exists extends Quantification {
-    override def keep(in: Double): Boolean = true
+    override def keep(in: Double): Boolean = in > 0.0
   }
   case class Most extends Quantification {
     override def keep(in: Double): Boolean = in > 0.5

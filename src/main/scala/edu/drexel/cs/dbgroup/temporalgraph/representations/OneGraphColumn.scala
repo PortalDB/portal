@@ -2,9 +2,7 @@
 //Each vertex and edge has a value attribute associated with each time period
 package edu.drexel.cs.dbgroup.temporalgraph.representations
 
-import scala.collection.mutable.HashMap
 import scala.collection.immutable.BitSet
-import scala.collection.mutable.ListBuffer
 import scala.collection.breakOut
 
 import scala.reflect.ClassTag
@@ -17,7 +15,6 @@ import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
-import org.apache.spark.HashPartitioner
 
 import org.apache.spark.graphx.impl.GraphXPartitionExtension._
 
@@ -78,6 +75,190 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
       OneGraphColumn.emptyGraph[VD,ED](defaultValue)
   }
 
+  override protected def aggregateByChange(c: ChangeSpec, vgroupby: (VertexId, VD) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): OneGraphColumn[VD, ED] = {
+    //if we only have the structure, we can do efficient aggregation with the graph
+    //otherwise just use the parent
+    //FIXME: find a better way to tell there's only structure
+    defaultValue match {
+      case null if (vgroupby == vgb) => aggregateByChangeStructureOnly(c, vquant, equant)
+      case _ => super.aggregateByChange(c, vgroupby, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[OneGraphColumn[VD,ED]]
+    }
+  }
+ 
+  private def aggregateByChangeStructureOnly(c: ChangeSpec, vquant: Quantification, equant: Quantification): OneGraphColumn[VD, ED] = {
+    val size: Integer = c.num
+    val grp = intervals.grouped(size).toList
+    val countSums = ProgramContext.sc.broadcast(grp.map{ g => g.size }.scanLeft(0)(_ + _).tail)
+    val newIntvs = grp.map{ grp => grp.reduce((a,b) => Interval(a.start, b.end))}
+    val newIntvsb = ProgramContext.sc.broadcast(newIntvs)
+    val intvs = ProgramContext.sc.broadcast(intervals)
+
+    val filtered: Graph[BitSet, BitSet] = graphs.mapVertices { (vid, attr) =>
+      BitSet() ++ (0 to (countSums.value.size-1)).flatMap{ case (index) =>
+        //make a mask for this part
+        val mask = BitSet((countSums.value.lift(index-1).getOrElse(0) to (countSums.value(index)-1)): _*)
+        if (vquant.keep((mask & attr).toList.map(ii => intvs.value(ii).ratio(newIntvsb.value(index))).reduce(_ + _)))
+          Some(index)
+        else
+          None
+      }}
+      .subgraph(vpred = (vid, attr) => !attr.isEmpty)
+      .mapEdges{ e =>
+      BitSet() ++ (0 to (countSums.value.size-1)).flatMap{ case (index) =>
+        //make a mask for this part
+        val mask = BitSet((countSums.value.lift(index-1).getOrElse(0) to (countSums.value(index)-1)): _*)
+        if (equant.keep((mask & e.attr).toList.map(ii => intvs.value(ii).ratio(newIntvsb.value(index))).reduce(_ + _)))
+          Some(index)
+        else
+          None
+      }}
+      .subgraph(epred = et => !et.attr.isEmpty)
+
+    val tmp: ED = new Array[ED](1)(0)
+    val vs: RDD[(VertexId, (Interval, VD))] = TGraphNoSchema.coalesce(filtered.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), defaultValue)))})
+    val es: RDD[((VertexId, VertexId), (Interval, ED))] = TGraphNoSchema.coalesce(filtered.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))))
+
+    new OneGraphColumn(newIntvs, vs, es, filtered, defaultValue, storageLevel)
+  }
+
+  override def union(other: TGraph[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): OneGraphColumn[VD, ED] = {
+    defaultValue match {
+      case null => unionStructureOnly(other)
+      case _ => super.union(other, vFunc, eFunc).asInstanceOf[OneGraphColumn[VD,ED]]
+    }
+  }
+
+  private def unionStructureOnly(other: TGraph[VD, ED]): OneGraphColumn[VD, ED] = {
+    var grp2: OneGraphColumn[VD, ED] = other match {
+      case grph: OneGraphColumn[VD, ED] => grph
+      case _ => throw new IllegalArgumentException("graphs must be of the same type")
+    }
+
+    //compute new intervals
+    val newIntvs: Seq[Interval] = intervalUnion(intervals, grp2.intervals)
+    val newIntvsb = ProgramContext.sc.broadcast(newIntvs)
+ 
+    if (span.intersects(grp2.span)) {
+      val intvMap: Map[Int, Seq[Int]] = intervals.zipWithIndex.map(ii => (ii._2, newIntvs.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None))).toMap
+      val intvMapB = ProgramContext.sc.broadcast(intvMap)
+      val intvMap2: Map[Int, Seq[Int]] = grp2.intervals.zipWithIndex.map(ii => (ii._2, newIntvs.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None))).toMap
+      val intvMap2B = ProgramContext.sc.broadcast(intvMap2)
+
+      //for each index in a bitset, put the new one
+      val gp1: Graph[BitSet,BitSet] = graphs.mapVertices{ (vid, attr) =>
+        BitSet() ++ attr.toSeq.flatMap(ii => intvMapB.value(ii))
+      }.mapEdges{ e =>
+        BitSet() ++ e.attr.toSeq.flatMap(ii => intvMapB.value(ii))
+      }
+      val gp2: Graph[BitSet,BitSet] = grp2.graphs.mapVertices{ (vid, attr) =>
+        BitSet() ++ attr.toSeq.flatMap(ii => intvMap2B.value(ii))
+      }.mapEdges{ e =>
+        BitSet() ++ e.attr.toSeq.flatMap(ii => intvMap2B.value(ii))
+      }
+
+      val newGraphs: Graph[BitSet,BitSet] = Graph(gp1.vertices.union(gp2.vertices).reduceByKey((a,b) => a ++ b), gp1.edges.union(gp2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey((a,b) => a ++ b).map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storageLevel)
+      val vs = TGraphNoSchema.coalesce(newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), defaultValue)))})
+      val tmp: ED = new Array[ED](1)(0)
+      val es = TGraphNoSchema.coalesce(newGraphs.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))))
+
+      new OneGraphColumn(newIntvs, vs, es, newGraphs, defaultValue, storageLevel)
+
+    } else if (span.end == grp2.span.start || span.start == grp2.span.end) {
+      //like above, but no intervals are split, so reindexing is simpler
+      //compute the starting index for each graph (with no overlap there aren't any multiples)
+      val gr1IndexStart: Int = intervals.indexWhere(ii => newIntvs.head.intersects(ii))
+      val gr2IndexStart: Int = grp2.intervals.indexWhere(ii => newIntvs.head.intersects(ii))
+      val gp1 = graphs.mapVertices{ (vid, attr) =>
+        attr.map(ii => ii + gr1IndexStart)
+      }.mapEdges{ e =>
+        e.attr.map(ii => ii + gr1IndexStart)
+      }
+      val gp2 = grp2.graphs.mapVertices{ (vid, attr) =>
+        attr.map(ii => ii + gr1IndexStart)
+      }.mapEdges{ e =>
+        e.attr.map(ii => ii + gr1IndexStart)
+      }
+
+      val newGraphs: Graph[BitSet,BitSet] = Graph(gp1.vertices.union(gp2.vertices).reduceByKey((a,b) => a ++ b), gp1.edges.union(gp2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey((a,b) => a ++ b).map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storageLevel)
+      val vs = TGraphNoSchema.coalesce(newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), defaultValue)))})
+      val tmp: ED = new Array[ED](1)(0)
+      val es = TGraphNoSchema.coalesce(newGraphs.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))))
+
+      new OneGraphColumn(newIntvs, vs, es, newGraphs, defaultValue, storageLevel)
+
+    } else {
+      //like above, but no coalesce is required
+
+      val gr1IndexStart: Int = intervals.indexWhere(ii => newIntvs.head.intersects(ii))
+      val gr2IndexStart: Int = grp2.intervals.indexWhere(ii => newIntvs.head.intersects(ii))
+      val gp1 = graphs.mapVertices{ (vid, attr) =>
+        attr.map(ii => ii + gr1IndexStart)
+      }.mapEdges{ e =>
+        e.attr.map(ii => ii + gr1IndexStart)
+      }
+      val gp2 = grp2.graphs.mapVertices{ (vid, attr) =>
+        attr.map(ii => ii + gr1IndexStart)
+      }.mapEdges{ e =>
+        e.attr.map(ii => ii + gr1IndexStart)
+      }
+
+      val newGraphs: Graph[BitSet,BitSet] = Graph(gp1.vertices.union(gp2.vertices).reduceByKey((a,b) => a ++ b), gp1.edges.union(gp2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey((a,b) => a ++ b).map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storageLevel)
+      val vs = newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), defaultValue)))}
+      val tmp: ED = new Array[ED](1)(0)
+      val es = newGraphs.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp))))
+
+      new OneGraphColumn(newIntvs, vs, es, newGraphs, defaultValue, storageLevel)
+
+    }
+  }
+
+  override def intersection(other: TGraph[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): OneGraphColumn[VD, ED] = {
+    defaultValue match {
+      case null => intersectionStructureOnly(other)
+      case _ => super.intersection(other, vFunc, eFunc).asInstanceOf[OneGraphColumn[VD,ED]]
+    }
+  }
+
+  private def intersectionStructureOnly(other: TGraph[VD, ED]): OneGraphColumn[VD, ED] = {
+    var grp2: OneGraphColumn[VD, ED] = other match {
+      case grph: OneGraphColumn[VD, ED] => grph
+      case _ => throw new ClassCastException
+    }
+
+    if (span.intersects(grp2.span)) {
+      //compute new intervals
+      val newIntvs: Seq[Interval] = intervalIntersect(intervals, grp2.intervals)
+      val newIntvsb = ProgramContext.sc.broadcast(newIntvs)
+      val intvMap: Map[Int, Seq[Int]] = intervals.zipWithIndex.map(ii => (ii._2, newIntvs.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None))).toMap
+      val intvMapB = ProgramContext.sc.broadcast(intvMap)
+      val intvMap2: Map[Int, Seq[Int]] = grp2.intervals.zipWithIndex.map(ii => (ii._2, newIntvs.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None))).toMap
+      val intvMap2B = ProgramContext.sc.broadcast(intvMap2)
+      //for each index in a bitset, put the new one
+      val gp1: Graph[BitSet,BitSet] = graphs.mapVertices{ (vid, attr) =>
+        BitSet() ++ attr.toSeq.flatMap(ii => intvMapB.value(ii))
+      }.subgraph(vpred = (vid, attr) => !attr.isEmpty)
+        .mapEdges{ e =>
+        BitSet() ++ e.attr.toSeq.flatMap(ii => intvMapB.value(ii))
+      }
+      val gp2: Graph[BitSet,BitSet] = grp2.graphs.mapVertices{ (vid, attr) =>
+        BitSet() ++ attr.toSeq.flatMap(ii => intvMap2B.value(ii))
+      }.subgraph(vpred = (vid, attr) => !attr.isEmpty)
+        .mapEdges{ e =>
+        BitSet() ++ e.attr.toSeq.flatMap(ii => intvMap2B.value(ii))
+      }
+
+      val newGraphs = Graph(gp1.vertices.join(gp2.vertices).mapValues{ case (a,b) => a & b}.filter(v => !v._2.isEmpty), gp1.edges.innerJoin(gp2.edges)((srcId, dstId, a, b) => a & b).filter(e => !e.attr.isEmpty), BitSet(), storageLevel)
+      val vs = TGraphNoSchema.coalesce(newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), defaultValue)))})
+      val tmp: ED = new Array[ED](1)(0)
+      val es = TGraphNoSchema.coalesce(newGraphs.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))))
+
+      new OneGraphColumn(newIntvs, vs, es, newGraphs, defaultValue, storageLevel)
+
+    } else {
+      emptyGraph(defaultValue)
+    }
+  }
+
   override def pregel[A: ClassTag]
      (initialMsg: A, defValue: A, maxIterations: Int = Int.MaxValue,
        activeDirection: EdgeDirection = EdgeDirection.Either)
@@ -122,9 +303,9 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
       }.toMap
     }
 
-    val intvs = intervals
+    val intvs = ProgramContext.sc.broadcast(intervals)
     val split = (interval: Interval) => {
-      intvs.zipWithIndex.flatMap{ intv =>
+      intvs.value.zipWithIndex.flatMap{ intv =>
         if (intv._1.intersects(interval))
           Some(intv._2)
         else
@@ -142,7 +323,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
     val newgrp: Graph[Map[TimeIndex, VD], Map[TimeIndex, ED]] = Pregel(grph, initM, maxIterations, activeDirection)(vertexP, sendMsgC, mergeMsgC)
     //need to convert back to bitmap and vertexattrs
     //FIXME:? is it ok that we are throwing away the new edge values?
-    val newattrs: RDD[(VertexId, (Interval, VD))] = TGraphNoSchema.coalesce(newgrp.vertices.flatMap{ case (vid, vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs(k),v))  }})
+    val newattrs: RDD[(VertexId, (Interval, VD))] = TGraphNoSchema.coalesce(newgrp.vertices.flatMap{ case (vid, vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs.value(k),v))  }})
 
     new OneGraphColumn[VD, ED](intervals, newattrs, allEdges, graphs, defaultValue, storageLevel)
   }
@@ -154,7 +335,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
 
     //compute degree of each vertex for each interval
     //this should produce a map from interval to degree for each vertex
-    val intvs = intervals
+    val intvs = ProgramContext.sc.broadcast(intervals)
     TGraphNoSchema.coalesce(graphs.aggregateMessages[Map[TimeIndex,Int]](
       ctx => {
         ctx.sendToSrc(ctx.attr.seq.map(x => (x,1)).toMap)
@@ -162,7 +343,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
       },
       mergedFunc,
       TripletFields.None)
-    .flatMap{ case (vid, mp) => mp.map{ case (k,v) => (vid, (intvs(k), v))}})
+    .flatMap{ case (vid, mp) => mp.map{ case (k,v) => (vid, (intvs.value(k), v))}})
 
   }
 
@@ -243,9 +424,9 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
       val resultGraph: Graph[Map[TimeIndex,(Double,Double)], Map[TimeIndex,(Double,Double)]] = Pregel(pagerankGraph, initialMessage, numIter, activeDirection = EdgeDirection.Either)(vertexProgram, sendMessage, messageCombiner)
 
       //now need to extract the values into a separate rdd again
-      val intvs = intervals
-      val vattrs = TGraphNoSchema.coalesce(resultGraph.vertices.flatMap{ case (vid,vattr) => vattr.toSeq.map{ case (k,v) => (vid,(intvs(k), v._1))}})
-      val eattrs = TGraphNoSchema.coalesce(resultGraph.edges.flatMap{ e => e.attr.toSeq.map{ case (k,v) => ((e.srcId, e.dstId), (intvs(k), v._1))}})
+      val intvs = ProgramContext.sc.broadcast(intervals)
+      val vattrs = TGraphNoSchema.coalesce(resultGraph.vertices.flatMap{ case (vid,vattr) => vattr.toSeq.map{ case (k,v) => (vid,(intvs.value(k), v._1))}})
+      val eattrs = TGraphNoSchema.coalesce(resultGraph.edges.flatMap{ e => e.attr.toSeq.map{ case (k,v) => ((e.srcId, e.dstId), (intvs.value(k), v._1))}})
 
       new OneGraphColumn[Double, Double](intervals, vattrs, eattrs, graphs, 0.0, storageLevel)
 
@@ -299,8 +480,8 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
 
     val resultGraph: Graph[Map[TimeIndex, VertexId], BitSet] = Pregel(conGraph, initialMessage, activeDirection = EdgeDirection.Either)(vertexProgram, sendMessage, messageCombiner)
 
-    val intvs = intervals
-    val vattrs = TGraphNoSchema.coalesce(resultGraph.vertices.flatMap{ case (vid, vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs(k), v))}})
+    val intvs = ProgramContext.sc.broadcast(intervals)
+    val vattrs = TGraphNoSchema.coalesce(resultGraph.vertices.flatMap{ case (vid, vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}})
 
     new OneGraphColumn[VertexId, ED](intervals, vattrs, allEdges, graphs, -1L, storageLevel)
   }
@@ -371,8 +552,8 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
 
     val resultGraph: Graph[Map[TimeIndex, Map[VertexId, Int]], BitSet] = Pregel(spGraph, initialMessage)(vertexProgram, sendMessage, addMapsCombined)
 
-    val intvs = intervals
-    val vattrs: RDD[(VertexId, (Interval, Map[VertexId, Int]))] = TGraphNoSchema.coalesce(resultGraph.vertices.flatMap{ case (vid, vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs(k), v))}})
+    val intvs = ProgramContext.sc.broadcast(intervals)
+    val vattrs: RDD[(VertexId, (Interval, Map[VertexId, Int]))] = TGraphNoSchema.coalesce(resultGraph.vertices.flatMap{ case (vid, vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}})
 
     new OneGraphColumn[Map[VertexId,Int], ED](intervals, vattrs, allEdges, graphs, Map[VertexId, Int](), storageLevel)
 

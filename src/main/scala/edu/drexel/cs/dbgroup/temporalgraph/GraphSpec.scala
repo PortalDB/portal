@@ -26,28 +26,6 @@ class GraphSpec(vertexSchema: Seq[StructField], edgeSchema: Seq[StructField]) {
       AttributeReference("E", StructType(edgeSchema), false, Metadata.empty)())
   }
 
-  //takes in a full(er) schema and returns two bitsets for which fields (by index)
-  //this one has
-  def getIndices(fullSchema: GraphSpec): (Array[Boolean], Array[Boolean]) = {
-    var tmp: Int = 0
-    val fullVertexSchema = fullSchema.getVertexSchema
-    val fullEdgeSchema = fullSchema.getEdgeSchema
-    val vIndices = (0 until fullSchema.getVertexSchema.length).map { index =>
-      if (vertexSchema.length > tmp && vertexSchema(tmp).equals(fullVertexSchema(index))) {
-        tmp += 1
-        true
-      } else false
-    }.toArray
-    tmp = 0
-    val eIndices = (0 until fullSchema.getEdgeSchema.length).map { index =>
-      if (edgeSchema.length > tmp && edgeSchema(tmp).equals(fullEdgeSchema(index))) {
-        tmp += 1
-        true
-      } else false
-    }.toArray
-    (vIndices, eIndices)
-  }
-
   def validate(v: Seq[StructField], e: Seq[StructField]): Boolean = {
     v.foreach(f => if (!vertexSchema.contains(f)) return false )
     e.foreach(f => if (!edgeSchema.contains(f)) return false )
