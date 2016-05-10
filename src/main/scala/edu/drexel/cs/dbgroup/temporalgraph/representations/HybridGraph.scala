@@ -124,8 +124,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
       mergeFunc, TripletFields.None)
     )
 
-    val intvs = intervals
-    TGraphNoSchema.coalesce(degRDDs.reduce((x: RDD[(VertexId, LinkedHashMap[TimeIndex, Int])], y: RDD[(VertexId, LinkedHashMap[TimeIndex, Int])]) => x union y).flatMap{ case (vid, map) => map.map{ case (k,v) => (vid, (intvs(k), v))}})
+    val intvs = ProgramContext.sc.broadcast(intervals)
+    TGraphNoSchema.coalesce(degRDDs.reduce((x: RDD[(VertexId, LinkedHashMap[TimeIndex, Int])], y: RDD[(VertexId, LinkedHashMap[TimeIndex, Int])]) => x union y).flatMap{ case (vid, map) => map.map{ case (k,v) => (vid, (intvs.value(k), v))}})
   }
 
 
@@ -144,9 +144,9 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
       val allgs:ParSeq[Graph[LinkedHashMap[TimeIndex,(Double,Double)], LinkedHashMap[TimeIndex,(Double,Double)]]] = graphs.zipWithIndex.map{ case (g,i) => prank(g, runSums.lift(i-1).getOrElse(0), runSums(i))}
 
       //now extract values
-      val intvs = intervals
-      val vattrs= allgs.map{ g => g.vertices.flatMap{ case (vid,vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs(k), v._1))}}}.reduce(_ union _)
-      val eattrs = allgs.map{ g => g.edges.flatMap{ e => e.attr.toSeq.map{ case (k,v) => ((e.srcId, e.dstId), (intvs(k), v._1))}}}.reduce(_ union _)
+      val intvs = ProgramContext.sc.broadcast(intervals)
+      val vattrs= allgs.map{ g => g.vertices.flatMap{ case (vid,vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v._1))}}}.reduce(_ union _)
+      val eattrs = allgs.map{ g => g.edges.flatMap{ e => e.attr.toSeq.map{ case (k,v) => ((e.srcId, e.dstId), (intvs.value(k), v._1))}}}.reduce(_ union _)
 
       new HybridGraph(intervals, vattrs, eattrs, widths, graphs, 0.0, storageLevel)
 
@@ -168,8 +168,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
     val allgs = graphs.zipWithIndex.map{ case (g,i) => conc(g, runSums.lift(i-1).getOrElse(0), runSums(i))}
 
     //now extract values
-    val intvs = intervals
-    val vattrs = allgs.map{ g => g.vertices.flatMap{ case (vid,vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs(k), v))}}}.reduce(_ union _)
+    val intvs = ProgramContext.sc.broadcast(intervals)
+    val vattrs = allgs.map{ g => g.vertices.flatMap{ case (vid,vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}}}.reduce(_ union _)
 
     new HybridGraph(intervals, vattrs, allEdges, widths, graphs, -1L, storageLevel)
   }
@@ -223,7 +223,6 @@ object HybridGraph extends Serializable {
 
   def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, runWidth: Int = 8): HybridGraph[V, E] = {
     val intervals = TGraphNoSchema.computeIntervals(verts, edgs)
-    val broadcastIntervals = ProgramContext.sc.broadcast(intervals)
 
     val combined = intervals.zipWithIndex.grouped(runWidth).map{ intvs =>
       (intvs.size, 

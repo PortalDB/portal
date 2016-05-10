@@ -7,8 +7,9 @@ import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.mllib.rdd.RDDFunctions._
+import org.apache.spark.HashPartitioner
 
-import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
+import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps
 
 import java.time.LocalDate
 
@@ -90,7 +91,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     val endBound = if (bound.end.isBefore(span.end)) bound.end else span.end
     val selectBound:Interval = Interval(startBound, endBound)
 
-    fromRDDs(allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(maxDate(y._1.start, startBound), minDate(y._1.end, endBound)), y._2)), allEdges.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(maxDate(y._1.start, startBound), minDate(y._1.end, endBound)), y._2)), defaultValue, storageLevel)
+    fromRDDs(allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), allEdges.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), defaultValue, storageLevel)
   }
 
   override def select(vtpred: Interval => Boolean, etpred: Interval => Boolean): TGraphNoSchema[VD, ED] = {
@@ -145,9 +146,9 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     val size: Integer = c.num
 
     //each tuple interval must be split based on the overall intervals
-    val locali = intervals.sliding(size)
-    val split = (interval: Interval) => {
-      locali.flatMap{ group =>
+    val locali = ProgramContext.sc.broadcast(intervals.grouped(size).toList)
+    val split: (Interval => List[(Interval, List[Interval])]) = (interval: Interval) => {
+      locali.value.flatMap{ group =>
         val res = group.flatMap{ case intv =>
           if (intv.intersects(interval)) Some(intv) else None
         }.toList
@@ -169,16 +170,17 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
       val newVIds: RDD[(VertexId, (Interval, VertexId))] = allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vgroupby(vid, attr)))}
 
       //for each edge, similar except computing the new ids requires joins with V
-      val edgesWithIds: RDD[((VertexId, VertexId), (Interval, ED))] = allEdges.map(e => (e._1._1, e)).join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => (e._1._2, (v._2, (Interval(maxDate(e._2._1.start, v._1.start), minDate(e._2._1.end, v._1.end)), e._2._2)))}.join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => ((e._1, v._2), (Interval(maxDate(e._2._1.start, v._1.start), minDate(e._2._1.end, v._1.end)), e._2._2))}
+      val edgesWithIds: RDD[((VertexId, VertexId), (Interval, ED))] = allEdges.map(e => (e._1._1, e)).join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => (e._1._2, (v._2, (Interval(TempGraphOps.maxDate(e._2._1.start, v._1.start), TempGraphOps.minDate(e._2._1.end, v._1.end)), e._2._2)))}.join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => ((e._1, v._2), (Interval(TempGraphOps.maxDate(e._2._1.start, v._1.start), TempGraphOps.minDate(e._2._1.end, v._1.end)), e._2._2))}
       edgesWithIds.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii._1), (attr, ii._2)))}
     }
 
     //reduce vertices by key, also computing the total period occupied
     //filter out those that do not meet quantification criteria
     //map to final result
+    implicit val ord = TempGraphOps.dateOrdering
     val combine = (lst: List[Interval]) => lst.sortBy(x => x.start).foldLeft(List[Interval]()){ (r,c) => r match {
       case head :: tail =>
-        if (head.intersects(c)) Interval(head.start, maxDate(head.end, c.end)) :: tail else c :: head :: tail
+        if (head.intersects(c)) Interval(head.start, TempGraphOps.maxDate(head.end, c.end)) :: tail else c :: head :: tail
       case Nil => List(c)
     }}
 
@@ -210,16 +212,17 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
       val newVIds: RDD[(VertexId, (Interval, VertexId))] = allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vgroupby(vid, attr)))}
 
       //for each edge, similar except computing the new ids requires joins with V
-      val edgesWithIds: RDD[((VertexId, VertexId), (Interval, ED))] = allEdges.map(e => (e._1._1, e)).join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => (e._1._2, (v._2, (Interval(maxDate(e._2._1.start, v._1.start), minDate(e._2._1.end, v._1.end)), e._2._2)))}.join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => ((e._1, v._2), (Interval(maxDate(e._2._1.start, v._1.start), minDate(e._2._1.end, v._1.end)), e._2._2))}
+      val edgesWithIds: RDD[((VertexId, VertexId), (Interval, ED))] = allEdges.map(e => (e._1._1, e)).join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => (e._1._2, (v._2, (Interval(TempGraphOps.maxDate(e._2._1.start, v._1.start), TempGraphOps.minDate(e._2._1.end, v._1.end)), e._2._2)))}.join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => ((e._1, v._2), (Interval(TempGraphOps.maxDate(e._2._1.start, v._1.start), TempGraphOps.minDate(e._2._1.end, v._1.end)), e._2._2))}
       edgesWithIds.flatMap{ case (ids, (intv, attr)) => intv.split(c.res, start).map(ii => ((ids._1, ids._2, ii._3), (attr, List(ii._1))))}
     }
 
     //reduce vertices by key, also computing the total period occupied
     //filter out those that do not meet quantification criteria
     //map to final result
+    implicit val ord = TempGraphOps.dateOrdering
     val combine = (lst: List[Interval]) => lst.sortBy(x => x.start).foldLeft(List[Interval]()){ (r,c) => r match {
       case head :: tail =>
-        if (head.intersects(c)) Interval(head.start, maxDate(head.end, c.end)) :: tail else c :: head :: tail
+        if (head.intersects(c)) Interval(head.start, TempGraphOps.maxDate(head.end, c.end)) :: tail else c :: head :: tail
       case Nil => List(c)
     }}
     val newVerts: RDD[(VertexId, (Interval, VD))] = TGraphNoSchema.coalesce(splitVerts.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 ++ b._2)).filter(v => vquant.keep(combine(v._2._2).map(ii => ii.ratio(v._1._2)).reduce(_ + _))).map(v => (v._1._1, (v._1._2, v._2._1))))
@@ -231,17 +234,45 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     fromRDDs(newVerts, TGraphNoSchema.coalesce(newEdges), defaultValue, storageLevel)
   }
 
-  override def project[ED2: ClassTag, VD2: ClassTag](emap: (Edge[ED], Interval) => ED2, vmap: (VertexId, Interval, VD) => VD2, defVal: VD2): TGraphNoSchema[VD2, ED2] = {
+  /**
+    * Transforms the structural schema of the graph
+    * @param emap The mapping function for edges
+    * @param vmap The mapping function for vertices
+    * @param defaultValue The default value for attribute VD2. Should be something that is not an available value, like Null
+    * @return tgraph The transformed graph. The temporal schema is unchanged.
+    */
+  def project[ED2: ClassTag, VD2: ClassTag](emap: (Edge[ED], Interval) => ED2, vmap: (VertexId, Interval, VD) => VD2, defVal: VD2): TGraphNoSchema[VD2, ED2] = {
     //project may cause coalesce but it does not affect the integrity constraint on E
     //so we don't need to check it
     fromRDDs(TGraphNoSchema.coalesce(allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vmap(vid, intv, attr)))}), TGraphNoSchema.coalesce(allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, emap(Edge(ids._1, ids._2, attr), intv)))}), defVal, storageLevel)
   }
 
-  override def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): TGraphNoSchema[VD2, ED] = {
+  /**
+    * Transforms each vertex attribute in the graph for each time period
+    * using the map function. 
+    * Special case of general transform, included here for better compatibility with GraphX.
+    *
+    * @param map the function from a vertex object to a new vertex value
+    * @param defaultValue The default value for attribute VD2. Should be something that is not an available value, like Null
+    * @tparam VD2 the new vertex data type
+    *
+    */
+  def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): TGraphNoSchema[VD2, ED] = {
     fromRDDs(TGraphNoSchema.coalesce(allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, intv, attr)))}), allEdges, defaultValue, storageLevel)
   }
 
-  override def mapEdges[ED2: ClassTag](map: (Edge[ED], Interval) => ED2): TGraphNoSchema[VD, ED2] = {
+  /**
+   * Transforms each edge attribute in the graph using the map function.  The map function is not
+   * passed the vertex value for the vertices adjacent to the edge.  If vertex values are desired,
+   * use `mapTriplets`.
+   * Special case of general transform, included here for better compatibility with GraphX.
+   *
+   * @param map the function from an edge object with a time index to a new edge value.
+   *
+   * @tparam ED2 the new edge data type
+   *
+   */
+  def mapEdges[ED2: ClassTag](map: (Edge[ED], Interval) => ED2): TGraphNoSchema[VD, ED2] = {
     fromRDDs(allVertices, TGraphNoSchema.coalesce(allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(Edge(ids._1, ids._2, attr), intv)))}), defaultValue, storageLevel)
   }
 
@@ -253,7 +284,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
 
     if (span.intersects(grp2.span)) {
       //compute new intervals
-      val newIntvs: Seq[Interval] = intervalUnion(intervals, grp2.intervals)
+      val newIntvs: Seq[Interval] = TempGraphOps.intervalUnion(intervals, grp2.intervals)
 
       val split = (interval: Interval) => {
         newIntvs.flatMap{ intv =>
@@ -288,7 +319,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
 
     if (span.intersects(grp2.span)) {
       //compute new intervals
-      val newIntvs: Seq[Interval] = intervalIntersect(intervals, grp2.intervals)
+      val newIntvs: Seq[Interval] = TempGraphOps.intervalIntersect(intervals, grp2.intervals)
 
       val split = (interval: Interval) => {
         newIntvs.flatMap{ intv =>
@@ -370,6 +401,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
 object TGraphNoSchema {
   def computeIntervals[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))]): Seq[Interval] = {
     val dates: RDD[LocalDate] = verts.flatMap{ case (id, (intv, attr)) => List(intv.start, intv.end)}.union(edgs.flatMap { case (ids, (intv, attr)) => List(intv.start, intv.end)}).distinct
+    implicit val ord = TempGraphOps.dateOrdering
     dates.sortBy(c => c, true).sliding(2).map(lst => Interval(lst(0), lst(1))).collect()
   }
 
@@ -381,7 +413,10 @@ object TGraphNoSchema {
    * Warning: This is a very expensive operation, use sparingly
    */
   def coalesce[K: ClassTag, V: ClassTag](rdd: RDD[(K, (Interval, V))]): RDD[(K, (Interval, V))] = {
-    rdd.groupByKey.mapValues{ seq =>  //groupbykey produces RDD[(K, Seq[(p, V)])]
+    implicit val ord = TempGraphOps.dateOrdering
+    //it's faster if we hashpartition first
+    rdd.partitionBy(new HashPartitioner(rdd.partitions.size)).persist
+      .groupByKey.mapValues{ seq =>  //groupbykey produces RDD[(K, Seq[(p, V)])]
       seq.toSeq.sortBy(x => x._1.start)
         .foldLeft(List[(Interval, V)]()){ (r,c) => r match {
           case head :: tail =>
@@ -400,6 +435,7 @@ object TGraphNoSchema {
    * Warning: This is a very expensive operation, use sparingly
    */
   def coalesceStructure[K: ClassTag, V: ClassTag](rdd: RDD[(K, (Interval, V))]): RDD[(K, Interval)] = {
+    implicit val ord = TempGraphOps.dateOrdering
     rdd.groupByKey.mapValues{ seq =>  //groupbykey produces RDD[(K, Seq[(p, V)])]
       seq.toSeq.sortBy(x => x._1.start)
         .foldLeft(List[(Interval, V)]()){ (r,c) => r match {
@@ -423,17 +459,17 @@ object TGraphNoSchema {
     val e1: RDD[((VertexId, VertexId), (Interval, E))] = edgs.map(e => (e._1._1, e))
       .join(coalescV) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
       .filter{case (vid, (e, v)) => e._2._1.intersects(v) } //this keeps only matches of vertices and edges where periods overlap
-      .map{case (vid, (e, v)) => (e._1, (Interval(maxDate(e._2._1.start, v.start), minDate(e._2._1.end, v.end)), e._2._2))} //because the periods overlap we don't have to worry that maxdate is after mindate
+      .map{case (vid, (e, v)) => (e._1, (Interval(TempGraphOps.maxDate(e._2._1.start, v.start), TempGraphOps.minDate(e._2._1.end, v.end)), e._2._2))} //because the periods overlap we don't have to worry that maxdate is after mindate
     val e2: RDD[((VertexId, VertexId), (Interval, E))] = edgs.map(e => (e._1._2, e))
       .join(coalescV) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
       .filter{case (vid, (e, v)) => e._2._1.intersects(v) } //this keeps only matches of vertices and edges where periods overlap
-      .map{case (vid, (e, v)) => (e._1, (Interval(maxDate(e._2._1.start, v.start), minDate(e._2._1.end, v.end)), e._2._2))} //because the periods overlap we don't have to worry that maxdate is after mindate
+      .map{case (vid, (e, v)) => (e._1, (Interval(TempGraphOps.maxDate(e._2._1.start, v.start), TempGraphOps.minDate(e._2._1.end, v.end)), e._2._2))} //because the periods overlap we don't have to worry that maxdate is after mindate
 
     //now join them to keep only those that satisfy both foreign key constraints
     e1.join(e2)
     //keep only an edge that meets constraints on both vertex ids
       .filter{ case (k, (e1, e2)) => e1._1.intersects(e2._1) && e1._2 == e2._2 }
-      .map{ case (k, (e1, e2)) => (k, (Interval(maxDate(e1._1.start, e2._1.start), minDate(e1._1.end, e2._1.end)), e1._2))}
+      .map{ case (k, (e1, e2)) => (k, (Interval(TempGraphOps.maxDate(e1._1.start, e2._1.start), TempGraphOps.minDate(e1._1.end, e2._1.end)), e1._2))}
   }
 
 }
