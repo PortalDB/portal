@@ -627,7 +627,9 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter{
     ))
     val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
       ((1L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((1L, 2L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2016-01-01")), 22))
+      ((1L, 2L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2016-01-01")), 22)),
+      ((1L, 2L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
+
     ))
     val sgp = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
@@ -636,8 +638,8 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter{
     val expectedDegree = ProgramContext.sc.parallelize(Array(
       (1L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")),1)),
       (1L,(Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")),2)),
-      (1L,(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")),1)),
-      (2L,(Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2016-01-01")),1)),
+      (1L,(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2017-01-01")),1)),
+      (2L,(Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2017-01-01")),1)),
       (3L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),1))
     ))
 
