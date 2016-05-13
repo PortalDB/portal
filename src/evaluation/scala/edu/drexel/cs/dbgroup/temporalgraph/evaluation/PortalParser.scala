@@ -48,7 +48,7 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
   )
 
   lazy val select: PackratParser[Select] = (
-    "select" ~> compute ~ "from" ~ graph ^^ { case cmp ~ _ ~ g => new SCompute(g, cmp) }
+    "select" ~> "from" ~> graph ~ compute ^^ { case g ~ cmp => new SCompute(g, cmp) }
       | "select" ~> "from" ~> graph ~ where ^^ { case g ~ w => new SWhere(g, w) }
       | "select" ~> "from" ~> graph ~ groupby ^^ { case g ~ gpb => new SGroupBy(g, gpb) }
       | "select" ~> "from" ~> graph ^^ { case g => new Select(g) }
@@ -158,26 +158,26 @@ object Interpreter {
               case c: Count =>
                 val count = intRes.vertices.count
                 println("Total vertex count: " + count)
-                op = "Count"
+                op = "Return"
               case i: Id =>
                 println("Vertices:\n" + intRes.vertices.keys.collect.mkString(","))
                 op = "Ids"
               case a: Attr =>
                 println("Vertices with attributes:\n" + intRes.vertices.collect.mkString("\n"))
-                op = "Attrs"
+                op = "Return"
             }
           case e: Edges =>
             attr match {
               case c: Count =>
                 val count = intRes.edges.count
                 println("Total edges count: " + count)
-                op = "Count"
+                op = "Return"
               case i: Id =>
                 println("Edges:\n" + intRes.edges.map{ case (k,v) => k}.collect.mkString(","))
-                op = "Ids"
+                op = "Return"
               case a: Attr =>
                 println("Edges with attributes:\n" + intRes.edges.collect.mkString("\n"))
-                op = "Attrs"
+                op = "Return"
             }
         }
         val countEnd = System.currentTimeMillis()
@@ -403,7 +403,7 @@ object Interpreter {
         val res = gr.aggregate(spec, gbp.vsem.value, gbp.esem.value, fun1, fun2)()
         val opEnd = System.currentTimeMillis()
         val total = opEnd - opStart
-        println(f"Aggregate Runtime: $total%dms ($argNum%d)")
+        println(f"Aggregation Runtime: $total%dms ($argNum%d)")
         argNum += 1
         res
       }
@@ -526,6 +526,7 @@ case class TWhere(datec: Datecond) extends Where {
 case class SubWhere(attr: String, op: String, va: String) extends Where {
   //this is ugly but it'll do for now
   def compute(in: Any): Boolean = {
+    if (in == null) return false
     attr match {
       case "length" => op match {
         case "=" => in.toString.length == va.toInt

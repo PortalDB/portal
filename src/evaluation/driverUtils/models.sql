@@ -8,8 +8,11 @@ drop table operation;
 create table operation (
     op_id int primary key auto_increment,
     opType varchar(40) not null,
-    arg1 int,
-    arg2 int,
+    arg1 varchar(40),
+    arg2 varchar(40),
+    arg3 varchar(40),
+    arg4 varchar(40),
+    arg5 varchar(40),
     partitionS varchar(40),
     runWidth int
 );
