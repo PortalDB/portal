@@ -63,10 +63,10 @@ def collect_args(query, strat, run):
     addOp = False
 
     for i in range (0, len(line)):
-        if line[i] == "select":
-            if line[i+2][1] != '(':
+        if line[i] == "select" or line[i] == "\(select":
+            if line[i+2][1] == '"':
                 opType = "Load"
-                arg1 = line[i+2]
+                arg1 = re.sub(r'\W+', '', line[i+2])
                 arg2 = arg3 = arg4 = arg5 = None
                 runW = run
                 partS = strat

@@ -15,7 +15,7 @@ object MultifileLoad {
 
   /** this is in the inclusive-inclusive model */
   def readNodes(path: String, min: LocalDate, max: LocalDate): RDD[(String, String)] = {
-    val nodesPath = path + "/nodes/nodes{" + NumberRangeRegex.generateRegex(min.getYear(), max.getYear()) + "}-0{" + NumberRangeRegex.generateRegex(min.getMonthValue(), max.getMonthValue()) + "}-01.txt"
+    val nodesPath = path + "/nodes/nodes{" + NumberRangeRegex.generateRegex(min.getYear(), max.getYear()) + "}-{0" + NumberRangeRegex.generateRegex(min.getMonthValue(), max.getMonthValue()) + "}-01.txt"
 
     val numParts = estimateParts(nodesPath)
     //println("loading with " + numParts + " partitions")
@@ -23,7 +23,7 @@ object MultifileLoad {
   }
 
   def readEdges(path: String, min: LocalDate, max: LocalDate): RDD[(String, String)] = {
-    val edgesPath = path + "/edges/edges{" + NumberRangeRegex.generateRegex(min.getYear(), max.getYear()) + "}-0{" + NumberRangeRegex.generateRegex(min.getMonthValue(), max.getMonthValue()) + "}-01.txt"
+    val edgesPath = path + "/edges/edges{" + NumberRangeRegex.generateRegex(min.getYear(), max.getYear()) + "}-{0" + NumberRangeRegex.generateRegex(min.getMonthValue(), max.getMonthValue()) + "}-01.txt"
 
     val numParts = estimateParts(edgesPath)
     //println("loading with " + numParts + " partitions")
