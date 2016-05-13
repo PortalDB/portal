@@ -38,12 +38,12 @@ group by query_id, graphType
 
 /* compare average runtimes for a particular operation that differs by args passed*/
 select o.op_id, o.opType, avg(t.runTime) as avg_runtime, o.arg1,
-o.arg2, o.partitionS, o.numParts, o.runWidth
+o.arg2, o.partitionS, o.runWidth
 from (  select *
         from operation
         where opType = "Aggegate") as o, time_per_op t
 where o.op_id = t.op_id
-group by o.op_id, o.opType, o.arg1, o.arg2, o.partitionS, o.numParts, o.runWidth;
+group by o.op_id, o.opType, o.arg1, o.arg2, o.partitionS, o.runWidth;
 
 /*compare average runtime of all operations of the same type (opType, arg1, arg2, runwidth, partitionStrategy) that differ by partitionStrategy */
 select o.opType, o.arg1, o.arg2, o.partitionS, avg(t.runTime)

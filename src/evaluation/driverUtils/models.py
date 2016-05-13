@@ -1,9 +1,6 @@
 from peewee import *
 from peewee import drop_model_tables
-from datetime import date
 import datetime
-import commands
-import os
 
 database = MySQLDatabase("temporal", host="localhost", port=3306, user="graphxt", passwd="ilovedb")
 
@@ -17,7 +14,6 @@ class Operation(BaseModel):
     arg1 = IntegerField(null=True)
     arg2 = IntegerField(null=True)
     partitionS = CharField(null=True)
-    numParts = IntegerField(null=True)
     runWidth = IntegerField(null=True)
 
     class Meta:

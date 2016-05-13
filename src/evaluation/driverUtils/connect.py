@@ -31,7 +31,6 @@ class DBConnection():
                                                 (models.Operation.arg1 == op.arg1) & 
                                                 (models.Operation.arg2 == op.arg2) &
                                                 (models.Operation.partitionS == op.partitionS) &
-                                                (models.Operation.numParts == op.numParts) &
                                                 (models.Operation.runWidth == op.runWidth))
             return operation
         except DoesNotExist:

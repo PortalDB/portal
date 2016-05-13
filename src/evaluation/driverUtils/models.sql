@@ -11,7 +11,6 @@ create table operation (
     arg1 int,
     arg2 int,
     partitionS varchar(40),
-    numParts int,
     runWidth int
 );
 
