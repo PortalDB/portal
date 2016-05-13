@@ -11,8 +11,11 @@ class BaseModel(Model):
 class Operation(BaseModel):
     op_id = PrimaryKeyField()
     opType = CharField()
-    arg1 = IntegerField(null=True)
-    arg2 = IntegerField(null=True)
+    arg1 = CharField(null=True)
+    arg2 = CharField(null=True)
+    arg3 = CharField(null=True)
+    arg4 = CharField(null=True)
+    arg5 = CharField(null=True)
     partitionS = CharField(null=True)
     runWidth = IntegerField(null=True)
 
