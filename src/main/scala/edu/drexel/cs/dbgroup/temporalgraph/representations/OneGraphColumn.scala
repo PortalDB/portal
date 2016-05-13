@@ -4,7 +4,7 @@ package edu.drexel.cs.dbgroup.temporalgraph.representations
 
 import scala.collection.immutable.BitSet
 import scala.collection.breakOut
-
+import scala.collection.mutable.LinkedHashMap
 import scala.reflect.ClassTag
 import scala.util.control._
 
@@ -333,21 +333,23 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
   }
 
   override def degree: RDD[(VertexId, (Interval, Int))] = {
-    def mergedFunc(a:Map[TimeIndex,Int], b:Map[TimeIndex,Int]): Map[TimeIndex,Int] = {
+    def mergedFunc(a:LinkedHashMap[TimeIndex,Int], b:LinkedHashMap[TimeIndex,Int]): LinkedHashMap[TimeIndex,Int] = {
       a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) }
     }
 
     //compute degree of each vertex for each interval
     //this should produce a map from interval to degree for each vertex
     val intvs = ProgramContext.sc.broadcast(intervals)
-    TGraphNoSchema.coalesce(graphs.aggregateMessages[Map[TimeIndex,Int]](
+    val res = graphs.aggregateMessages[LinkedHashMap[TimeIndex,Int]](
       ctx => {
-        ctx.sendToSrc(ctx.attr.seq.map(x => (x,1)).toMap)
-        ctx.sendToDst(ctx.attr.seq.map(x => (x,1)).toMap)
+        ctx.sendToSrc(LinkedHashMap[TimeIndex,Int]() ++ ctx.attr.seq.map(x => (x,1)))
+        ctx.sendToDst(LinkedHashMap[TimeIndex,Int]() ++ ctx.attr.seq.map(x => (x,1)))
       },
       mergedFunc,
-      TripletFields.None)
-    .flatMap{ case (vid, mp) => mp.map{ case (k,v) => (vid, (intvs.value(k), v))}})
+      TripletFields.EdgeOnly)
+    .flatMap{ case (vid, mp) => mp.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}}
+
+    TGraphNoSchema.coalesce(res)
 
   }
 

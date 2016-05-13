@@ -49,7 +49,7 @@ object PortalShell {
           query = args.drop(i+1)
         case "--runWidth" =>
           runWidth = args(i + 1).toInt
-        case "--warm" =>
+        case "--warmStart" =>
           warmStart = true
         case _ => ()
       }
