@@ -16,6 +16,7 @@ import edu.drexel.cs.dbgroup.temporalgraph._
 import edu.drexel.cs.dbgroup.temporalgraph.representations._
 import java.time.LocalDate
 import scala.util.matching.Regex
+import scala.reflect._
 
 object GraphLoader {
   private var graphType = "SG"
@@ -104,23 +105,32 @@ object GraphLoader {
     }
   }
 
-  def loadDataParquet(url: String): TGraphNoSchema[Array[Any], Array[Any]] = {
+  def loadDataParquet(url: String): TGraphNoSchema[Any, Any] = {
     val sqlContext = ProgramContext.getSqlContext
     import sqlContext.implicits._
 
     val users = sqlContext.read.parquet(url + "/nodes.parquet")
     val links = sqlContext.read.parquet(url + "/edges.parquet")
 
-    val vs: RDD[(VertexId, (Interval, Array[Any]))] = users.map(row => (row.getLong(0), (Interval(row.getDate(1).toLocalDate(), row.getDate(2).toLocalDate()), row.toSeq.drop(3).toArray)))
-    val es: RDD[((VertexId, VertexId), (Interval, Array[Any]))] = links.map(row => ((row.getLong(0), row.getLong(1)), (Interval(row.getDate(2).toLocalDate(), row.getDate(3).toLocalDate()), row.toSeq.drop(4).toArray)))
+    //this will work even if the graph doesn't have any attributes because null is returned and null is an Any
+    val vs: RDD[(VertexId, (Interval, Any))] = users.map(row => (row.getLong(0), (Interval(row.getDate(1).toLocalDate(), row.getDate(2).toLocalDate()), row.get(3))))
+    val es: RDD[((VertexId, VertexId), (Interval, Any))] = links.map(row => ((row.getLong(0), row.getLong(1)), (Interval(row.getDate(2).toLocalDate(), row.getDate(3).toLocalDate()), row.get(4))))
+
+    val deflt: Any = users.schema.fields(3).dataType match {
+      case StringType => ""
+      case IntegerType => -1
+      case LongType => -1L
+      case DoubleType => -1.0
+      case _ => null
+    }
 
     graphType match {
       case "SG" =>
-        SnapshotGraphParallel.fromRDDs(vs, es, Array[Any](), StorageLevel.MEMORY_ONLY_SER)
+        SnapshotGraphParallel.fromRDDs(vs, es, deflt, StorageLevel.MEMORY_ONLY_SER)
       case "OG" =>
-        OneGraphColumn.fromRDDs(vs, es, Array[Any](), StorageLevel.MEMORY_ONLY_SER)
+        OneGraphColumn.fromRDDs(vs, es, deflt, StorageLevel.MEMORY_ONLY_SER)
       case "HG" =>
-        HybridGraph.fromRDDs(vs, es, Array[Any](), StorageLevel.MEMORY_ONLY_SER)
+        HybridGraph.fromRDDs(vs, es, deflt, StorageLevel.MEMORY_ONLY_SER)
     }
   }
 

@@ -13,10 +13,10 @@ import edu.drexel.cs.dbgroup.temporalgraph._
 import edu.drexel.cs.dbgroup.temporalgraph.util.{LinearTrendEstimate, GraphLoader}
 
 object PortalParser extends StandardTokenParsers with PackratParsers {
-  lexical.reserved += ("select", "from", "union", "intersection", "min", "max", "sum", "any", "universal", "existential", "directed", "undirected", "vertices", "edges", "group", "by", "with", "return", "compute", "pagerank", "degree", "components", "count", "id", "attr", "trend", "year", "month", "day", "start", "end", "where", "and", 
+  lexical.reserved += ("select", "from", "union", "intersection", "min", "max", "sum", "any", "all", "exists", "directed", "undirected", "vertices", "edges", "group", "by", "with", "return", "compute", "pagerank", "degree", "components", "count", "id", "attr", "trend", "year", "month", "day", "changes", "start", "end", "where", "and", "length", "value",
     //these are for debugging and testing
     "materialize")
-  lexical.delimiters ++= List("-", "=", ".")
+  lexical.delimiters ++= List("-", "=", ".", "<", ">", "(", ")", "+")
 
   def parse(input: String) = {
     println("parsing query " + input)
@@ -33,8 +33,8 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
     | expr ~ "materialize" ^^ { case g ~ _ => Materialize(g)}
   )
 
-  lazy val expr: PackratParser[Expression] = ( select ~ "union" ~ "with" ~ semantics ~ function ~ select ^^ { case g1 ~ _ ~ _ ~ sem ~ func ~ g2 => Union(g1, g2, sem, func)}
-    | select ~ "intersection" ~ "with" ~ semantics ~ function ~ select ^^ { case g1 ~ _ ~ _ ~ sem ~ func ~ g2 => Intersect(g1, g2, sem, func)}
+  lazy val expr: PackratParser[Expression] = ( select ~ "union" ~ "with" ~ function ~ function ~ select ^^ { case g1 ~ _ ~ _ ~ func1 ~ func2 ~ g2 => Union(g1, g2, func1, func2)}
+    | select ~ "intersection" ~ "with" ~ function ~ function ~ select ^^ { case g1 ~ _ ~ _ ~ func1 ~ func2 ~ g2 => Intersect(g1, g2, func1, func2)}
     | select ^^ { case sel => PlainSelect(sel)}
   )
 
@@ -45,23 +45,13 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
   lazy val attrStr = ( "." <~ "count" ^^^ Count()
     | "." <~ "id" ^^^ Id()
     | "." <~ "attr" ^^^ Attr()
-    | "." <~ "trend" ^^^ Trend()
   )
 
-  lazy val select: PackratParser[Select] = ("select" ~> opt(compute) ~ "from" ~ stringLit ~ opt(where) ~ opt(groupby) ^^ {
-    case Some(cmp) ~ _ ~ dataset ~ Some(rng) ~ Some(grp) => new Select(cmp, dataset, rng, grp)
-    case _ ~ dataset ~ Some(rng) ~ Some(grp) => new Select(dataset, rng, grp)
-    case Some(cmp) ~ _ ~ dataset ~ _ ~ Some(grp) => new Select(cmp, dataset, grp)
-    case Some(cmp) ~ _ ~ dataset ~ Some(rng) ~ _ => new Select(cmp, dataset, rng)
-    case Some(cmp) ~ _ ~ dataset ~ _ ~ _ => new Select(cmp, dataset)
-    case _ ~ dataset ~ Some(rng) ~ _ => new Select(dataset, rng)
-    case _ ~ dataset ~ _ ~ Some(grp) => new Select(dataset, grp)
-    case _ ~ dataset ~ _ ~ _ => new Select(dataset)
-  }
-  )
-
-  lazy val semantics = ( "universal" ^^^ Universal()
-    | "existential" ^^^ Existential()
+  lazy val select: PackratParser[Select] = (
+    "select" ~> compute ~ "from" ~ graph ^^ { case cmp ~ _ ~ g => new SCompute(g, cmp) }
+      | "select" ~> "from" ~> graph ~ where ^^ { case g ~ w => new SWhere(g, w) }
+      | "select" ~> "from" ~> graph ~ groupby ^^ { case g ~ gpb => new SGroupBy(g, gpb) }
+      | "select" ~> "from" ~> graph ^^ { case g => new Select(g) }
   )
 
   lazy val compute = ( "compute" ~> "pagerank" ~> dir ~ doubleLit ~ doubleLit ~ numericLit ^^ { case dir ~ tol ~ reset ~ numIter => Pagerank(dir, tol, reset, numIter)}
@@ -69,12 +59,49 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
     | "compute" ~> "components" ^^^ ConnectedComponents()
   )
 
-  lazy val doubleLit = ( numericLit ~ "." ~ numericLit ^^ { case num1 ~ _ ~ num2 => (num1 + "." + num2).toDouble} )
-
   lazy val where = ("where" ~> datecond ~ opt("and" ~> datecond) ^^ { 
-    case datec ~ Some(datec2) => new Where(datec, datec2)
-    case datec ~ _ => new Where(datec)
-  })
+    case datec ~ Some(datec2) => new TWhere(datec, datec2)
+    case datec ~ _ => new TWhere(datec)
+  }
+    | "where" ~> attr ~ operation ~ literal ^^ { case a ~ o ~ l => SubWhere(a, o, l) }
+  )
+
+  //TODO: add vgroupby
+  lazy val groupby = ("group" ~> "by" ~> numericLit ~ period ~ "vertices" ~ semantics ~ function ~ "edges" ~ semantics ~ function ^^ { case num ~ per ~ _ ~ vsem ~ vfunc ~ _ ~ esem ~ efunc => new GroupBy(num, per, vsem, vfunc, esem, efunc)})
+
+  lazy val graph = ("(" ~> select <~ ")" ^^ { case s => Nested(s) }
+    | stringLit ^^ { case s => DataSet(s) }
+  )
+
+  lazy val literal: Parser[String] =
+    ( numericLiteral
+    | stringLit)
+
+  lazy val numericLiteral: Parser[String] =
+    ( integral  
+    | sign.? ~ unsignedFloat ^^ { case s ~ f => s + f }
+    )
+
+  lazy val unsignedFloat: Parser[String] =
+    ( "." ~> numericLit ^^ { u => "0." + u }
+      | numericLit ~ "." ~ numericLit ^^ { case n1 ~ n2 => n1 + "." + n2 }
+      | numericLit
+    )
+
+  lazy val integral: Parser[String] =
+    sign.? ~ numericLit ^^ { case s ~ n => s.getOrElse("") + n }
+
+  lazy val sign: Parser[String] = ("+" | "-")
+
+  lazy val attr = ("length" | "value")
+
+  lazy val operation: Parser[String] = (">" | "<" | "=")
+
+  lazy val semantics = ( "all" ^^^ Universal()
+    | "exists" ^^^ Existential()
+  )
+
+  lazy val doubleLit = ( numericLit ~ "." ~ numericLit ^^ { case num1 ~ _ ~ num2 => (num1 + "." + num2).toDouble} )
 
   lazy val datecond = ("start" ~> "=" ~> date ^^ { StartDate(_)}
     | "end" ~> "=" ~> date ^^ { EndDate(_)})
@@ -85,11 +112,13 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
   lazy val date = ( year ~ ("-" ~> other) ~ ("-" ~> other) ^^ { case y ~ mo ~ d => new Date(y,mo,d) }
   )
 
-  lazy val groupby = ("group" ~> "by" ~> numericLit ~ period ~ "with" ~ semantics ~ function ^^ { case num ~ per ~ _ ~ sem ~ func => new GroupBy(num, per, sem, func)})
-
   lazy val period = ("year" ^^^ Years()
+    | "years" ^^^ Years()
     | "month" ^^^ Months()
+    | "months" ^^^ Months()
+    | "days" ^^^ Days()
     | "day" ^^^ Days()
+    | "changes" ^^^ Changes()
   )
 
   lazy val dir = ( "directed" ^^^ Directed()
@@ -100,6 +129,7 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
                  | "max" ^^^ MaxFunc()
                  | "sum" ^^^ SumFunc()
                  | "any" ^^^ AnyFunc()
+//                 | "trend" ^^^ TrendFunc()
   )
 
 
@@ -111,10 +141,7 @@ object Interpreter {
   def parseQuery(q: Query) {
     q match {
       case Materialize(graph) =>
-        val intRes = parseExpr(graph) match {
-          case Left(x) => x
-          case Right(x) => x
-        }
+        val intRes = parseExpr(graph)
         val materializeStart = System.currentTimeMillis()
         intRes.materialize
         val materializeEnd = System.currentTimeMillis()
@@ -122,10 +149,7 @@ object Interpreter {
         println(f"Materialize Runtime: $total%dms ($argNum%d)")
         argNum += 1
       case Return(graph, entity, attr) =>
-        val intRes = parseExpr(graph) match {
-          case Left(x) => x
-          case Right(x) => x
-        }
+        val intRes = parseExpr(graph)
         val countStart = System.currentTimeMillis()
         var op:String = ""
         entity match {
@@ -141,18 +165,6 @@ object Interpreter {
               case a: Attr =>
                 println("Vertices with attributes:\n" + intRes.vertices.collect.mkString("\n"))
                 op = "Attrs"
-              case t: Trend =>
-                val intervals = intRes.getTemporalSequence
-                val trendy: TemporalGraph[Double,Double] = intRes match {
-                  case te: TemporalGraph[Double,Double] => te
-                  case _ => throw new IllegalArgumentException("trying to get trend on a non-analytic")
-                }
-                println("Vertices with trend:")
-                println(trendy.vertices.collect
-                  .map(x => (x._1, x._2.map(y => (intervals.indexOf(y._1),y._2))))
-                  .map(x => (x._1, LinearTrendEstimate.calculateSlope(x._2)))
-                  mkString("\n"))
-                op = "Trend"
             }
           case e: Edges =>
             attr match {
@@ -166,9 +178,6 @@ object Interpreter {
               case a: Attr =>
                 println("Edges with attributes:\n" + intRes.edges.collect.mkString("\n"))
                 op = "Attrs"
-              case t: Trend =>
-                println("TODO")
-                op = "Trend"
             }
         }
         val countEnd = System.currentTimeMillis()
@@ -178,171 +187,266 @@ object Interpreter {
     }
   }
 
-  def parseExpr(expr: Expression): Either[TemporalGraph[String,Int], TemporalGraph[Double,Double]] = {
+  def parseExpr(expr: Expression): TGraphNoSchema[Any, Any] = {
     expr match {
       case PlainSelect(gr) => {
         parseSelect(gr)
       }
-      case Union(g1, g2, sem, func) => {
+      case Union(g1, g2, vfunc, efunc) => {
         val gr1 = parseSelect(g1)
         val gr2 = parseSelect(g2)
-        if (gr1.isLeft && gr2.isRight ||
-          gr1.isRight && gr2.isLeft) {
-          throw new IllegalArgumentException("two graphs are not structurally union-compatible")
-        }
         val countStart = System.currentTimeMillis()
 
-        def fun1(s1:String, s2:String): String = {
-          func match {
-            case su: SumFunc => s1 + s2
-            case mi: MinFunc => if (s1.length() > s2.length()) s2 else s1
-            case ma: MaxFunc => if (s1.length() < s2.length()) s2 else s1
-            case an: AnyFunc => s1
+        val fun1 = (s1:Any, s2:Any) => {
+          s1 match {
+            case st: String => vfunc match {
+              case su: SumFunc => st + s2.toString
+              case mi: MinFunc => if (st.length() > s2.toString.length()) s2.toString else st
+              case ma: MaxFunc => if (st.length() < s2.toString.length()) s2.toString else s1
+              case an: AnyFunc => st
+            }
+            case in: Int => vfunc match {
+              case su: SumFunc => in + s2.asInstanceOf[Int]
+              case mi: MinFunc => math.min(in, s2.asInstanceOf[Int])
+              case ma: MaxFunc => math.max(in, s2.asInstanceOf[Int])
+              case an: AnyFunc => in
+            }
+            case du: Double => vfunc match {
+              case su: SumFunc => du + s2.asInstanceOf[Double]
+              case mi: MinFunc => math.min(du, s2.asInstanceOf[Double])
+              case ma: MaxFunc => math.max(du, s2.asInstanceOf[Double])
+              case an: AnyFunc => an
+            }
+            case null => null
           }
         }
-        def fun2(in1:Int, in2:Int): Int = {
-          func match {
-            case su: SumFunc => in1 + in2
-            case mi: MinFunc => math.min(in1, in2)
-            case ma: MaxFunc => math.max(in1, in2)
-            case an: AnyFunc => in1
-          }
-        }
-        def fun3(d1:Double, d2:Double): Double = {
-          func match {
-            case su: SumFunc => d1 + d2
-            case mi: MinFunc => math.min(d1, d2)
-            case ma: MaxFunc => math.max(d1, d2)
-            case an: AnyFunc => d1
+        val fun2 = (s1:Any, s2:Any) => {
+          s1 match {
+            case st: String => efunc match {
+              case su: SumFunc => st + s2.toString
+              case mi: MinFunc => if (st.length() > s2.toString.length()) s2.toString else st
+              case ma: MaxFunc => if (st.length() < s2.toString.length()) s2.toString else s1
+              case an: AnyFunc => st
+            }
+            case in: Int => efunc match {
+              case su: SumFunc => in + s2.asInstanceOf[Int]
+              case mi: MinFunc => math.min(in, s2.asInstanceOf[Int])
+              case ma: MaxFunc => math.max(in, s2.asInstanceOf[Int])
+              case an: AnyFunc => in
+            }
+            case du: Double => efunc match {
+              case su: SumFunc => du + s2.asInstanceOf[Double]
+              case mi: MinFunc => math.min(du, s2.asInstanceOf[Double])
+              case ma: MaxFunc => math.max(du, s2.asInstanceOf[Double])
+              case an: AnyFunc => an
+            }
+            case null => null
           }
         }
 
-        if (gr1.isLeft) {
-          val res = gr1.left.get.union(gr2.left.get, sem.value, fun1, fun2)
-          val countEnd = System.currentTimeMillis()
-          val total = countEnd - countStart
-          println(f"Union Runtime: $total%dms ($argNum%d)")
-          argNum += 1
-          Left(res)
-        } else {
-          val res = gr1.right.get.union(gr2.right.get, sem.value, fun3, fun3)
-          val countEnd = System.currentTimeMillis()
-          val total = countEnd - countStart
-          println(f"Union Runtime: $total%dms ($argNum%d)")
-          argNum += 1
-          Right(res)
-        }
+        val res = gr1.union(gr2, fun1, fun2)
+        val countEnd = System.currentTimeMillis()
+        val total = countEnd - countStart
+        println(f"Union Runtime: $total%dms ($argNum%d)")
+        argNum += 1
+        res
       }
-      case Intersect(g1, g2, sem, func) => {
+      case Intersect(g1, g2, vfunc, efunc) => {
         val gr1 = parseSelect(g1)
         val gr2 = parseSelect(g2)
-        if (gr1.isLeft && gr2.isRight ||
-          gr1.isRight && gr2.isLeft) {
-          throw new IllegalArgumentException("two graphs are not structurally union-compatible")
-        }
         val countStart = System.currentTimeMillis()
 
-        def fun1(s1:String, s2:String): String = {
-          func match {
-            case su: SumFunc => s1 + s2
-            case mi: MinFunc => if (s1.length() > s2.length()) s2 else s1
-            case ma: MaxFunc => if (s1.length() < s2.length()) s2 else s1
-            case an: AnyFunc => s1
+        val fun1 = (s1:Any, s2:Any) => {
+          s1 match {
+            case st: String => vfunc match {
+              case su: SumFunc => st + s2.toString
+              case mi: MinFunc => if (st.length() > s2.toString.length()) s2.toString else st
+              case ma: MaxFunc => if (st.length() < s2.toString.length()) s2.toString else s1
+              case an: AnyFunc => st
+            }
+            case in: Int => vfunc match {
+              case su: SumFunc => in + s2.asInstanceOf[Int]
+              case mi: MinFunc => math.min(in, s2.asInstanceOf[Int])
+              case ma: MaxFunc => math.max(in, s2.asInstanceOf[Int])
+              case an: AnyFunc => in
+            }
+            case du: Double => vfunc match {
+              case su: SumFunc => du + s2.asInstanceOf[Double]
+              case mi: MinFunc => math.min(du, s2.asInstanceOf[Double])
+              case ma: MaxFunc => math.max(du, s2.asInstanceOf[Double])
+              case an: AnyFunc => an
+            }
+            case null => null
           }
         }
-        def fun2(in1:Int, in2:Int): Int = {
-          func match {
-            case su: SumFunc => in1 + in2
-            case mi: MinFunc => math.min(in1, in2)
-            case ma: MaxFunc => math.max(in1, in2)
-            case an: AnyFunc => in1
-          }
-        }
-        def fun3(d1:Double, d2:Double): Double = {
-          func match {
-            case su: SumFunc => d1 + d2
-            case mi: MinFunc => math.min(d1, d2)
-            case ma: MaxFunc => math.max(d1, d2)
-            case an: AnyFunc => d1
+        val fun2 = (s1:Any, s2:Any) => {
+          s1 match {
+            case st: String => efunc match {
+              case su: SumFunc => st + s2.toString
+              case mi: MinFunc => if (st.length() > s2.toString.length()) s2.toString else st
+              case ma: MaxFunc => if (st.length() < s2.toString.length()) s2.toString else s1
+              case an: AnyFunc => st
+            }
+            case in: Int => efunc match {
+              case su: SumFunc => in + s2.asInstanceOf[Int]
+              case mi: MinFunc => math.min(in, s2.asInstanceOf[Int])
+              case ma: MaxFunc => math.max(in, s2.asInstanceOf[Int])
+              case an: AnyFunc => in
+            }
+            case du: Double => efunc match {
+              case su: SumFunc => du + s2.asInstanceOf[Double]
+              case mi: MinFunc => math.min(du, s2.asInstanceOf[Double])
+              case ma: MaxFunc => math.max(du, s2.asInstanceOf[Double])
+              case an: AnyFunc => an
+            }
+            case null => null
           }
         }
 
-        if (gr1.isLeft) {
-          val res = gr1.left.get.intersect(gr2.left.get, sem.value, fun1, fun2)
-          val countEnd = System.currentTimeMillis()
-          val total = countEnd - countStart
-          println(f"Intersection Runtime: $total%dms ($argNum%d)")
-          argNum += 1
-          Left(res)
-        } else {
-          val res = gr1.right.get.intersect(gr2.right.get, sem.value, fun3, fun3)
-          val countEnd = System.currentTimeMillis()
-          val total = countEnd - countStart
-          println(f"Intersection Runtime: $total%dms ($argNum%d)")
-          argNum += 1
-          Right(res)
-        }
+        val res = gr1.intersection(gr2, fun1, fun2)
+        val countEnd = System.currentTimeMillis()
+        val total = countEnd - countStart
+        println(f"Intersection Runtime: $total%dms ($argNum%d)")
+        argNum += 1
+        res
       }
     }
   }
 
-  def parseSelect(sel: Select): Either[TemporalGraph[String,Int], TemporalGraph[Double,Double]] = {
+  def parseSelect(sel: Select): TGraphNoSchema[Any,Any] = {
+    sel match {
+      case SCompute(g, cmp) => {
+        val gr = parseGraph(g)
+        compute(gr, cmp)
+      }
+      case SWhere(g, w) => {
+        w match {
+          case t: TWhere => {
+            val gr = parseGraph(g)
+            val opStart = System.currentTimeMillis()
+            val res = gr.slice(Interval(t.start, t.end))
+            val opEnd = System.currentTimeMillis()
+            val total = opEnd - opStart
+            println(f"Slice Runtime: $total%dms ($argNum%d)")
+            argNum += 1
+            res
+          }
+          case s: SubWhere => {
+            val vp = (vid: Long, attrs: (Interval, Any)) => {
+              s.compute(attrs._2)
+            }
+            val gr = parseGraph(g)
+            val opStart = System.currentTimeMillis()
+            val res = gr.select(vpred = vp)
+            val opEnd = System.currentTimeMillis()
+            val total = opEnd - opStart
+            println(f"Subgraph Runtime: $total%dms ($argNum%d)")
+            argNum += 1
+            res
+          }
+        }
+      }
+      case SGroupBy(g, gbp) => {
+        val gr = parseGraph(g)
+        val opStart = System.currentTimeMillis()
+        val spec = gbp.per match {
+          case Changes() => ChangeSpec(gbp.num.toInt)
+          case _ => TimeSpec(Resolution.from(gbp.period))
+        }
+        val fun1 = (s1:Any, s2:Any) => {
+          s1 match {
+            case st: String => gbp.vfun match {
+              case su: SumFunc => st + s2.toString
+              case mi: MinFunc => if (st.length() > s2.toString.length()) s2.toString else st
+              case ma: MaxFunc => if (st.length() < s2.toString.length()) s2.toString else s1
+              case an: AnyFunc => st
+            }
+            case in: Int => gbp.vfun match {
+              case su: SumFunc => in + s2.asInstanceOf[Int]
+              case mi: MinFunc => math.min(in, s2.asInstanceOf[Int])
+              case ma: MaxFunc => math.max(in, s2.asInstanceOf[Int])
+              case an: AnyFunc => in
+            }
+            case du: Double => gbp.vfun match {
+              case su: SumFunc => du + s2.asInstanceOf[Double]
+              case mi: MinFunc => math.min(du, s2.asInstanceOf[Double])
+              case ma: MaxFunc => math.max(du, s2.asInstanceOf[Double])
+              case an: AnyFunc => an
+            }
+            case null => null
+          }
+        }
+        val fun2 = (s1:Any, s2:Any) => {
+          s1 match {
+            case st: String => gbp.efun match {
+              case su: SumFunc => st + s2.toString
+              case mi: MinFunc => if (st.length() > s2.toString.length()) s2.toString else st
+              case ma: MaxFunc => if (st.length() < s2.toString.length()) s2.toString else s1
+              case an: AnyFunc => st
+            }
+            case in: Int => gbp.efun match {
+              case su: SumFunc => in + s2.asInstanceOf[Int]
+              case mi: MinFunc => math.min(in, s2.asInstanceOf[Int])
+              case ma: MaxFunc => math.max(in, s2.asInstanceOf[Int])
+              case an: AnyFunc => in
+            }
+            case du: Double => gbp.efun match {
+              case su: SumFunc => du + s2.asInstanceOf[Double]
+              case mi: MinFunc => math.min(du, s2.asInstanceOf[Double])
+              case ma: MaxFunc => math.max(du, s2.asInstanceOf[Double])
+              case an: AnyFunc => an
+            }
+            case null => null
+          }
+        }
+
+        val res = gr.aggregate(spec, gbp.vsem.value, gbp.esem.value, fun1, fun2)()
+        val opEnd = System.currentTimeMillis()
+        val total = opEnd - opStart
+        println(f"Aggregate Runtime: $total%dms ($argNum%d)")
+        argNum += 1
+        res
+      }
+      case s: Select => parseGraph(s.graph)
+    }
+  }
+
+  def parseGraph(g: Graph): TGraphNoSchema[Any,Any] = {
+    g match {
+      case DataSet(nm) => load(nm)
+      case Nested(sel) => parseSelect(sel)
+    }
+  }
+
+  def load(name: String): TGraphNoSchema[Any,Any] = {
     val selStart = System.currentTimeMillis()
-    var res: TemporalGraph[String, Int] = GraphLoader.loadData(sel.dataset, sel.start,sel.end).persist(StorageLevel.MEMORY_ONLY_SER)
-    //FIXME: this is a hack for the experiment
-    res.materialize
+    val res = if (name.endsWith("structure")) {
+      GraphLoader.loadStructureOnlyParquet(PortalShell.uri + "/" + name.dropRight("structure".length)).asInstanceOf[TGraphNoSchema[Any,Any]]
+    } else {
+      GraphLoader.loadDataParquet(PortalShell.uri + "/" + name)
+    }
+    if (PortalShell.warmStart)
+      res.materialize
     val selEnd = System.currentTimeMillis()
     val total = selEnd - selStart
-    println(f"Select Runtime: $total%dms ($argNum%d)")
+    println(f"Load Runtime: $total%dms ($argNum%d)")
     argNum += 1
-
-    //if there is both group and compute, group comes first
-    if (sel.doGroupby) {
-      val aggStart = System.currentTimeMillis()
-      val func:Function = sel.groupClause.func
-
-      def fun1(s1:String, s2:String): String = {
-        func match {
-          case su: SumFunc => s1 + s2
-          case mi: MinFunc => if (s1.length() > s2.length()) s2 else s1
-          case ma: MaxFunc => if (s1.length() < s2.length()) s2 else s1
-          case an: AnyFunc => s1
-        }
-      }
-      def fun2(in1:Int, in2:Int): Int = {
-        func match {
-          case su: SumFunc => in1 + in2
-          case mi: MinFunc => math.min(in1, in2)
-          case ma: MaxFunc => math.max(in1, in2)
-          case an: AnyFunc => in1
-        }
-      }
-
-      val semant:AggregateSemantics.Value = sel.groupClause.semantics.value
-      res = res.aggregate(Resolution.from(sel.groupClause.period), semant, semant, fun1, fun2)
-      val aggEnd = System.currentTimeMillis()
-      val total = aggEnd - aggStart
-      println(f"Aggregation Runtime: $total%dms ($argNum%d)")
-      argNum += 1
-    }
-    if (sel.doCompute)
-      Right(compute(res, sel.compute))
-    else
-      Left(res)
+    res
   }
 
-  def compute(gr: TemporalGraph[String,Int], com: Compute): TemporalGraph[Double,Double] = {
+  def compute(gr: TGraphNoSchema[Any,Any], com: Compute): TGraphNoSchema[Any,Any] = {
     com match {
       case Pagerank(dir, tol, res, numIter) => {
         val prStart = System.currentTimeMillis()
-        val result = gr.pageRank(dir.value, tol, res, numIter.toInt)
+        val result = gr.pageRank(dir.value, tol, res, numIter.toInt).asInstanceOf[TGraphNoSchema[Any,Any]]
         val prEnd = System.currentTimeMillis()
         val total = prEnd - prStart
         println(f"PageRank Runtime: $total%dms ($argNum%d)")
         argNum += 1
         result
       }
-//      case Degrees() => {
+      case Degrees() => {
+        throw new UnsupportedOperationException("degree not currently supported")
 //        val degStart = System.currentTimeMillis()
 //        val result = gr.degree()
 //        val degEnd = System.currentTimeMillis()
@@ -350,14 +454,11 @@ object Interpreter {
 //        println(f"Degree Runtime: $total%dms ($argNum%d)")
 //        argNum += 1
 //        result
-//      }
+      }
       case ConnectedComponents() => {
         val conStart = System.currentTimeMillis()
 
-        def vmap(vid: Long, interval: Interval, attr: Long): Double = attr.toDouble
-        def emap(e: Edge[Int], internval: Interval): Double = 0.0
-
-        val result = gr.connectedComponents().mapVertices(vmap).mapEdges(emap)
+        val result = gr.connectedComponents().asInstanceOf[TGraphNoSchema[Any,Any]]
         val conEnd = System.currentTimeMillis()
         val total = conEnd - conStart
         println(f"ConnectedComponents Runtime: $total%dms ($argNum%d)")
@@ -374,8 +475,8 @@ case class Materialize(graph: Expression) extends Query
 
 sealed abstract class Expression
 case class PlainSelect(sel: Select) extends Expression
-case class Union(graph1: Select, graph2: Select, sem: Semantics, func: Function) extends Expression
-case class Intersect(graph1: Select, graph2: Select, sem: Semantics, func: Function) extends Expression
+case class Union(graph1: Select, graph2: Select, vfunc: Function, efunc: Function) extends Expression
+case class Intersect(graph1: Select, graph2: Select, vfunc: Function, efunc: Function) extends Expression
 
 sealed abstract class Entity
 case class Vertices extends Entity
@@ -385,87 +486,26 @@ sealed abstract class AttrStr
 case class Count extends AttrStr
 case class Id extends AttrStr
 case class Attr extends AttrStr
-case class Trend extends AttrStr
+//case class Trend extends AttrStr
 
-class Select(data: String) {
-  val dataset: String = data
-  var doGroupby = false
-  var doCompute = false
-  var compute: Compute = null
-  var start = LocalDate.MIN
-  var end = LocalDate.MAX
-  var groupClause: GroupBy = null
-
-  def this(data: String, grp: GroupBy) = {
-    this(data)
-    doGroupby = true
-    groupClause = grp
-  }
-
-  def this(data: String, rng: Where) = {
-    this(data)
-    start = rng.start
-    end = rng.end
-  }
-
-  def this(cm: Compute, data: String) = {
-    this(data)
-    doCompute = true
-    compute = cm
-  }
-
-  def this(cm: Compute, data: String, rng: Where) = {
-    this(data)
-    doCompute = true
-    compute = cm
-    start = rng.start
-    end = rng.end
-  }
-
-  def this(cm: Compute, data: String, grp: GroupBy) = {
-    this(data)
-    doGroupby = true
-    groupClause = grp
-    doCompute = true
-    compute = cm
-  }
-
-  def this(data: String, rng: Where, grp: GroupBy) = {
-    this(data)
-    doGroupby = true
-    groupClause = grp
-    start = rng.start
-    end = rng.end
-  }
-
-  def this(cm: Compute, data: String, rng: Where, grp: GroupBy) = {
-    this(data)
-    doCompute = true
-    compute = cm
-    start = rng.start
-    end = rng.end
-    doGroupby = true
-    groupClause = grp
-  }
+class Select(data: Graph) extends Serializable {
+  val graph: Graph = data
 }
+case class SCompute(data: Graph, com: Compute) extends Select(data)
+case class SWhere(data: Graph, w: Where) extends Select(data)
+case class SGroupBy(data: Graph, g: GroupBy) extends Select(data)
 
-sealed abstract class Semantics {
-  def value: AggregateSemantics.Value
-}
-
-case class Universal extends Semantics {
-  def value() = AggregateSemantics.All
-}
-case class Existential extends Semantics {
-  def value() = AggregateSemantics.Any
-}
+sealed abstract class Graph
+case class DataSet(name: String) extends Graph
+case class Nested(sel: Select) extends Graph
 
 sealed abstract class Compute
 case class Pagerank(dir: Direction, tol: Double, reset: Double, numIter: String) extends Compute
 case class Degrees extends Compute
 case class ConnectedComponents extends Compute
 
-class Where(datec: Datecond) {
+sealed abstract class Where
+case class TWhere(datec: Datecond) extends Where {
   var start: LocalDate = datec match { 
     case StartDate(dt) => dt.value
     case _ => LocalDate.MIN
@@ -483,11 +523,26 @@ class Where(datec: Datecond) {
     }
   }
 }
+case class SubWhere(attr: String, op: String, va: String) extends Where {
+  //this is ugly but it'll do for now
+  def compute(in: Any): Boolean = {
+    attr match {
+      case "length" => op match {
+        case "=" => in.toString.length == va.toInt
+        case ">" => in.toString.length > va.toInt
+        case "<" => in.toString.length < va.toInt
+      }
+      //TODO: add handling for > and <
+      case "value" => op match {
+        case "=" => in.toString == va
+      }
+    }
+  }
+}
 
 sealed abstract class Datecond
 case class StartDate(datet: Date) extends Datecond
 case class EndDate(datet: Date) extends Datecond
-
 
 class Date(y: Int, m: Int, d: Int) {
   val year:Int = y
@@ -496,10 +551,8 @@ class Date(y: Int, m: Int, d: Int) {
   def value():LocalDate = LocalDate.of(year, month, day)
 }
 
-class GroupBy(num: String, per: Period, sem: Semantics, fun: Function) {
-  val period: String = "P" + num + per.value
-  val semantics: Semantics = sem
-  val func = fun
+case class GroupBy(num: String, per: Period, vsem: Semantics, vfun: Function, esem: Semantics, efun: Function) {
+  val period = "P" + num + per.value
 }
 
 sealed abstract class Period {
@@ -513,6 +566,9 @@ case class Years extends Period {
 }
 case class Days extends Period {
   val value = "D"
+}
+case class Changes extends Period {
+  val value = "C"
 }
 
 sealed abstract class Direction {
@@ -530,3 +586,17 @@ case class MaxFunc extends Function
 case class MinFunc extends Function
 case class SumFunc extends Function
 case class AnyFunc extends Function
+
+sealed abstract class Semantics {
+  def value: Quantification
+}
+
+case class Universal extends Semantics {
+  def value() = Always()
+}
+case class Existential extends Semantics {
+  def value() = Exists()
+}
+
+
+

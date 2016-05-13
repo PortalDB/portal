@@ -1,6 +1,8 @@
 package edu.drexel.cs.dbgroup.temporalgraph.evaluation
 
 import edu.drexel.cs.dbgroup.temporalgraph.{ProgramContext, PartitionStrategyType}
+import edu.drexel.cs.dbgroup.temporalgraph.util.GraphLoader
+
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.SparkConf
@@ -8,9 +10,11 @@ import scala.util.control._
 import org.apache.log4j.Logger
 import org.apache.log4j.Level
 
-import edu.drexel.cs.dbgroup.temporalgraph.util._
-
 object PortalShell {
+
+  var uri = ""
+  var warmStart: Boolean = false
+
   def main(args: Array[String]) = {
 
     //note: this does not remove ALL logging  
@@ -18,7 +22,6 @@ object PortalShell {
     Logger.getLogger("akka").setLevel(Level.OFF)
 
     var graphType: String = "SG"
-    var data = ""
     var partitionType: PartitionStrategyType.Value = PartitionStrategyType.None
     var runWidth: Int = 8
     var query:Array[String] = Array.empty
@@ -28,18 +31,10 @@ object PortalShell {
         case "--type" =>
           graphType = args(i + 1)
           graphType match {
-            case "MG" =>
-              println("Running experiments with MultiGraph")
             case "SG" =>
               println("Running experiments with SnapshotGraph")
-            case "SGP" =>
-              println("Running experiments with parallel SnapshotGraph")
-            case "MGC" =>
-              println("Running experiments with columnar MultiGraph")
             case "OG" =>
               println("Running experiments with OneGraph")
-            case "OGC" =>
-              println("Running experiments with columnar OneGraph")
             case "HG" =>
               println("Running experiments with HybridGraph")
             case _ =>
@@ -47,13 +42,15 @@ object PortalShell {
               System.exit(1)
           }
         case "--data" =>
-          data = args(i + 1)
+          uri = args(i + 1)
         case "--strategy" =>
           partitionType = PartitionStrategyType.withName(args(i + 1))
         case "--query" =>
           query = args.drop(i+1)
         case "--runWidth" =>
           runWidth = args(i + 1).toInt
+        case "--warm" =>
+          warmStart = true
         case _ => ()
       }
     }
@@ -70,7 +67,6 @@ object PortalShell {
     val sc = new SparkContext(conf)
     ProgramContext.setContext(sc)
 
-    GraphLoader.setPath(data)
     GraphLoader.setGraphType(graphType)
     GraphLoader.setStrategy(partitionType)
     GraphLoader.setRunWidth(runWidth)

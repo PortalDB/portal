@@ -97,7 +97,10 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
       BitSet() ++ (0 to (countSums.value.size-1)).flatMap{ case (index) =>
         //make a mask for this part
         val mask = BitSet((countSums.value.lift(index-1).getOrElse(0) to (countSums.value(index)-1)): _*)
-        if (vquant.keep((mask & attr).toList.map(ii => intvs.value(ii).ratio(newIntvsb.value(index))).reduce(_ + _)))
+        val tt = mask & attr
+        if (tt.isEmpty)
+          None
+        else if (vquant.keep(tt.toList.map(ii => intvs.value(ii).ratio(newIntvsb.value(index))).reduce(_ + _)))
           Some(index)
         else
           None
@@ -107,7 +110,8 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
       BitSet() ++ (0 to (countSums.value.size-1)).flatMap{ case (index) =>
         //make a mask for this part
         val mask = BitSet((countSums.value.lift(index-1).getOrElse(0) to (countSums.value(index)-1)): _*)
-        if (equant.keep((mask & e.attr).toList.map(ii => intvs.value(ii).ratio(newIntvsb.value(index))).reduce(_ + _)))
+        val tt = mask & e.attr
+        if (equant.keep(tt.toList.map(ii => intvs.value(ii).ratio(newIntvsb.value(index))).reduce(_ + _)))
           Some(index)
         else
           None
@@ -454,6 +458,10 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
     }
 
     def sendMessage(edge: EdgeTriplet[Map[TimeIndex, VertexId], BitSet]): Iterator[(VertexId, Map[TimeIndex, VertexId])] = {
+      //This is a hack because of a bug in GraphX that
+      //does not fetch edge triplet attributes otherwise
+      edge.srcAttr
+      edge.dstAttr
       edge.attr.iterator.flatMap{ k =>
         if (edge.srcAttr(k) < edge.dstAttr(k))
           Iterator((edge.dstId, Map(k -> edge.srcAttr(k))))

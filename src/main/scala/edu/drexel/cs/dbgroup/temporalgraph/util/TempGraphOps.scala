@@ -27,7 +27,7 @@ object TempGraphOps extends Serializable {
       .distinct
       .sliding(2)
       .map(x => Interval(x(0), x(1)))
-      .toSeq
+      .toList
   }
 
   def intervalIntersect(intervals: Seq[Interval], other: Seq[Interval]): Seq[Interval] = {
@@ -42,7 +42,7 @@ object TempGraphOps extends Serializable {
       :+ en)    
       .sliding(2)
       .map(x => Interval(x(0), x(1)))
-      .toSeq
+      .toList
   }
   
 }
