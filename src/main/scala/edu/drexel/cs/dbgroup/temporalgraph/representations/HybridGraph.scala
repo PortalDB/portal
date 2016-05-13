@@ -29,7 +29,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
   val graphs: ParSeq[Graph[BitSet, BitSet]] = gps
   //this is how many consecutive intervals are in each aggregated graph
   val widths: Seq[Int] = runs
-  
+
   if (widths.reduce(_ + _) != intvs.size)
     throw new IllegalArgumentException("temporal sequence and runs do not match")
 
@@ -125,7 +125,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
     )
 
     val intvs = ProgramContext.sc.broadcast(intervals)
-    TGraphNoSchema.coalesce(degRDDs.reduce((x: RDD[(VertexId, LinkedHashMap[TimeIndex, Int])], y: RDD[(VertexId, LinkedHashMap[TimeIndex, Int])]) => x union y).flatMap{ case (vid, map) => map.map{ case (k,v) => (vid, (intvs.value(k), v))}})
+    TGraphNoSchema.coalesce(degRDDs.reduce((x: RDD[(VertexId, LinkedHashMap[TimeIndex, Int])], y: RDD[(VertexId, LinkedHashMap[TimeIndex, Int])]) => x union y).flatMap{ case (vid, map) => map.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}})
   }
 
 
@@ -231,9 +231,9 @@ object HybridGraph extends Serializable {
         }.reduceByKey((a,b) => a union b),
           edgs.filter(e => e._2._1.intersects(Interval(intvs.head._1.start, intvs.last._1.end))).mapValues{e =>
             BitSet() ++ intvs.filter{ case (intv, index) => intv.intersects(e._1)}.map(ii => ii._2)}.reduceByKey((a,b) => a union b).map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storLevel)
-      )}
+      )}.toList
 
-    new HybridGraph(intervals, verts, edgs, combined.map(x => x._1).toSeq, combined.map(x => x._2).toSeq.par, defVal, storLevel)
+    new HybridGraph(intervals, verts, edgs, combined.map(x => x._1), combined.map(x => x._2).par, defVal, storLevel)
 
   }
 }
