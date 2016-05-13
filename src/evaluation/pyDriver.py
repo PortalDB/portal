@@ -64,9 +64,10 @@ def collect_args(query, strat, run):
 
     for i in range (0, len(line)):
         if line[i] == "select":
-            if line[i+1][1] != '(':
+            if line[i+2][1] != '(':
                 opType = "Load"
-                arg1 = arg2 = arg3 = arg4 = arg5 = None
+                arg1 = line[i+2]
+                arg2 = arg3 = arg4 = arg5 = None
                 runW = run
                 partS = strat
                 addOp = True
@@ -213,7 +214,7 @@ def run(configFile):
         warm = " --warmStart"
  
     #get git revision number and save build information
-    p1 = Popen('cat ../../.git/refs/heads/master', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    p1 = Popen('cat .git/refs/heads/newmodel', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     gitRev = p1.communicate()[0];
 
     #read queries from file 
