@@ -114,7 +114,7 @@ object GraphLoader {
 
     //this will work even if the graph doesn't have any attributes because null is returned and null is an Any
     val vs: RDD[(VertexId, (Interval, Any))] = users.map(row => (row.getLong(0), (Interval(row.getDate(1).toLocalDate(), row.getDate(2).toLocalDate()), row.get(3))))
-    val es: RDD[((VertexId, VertexId), (Interval, Any))] = links.map(row => ((row.getLong(0), row.getLong(1)), (Interval(row.getDate(2).toLocalDate(), row.getDate(3).toLocalDate()), row.get(4))))
+    val es: RDD[((VertexId, VertexId), (Interval, Any))] = if (links.schema.fields.size > 3) links.map(row => ((row.getLong(0), row.getLong(1)), (Interval(row.getDate(2).toLocalDate(), row.getDate(3).toLocalDate()), row.get(4)))) else links.map(row => ((row.getLong(0), row.getLong(1)), (Interval(row.getDate(2).toLocalDate(), row.getDate(3).toLocalDate()), null)))
 
     val deflt: Any = users.schema.fields(3).dataType match {
       case StringType => ""
