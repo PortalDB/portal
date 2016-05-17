@@ -725,6 +725,103 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter{
     assert(resultHGIntersection.edges.collect.toSet === expectedEdgesIntersection.collect.toSet)
   }
 
+  test("Union and intersection -when there is no overlap between two graphs"){
+    val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "a")),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "b"))
+    ))
+
+    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42))
+    ))
+
+    val HG = HybridGraph.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
+
+    val users2: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
+      (2L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), "b1")),
+      (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), "C"))
+    ))
+
+    val edges2: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
+      ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), 52))
+    ))
+
+    val HG2 = HybridGraph.fromRDDs(users2, edges2, "Default", StorageLevel.MEMORY_ONLY_SER)
+
+    val expectedVerticesUnion: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
+      (1L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),"a")),
+      (2L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),"b")),
+      (2L,(Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")),"b1")),
+      (3L,(Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")),"C"))
+    ))
+
+    val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
+      ((1L,2L),(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),42)),
+      ((2L,3L),(Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")),52))
+    ))
+
+    val resultHGUnion = HG.union(HG2, (name1, name2) =>  if(name1.compareTo(name2) > 0) name1 else name2, (a, b) => Math.max(a,b) )
+
+    assert(resultHGUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
+    assert(resultHGUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
+
+    val resultHGIntersection = HG.intersection(HG2, (name1, name2) => if (name1.compareTo(name2) > 0) name1 else name2, (a, b) => Math.max(a, b))
+
+    assert(resultHGIntersection.vertices.collect.toSet === HybridGraph.emptyGraph().vertices.collect.toSet)
+    assert(resultHGIntersection.edges.collect.toSet === HybridGraph.emptyGraph().edges.collect.toSet)
+  }
+
+  test("Union and intersection -when graph.span.start == graph2.span.end"){
+    val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "a")),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "b"))
+    ))
+
+    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42))
+    ))
+
+    val HG = HybridGraph.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
+
+    val users2: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
+      (1L,(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")),"a")),
+      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), "b1")),
+      (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), "C"))
+    ))
+
+    val edges2: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
+      ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), 52))
+    ))
+
+    val HG2 = HybridGraph.fromRDDs(users2, edges2, "Default", StorageLevel.MEMORY_ONLY_SER)
+
+    val expectedVerticesUnion: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
+      (1L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")),"a")),
+      (2L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),"b")),
+      (2L,(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")),"b1")),
+      (3L,(Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")),"C"))
+    ))
+
+    val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
+      ((1L,2L),(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),42)),
+      ((2L,3L),(Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")),52))
+    ))
+
+    val resultHGUnion = HG.union(HG2, (name1, name2) =>  if(name1.compareTo(name2) > 0) name1 else name2, (a, b) => Math.max(a,b) )
+
+    assert(resultHGUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
+    assert(resultHGUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
+
+    val resultHGIntersection = HG.intersection(HG2, (name1, name2) => if (name1.compareTo(name2) > 0) name1 else name2, (a, b) => Math.max(a, b))
+
+    assert(resultHGIntersection.vertices.collect.toSet === HybridGraph.emptyGraph().vertices.collect.toSet)
+    assert(resultHGIntersection.edges.collect.toSet === HybridGraph.emptyGraph().edges.collect.toSet)
+  }
+
+
+
+
+
   test("Union and Intersection - with Null") {
     val users: RDD[(VertexId, (Interval, Null))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null)),
@@ -742,7 +839,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter{
       ((2L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null))
     ))
 
-    val OGC = OneGraphColumn.fromRDDs(users, edges, null, StorageLevel.MEMORY_ONLY_SER)
+    val HG = HybridGraph.fromRDDs(users, edges, null, StorageLevel.MEMORY_ONLY_SER)
 
     val users2: RDD[(VertexId, (Interval, Null))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), null)),
@@ -760,7 +857,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter{
       ((5L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), null))
     ))
 
-    val OGC2 = OneGraphColumn.fromRDDs(users2, edges2, null, StorageLevel.MEMORY_ONLY_SER)
+    val HG2 = HybridGraph.fromRDDs(users2, edges2, null, StorageLevel.MEMORY_ONLY_SER)
 
     val expectedVerticesUnion: RDD[(VertexId, (Interval, Null))] = ProgramContext.sc.parallelize(Array(
       (1L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),null)),
@@ -786,12 +883,12 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter{
     ))
 
 
-    val resultOGCUnion = OGC.union(OGC2, (a, b) => a, (a, b) => a)
+    val resultHGUnion = HG.union(HG2, (a, b) => a, (a, b) => a)
 
-    assert(resultOGCUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
-    assert(resultOGCUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
+    assert(resultHGUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
+    assert(resultHGUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
 
-    val resultOGCIntersection = OGC.intersection(OGC2, (a, b) => a, (a, b) => a)
+    val resultHGIntersection = HG.intersection(HG2, (a, b) => a, (a, b) => a)
 
     val expectedVerticesIntersection: RDD[(VertexId, (Interval, Null))] = ProgramContext.sc.parallelize(Array(
       (3L,(Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")),null)),
@@ -804,8 +901,8 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter{
       ((4L,4L),(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),null))
     ))
 
-    assert(resultOGCIntersection.vertices.collect.toSet === expectedVerticesIntersection.collect.toSet)
-    assert(resultOGCIntersection.edges.collect.toSet === expectedEdgesIntersection.collect.toSet)
+    assert(resultHGIntersection.vertices.collect.toSet === expectedVerticesIntersection.collect.toSet)
+    assert(resultHGIntersection.edges.collect.toSet === expectedEdgesIntersection.collect.toSet)
 
   }
 
