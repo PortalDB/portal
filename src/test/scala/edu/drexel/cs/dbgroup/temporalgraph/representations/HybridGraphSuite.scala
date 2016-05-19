@@ -604,8 +604,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter{
       ((5L, 7L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), null)),
       ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), null)),
       ((4L, 9L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), null)),
-      ((4L, 6L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), null)),
-      ((4L, 6L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01")), null))
+      ((4L, 6L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), null))
     ))
 
     val HG = HybridGraph.fromRDDs(users, edges, null, StorageLevel.MEMORY_ONLY_SER)
@@ -633,8 +632,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter{
       ((5L, 7L), (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2011-01-01")), null)),
       ((4L, 8L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2017-01-01")), null)),
       ((4L, 9L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), null)),
-      ((4L, 6L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), null)),
-      ((4L, 6L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2013-01-01")), null))
+      ((4L, 6L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2015-01-01")), null))
     ))
 
     assert(expectedUsers.collect().toSet === actualHG2.vertices.collect().toSet)
@@ -935,10 +933,8 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter{
     val expectedVerticesUnion: RDD[(VertexId, (Interval, Null))] = ProgramContext.sc.parallelize(Array(
       (1L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),null)),
       (1L,(Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")),null)),
-      (2L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),null)),
-      (2L,(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")),null)),
-      (3L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),null)),
-      (3L,(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")),null)),
+      (2L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")),null)),
+      (3L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")),null)),
       (4L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),null)),
       (5L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),null))
     ))
@@ -946,10 +942,8 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter{
     val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Null))] = ProgramContext.sc.parallelize(Array(
       ((1L,2L),(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),null)),
       ((1L,2L),(Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")),null)),
-      ((2L,3L),(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),null)),
-      ((2L,3L),(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")),null)),
-      ((3L,3L),(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),null)),
-      ((3L,3L),(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")),null)),
+      ((2L,3L),(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")),null)),
+      ((3L,3L),(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")),null)),
       ((4L,4L),(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),null)),
       ((2L,5L),(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),null)),
       ((5L,5L),(Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")),null))
@@ -1051,8 +1045,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter{
 
     val expectedVerticesUnion: RDD[(VertexId, (Interval, Null))] = ProgramContext.sc.parallelize(Array(
       (1L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")),null)),
-      (2L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),null)),
-      (2L,(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")),null)),
+      (2L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")),null)),
       (3L,(Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")),null))
     ))
 
