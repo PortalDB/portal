@@ -113,7 +113,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
     val defval = defaultValue
     val vp = (vid: VertexId, attr: VD) => attr != defval
     val newGraphs: ParSeq[Graph[VD, ED]] = reduced.map { case (vs, es) =>
-      Graph(vs.mapValues(v => v._1), es.map(e => Edge(e._1._1, e._1._2, e._2._1)), defaultValue, storageLevel).subgraph(epred = et => true, vpred = vp)
+      Graph(vs.mapValues(v => v._1), es.map(e => Edge(e._1._1, e._1._2, e._2._1)), defaultValue, storageLevel, storageLevel).subgraph(epred = et => true, vpred = vp)
     }
 
     //FIXME: it is unlikely but possible for some consecutive graphs
@@ -146,7 +146,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
 
       val newGraphs: ParSeq[Graph[VD, ED]] = newIntvs.map { intv =>
         if (intervals.lift(ii).getOrElse(empty).intersects(intv) && grp2.intervals.lift(jj).getOrElse(empty).intersects(intv)) {
-          val ret = Graph(graphs(ii).vertices.union(grp2.graphs(jj).vertices).reduceByKey(vFunc), graphs(ii).edges.union(grp2.graphs(jj).edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eFunc).map(e => Edge(e._1._1, e._1._2, e._2)), defaultValue, storageLevel)
+          val ret = Graph(graphs(ii).vertices.union(grp2.graphs(jj).vertices).reduceByKey(vFunc), graphs(ii).edges.union(grp2.graphs(jj).edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eFunc).map(e => Edge(e._1._1, e._1._2, e._2)), defaultValue, storageLevel, storageLevel)
           if (intervals(ii).end == intv.end)
             ii = ii+1
           if (grp2.intervals(jj).end == intv.end)
@@ -199,7 +199,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
 
       val newGraphs: ParSeq[Graph[VD, ED]] = newIntvs.map { intv =>
         if (intervals.lift(ii).getOrElse(empty).intersects(intv) && grp2.intervals.lift(jj).getOrElse(empty).intersects(intv)) {
-          val ret = Graph(graphs(ii).vertices.join(grp2.graphs(jj).vertices).mapValues{ case (a,b) => vFunc(a,b)}, graphs(ii).edges.innerJoin(grp2.graphs(jj).edges)((srcid, dstid, a, b) => eFunc(a,b)), defaultValue, storageLevel)
+          val ret = Graph(graphs(ii).vertices.join(grp2.graphs(jj).vertices).mapValues{ case (a,b) => vFunc(a,b)}, graphs(ii).edges.innerJoin(grp2.graphs(jj).edges)((srcid, dstid, a, b) => eFunc(a,b)), defaultValue, storageLevel, storageLevel)
           if (intervals(ii).end == intv.end)
             ii = ii+1
           if (grp2.intervals(jj).end == intv.end)

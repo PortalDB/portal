@@ -111,11 +111,14 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
         //make a mask for this part
         val mask = BitSet((countSums.value.lift(index-1).getOrElse(0) to (countSums.value(index)-1)): _*)
         val tt = mask & e.attr
-        if (equant.keep(tt.toList.map(ii => intvs.value(ii).ratio(newIntvsb.value(index))).reduce(_ + _)))
+        if (tt.isEmpty)
+          None
+        else if (equant.keep(tt.toList.map(ii => intvs.value(ii).ratio(newIntvsb.value(index))).reduce(_ + _)))
           Some(index)
         else
           None
       }}
+      .mapTriplets(ept => ept.attr & ept.srcAttr & ept.dstAttr)
       .subgraph(epred = et => !et.attr.isEmpty)
 
     val tmp: ED = new Array[ED](1)(0)
@@ -160,30 +163,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
         BitSet() ++ e.attr.toSeq.flatMap(ii => intvMap2B.value(ii))
       }
 
-      val newGraphs: Graph[BitSet,BitSet] = Graph(gp1.vertices.union(gp2.vertices).reduceByKey((a,b) => a ++ b), gp1.edges.union(gp2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey((a,b) => a ++ b).map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storageLevel)
-      val vs = TGraphNoSchema.coalesce(newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), defaultValue)))})
-      val tmp: ED = new Array[ED](1)(0)
-      val es = TGraphNoSchema.coalesce(newGraphs.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))))
-
-      new OneGraphColumn(newIntvs, vs, es, newGraphs, defaultValue, storageLevel)
-
-    } else if (span.end == grp2.span.start || span.start == grp2.span.end) {
-      //like above, but no intervals are split, so reindexing is simpler
-      //compute the starting index for each graph (with no overlap there aren't any multiples)
-      val gr1IndexStart: Int = intervals.indexWhere(ii => newIntvs.head.intersects(ii))
-      val gr2IndexStart: Int = grp2.intervals.indexWhere(ii => newIntvs.head.intersects(ii))
-      val gp1 = graphs.mapVertices{ (vid, attr) =>
-        attr.map(ii => ii + gr1IndexStart)
-      }.mapEdges{ e =>
-        e.attr.map(ii => ii + gr1IndexStart)
-      }
-      val gp2 = grp2.graphs.mapVertices{ (vid, attr) =>
-        attr.map(ii => ii + gr1IndexStart)
-      }.mapEdges{ e =>
-        e.attr.map(ii => ii + gr1IndexStart)
-      }
-
-      val newGraphs: Graph[BitSet,BitSet] = Graph(gp1.vertices.union(gp2.vertices).reduceByKey((a,b) => a ++ b), gp1.edges.union(gp2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey((a,b) => a ++ b).map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storageLevel)
+      val newGraphs: Graph[BitSet,BitSet] = Graph(gp1.vertices.union(gp2.vertices).reduceByKey((a,b) => a ++ b), gp1.edges.union(gp2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey((a,b) => a ++ b).map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storageLevel, storageLevel)
       val vs = TGraphNoSchema.coalesce(newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), defaultValue)))})
       val tmp: ED = new Array[ED](1)(0)
       val es = TGraphNoSchema.coalesce(newGraphs.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))))
@@ -191,25 +171,25 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
       new OneGraphColumn(newIntvs, vs, es, newGraphs, defaultValue, storageLevel)
 
     } else {
-      //like above, but no coalesce is required
-
-      val gr1IndexStart: Int = intervals.indexWhere(ii => newIntvs.head.intersects(ii))
-      val gr2IndexStart: Int = grp2.intervals.indexWhere(ii => newIntvs.head.intersects(ii))
-      val gp1 = graphs.mapVertices{ (vid, attr) =>
+      //like above, but no intervals are split, so reindexing is simpler
+      //compute the starting index for each graph (with no overlap there aren't any multiples)
+      val gr1IndexStart: Int = newIntvs.indexWhere(ii => intervals.head.intersects(ii))
+      val gr2IndexStart: Int = newIntvs.indexWhere(ii => grp2.intervals.head.intersects(ii))
+      val gp1 = if (gr1IndexStart > 0) graphs.mapVertices{ (vid, attr) =>
         attr.map(ii => ii + gr1IndexStart)
       }.mapEdges{ e =>
         e.attr.map(ii => ii + gr1IndexStart)
-      }
-      val gp2 = grp2.graphs.mapVertices{ (vid, attr) =>
-        attr.map(ii => ii + gr1IndexStart)
+      } else graphs
+      val gp2 = if (gr2IndexStart > 0) grp2.graphs.mapVertices{ (vid, attr) =>
+        attr.map(ii => ii + gr2IndexStart)
       }.mapEdges{ e =>
-        e.attr.map(ii => ii + gr1IndexStart)
-      }
+        e.attr.map(ii => ii + gr2IndexStart)
+      } else grp2.graphs
 
-      val newGraphs: Graph[BitSet,BitSet] = Graph(gp1.vertices.union(gp2.vertices).reduceByKey((a,b) => a ++ b), gp1.edges.union(gp2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey((a,b) => a ++ b).map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storageLevel)
-      val vs = newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), defaultValue)))}
+      val newGraphs: Graph[BitSet,BitSet] = Graph(gp1.vertices.union(gp2.vertices).reduceByKey((a,b) => a ++ b), gp1.edges.union(gp2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey((a,b) => a ++ b).map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storageLevel, storageLevel)
+      val vs = TGraphNoSchema.coalesce(newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), defaultValue)))})
       val tmp: ED = new Array[ED](1)(0)
-      val es = newGraphs.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp))))
+      val es = TGraphNoSchema.coalesce(newGraphs.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))))
 
       new OneGraphColumn(newIntvs, vs, es, newGraphs, defaultValue, storageLevel)
 
@@ -251,7 +231,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
         BitSet() ++ e.attr.toSeq.flatMap(ii => intvMap2B.value(ii))
       }
 
-      val newGraphs = Graph(gp1.vertices.join(gp2.vertices).mapValues{ case (a,b) => a & b}.filter(v => !v._2.isEmpty), gp1.edges.innerJoin(gp2.edges)((srcId, dstId, a, b) => a & b).filter(e => !e.attr.isEmpty), BitSet(), storageLevel)
+      val newGraphs = Graph(gp1.vertices.join(gp2.vertices).mapValues{ case (a,b) => a & b}.filter(v => !v._2.isEmpty), gp1.edges.innerJoin(gp2.edges)((srcId, dstId, a, b) => a & b).filter(e => !e.attr.isEmpty), BitSet(), storageLevel, storageLevel)
       val vs = TGraphNoSchema.coalesce(newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), defaultValue)))})
       val tmp: ED = new Array[ED](1)(0)
       val es = TGraphNoSchema.coalesce(newGraphs.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))))
@@ -622,7 +602,7 @@ object OneGraphColumn {
       BitSet() ++ broadcastIntervals.value.zipWithIndex.filter(ii => v._1.intersects(ii._1)).map(ii => ii._2)
     }.reduceByKey((a,b) => a union b),
       edgs.mapValues{ e =>
-        BitSet() ++ broadcastIntervals.value.zipWithIndex.filter(ii => e._1.intersects(ii._1)).map(ii => ii._2)}.reduceByKey((a,b) => a union b).map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storLevel)
+        BitSet() ++ broadcastIntervals.value.zipWithIndex.filter(ii => e._1.intersects(ii._1)).map(ii => ii._2)}.reduceByKey((a,b) => a union b).map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storLevel, storLevel)
 
     new OneGraphColumn(intervals, verts, edgs, graphs, defVal, storLevel)
 

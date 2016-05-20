@@ -421,7 +421,7 @@ object TGraphNoSchema {
         .foldLeft(List[(Interval, V)]()){ (r,c) => r match {
           case head :: tail =>
             if (head._2 == c._2 && head._1.end == c._1.start) (Interval(head._1.start, c._1.end), head._2) :: tail
-            else c :: head :: tail
+            else c :: r
           case Nil => List(c)
         }
       }}.flatMap{ case (k,v) => v.map(x => (k, x))}
