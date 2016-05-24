@@ -20,6 +20,7 @@ object PortalShell {
     //note: this does not remove ALL logging  
     Logger.getLogger("org").setLevel(Level.OFF)
     Logger.getLogger("akka").setLevel(Level.OFF)
+    Logger.getLogger("DataNucleus").setLevel(Level.OFF)
 
     var graphType: String = "SG"
     var partitionType: PartitionStrategyType.Value = PartitionStrategyType.None
@@ -66,6 +67,7 @@ object PortalShell {
     //conf.registerKryoClasses(Array(classOf[scala.collection.mutable.LinkedHashMap[_,_]], classOf[scala.collection.immutable.BitSet]))
     val sc = new SparkContext(conf)
     ProgramContext.setContext(sc)
+    val sqlContext = ProgramContext.getSqlContext
 
     GraphLoader.setGraphType(graphType)
     GraphLoader.setStrategy(partitionType)

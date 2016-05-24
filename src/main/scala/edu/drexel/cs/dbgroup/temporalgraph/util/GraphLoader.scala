@@ -145,13 +145,14 @@ object GraphLoader {
     val vs: RDD[(VertexId, (Interval, Null))] = users.map(row => (row.getLong(0), (Interval(row.getDate(1).toLocalDate(), row.getDate(2).toLocalDate()), null)))
     val es: RDD[((VertexId, VertexId), (Interval, Null))] = links.map(row => ((row.getLong(0), row.getLong(1)), (Interval(row.getDate(2).toLocalDate(), row.getDate(3).toLocalDate()), null)))
 
+    //FIXME: we should be coalescing, but for current datasets it is unnecessary and very expensive
     graphType match {
       case "SG" =>
-        SnapshotGraphParallel.fromRDDs(TGraphNoSchema.coalesce(vs), TGraphNoSchema.coalesce(es), null, StorageLevel.MEMORY_ONLY_SER)
+        SnapshotGraphParallel.fromRDDs(vs, es, null, StorageLevel.MEMORY_ONLY_SER)
       case "OG" =>
-        OneGraphColumn.fromRDDs(TGraphNoSchema.coalesce(vs), TGraphNoSchema.coalesce(es), null, StorageLevel.MEMORY_ONLY_SER)
+        OneGraphColumn.fromRDDs(vs, es, null, StorageLevel.MEMORY_ONLY_SER)
       case "HG" =>
-        HybridGraph.fromRDDs(TGraphNoSchema.coalesce(vs), TGraphNoSchema.coalesce(es), null, StorageLevel.MEMORY_ONLY_SER)
+        HybridGraph.fromRDDs(vs, es, null, StorageLevel.MEMORY_ONLY_SER)
     }
 
   }
