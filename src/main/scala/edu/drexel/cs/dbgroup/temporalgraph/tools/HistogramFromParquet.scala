@@ -26,6 +26,7 @@ object HistogramFromParquet{
     makeHistogram("hdfs://master:9000/data/dblp", LocalDate.parse("1936-01-01"),  LocalDate.parse("2015-01-01"), 1, "years", "./dblpHistogram")
     makeHistogram("hdfs://master:9000/data/nGrams", LocalDate.parse("1520-01-01"),  LocalDate.parse("2008-01-01"), 10, "years", "./ngramsHistogram")
     makeHistogram("hdfs://master:9000/data/ukdelis", LocalDate.parse("2006-05-01"),  LocalDate.parse("2007-04-01"), 1, "months", "./ukdelisHistogram")
+    makeHistogramNGramsEDGES("hdfs://master:9000/data/nGrams", createDatesArrayByYear(LocalDate.parse("1520-01-01"),  LocalDate.parse("2008-01-01"), 1), "./ngramsHistogram/edges.txt")
   }
 
 
@@ -106,6 +107,29 @@ object HistogramFromParquet{
       dates = dates :+ nextDate
     }
     dates
+  }
+
+
+  def makeHistogramNGramsEDGES(source:String, dates:Array[LocalDate], fileName:String): Unit ={
+    val fw = new FileWriter(fileName, true)
+
+    var total : Long = 0
+    for(i <- 0 to dates.length - 2) {
+      var startDate = dates(i)
+      var endDate = dates(i+1)
+
+      val count = sc.textFile("hdfs://master:9000/data/nGrams" + "/edges/edges" + startDate.toString + ".txt").count
+      total = total + count
+      println("[" + startDate +  "-" + endDate + ") " + count.toString + "\n")
+      fw.write("[" + startDate +  "-" + endDate + ") " + count.toString + "\n") ;
+    }
+    println("initial total count of the data: (N/A) used text files to count for each year")
+    println("sum of count from each year: " + total)
+
+    fw.write("\ninitial total count of the data: (N/A) used text files to count for each year\n")
+    fw.write("sum of count from each year: " + total +"\n")
+
+    fw.close()
   }
 
 }
