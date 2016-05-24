@@ -31,7 +31,8 @@ package object temporalgraph {
 
     def setContext(c: SparkContext):Unit = sc = c
     def getSqlContext:SQLContext = {
-      if (sqlc == null) sqlc = new org.apache.spark.sql.SQLContext(sc)
+      //hive context is usually recommended to be used instead of plain sqlcontext
+      if (sqlc == null) sqlc = new org.apache.spark.sql.hive.HiveContext(sc)
       sqlc
     }
   }
