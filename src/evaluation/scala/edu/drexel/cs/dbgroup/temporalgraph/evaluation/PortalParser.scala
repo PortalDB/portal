@@ -13,10 +13,10 @@ import edu.drexel.cs.dbgroup.temporalgraph._
 import edu.drexel.cs.dbgroup.temporalgraph.util.{LinearTrendEstimate, GraphLoader}
 
 object PortalParser extends StandardTokenParsers with PackratParsers {
-  lexical.reserved += ("select", "from", "union", "intersection", "min", "max", "sum", "any", "all", "exists", "directed", "undirected", "vertices", "edges", "group", "by", "with", "return", "compute", "pagerank", "degree", "components", "count", "id", "attr", "trend", "year", "month", "day", "changes", "start", "end", "where", "and", "length", "value",
+  lexical.reserved += ("select", "from", "union", "intersection", "min", "max", "sum", "any", "all", "exists", "directed", "undirected", "vertices", "edges", "group", "by", "with", "return", "compute", "pagerank", "degree", "components", "count", "id", "attr", "trend", "year", "month", "day", "changes", "start", "end", "where", "and", "length", "value", "spaths", "months", "days", "years",
     //these are for debugging and testing
     "materialize")
-  lexical.delimiters ++= List("-", "=", ".", "<", ">", "(", ")", "+")
+  lexical.delimiters ++= List("-", "=", ".", "<", ">", "(", ")", "+", ",")
 
   def parse(input: String) = {
     println("parsing query " + input)
@@ -57,7 +57,10 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
   lazy val compute = ( "compute" ~> "pagerank" ~> dir ~ doubleLit ~ doubleLit ~ numericLit ^^ { case dir ~ tol ~ reset ~ numIter => Pagerank(dir, tol, reset, numIter)}
     | "compute" ~> "degree" ^^^ Degrees()
     | "compute" ~> "components" ^^^ ConnectedComponents()
+    | "compute" ~> "spaths" ~> landmarks ^^ { case lds => ShortestPaths(lds) }
   )
+
+  lazy val landmarks: PackratParser[Seq[String]] = repsep(numericLit, ",")
 
   lazy val where = ("where" ~> datecond ~ opt("and" ~> datecond) ^^ { 
     case datec ~ Some(datec2) => new TWhere(datec, datec2)
@@ -465,6 +468,16 @@ object Interpreter {
         argNum += 1
         result
       }
+      case ShortestPaths(ids) => {
+        val spStart = System.currentTimeMillis()
+
+        val result = gr.shortestPaths(ids.map(_.toLong)).asInstanceOf[TGraphNoSchema[Any,Any]]
+        val spEnd = System.currentTimeMillis()
+        val total = spEnd - spStart
+        println(f"ShortestPaths Runtime: $total%dms ($argNum%d)")
+        argNum += 1
+        result
+      }
     }
   }
 }
@@ -503,6 +516,7 @@ sealed abstract class Compute
 case class Pagerank(dir: Direction, tol: Double, reset: Double, numIter: String) extends Compute
 case class Degrees extends Compute
 case class ConnectedComponents extends Compute
+case class ShortestPaths(ids: Seq[String]) extends Compute
 
 sealed abstract class Where
 case class TWhere(datec: Datecond) extends Where {
