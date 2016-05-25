@@ -521,6 +521,11 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
     }
 
     def sendMessage(edge: EdgeTriplet[Map[TimeIndex, Map[VertexId, Int]], BitSet]): Iterator[(VertexId, Map[TimeIndex, Map[VertexId, Int]])] = {
+      //This is a hack because of a bug in GraphX that
+      //does not fetch edge triplet attributes otherwise
+      edge.srcAttr
+      edge.dstAttr
+
       //each vertex attribute is supposed to be a map of int->spmap for each index
       edge.attr.iterator.flatMap{ k =>
         val srcSpMap = edge.srcAttr(k)
