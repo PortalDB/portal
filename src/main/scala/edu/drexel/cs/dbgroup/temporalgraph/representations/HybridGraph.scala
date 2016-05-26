@@ -462,7 +462,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
   }
 
   override def degree: RDD[(VertexId, (Interval, Int))] = {
-    def mergeFunc(a:HashMap[TimeIndex,Int], b:HashMap[TimeIndex,Int]): HashMap[TimeIndex,Int] = {
+    val mergeFunc: (HashMap[TimeIndex,Int], HashMap[TimeIndex,Int]) => HashMap[TimeIndex,Int] = { case (a,b) =>
       a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) }
     }
 
@@ -483,7 +483,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
     val runSums = widths.scanLeft(0)(_ + _).tail
 
     if (uni) {
-      def prank(grp: Graph[BitSet,BitSet], minIndex: Int, maxIndex: Int): Graph[HashMap[TimeIndex,(Double,Double)], HashMap[TimeIndex,(Double,Double)]] = {
+      val prank = (grp: Graph[BitSet,BitSet], minIndex: Int, maxIndex: Int) => {
         if (grp.edges.isEmpty)
           Graph[HashMap[TimeIndex,(Double,Double)],HashMap[TimeIndex,(Double,Double)]](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
         else {
@@ -507,7 +507,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
   override def connectedComponents(): HybridGraph[VertexId, ED] = {
     val runSums = widths.scanLeft(0)(_ + _).tail
 
-    def conc(grp: Graph[BitSet,BitSet], minIndex: Int, maxIndex: Int): Graph[HashMap[TimeIndex,VertexId],BitSet] = {
+    val conc = (grp: Graph[BitSet,BitSet], minIndex: Int, maxIndex: Int) => {
     if (grp.vertices.isEmpty)
         Graph[HashMap[TimeIndex,VertexId],BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
       else {

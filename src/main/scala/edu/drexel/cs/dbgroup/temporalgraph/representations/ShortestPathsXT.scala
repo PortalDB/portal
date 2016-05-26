@@ -7,9 +7,10 @@ import scala.collection.breakOut
 import edu.drexel.cs.dbgroup.temporalgraph._
 
 /**
- * Computes shortest paths to the given set of landmark vertices for temporal graphs
+  * Computes shortest paths to the given set of landmark vertices for temporal graphs
+  * treating the graph as undirected
  */
-object ShortestPathsXT {
+object ShortestPathsXT extends Serializable {
   /** Stores a map from the vertex id of a landmark to the distance to that landmark. */
   type SPMap = Map[VertexId, Int]
 
@@ -60,69 +61,4 @@ object ShortestPathsXT {
     Pregel(spGraph, initialMessage)(vertexProgram, sendMessage, addMaps)
   }
 
-  /**
-   * Computes shortest paths to the given set of landmark vertices
-   * for MultiGraph.
-   *
-   * @tparam ED the edge attribute type (not used in the computation)
-   *
-   * @param graph the graph for which to compute the shortest paths
-   * @param landmarks the list of landmark vertex ids. Shortest paths will be computed to each
-   * landmark.
-   *
-   * @return a graph where each vertex attribute is a map containing the shortest-path distance to
-   * each reachable landmark vertex.
-   */
-  def runCombined[VD, ED: ClassTag](graph: Graph[Map[TimeIndex, VD], (TimeIndex, ED)], landmarks: Seq[VertexId], numInts: Int): Graph[Map[TimeIndex, SPMap], (TimeIndex, ED)] = {
-    val spGraph: Graph[Map[TimeIndex, SPMap], (TimeIndex, ED)] = graph
-      // Set the vertex attributes to vertex id for each interval
-      .mapVertices { (vid, attr) =>
-        attr.mapValues { x =>
-          if (landmarks.contains(vid)) makeMap(vid -> 0) else makeMap()
-        }
-      }
-
-    val initialMessage: Map[TimeIndex, SPMap] = (for (i <- 0 to numInts) yield (i -> makeMap()))(breakOut)
-
-      def addMapsCombined(a: Map[TimeIndex, SPMap], b: Map[TimeIndex, SPMap]): Map[TimeIndex, SPMap] = {
-        (a.keySet ++ b.keySet).map { k => 
-          k -> addMaps(a.getOrElse(k, makeMap()), b.getOrElse(k, makeMap()))
-          }.toMap
-      }
-
-      def vertexProgram(id: VertexId, attr: Map[TimeIndex, SPMap], msg: Map[TimeIndex, SPMap]): Map[TimeIndex, SPMap] = {
-        //need to compute new shortestPaths to landmark for each interval
-        //each edge carries a message for one interval,
-        //which are combined by the combiner into a hash
-        //for each interval in the msg hash, update
-        var vals = attr
-        msg.foreach { x =>
-          val (k, v) = x
-          if (vals.contains(k)) {
-            var newMap = addMaps(attr(k), msg(k))
-            vals = vals.updated(k, newMap)
-          }
-        }
-        vals
-      }
-
-      def sendMessage(edge: EdgeTriplet[Map[TimeIndex, SPMap], (TimeIndex, ED)]): Iterator[(VertexId, Map[TimeIndex, SPMap])] = {
-        //each vertex attribute is supposed to be a map of int->spmap for each index
-        var yearIndex = edge.attr._1
-        var srcSpMap = edge.srcAttr(yearIndex)
-        var dstSpMap = edge.dstAttr(yearIndex)
-
-        val newAttr = incrementMap(dstSpMap)
-        val newAttr2 = incrementMap(srcSpMap)
-        
-        if (srcSpMap != addMaps(newAttr, srcSpMap))
-          Iterator((edge.srcId, Map(yearIndex -> newAttr)))
-        else if (dstSpMap != addMaps(newAttr2, dstSpMap))
-          Iterator((edge.dstId, Map(yearIndex -> newAttr2)))
-        else
-          Iterator.empty
-      }
-
-    Pregel(spGraph, initialMessage)(vertexProgram, sendMessage, addMapsCombined)
-  }
 }

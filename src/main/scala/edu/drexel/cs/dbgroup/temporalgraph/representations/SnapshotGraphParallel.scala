@@ -245,7 +245,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
   //run PageRank on each contained snapshot
   override def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): SnapshotGraphParallel[Double, Double] = {
 
-    def safePagerank(grp: Graph[VD, ED]): Graph[Double, Double] = {
+    val safePagerank = (grp: Graph[VD, ED]) => {
       if (grp.edges.isEmpty) {
         Graph[Double, Double](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
       } else {
@@ -263,7 +263,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
   }
 
   override def connectedComponents(): SnapshotGraphParallel[VertexId, ED] = {
-    def safeConnectedComponents(grp: Graph[VD, ED]): Graph[VertexId, ED] = {
+    val safeConnectedComponents = (grp: Graph[VD, ED]) => {
       if (grp.vertices.isEmpty) {
         Graph[VertexId, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
       } else {
@@ -276,7 +276,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
   }
 
   override def shortestPaths(landmarks: Seq[VertexId]): SnapshotGraphParallel[Map[VertexId, Int], ED] = {
-    def safeShortestPaths(grp: Graph[VD, ED]): Graph[ShortestPathsXT.SPMap, ED] = {
+    val safeShortestPaths = (grp: Graph[VD, ED]) => {
       if (grp.vertices.isEmpty) {
         Graph[ShortestPathsXT.SPMap, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
       } else {

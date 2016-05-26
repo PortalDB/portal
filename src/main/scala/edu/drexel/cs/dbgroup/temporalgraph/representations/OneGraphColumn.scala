@@ -4,7 +4,7 @@ package edu.drexel.cs.dbgroup.temporalgraph.representations
 
 import scala.collection.immutable.BitSet
 import scala.collection.breakOut
-import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.HashMap
 import scala.reflect.ClassTag
 import scala.util.control._
 
@@ -206,7 +206,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
   private def intersectionStructureOnly(other: TGraph[VD, ED]): OneGraphColumn[VD, ED] = {
     var grp2: OneGraphColumn[VD, ED] = other match {
       case grph: OneGraphColumn[VD, ED] => grph
-      case _ => throw new ClassCastException
+      case _ => throw new IllegalArgumentException("graphs must be of the same type")
     }
 
     if (span.intersects(grp2.span)) {
@@ -252,7 +252,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
     //because we run for all time instances at the same time,
     //need to convert programs and messages to the map form
     val initM: Map[TimeIndex, A] = (for(i <- 0 to intervals.size) yield (i -> initialMsg))(breakOut)
-    def vertexP(id: VertexId, attr: Map[TimeIndex, VD], msg: Map[TimeIndex, A]): Map[TimeIndex, VD] = {
+    val vertexP = (id: VertexId, attr: Map[TimeIndex, VD], msg: Map[TimeIndex, A]) => {
       var vals = attr
       msg.foreach {x =>
         val (k,v) = x
@@ -262,10 +262,15 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
       }
       vals
     }
-    def sendMsgC(edge: EdgeTriplet[Map[TimeIndex, VD], Map[TimeIndex, ED]]): Iterator[(VertexId, Map[TimeIndex, A])] = {
+    val sendMsgC = (edge: EdgeTriplet[Map[TimeIndex, VD], Map[TimeIndex, ED]]) => {
+      //This is a hack because of a bug in GraphX that
+      //does not fetch edge triplet attributes otherwise
+      edge.srcAttr
+      edge.dstAttr
+
       //sendMsg takes in an EdgeTriplet[VD,ED]
       //so we have to construct those for each TimeIndex
-      edge.attr.iterator.flatMap{ case (k,v) =>
+      edge.attr.flatMap{ case (k,v) =>
         val et = new EdgeTriplet[VD, ED]
         et.srcId = edge.srcId
         et.dstId = edge.dstId
@@ -276,15 +281,10 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
         //Iterator[(VertexId, Map[TimeIndex, A])]
         sendMsg(et).map(x => (x._1, Map[TimeIndex, A](k -> x._2)))
       }
-        .toSeq.groupBy{ case (k,v) => k}
-      //we now have a Map[VertexId, Seq[(VertexId, Map[TimeIndex,A])]]
-        .mapValues(v => v.map{case (k,m) => m}.reduce((a:Map[TimeIndex,A], b:Map[TimeIndex,A]) => a ++ b))
         .iterator
     }
-    def mergeMsgC(a: Map[TimeIndex, A], b: Map[TimeIndex, A]): Map[TimeIndex, A] = {
-      (a.keySet ++ b.keySet).map { k =>
-        k -> mergeMsg(a.getOrElse(k, defValue), b.getOrElse(k, defValue))
-      }.toMap
+    val mergeMsgC = (a: Map[TimeIndex, A], b: Map[TimeIndex, A]) => {
+      a ++ b.map { case (index, vl) => index -> mergeMsg(vl, a.getOrElse(index, defValue))}
     }
 
     val intvs = ProgramContext.sc.broadcast(intervals)
@@ -300,30 +300,29 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
     //need to put values into vertices and edges
     val grph = Graph[Map[TimeIndex,VD], Map[TimeIndex,ED]](
       allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => (vid, Map[TimeIndex, VD](ii -> attr)))}.reduceByKey((a, b) => a ++ b),
-      allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => (ids, Map[TimeIndex, ED](ii -> attr)))}.reduceByKey((a,b) => a ++ b).map{ case (k,v) => Edge(k._1, k._2, v)},
-      edgeStorageLevel = storageLevel,
-      vertexStorageLevel = storageLevel)
+      allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => (ids, Map[TimeIndex, ED](ii -> attr)))}.reduceByKey((a,b) => a ++ b).map{ case (k,v) => Edge(k._1, k._2, v)}, Map[TimeIndex,VD](),
+      storageLevel, storageLevel)
       
     val newgrp: Graph[Map[TimeIndex, VD], Map[TimeIndex, ED]] = Pregel(grph, initM, maxIterations, activeDirection)(vertexP, sendMsgC, mergeMsgC)
-    //need to convert back to bitmap and vertexattrs
-    //FIXME:? is it ok that we are throwing away the new edge values?
-    val newattrs: RDD[(VertexId, (Interval, VD))] = TGraphNoSchema.coalesce(newgrp.vertices.flatMap{ case (vid, vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs.value(k),v))  }})
 
-    new OneGraphColumn[VD, ED](intervals, newattrs, allEdges, graphs, defaultValue, storageLevel)
+    val newvattrs: RDD[(VertexId, (Interval, VD))] = TGraphNoSchema.coalesce(newgrp.vertices.flatMap{ case (vid, vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs.value(k),v))  }})
+    val neweattrs = TGraphNoSchema.coalesce(newgrp.edges.flatMap{ e => e.attr.toSeq.map{ case (k,v) => ((e.srcId, e.dstId), (intvs.value(k), v)) }})
+
+    new OneGraphColumn[VD, ED](intervals, newvattrs, neweattrs, graphs, defaultValue, storageLevel)
   }
 
   override def degree: RDD[(VertexId, (Interval, Int))] = {
-    def mergedFunc(a:LinkedHashMap[TimeIndex,Int], b:LinkedHashMap[TimeIndex,Int]): LinkedHashMap[TimeIndex,Int] = {
+    val mergedFunc: (HashMap[TimeIndex,Int], HashMap[TimeIndex,Int]) => HashMap[TimeIndex,Int] = { case (a,b) =>
       a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) }
     }
 
     //compute degree of each vertex for each interval
     //this should produce a map from interval to degree for each vertex
     val intvs = ProgramContext.sc.broadcast(intervals)
-    val res = graphs.aggregateMessages[LinkedHashMap[TimeIndex,Int]](
+    val res = graphs.aggregateMessages[HashMap[TimeIndex,Int]](
       ctx => {
-        ctx.sendToSrc(LinkedHashMap[TimeIndex,Int]() ++ ctx.attr.seq.map(x => (x,1)))
-        ctx.sendToDst(LinkedHashMap[TimeIndex,Int]() ++ ctx.attr.seq.map(x => (x,1)))
+        ctx.sendToSrc(HashMap[TimeIndex,Int]() ++ ctx.attr.seq.map(x => (x,1)))
+        ctx.sendToDst(HashMap[TimeIndex,Int]() ++ ctx.attr.seq.map(x => (x,1)))
       },
       mergedFunc,
       TripletFields.EdgeOnly)
@@ -337,7 +336,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
   override def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): OneGraphColumn[Double,Double] = {
 
     if (uni) {
-      def mergeFunc(a:Map[TimeIndex,Int], b:Map[TimeIndex,Int]): Map[TimeIndex,Int] = {
+      val mergeFunc = (a:Map[TimeIndex,Int], b:Map[TimeIndex,Int]) => {
         a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) }
       }
 
@@ -346,7 +345,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
           ctx.sendToSrc(ctx.attr.seq.map(x => (x,1)).toMap)
           ctx.sendToDst(ctx.attr.seq.map(x => (x,1)).toMap)
         },
-        mergeFunc, TripletFields.None)
+        mergeFunc, TripletFields.EdgeOnly)
 
       val pagerankGraph: Graph[Map[TimeIndex,(Double,Double)], Map[TimeIndex,(Double,Double)]] = graphs.outerJoinVertices(degrees) {
         case (vid, vdata, Some(deg)) => deg ++ vdata.filter(x => !deg.contains(x)).seq.map(x => (x,0)).toMap
@@ -356,7 +355,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
         .mapVertices( (id,attr) => attr.mapValues{ x => (0.0,0.0)}.map(identity))
         .cache()
 
-      def vertexProgram(id: VertexId, attr: Map[TimeIndex, (Double,Double)], msg: Map[TimeIndex, Double]): Map[TimeIndex, (Double,Double)] = {
+      val vertexProgram = (id: VertexId, attr: Map[TimeIndex, (Double,Double)], msg: Map[TimeIndex, Double]) => {
         var vals = attr
         msg.foreach { x =>
           val (k,v) = x
@@ -369,37 +368,29 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
         vals
       }
 
-      def sendMessage(edge: EdgeTriplet[Map[TimeIndex,(Double,Double)], Map[TimeIndex, (Double,Double)]]) = {
+      val sendMessage = (edge: EdgeTriplet[Map[TimeIndex,(Double,Double)], Map[TimeIndex, (Double,Double)]]) => {
         //This is a hack because of a bug in GraphX that
         //does not fetch edge triplet attributes otherwise
         edge.srcAttr
         edge.dstAttr
-        //need to generate an iterator of messages for each index
-        //TODO: there must be a better way to do this
-        edge.attr.iterator.flatMap{ case (k,v) =>
+
+        edge.attr.flatMap{ case (k,v) =>
           if (edge.srcAttr.apply(k)._2 > tol &&
             edge.dstAttr.apply(k)._2 > tol) {
             Iterator((edge.dstId, Map((k -> edge.srcAttr.apply(k)._2 * v._1))), (edge.srcId, Map((k -> edge.dstAttr.apply(k)._2 * v._2))))
           } else if (edge.srcAttr.apply(k)._2 > tol) {
-            Iterator((edge.dstId, Map((k -> edge.srcAttr.apply(k)._2 * v._1))))
+            Some((edge.dstId, Map((k -> edge.srcAttr.apply(k)._2 * v._1))))
           } else if (edge.dstAttr.apply(k)._2 > tol) {
-            Iterator((edge.srcId, Map((k -> edge.dstAttr.apply(k)._2 * v._2))))
+            Some((edge.srcId, Map((k -> edge.dstAttr.apply(k)._2 * v._2))))
           } else {
-            Iterator.empty
+            None
           }
         }
-          .toSeq.groupBy{ case (k,v) => k}
-        //we now have a Map[VertexId, Seq[(VertexId, Map[TimeIndex,Double])]]
-          .mapValues(v => v.map{case (k,m) => m}.reduce((a,b) => a ++ b))
           .iterator
       }
       
-      def messageCombiner(a: Map[TimeIndex,Double], b: Map[TimeIndex,Double]): Map[TimeIndex,Double] = {
-        (a.keySet ++ b.keySet).map { i =>
-          val count1Val:Double = a.getOrElse(i, 0.0)
-          val count2Val:Double = b.getOrElse(i, 0.0)
-          i -> (count1Val + count2Val)
-        }.toMap
+      val messageCombiner = (a: Map[TimeIndex,Double], b: Map[TimeIndex,Double]) => {
+        a ++ b.map { case (index, count) => index -> (count + a.getOrElse(index, 0.0))}
       }
 
       // The initial message received by all vertices in PageRank
@@ -428,7 +419,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
       bset.map(x => (x,vid)).toMap
     }
 
-    def vertexProgram(id: VertexId, attr: Map[TimeIndex, VertexId], msg: Map[TimeIndex, VertexId]): Map[TimeIndex, VertexId] = {
+    val vertexProgram = (id: VertexId, attr: Map[TimeIndex, VertexId], msg: Map[TimeIndex, VertexId]) => {
       var vals = attr
       msg.foreach { x =>
         val (k,v) = x
@@ -439,11 +430,12 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
       vals
     }
 
-    def sendMessage(edge: EdgeTriplet[Map[TimeIndex, VertexId], BitSet]): Iterator[(VertexId, Map[TimeIndex, VertexId])] = {
+    val sendMessage = (edge: EdgeTriplet[Map[TimeIndex, VertexId], BitSet]) => {
       //This is a hack because of a bug in GraphX that
       //does not fetch edge triplet attributes otherwise
       edge.srcAttr
       edge.dstAttr
+
       edge.attr.flatMap{ k =>
         if (edge.srcAttr(k) < edge.dstAttr(k))
           Some((edge.dstId, Map(k -> edge.srcAttr(k))))
@@ -455,7 +447,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
 	.iterator
     }
 
-    def messageCombiner(a: Map[TimeIndex, VertexId], b: Map[TimeIndex, VertexId]): Map[TimeIndex, VertexId] = {
+    val messageCombiner = (a: Map[TimeIndex, VertexId], b: Map[TimeIndex, VertexId]) => {
       a ++ b.map { case (index, minid) => index -> math.min(minid, a.getOrElse(index, Long.MaxValue))}
     }
 
@@ -472,6 +464,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
   
   //run shortestPaths on each interval
   override def shortestPaths(landmarks: Seq[VertexId]): OneGraphColumn[Map[VertexId, Int], ED] = {
+    //TODO: change this to a val function
     def makeMap(x: (VertexId, Int)*) = Map(x: _*)
 
     val incrementMap = (spmap: Map[VertexId, Int]) => spmap.map { case (v, d) => v -> (d + 1) }
@@ -492,13 +485,11 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
 
     val initialMessage: Map[TimeIndex, Map[VertexId, Int]] = (for (i <- 0 to intervals.size) yield (i -> makeMap()))(breakOut)
 
-    def addMapsCombined(a: Map[TimeIndex, Map[VertexId, Int]], b: Map[TimeIndex, Map[VertexId, Int]]): Map[TimeIndex, Map[VertexId, Int]] = {
-      (a.keySet ++ b.keySet).map { k =>
-        k -> addMaps(a.getOrElse(k, makeMap()), b.getOrElse(k, makeMap()))
-      }.toMap
+    val addMapsCombined = (a: Map[TimeIndex, Map[VertexId, Int]], b: Map[TimeIndex, Map[VertexId, Int]]) => {
+      a ++ b.map { case (index, mp) => index -> addMaps(mp, a.getOrElse(index, makeMap()))}
     }
 
-    def vertexProgram(id: VertexId, attr: Map[TimeIndex, Map[VertexId, Int]], msg: Map[TimeIndex, Map[VertexId, Int]]): Map[TimeIndex, Map[VertexId, Int]] = {
+    val vertexProgram = (id: VertexId, attr: Map[TimeIndex, Map[VertexId, Int]], msg: Map[TimeIndex, Map[VertexId, Int]]) => {
       //need to compute new shortestPaths to landmark for each interval
       //each edge carries a message for one interval,
       //which are combined by the combiner into a hash
@@ -514,28 +505,26 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
       vals
     }
 
-    def sendMessage(edge: EdgeTriplet[Map[TimeIndex, Map[VertexId, Int]], BitSet]): Iterator[(VertexId, Map[TimeIndex, Map[VertexId, Int]])] = {
+    val sendMessage = (edge: EdgeTriplet[Map[TimeIndex, Map[VertexId, Int]], BitSet]) => {
       //This is a hack because of a bug in GraphX that
       //does not fetch edge triplet attributes otherwise
       edge.srcAttr
       edge.dstAttr
 
       //each vertex attribute is supposed to be a map of int->spmap for each index
-      edge.attr.iterator.flatMap{ k =>
+      edge.attr.flatMap{ k =>
         val srcSpMap = edge.srcAttr(k)
         val dstSpMap = edge.dstAttr(k)
         val newAttr = incrementMap(dstSpMap)
         val newAttr2 = incrementMap(srcSpMap)
 
         if (srcSpMap != addMaps(newAttr, srcSpMap))
-          Iterator((edge.srcId, Map(k -> newAttr)))
+          Some((edge.srcId, Map(k -> newAttr)))
         else if (dstSpMap != addMaps(newAttr2, dstSpMap))
-          Iterator((edge.dstId, Map(k -> newAttr2)))
+          Some((edge.dstId, Map(k -> newAttr2)))
         else
-          Iterator.empty
+          None
       }
-        .toSeq.groupBy{ case (k,v) => k}
-        .mapValues(v => v.map{ case (k,m) => m}.reduce((a,b) => a ++ b))
         .iterator
     }
 
