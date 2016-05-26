@@ -85,7 +85,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
       //keep the rest
       val subg:ParSeq[Graph[BitSet,BitSet]] = graphs.zipWithIndex.flatMap{ case (g,index) =>
         if (index == indexStart || index == indexStop) {
-          val mask: BitSet = if (index == indexStart) BitSet((selectStart to stop1): _*) else BitSet((stop2 to (selectStop-1)): _*)
+          val mask: BitSet = if (index == indexStart) BitSet((selectStart to stop1): _*) else BitSet((stop2 to selectStop): _*)
           Some(g.subgraph(
             vpred = (vid, attr) => !(attr & mask).isEmpty,
             epred = et => !(et.attr & mask).isEmpty)
