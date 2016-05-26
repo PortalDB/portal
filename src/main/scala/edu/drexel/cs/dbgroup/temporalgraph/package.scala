@@ -12,13 +12,13 @@ package object temporalgraph {
   trait Quantification extends Serializable {
     def keep(in: Double): Boolean
   }
-  case class Always extends Quantification {
+  case class Always() extends Quantification {
     override def keep(in: Double): Boolean = in > 0.99
   }
-  case class Exists extends Quantification {
+  case class Exists() extends Quantification {
     override def keep(in: Double): Boolean = in > 0.0
   }
-  case class Most extends Quantification {
+  case class Most() extends Quantification {
     override def keep(in: Double): Boolean = in > 0.5
   }
   case class AtLeast(ratio: Double) extends Quantification {

@@ -492,13 +492,13 @@ case class Union(graph1: Select, graph2: Select, vfunc: Function, efunc: Functio
 case class Intersect(graph1: Select, graph2: Select, vfunc: Function, efunc: Function) extends Expression
 
 sealed abstract class Entity
-case class Vertices extends Entity
-case class Edges extends Entity
+case class Vertices() extends Entity
+case class Edges() extends Entity
 
 sealed abstract class AttrStr
-case class Count extends AttrStr
-case class Id extends AttrStr
-case class Attr extends AttrStr
+case class Count() extends AttrStr
+case class Id() extends AttrStr
+case class Attr() extends AttrStr
 //case class Trend extends AttrStr
 
 class Select(data: Graph) extends Serializable {
@@ -514,8 +514,8 @@ case class Nested(sel: Select) extends Graph
 
 sealed abstract class Compute
 case class Pagerank(dir: Direction, tol: Double, reset: Double, numIter: String) extends Compute
-case class Degrees extends Compute
-case class ConnectedComponents extends Compute
+case class Degrees() extends Compute
+case class ConnectedComponents() extends Compute
 case class ShortestPaths(ids: Seq[String]) extends Compute
 
 sealed abstract class Where
@@ -573,43 +573,43 @@ case class GroupBy(num: String, per: Period, vsem: Semantics, vfun: Function, es
 sealed abstract class Period {
   val value:String
 }
-case class Months extends Period {
+case class Months() extends Period {
   val value = "M"
 }
-case class Years extends Period {
+case class Years() extends Period {
   val value = "Y"
 }
-case class Days extends Period {
+case class Days() extends Period {
   val value = "D"
 }
-case class Changes extends Period {
+case class Changes() extends Period {
   val value = "C"
 }
 
 sealed abstract class Direction {
   def value: Boolean
 }
-case class Directed extends Direction {
+case class Directed() extends Direction {
   def value() = false
 }
-case class Undirected extends Direction {
+case class Undirected() extends Direction {
   def value() = true
 }
 
 sealed abstract class Function extends Serializable
-case class MaxFunc extends Function
-case class MinFunc extends Function
-case class SumFunc extends Function
-case class AnyFunc extends Function
+case class MaxFunc() extends Function
+case class MinFunc() extends Function
+case class SumFunc() extends Function
+case class AnyFunc() extends Function
 
 sealed abstract class Semantics {
   def value: Quantification
 }
 
-case class Universal extends Semantics {
+case class Universal() extends Semantics {
   def value() = Always()
 }
-case class Existential extends Semantics {
+case class Existential() extends Semantics {
   def value() = Exists()
 }
 
