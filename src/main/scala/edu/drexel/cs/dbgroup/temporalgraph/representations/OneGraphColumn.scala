@@ -51,19 +51,19 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
       //compute indices of start and stop
       val selectStart:Int = intervals.indexWhere(intv => intv.intersects(selectBound))
       var selectStop:Int = intervals.lastIndexWhere(intv => intv.intersects(selectBound))
-      if (selectStop < 0) selectStop = intervals.size
-      val newIntvs: Seq[Interval] = intervals.slice(selectStart, selectStop)
+      if (selectStop < 0) selectStop = intervals.size-1
+      val newIntvs: Seq[Interval] = intervals.slice(selectStart, selectStop+1)
 
       //make a bitset that represents the selected years only
       //TODO: the mask may be very large so it may be more efficient to 
       //broadcast it
-      val mask:BitSet = BitSet((selectStart to (selectStop-1)): _*)
+      val mask:BitSet = BitSet((selectStart to (selectStop)): _*)
       val subg = graphs.subgraph(
         vpred = (vid, attr) => !(attr & mask).isEmpty,
         epred = et => !(et.attr & mask).isEmpty)
 
       //now need to update indices
-      val resg = subg.mapVertices((vid, vattr) => vattr.filter(x => x >= selectStart && x < selectStop).map(_ - selectStart)).mapEdges(e => e.attr.filter(x => x >= selectStart && x < selectStop).map(_ - selectStart))
+      val resg = subg.mapVertices((vid, vattr) => vattr.filter(x => x >= selectStart && x <= selectStop).map(_ - selectStart)).mapEdges(e => e.attr.filter(x => x >= selectStart && x <= selectStop).map(_ - selectStart))
 
       //now need to update the vertex attribute rdd and edge attr rdd
       val vattrs = allVertices.filter{ case (k,v) => v._1.intersects(selectBound)}.mapValues( v => (Interval(maxDate(v._1.start, startBound), minDate(v._1.end, endBound)), v._2))
@@ -444,25 +444,19 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
       //does not fetch edge triplet attributes otherwise
       edge.srcAttr
       edge.dstAttr
-      edge.attr.iterator.flatMap{ k =>
+      edge.attr.flatMap{ k =>
         if (edge.srcAttr(k) < edge.dstAttr(k))
-          Iterator((edge.dstId, Map(k -> edge.srcAttr(k))))
+          Some((edge.dstId, Map(k -> edge.srcAttr(k))))
         else if (edge.srcAttr(k) > edge.dstAttr(k))
-          Iterator((edge.srcId, Map(k -> edge.dstAttr(k))))
+          Some((edge.srcId, Map(k -> edge.dstAttr(k))))
         else
-          Iterator.empty
+          None
       }
-        .toSeq.groupBy{ case (k,v) => k}
-        .mapValues(v => v.map{ case (k,m) => m}.reduce((a,b) => a ++ b))
-        .iterator
+	.iterator
     }
 
     def messageCombiner(a: Map[TimeIndex, VertexId], b: Map[TimeIndex, VertexId]): Map[TimeIndex, VertexId] = {
-      (a.keySet ++ b.keySet).map { i =>
-        val val1: VertexId = a.getOrElse(i, Long.MaxValue)
-        val val2: VertexId = b.getOrElse(i, Long.MaxValue)
-        i -> math.min(val1, val2)
-      }.toMap
+      a ++ b.map { case (index, minid) => index -> math.min(minid, a.getOrElse(index, Long.MaxValue))}
     }
 
     val i: Int = 0

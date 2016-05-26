@@ -64,10 +64,10 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
     //compute indices of start and stop
     val selectStart:Int = intervals.indexWhere(intv => intv.intersects(selectBound))
     var selectStop:Int = intervals.lastIndexWhere(intv => intv.intersects(selectBound))
-    if (selectStop < 0) selectStop = intervals.size
-    val newIntvs: Seq[Interval] = intervals.slice(selectStart, selectStop)
+    if (selectStop < 0) selectStop = intervals.size - 1
+    val newIntvs: Seq[Interval] = intervals.slice(selectStart, selectStop+1)
 
-    new SnapshotGraphParallel(newIntvs, allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), allEdges.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), graphs.slice(selectStart, selectStop), defaultValue, storageLevel)
+    new SnapshotGraphParallel(newIntvs, allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), allEdges.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), graphs.slice(selectStart, selectStop+1), defaultValue, storageLevel)
 
   }
 

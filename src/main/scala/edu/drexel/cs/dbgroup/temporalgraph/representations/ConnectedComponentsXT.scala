@@ -4,7 +4,7 @@ import scala.reflect.ClassTag
 import org.apache.spark.graphx._
 import scala.collection.breakOut
 import scala.collection.immutable.BitSet
-import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.HashMap
 
 import edu.drexel.cs.dbgroup.temporalgraph._
 
@@ -65,7 +65,7 @@ object ConnectedComponentsXT {
         }
 
         def messageCombiner(a: Map[TimeIndex, VertexId], b: Map[TimeIndex, VertexId]): Map[TimeIndex, VertexId] = {
-          (a.keySet ++ a.keySet).map { i =>
+          (a.keySet ++ b.keySet).map { i =>
             i -> math.min(a.getOrElse(i, Long.MaxValue), b.getOrElse(i, Long.MaxValue))
           }.toMap
         }
@@ -80,10 +80,10 @@ object ConnectedComponentsXT {
     } // end of runUntilConvergence
 
 
-  def runHybrid(graph: Graph[BitSet,BitSet], minIndex: Int, maxIndex: Int): Graph[LinkedHashMap[TimeIndex, VertexId], BitSet] = {
-    val conGraph: Graph[LinkedHashMap[TimeIndex, VertexId], BitSet] = graph.mapVertices{ case (vid, bset) => LinkedHashMap[TimeIndex,VertexId]() ++ bset.map(x => (x,vid))}
-    
-    def vertexProgram(id: VertexId, attr: LinkedHashMap[TimeIndex, VertexId], msg: LinkedHashMap[TimeIndex, VertexId]): LinkedHashMap[TimeIndex, VertexId] = {
+  def runHybrid(graph: Graph[BitSet,BitSet], minIndex: Int, maxIndex: Int): Graph[HashMap[TimeIndex, VertexId], BitSet] = {
+    val conGraph: Graph[HashMap[TimeIndex, VertexId], BitSet] = graph.mapVertices{ case (vid, bset) => HashMap[TimeIndex,VertexId]() ++ bset.map(x => (x,vid))} //.cache()
+   
+    def vertexProgram(id: VertexId, attr: HashMap[TimeIndex, VertexId], msg: HashMap[TimeIndex, VertexId]): HashMap[TimeIndex, VertexId] = {
       val vals = attr.clone
       msg.foreach { x =>
         val (k,v) = x
@@ -94,31 +94,29 @@ object ConnectedComponentsXT {
       vals
     }
     
-    def sendMessage(edge: EdgeTriplet[LinkedHashMap[TimeIndex, VertexId], BitSet]): Iterator[(VertexId, LinkedHashMap[TimeIndex, VertexId])] = {
+    def sendMessage(edge: EdgeTriplet[HashMap[TimeIndex, VertexId], BitSet]): Iterator[(VertexId, HashMap[TimeIndex, VertexId])] = {
         //This is a hack because of a bug in GraphX that
         //does not fetch edge triplet attributes otherwise
         edge.srcAttr
         edge.dstAttr
 
-      edge.attr.iterator.flatMap{ k =>
+      edge.attr.flatMap{ k =>
         if (edge.srcAttr(k) < edge.dstAttr(k))
-          Iterator((edge.dstId, LinkedHashMap(k -> edge.srcAttr(k))))
+          Some((edge.dstId, HashMap(k -> edge.srcAttr(k))))
         else if (edge.srcAttr(k) > edge.dstAttr(k))
-          Iterator((edge.srcId, LinkedHashMap(k -> edge.dstAttr(k))))
+          Some((edge.srcId, HashMap(k -> edge.dstAttr(k))))
         else
-          Iterator.empty
+          None
       }
-        .toSeq.groupBy{ case (k,v) => k}
-        .mapValues(v => v.map{ case (k,m) => m}.reduce((a,b) => a ++ b))
-        .iterator
+      .iterator
     }
     
-    def messageCombiner(a: LinkedHashMap[TimeIndex, VertexId], b: LinkedHashMap[TimeIndex, VertexId]): LinkedHashMap[TimeIndex, VertexId] = {
-      a ++ b.map { case (index, count) => index -> (count + a.getOrElse(index,Long.MaxValue))}
+    def messageCombiner(a: HashMap[TimeIndex, VertexId], b: HashMap[TimeIndex, VertexId]): HashMap[TimeIndex, VertexId] = {
+      a ++ b.map { case (index, count) => index -> math.min(count, a.getOrElse(index, Long.MaxValue))}
     }
 
     val i: Int = 0
-    val initialMessage: LinkedHashMap[TimeIndex, VertexId] = (for(i <- minIndex to maxIndex) yield (i -> Long.MaxValue))(breakOut)
+    val initialMessage: HashMap[TimeIndex, VertexId] = (for(i <- minIndex to maxIndex) yield (i -> Long.MaxValue))(breakOut)
 
     Pregel(conGraph, initialMessage, activeDirection = EdgeDirection.Either)(vertexProgram, sendMessage, messageCombiner)
   }

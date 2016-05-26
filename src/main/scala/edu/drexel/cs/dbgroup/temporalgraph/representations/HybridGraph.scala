@@ -2,7 +2,7 @@ package edu.drexel.cs.dbgroup.temporalgraph.representations
 
 import scala.collection.parallel.ParSeq
 import scala.collection.immutable.BitSet
-import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.HashMap
 import scala.collection.breakOut
 
 import scala.reflect.ClassTag
@@ -60,11 +60,11 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
       val start = span.start
 
       //compute indices of start and stop
-      //start is inclusive, stop exclusive
+      //start and stop both inclusive
       val selectStart:Int = intervals.indexWhere(intv => intv.intersects(selectBound))
       var selectStop:Int = intervals.lastIndexWhere(intv => intv.intersects(selectBound))
-      if (selectStop < 0) selectStop = intervals.size
-      val newIntvs: Seq[Interval] = intervals.slice(selectStart, selectStop)
+      if (selectStop < 0) selectStop = intervals.size-1
+      val newIntvs: Seq[Interval] = intervals.slice(selectStart, selectStop+1)
 
       //compute indices of the aggregates that should be included
       //both inclusive
@@ -73,8 +73,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
       val indexStop: Int = partialSum.indexWhere(_ >= selectStop)
 
       //TODO: rewrite simpler
-      val tail: Seq[Int] = if (indexStop == indexStart) Seq() else Seq(widths(indexStop) - partialSum(indexStop) + selectStop)
-      val runs: Seq[Int] = if (indexStop == indexStart) Seq(selectStop - selectStart) else Seq(partialSum(indexStart) - selectStart) ++ widths.slice(indexStart, indexStop).drop(1) ++ tail
+      val tail: Seq[Int] = if (indexStop == indexStart) Seq() else Seq(widths(indexStop) - partialSum(indexStop) + selectStop + 1)
+      val runs: Seq[Int] = if (indexStop == indexStart) Seq(selectStop - selectStart + 1) else Seq(partialSum(indexStart) - selectStart) ++ widths.slice(indexStart, indexStop).drop(1) ++ tail
 
       //indices to keep in partial graphs
       val stop1: Int = partialSum(indexStart) - 1
@@ -89,7 +89,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
           Some(g.subgraph(
             vpred = (vid, attr) => !(attr & mask).isEmpty,
             epred = et => !(et.attr & mask).isEmpty)
-            .mapVertices((vid, vattr) => vattr.filter(x => x >= selectStart && x < selectStop).map(_ - selectStart)).mapEdges(e => e.attr.filter(x => x > selectStart && x < selectStop).map(_ - selectStart)))
+            .mapVertices((vid, vattr) => vattr.filter(x => x >= selectStart && x <= selectStop).map(_ - selectStart)).mapEdges(e => e.attr.filter(x => x >= selectStart && x <= selectStop).map(_ - selectStart)))
         } else if (index > indexStart && index < indexStop) {
           Some(g.mapVertices((vid, vattr) => vattr.map(_ - selectStart))
             .mapEdges(e => e.attr.map(_ - selectStart)))
@@ -462,20 +462,20 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
   }
 
   override def degree: RDD[(VertexId, (Interval, Int))] = {
-    def mergeFunc(a:LinkedHashMap[TimeIndex,Int], b:LinkedHashMap[TimeIndex,Int]): LinkedHashMap[TimeIndex,Int] = {
+    def mergeFunc(a:HashMap[TimeIndex,Int], b:HashMap[TimeIndex,Int]): HashMap[TimeIndex,Int] = {
       a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) }
     }
 
-    val degRDDs = graphs.map(g => g.aggregateMessages[LinkedHashMap[TimeIndex, Int]](
+    val degRDDs = graphs.map(g => g.aggregateMessages[HashMap[TimeIndex, Int]](
       ctx => {
-        ctx.sendToSrc(LinkedHashMap[TimeIndex,Int]() ++ ctx.attr.seq.map(x => (x,1)))
-        ctx.sendToDst(LinkedHashMap[TimeIndex,Int]() ++ ctx.attr.seq.map(x => (x,1)))
+        ctx.sendToSrc(HashMap[TimeIndex,Int]() ++ ctx.attr.seq.map(x => (x,1)))
+        ctx.sendToDst(HashMap[TimeIndex,Int]() ++ ctx.attr.seq.map(x => (x,1)))
       },
       mergeFunc, TripletFields.None)
     )
 
     val intvs = ProgramContext.sc.broadcast(intervals)
-    TGraphNoSchema.coalesce(degRDDs.reduce((x: RDD[(VertexId, LinkedHashMap[TimeIndex, Int])], y: RDD[(VertexId, LinkedHashMap[TimeIndex, Int])]) => x union y).flatMap{ case (vid, map) => map.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}})
+    TGraphNoSchema.coalesce(degRDDs.reduce((x: RDD[(VertexId, HashMap[TimeIndex, Int])], y: RDD[(VertexId, HashMap[TimeIndex, Int])]) => x union y).flatMap{ case (vid, map) => map.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}})
   }
 
 
@@ -483,20 +483,20 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
     val runSums = widths.scanLeft(0)(_ + _).tail
 
     if (uni) {
-      def prank(grp: Graph[BitSet,BitSet], minIndex: Int, maxIndex: Int): Graph[LinkedHashMap[TimeIndex,(Double,Double)], LinkedHashMap[TimeIndex,(Double,Double)]] = {
+      def prank(grp: Graph[BitSet,BitSet], minIndex: Int, maxIndex: Int): Graph[HashMap[TimeIndex,(Double,Double)], HashMap[TimeIndex,(Double,Double)]] = {
         if (grp.edges.isEmpty)
-          Graph[LinkedHashMap[TimeIndex,(Double,Double)],LinkedHashMap[TimeIndex,(Double,Double)]](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+          Graph[HashMap[TimeIndex,(Double,Double)],HashMap[TimeIndex,(Double,Double)]](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
         else {
           UndirectedPageRank.runHybrid(grp, minIndex, maxIndex-1, tol, resetProb, numIter)
         }
       }
     
-      val allgs:ParSeq[Graph[LinkedHashMap[TimeIndex,(Double,Double)], LinkedHashMap[TimeIndex,(Double,Double)]]] = graphs.zipWithIndex.map{ case (g,i) => prank(g, runSums.lift(i-1).getOrElse(0), runSums(i))}
+      val allgs:ParSeq[Graph[HashMap[TimeIndex,(Double,Double)], HashMap[TimeIndex,(Double,Double)]]] = graphs.zipWithIndex.map{ case (g,i) => prank(g, runSums.lift(i-1).getOrElse(0), runSums(i))}
 
       //now extract values
       val intvs = ProgramContext.sc.broadcast(intervals)
-      val vattrs= allgs.map{ g => g.vertices.flatMap{ case (vid,vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v._1))}}}.reduce(_ union _)
-      val eattrs = allgs.map{ g => g.edges.flatMap{ e => e.attr.toSeq.map{ case (k,v) => ((e.srcId, e.dstId), (intvs.value(k), v._1))}}}.reduce(_ union _)
+      val vattrs= TGraphNoSchema.coalesce(allgs.map{ g => g.vertices.flatMap{ case (vid,vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v._1))}}}.reduce(_ union _))
+      val eattrs = TGraphNoSchema.coalesce(allgs.map{ g => g.edges.flatMap{ e => e.attr.toSeq.map{ case (k,v) => ((e.srcId, e.dstId), (intvs.value(k), v._1))}}}.reduce(_ union _))
 
       new HybridGraph(intervals, vattrs, eattrs, widths, graphs, 0.0, storageLevel)
 
@@ -507,9 +507,9 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
   override def connectedComponents(): HybridGraph[VertexId, ED] = {
     val runSums = widths.scanLeft(0)(_ + _).tail
 
-    def conc(grp: Graph[BitSet,BitSet], minIndex: Int, maxIndex: Int): Graph[LinkedHashMap[TimeIndex,VertexId],BitSet] = {
+    def conc(grp: Graph[BitSet,BitSet], minIndex: Int, maxIndex: Int): Graph[HashMap[TimeIndex,VertexId],BitSet] = {
     if (grp.vertices.isEmpty)
-        Graph[LinkedHashMap[TimeIndex,VertexId],BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+        Graph[HashMap[TimeIndex,VertexId],BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
       else {
         ConnectedComponentsXT.runHybrid(grp, minIndex, maxIndex-1)
       }
@@ -519,7 +519,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
 
     //now extract values
     val intvs = ProgramContext.sc.broadcast(intervals)
-    val vattrs = allgs.map{ g => g.vertices.flatMap{ case (vid,vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}}}.reduce(_ union _)
+    val vattrs = TGraphNoSchema.coalesce(allgs.map{ g => g.vertices.flatMap{ case (vid,vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}}}.reduce(_ union _))
 
     new HybridGraph(intervals, vattrs, allEdges, widths, graphs, -1L, storageLevel)
   }
