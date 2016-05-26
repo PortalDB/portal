@@ -18,5 +18,6 @@ settings(
     libraryDependencies += "org.scala-lang.modules" % "scala-jline" % "2.12.1",
     libraryDependencies += "org.scalactic" % "scalactic_2.10" % "3.0.0-M16-SNAP3",
     libraryDependencies += "org.scalatest" % "scalatest_2.10" % "3.0.0-M16-SNAP3",
+    libraryDependencies += "com.esotericsoftware" % "kryo" % "3.0.3",
     dependencyOverrides += "org.apache.hadoop" % "hadoop-client" % "2.6.0"
 )

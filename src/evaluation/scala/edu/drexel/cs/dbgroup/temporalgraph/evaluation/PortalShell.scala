@@ -64,7 +64,8 @@ object PortalShell {
     // environment specific settings for SparkConf must be passed through the command line
     // settings to pass are master, jars and other configurations
     var conf = new SparkConf().setAppName("TemporalGraph Project").setSparkHome(System.getenv("SPARK_HOME"))
-    //conf.registerKryoClasses(Array(classOf[scala.collection.mutable.LinkedHashMap[_,_]], classOf[scala.collection.immutable.BitSet]))
+    conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+    
     val sc = new SparkContext(conf)
     ProgramContext.setContext(sc)
     val sqlContext = ProgramContext.getSqlContext
@@ -82,3 +83,4 @@ object PortalShell {
     sc.stop
   }
 }
+
