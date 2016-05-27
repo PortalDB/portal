@@ -348,7 +348,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     * Run pagerank on all intervals. It is up to the implementation to run sequantially,
     * in parallel, incrementally, etc. The number of iterations will depend on both
     * the numIter argument and the rate of convergence, whichever occurs first.
-    * @param uni Treat the graph as undirected or directed. true = undirected
+    * @param uni Treat the graph as undirected or directed. true = directed
     * @param tol epsilon, measure of convergence
     * @param resetProb probability of reset/jump
     * @param numIter number of iterations of the algorithm to run. If omitted, will run
@@ -370,12 +370,12 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
   
   /**
    * Computes shortest paths to the given set of landmark vertices.
-   * @param landmarks the list of landmark vertex ids to which shortest paths will be computed 
-   *
-   * @return Graph with vertices where each vertex attribute 
+   * @param landmarks the list of landmark vertex ids to which shortest paths will be computed
+    * @param uni Treat the graph as undirected or directed. true = directed
+    * @return Graph with vertices where each vertex attribute
    * is the shortest-path distance to each reachable landmark vertex.
    */
-  def shortestPaths(landmarks: Seq[VertexId]): TGraphNoSchema[Map[VertexId, Int], ED]
+  def shortestPaths(uni: Boolean, landmarks: Seq[VertexId]): TGraphNoSchema[Map[VertexId, Int], ED]
 
   /** Spark-specific */
 

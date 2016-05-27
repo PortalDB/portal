@@ -1328,7 +1328,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter{
 
     val HG = HybridGraph.fromRDDs(nodes, edges, "Default")
 
-    val actualHG = HG.shortestPaths(Seq(1L, 2L))
+    val actualHG = HG.shortestPaths(false, Seq(1L, 2L))
 
     assert(actualHG.vertices.collect.toSet == expectedNodes.collect.toSet)
   }

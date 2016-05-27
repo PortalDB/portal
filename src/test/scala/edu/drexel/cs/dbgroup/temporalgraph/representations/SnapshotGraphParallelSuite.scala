@@ -1162,7 +1162,7 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter {
 
     val SGP = SnapshotGraphParallel.fromRDDs(nodes, edges, "Default")
 
-    val actualSGP = SGP.shortestPaths(Seq(1L, 2L))
+    val actualSGP = SGP.shortestPaths(false, Seq(1L, 2L))
     assert(actualSGP.vertices.collect.toSet == expectedNodes.collect.toSet)
   }
 }

@@ -482,7 +482,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
   override def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): HybridGraph[Double, Double] = {
     val runSums = widths.scanLeft(0)(_ + _).tail
 
-    if (uni) {
+    if (!uni) {
       val prank = (grp: Graph[BitSet,BitSet], minIndex: Int, maxIndex: Int) => {
         if (grp.edges.isEmpty)
           Graph[HashMap[TimeIndex,(Double,Double)],HashMap[TimeIndex,(Double,Double)]](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
@@ -524,7 +524,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
     new HybridGraph(intervals, vattrs, allEdges, widths, graphs, -1L, storageLevel)
   }
 
-  override def shortestPaths(landmarks: Seq[VertexId]): HybridGraph[Map[VertexId, Int], ED] = {
+  override def shortestPaths(uni: Boolean, landmarks: Seq[VertexId]): HybridGraph[Map[VertexId, Int], ED] = {
     throw new UnsupportedOperationException("shortest paths not yet implemented")
   }
 

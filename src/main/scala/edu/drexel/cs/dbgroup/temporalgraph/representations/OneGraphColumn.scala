@@ -335,7 +335,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
   //run pagerank on each interval
   override def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): OneGraphColumn[Double,Double] = {
 
-    if (uni) {
+    if (!uni) {
       val mergeFunc = (a:Map[TimeIndex,Int], b:Map[TimeIndex,Int]) => {
         a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) }
       }
@@ -463,7 +463,9 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
   }
   
   //run shortestPaths on each interval
-  override def shortestPaths(landmarks: Seq[VertexId]): OneGraphColumn[Map[VertexId, Int], ED] = {
+  override def shortestPaths(uni: Boolean, landmarks: Seq[VertexId]): OneGraphColumn[Map[VertexId, Int], ED] = {
+    //TODO: implement for directed graphs
+
     //TODO: change this to a val function
     def makeMap(x: (VertexId, Int)*) = Map(x: _*)
 

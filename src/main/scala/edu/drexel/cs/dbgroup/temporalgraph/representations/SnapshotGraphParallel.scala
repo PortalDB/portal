@@ -1,5 +1,7 @@
 package edu.drexel.cs.dbgroup.temporalgraph.representations
 
+import org.apache.spark.graphx.lib.ShortestPaths
+
 import scala.collection.parallel.ParSeq
 import scala.collection.mutable.Buffer
 import scala.reflect.ClassTag
@@ -249,7 +251,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
       if (grp.edges.isEmpty) {
         Graph[Double, Double](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
       } else {
-        if (uni) {
+        if (!uni) {
           UndirectedPageRank.run(grp, tol, resetProb, numIter)
         } else if (numIter < Int.MaxValue)
           grp.staticPageRank(numIter, resetProb)
@@ -275,12 +277,15 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
 
   }
 
-  override def shortestPaths(landmarks: Seq[VertexId]): SnapshotGraphParallel[Map[VertexId, Int], ED] = {
+  override def shortestPaths(uni: Boolean, landmarks: Seq[VertexId]): SnapshotGraphParallel[Map[VertexId, Int], ED] = {
     val safeShortestPaths = (grp: Graph[VD, ED]) => {
       if (grp.vertices.isEmpty) {
         Graph[ShortestPathsXT.SPMap, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
       } else {
-        ShortestPathsXT.run(grp, landmarks)
+        if (!uni)
+          ShortestPathsXT.run(grp, landmarks)
+        else
+          ShortestPaths.run(grp, landmarks)
       }
     }
 

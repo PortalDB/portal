@@ -1332,7 +1332,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter{
 
     val OGC = OneGraphColumn.fromRDDs(nodes, edges, "Default")
 
-    val actualOGC = OGC.shortestPaths(Seq(1L, 2L))
+    val actualOGC = OGC.shortestPaths(false, Seq(1L, 2L))
 
     assert(actualOGC.vertices.collect.toSet == expectedNodes.collect.toSet)
   }

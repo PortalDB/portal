@@ -471,7 +471,7 @@ object Interpreter {
       case ShortestPaths(ids) => {
         val spStart = System.currentTimeMillis()
 
-        val result = gr.shortestPaths(ids.map(_.toLong)).asInstanceOf[TGraphNoSchema[Any,Any]]
+        val result = gr.shortestPaths(false, ids.map(_.toLong)).asInstanceOf[TGraphNoSchema[Any,Any]]
         val spEnd = System.currentTimeMillis()
         val total = spEnd - spStart
         println(f"ShortestPaths Runtime: $total%dms ($argNum%d)")
