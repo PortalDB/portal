@@ -1220,4 +1220,122 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter{
     assert(graph8.edges.isEmpty())
   }
 
+  test("connected components"){
+    val nodes: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "John")),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Mike")),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Ron")),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Julia")),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Vera")),
+      (6L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Halima")),
+      (7L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Sanjana")),
+      (8L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Lovro"))
+    ))
+
+    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((2L, 6L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((2L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((3L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((4L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((5L, 6L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((7L, 8L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+
+      //second representative graph
+      ((1L, 3L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
+      ((1L, 5L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
+      ((3L, 7L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
+      ((5L, 7L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
+      ((2L, 4L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
+      ((2L, 6L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
+      ((4L, 8L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
+      ((6L, 8L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42))
+    ))
+
+    val expectedNodes:RDD[(VertexId, (Interval, Int))] = ProgramContext.sc.parallelize(Array(
+      (1L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")),1)),
+      (2L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),1)),
+      (2L,(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")),2)),
+      (3L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")),1)),
+      (4L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),1)),
+      (4L,(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")),2)),
+      (5L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")),1)),
+      (6L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),1)),
+      (6L,(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")),2)),
+      (7L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),7)),
+      (7L,(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")),1)),
+      (8L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),7)),
+      (8L,(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")),2))
+    ))
+
+
+    val OGC = OneGraphColumn.fromRDDs(nodes, edges, "Default")
+
+    val actualOGC = OGC.connectedComponents()
+    assert(actualOGC.vertices.collect.toSet == expectedNodes.collect.toSet)
+
+  }
+
+  test("shortestPath") {
+    val nodes: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "John")),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Mike")),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Ron")),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Julia")),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Vera")),
+      (6L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Halima")),
+      (7L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Sanjana")),
+      (8L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Lovro"))
+    ))
+
+    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((2L, 6L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((2L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((3L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((4L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((5L, 6L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((7L, 8L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+
+      //second representative graph
+      ((1L, 3L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
+      ((1L, 5L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
+      ((3L, 7L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
+      ((5L, 7L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
+      ((2L, 4L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
+      ((2L, 6L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42))
+    ))
+
+    val expectedNodes:RDD[(VertexId, (Interval, Map[VertexId, Int]))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Map(1L->0, 2L->1))),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Map(1L->1, 2L->0))),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Map(1L->2, 2L->1))),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Map(1L->2, 2L->1))),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Map(1L->3, 2L->2))),
+      (6L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Map(1L->2, 2L->1))),
+      (7L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Map().asInstanceOf[Map[VertexId, Int]])),
+      (8L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Map().asInstanceOf[Map[VertexId, Int]])),
+
+      //second representative graph
+      (1L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Map(1L->0))),
+      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Map(2L->0))),
+      (3L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Map(1L->1))),
+      (4L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Map(2L->1))),
+      (5L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Map(1L->1))),
+      (6L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Map(2L->1))),
+      (7L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Map((1L->2))))
+    ))
+
+    val OGC = OneGraphColumn.fromRDDs(nodes, edges, "Default")
+
+    val actualOGC = OGC.shortestPaths(Seq(1L, 2L))
+
+    assert(actualOGC.vertices.collect.toSet == expectedNodes.collect.toSet)
+  }
+
+
 }
