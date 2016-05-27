@@ -1,10 +1,14 @@
 package edu.drexel.cs.dbgroup.temporalgraph
 
+import java.util.Map
+
+import scala.collection.JavaConversions._
 import scala.reflect.ClassTag
 import java.time.LocalDate
 import java.sql.Date
 
-import org.apache.spark.sql.types.{StructType,StructField,LongType,DateType}
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
+import org.apache.spark.sql.types.{DateType, LongType, StructField, StructType}
 //import org.apache.spark.sql.catalyst.expressions.NamedExpression
 //import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.rdd.RDD
@@ -49,7 +53,7 @@ abstract class TGraphWithSchema(intvs: Seq[Interval], verts: DataFrame, edgs: Da
 
   override def verticesAggregated: RDD[(VertexId, Map[Interval, Row])] = {
     allVertices.map{ r =>
-      (r.getLong(0), Map[Interval, Row](Interval(r.getDate(1), r.getDate(2)) -> Row.fromSeq(r.toSeq.drop(3))))
+      (r.getLong(0), {var tmp = new Object2ObjectOpenHashMap[Interval, Row](); tmp.put(Interval(r.getDate(1), r.getDate(2)), Row.fromSeq(r.toSeq.drop(3))); tmp.asInstanceOf[Map[Interval, Row]]})
     }.reduceByKey((a, b) => a ++ b)
   }
 
@@ -61,7 +65,7 @@ abstract class TGraphWithSchema(intvs: Seq[Interval], verts: DataFrame, edgs: Da
 
   override def edgesAggregated: RDD[((VertexId, VertexId), Map[Interval, Row])] = {
     allEdges.map{ r =>
-      ((r.getLong(0), r.getLong(1)), Map[Interval, Row](Interval(r.getDate(2), r.getDate(3)) -> Row.fromSeq(r.toSeq.drop(4))))
+      ((r.getLong(0), r.getLong(1)), {var tmp = new Object2ObjectOpenHashMap[Interval, Row](); tmp.put(Interval(r.getDate(2), r.getDate(3)), Row.fromSeq(r.toSeq.drop(4))); tmp.asInstanceOf[Map[Interval, Row]]})
     }.reduceByKey((a, b) => a ++ b)
   }
 

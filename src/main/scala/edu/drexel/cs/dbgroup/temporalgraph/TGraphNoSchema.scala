@@ -1,17 +1,18 @@
 package edu.drexel.cs.dbgroup.temporalgraph
 
+import java.util.Map
+import scala.collection.JavaConversions._
 import scala.reflect.ClassTag
-
 import org.apache.spark.graphx._
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.mllib.rdd.RDDFunctions._
 import org.apache.spark.HashPartitioner
-
 import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps
-
 import java.time.LocalDate
+
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 
 abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY) extends TGraph[VD, ED] {
 
@@ -47,7 +48,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     * The interval is maximal.
     */
   override def verticesAggregated: RDD[(VertexId,Map[Interval, VD])] = {
-    allVertices.mapValues(y => Map[Interval, VD](y._1 -> y._2))
+    allVertices.mapValues(y => {var tmp = new Object2ObjectOpenHashMap[Interval,VD](); tmp.put(y._1, y._2); tmp.asInstanceOf[Map[Interval, VD]]})
       .reduceByKey((a: Map[Interval, VD], b: Map[Interval, VD]) => a ++ b)
   }
 
@@ -58,7 +59,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     * @return an RDD containing the edges in this graph, across all intervals.
     */
   override def edgesAggregated: RDD[((VertexId,VertexId),Map[Interval, ED])] = {
-    allEdges.mapValues(y => Map[Interval, ED](y._1 -> y._2))
+    allEdges.mapValues(y => {var tmp = new Object2ObjectOpenHashMap[Interval,ED](); tmp.put(y._1, y._2); tmp.asInstanceOf[Map[Interval, ED]]})
       .reduceByKey((a: Map[Interval, ED], b: Map[Interval, ED]) => a ++ b)
   }
 

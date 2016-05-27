@@ -2,29 +2,29 @@
 //Each vertex and edge has a value attribute associated with each time period
 package edu.drexel.cs.dbgroup.temporalgraph.representations
 
+import java.util.Map
+
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
+
+import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import scala.collection.immutable.BitSet
 import scala.collection.breakOut
 import scala.collection.mutable.HashMap
 import scala.reflect.ClassTag
 import scala.util.control._
-
 import org.apache.hadoop.conf._
 import org.apache.hadoop.fs._
-
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
-
 import org.apache.spark.graphx.impl.GraphXPartitionExtension._
-
 import org.apache.spark.graphx._
 import org.apache.spark.graphx.Graph
 import org.apache.spark.rdd._
-
 import edu.drexel.cs.dbgroup.temporalgraph._
 import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
-
 import java.time.LocalDate
 
 class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], grs: Graph[BitSet, BitSet], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY) extends TGraphNoSchema[VD, ED](intvs, verts, edgs, defValue, storLevel) {
@@ -146,9 +146,9 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
     val newIntvsb = ProgramContext.sc.broadcast(newIntvs)
  
     if (span.intersects(grp2.span)) {
-      val intvMap: Map[Int, Seq[Int]] = intervals.zipWithIndex.map(ii => (ii._2, newIntvs.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None))).toMap
+      val intvMap: Map[Int, Seq[Int]] = intervals.zipWithIndex.map(ii => (ii._2, newIntvs.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None))).toMap[Int, Seq[Int]]
       val intvMapB = ProgramContext.sc.broadcast(intvMap)
-      val intvMap2: Map[Int, Seq[Int]] = grp2.intervals.zipWithIndex.map(ii => (ii._2, newIntvs.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None))).toMap
+      val intvMap2: Map[Int, Seq[Int]] = grp2.intervals.zipWithIndex.map(ii => (ii._2, newIntvs.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None))).toMap[Int, Seq[Int]]
       val intvMap2B = ProgramContext.sc.broadcast(intvMap2)
 
       //for each index in a bitset, put the new one
@@ -213,9 +213,9 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
       //compute new intervals
       val newIntvs: Seq[Interval] = intervalIntersect(intervals, grp2.intervals)
       val newIntvsb = ProgramContext.sc.broadcast(newIntvs)
-      val intvMap: Map[Int, Seq[Int]] = intervals.zipWithIndex.map(ii => (ii._2, newIntvs.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None))).toMap
+      val intvMap: Map[Int, Seq[Int]] = intervals.zipWithIndex.map(ii => (ii._2, newIntvs.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None))).toMap[Int, Seq[Int]]
       val intvMapB = ProgramContext.sc.broadcast(intvMap)
-      val intvMap2: Map[Int, Seq[Int]] = grp2.intervals.zipWithIndex.map(ii => (ii._2, newIntvs.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None))).toMap
+      val intvMap2: Map[Int, Seq[Int]] = grp2.intervals.zipWithIndex.map(ii => (ii._2, newIntvs.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None))).toMap[Int, Seq[Int]]
       val intvMap2B = ProgramContext.sc.broadcast(intvMap2)
       //for each index in a bitset, put the new one
       val gp1: Graph[BitSet,BitSet] = graphs.mapVertices{ (vid, attr) =>
@@ -251,7 +251,15 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
        mergeMsg: (A, A) => A): OneGraphColumn[VD, ED] = {
     //because we run for all time instances at the same time,
     //need to convert programs and messages to the map form
-    val initM: Map[TimeIndex, A] = (for(i <- 0 to intervals.size) yield (i -> initialMsg))(breakOut)
+    val initM: Map[TimeIndex, A] = {
+      var tmp = new Int2ObjectOpenHashMap[A]()
+
+      for(i <- 0 to intervals.size) {
+        tmp.put(i, initialMsg)
+      }
+      tmp.asInstanceOf[Map[TimeIndex, A]]
+    }
+
     val vertexP = (id: VertexId, attr: Map[TimeIndex, VD], msg: Map[TimeIndex, A]) => {
       var vals = attr
       msg.foreach {x =>
@@ -279,12 +287,13 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
         et.attr = v
         //this returns Iterator[(VertexId, A)], but we need
         //Iterator[(VertexId, Map[TimeIndex, A])]
-        sendMsg(et).map(x => (x._1, Map[TimeIndex, A](k -> x._2)))
+        sendMsg(et).map(x => (x._1, {var tmp = new Int2ObjectOpenHashMap[A](); tmp.put(k, x._2); tmp.asInstanceOf[Map[TimeIndex,A]]}))
       }
         .iterator
     }
     val mergeMsgC = (a: Map[TimeIndex, A], b: Map[TimeIndex, A]) => {
-      a ++ b.map { case (index, vl) => index -> mergeMsg(vl, a.getOrElse(index, defValue))}
+      val tmp = b.map { case (index, vl) => index -> mergeMsg(vl, a.getOrElse(index, defValue))}.asInstanceOf[Map[TimeIndex, A]]
+      mapAsJavaMap(a ++ tmp)
     }
 
     val intvs = ProgramContext.sc.broadcast(intervals)
@@ -299,8 +308,8 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
 
     //need to put values into vertices and edges
     val grph = Graph[Map[TimeIndex,VD], Map[TimeIndex,ED]](
-      allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => (vid, Map[TimeIndex, VD](ii -> attr)))}.reduceByKey((a, b) => a ++ b),
-      allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => (ids, Map[TimeIndex, ED](ii -> attr)))}.reduceByKey((a,b) => a ++ b).map{ case (k,v) => Edge(k._1, k._2, v)}, Map[TimeIndex,VD](),
+      allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => (vid, {var tmp = new Int2ObjectOpenHashMap[VD](); tmp.put(ii, attr); tmp.asInstanceOf[Map[TimeIndex, VD]]}))}.reduceByKey((a, b) => a ++ b),
+      allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => (ids, {var tmp = new Int2ObjectOpenHashMap[ED](); tmp.put(ii, attr); tmp.asInstanceOf[Map[TimeIndex, ED]]}))}.reduceByKey((a,b) => a ++ b).map{ case (k,v) => Edge(k._1, k._2, v)}, new Int2ObjectOpenHashMap[VD]().asInstanceOf[Map[TimeIndex,VD]],
       storageLevel, storageLevel)
       
     val newgrp: Graph[Map[TimeIndex, VD], Map[TimeIndex, ED]] = Pregel(grph, initM, maxIterations, activeDirection)(vertexP, sendMsgC, mergeMsgC)
@@ -334,7 +343,8 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
 
   //run pagerank on each interval
   override def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): OneGraphColumn[Double,Double] = {
-
+    throw new UnsupportedOperationException("pagerank not yet implemented")
+    /*
     if (uni) {
       val mergeFunc = (a:Map[TimeIndex,Int], b:Map[TimeIndex,Int]) => {
         a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) }
@@ -348,8 +358,8 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
         mergeFunc, TripletFields.EdgeOnly)
 
       val pagerankGraph: Graph[Map[TimeIndex,(Double,Double)], Map[TimeIndex,(Double,Double)]] = graphs.outerJoinVertices(degrees) {
-        case (vid, vdata, Some(deg)) => deg ++ vdata.filter(x => !deg.contains(x)).seq.map(x => (x,0)).toMap
-        case (vid, vdata, None) => vdata.seq.map(x => (x,0)).toMap
+        case (vid, vdata, Some(deg)) => deg ++ vdata.filter(x => !deg.contains(x)).seq.map(x => (x,0)).toMap[TimeIndex,(Double,Double)]
+        case (vid, vdata, None) => vdata.seq.map(x => (x,0)).toMap[TimeIndex,(Double,Double)]
       }
         .mapTriplets( e =>  e.attr.seq.map(x => (x, (1.0 / e.srcAttr(x), 1.0 / e.dstAttr(x)))).toMap)
         .mapVertices( (id,attr) => attr.mapValues{ x => (0.0,0.0)}.map(identity))
@@ -411,12 +421,15 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
       //TODO: implement this using pregel
       throw new UnsupportedOperationException("directed version of pageRank not yet implemented")
     }
+    */
   }
   
   //run connected components on each interval
   override def connectedComponents(): OneGraphColumn[VertexId,ED] = {
+    throw new UnsupportedOperationException("components not yet implemented")
+    /*
     val conGraph: Graph[Map[TimeIndex, VertexId], BitSet] = graphs.mapVertices{ case (vid, bset) =>
-      bset.map(x => (x,vid)).toMap
+      bset.map(x => (x,vid)).toMap[TimeIndex, VertexId]
     }
 
     val vertexProgram = (id: VertexId, attr: Map[TimeIndex, VertexId], msg: Map[TimeIndex, VertexId]) => {
@@ -460,12 +473,16 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
     val vattrs = TGraphNoSchema.coalesce(resultGraph.vertices.flatMap{ case (vid, vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}})
 
     new OneGraphColumn[VertexId, ED](intervals, vattrs, allEdges, graphs, -1L, storageLevel)
+    */
+
   }
   
   //run shortestPaths on each interval
   override def shortestPaths(landmarks: Seq[VertexId]): OneGraphColumn[Map[VertexId, Int], ED] = {
+    throw new UnsupportedOperationException("shortest paths not yet implemented")
+    /*
     //TODO: change this to a val function
-    def makeMap(x: (VertexId, Int)*) = Map(x: _*)
+    def makeMap(x: (VertexId, Int)*) = x.toMap[VertexId, Int].asJava
 
     val incrementMap = (spmap: Map[VertexId, Int]) => spmap.map { case (v, d) => v -> (d + 1) }
 
@@ -534,7 +551,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
     val vattrs: RDD[(VertexId, (Interval, Map[VertexId, Int]))] = TGraphNoSchema.coalesce(resultGraph.vertices.flatMap{ case (vid, vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}})
 
     new OneGraphColumn[Map[VertexId,Int], ED](intervals, vattrs, allEdges, graphs, Map[VertexId, Int](), storageLevel)
-
+    */
   }
 
   /** Spark-specific */

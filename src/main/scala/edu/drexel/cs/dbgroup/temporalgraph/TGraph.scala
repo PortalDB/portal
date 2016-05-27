@@ -1,7 +1,8 @@
 package edu.drexel.cs.dbgroup.temporalgraph
 
-import scala.reflect.ClassTag
+import java.util.Map
 
+import scala.reflect.ClassTag
 import org.apache.spark.graphx._
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.rdd.RDD

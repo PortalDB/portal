@@ -1,26 +1,26 @@
 package edu.drexel.cs.dbgroup.temporalgraph.representations
 
+import java.util.Map
+
+import scala.collection.JavaConversions._
 import scala.collection.parallel.ParSeq
 import scala.collection.mutable.Buffer
 import scala.reflect.ClassTag
 import scala.util.control._
-
 import org.apache.hadoop.conf._
 import org.apache.hadoop.fs._
-
-import org.apache.spark.{SparkContext,SparkException,Partition}
-
+import org.apache.spark.{Partition, SparkContext, SparkException}
 import org.apache.spark.graphx._
 import org.apache.spark.rdd._
 import org.apache.spark.rdd.EmptyRDD
 import org.apache.spark.storage.RDDBlockId
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
-
 import edu.drexel.cs.dbgroup.temporalgraph._
 import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps
-
 import java.time.LocalDate
+
+import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap
 
 class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], grphs: ParSeq[Graph[VD,ED]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY) extends TGraphNoSchema[VD, ED](intvs, verts, edgs, defValue, storLevel) {
 
@@ -284,7 +284,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
       }
     }
 
-    SnapshotGraphParallel.fromGraphs(intervals, graphs.map(safeShortestPaths), Map[VertexId,Int](), storageLevel)
+    SnapshotGraphParallel.fromGraphs(intervals, graphs.map(safeShortestPaths), new Long2IntOpenHashMap().asInstanceOf[Map[VertexId,Int]], storageLevel)
 
   }
 

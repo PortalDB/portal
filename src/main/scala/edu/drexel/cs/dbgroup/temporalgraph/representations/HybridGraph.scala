@@ -1,9 +1,10 @@
 package edu.drexel.cs.dbgroup.temporalgraph.representations
 
+import java.util.Map
+import scala.collection.JavaConversions._
 import scala.collection.parallel.ParSeq
 import scala.collection.immutable.BitSet
 import scala.collection.mutable.HashMap
-import scala.collection.breakOut
 
 import scala.reflect.ClassTag
 import scala.util.control._
@@ -223,9 +224,9 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
     val newIntvsb = ProgramContext.sc.broadcast(newIntvs)
 
     if (span.intersects(grp2.span)) {
-      val intvMap: Map[Int, Seq[Int]] = intervals.zipWithIndex.map(ii => (ii._2, newIntvs.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None))).toMap
+      val intvMap: Map[Int, Seq[Int]] = intervals.zipWithIndex.map(ii => (ii._2, newIntvs.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None))).toMap[Int, Seq[Int]]
       val intvMapB = ProgramContext.sc.broadcast(intvMap)
-      val intvMap2: Map[Int, Seq[Int]] = grp2.intervals.zipWithIndex.map(ii => (ii._2, newIntvs.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None))).toMap
+      val intvMap2: Map[Int, Seq[Int]] = grp2.intervals.zipWithIndex.map(ii => (ii._2, newIntvs.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None))).toMap[Int, Seq[Int]]
       val intvMap2B = ProgramContext.sc.broadcast(intvMap2)
 
       //for each index in a bitset, put the new one
@@ -354,9 +355,9 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
       //compute new intervals
       val newIntvs: Seq[Interval] = intervalIntersect(intervals, grp2.intervals)
       val newIntvsb = ProgramContext.sc.broadcast(newIntvs)
-      val intvMap: Map[Int, Seq[Int]] = intervals.zipWithIndex.map(ii => (ii._2, newIntvs.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None))).toMap
+      val intvMap: Map[Int, Seq[Int]] = intervals.zipWithIndex.map(ii => (ii._2, newIntvs.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None))).toMap[Int, Seq[Int]]
       val intvMapB = ProgramContext.sc.broadcast(intvMap)
-      val intvMap2: Map[Int, Seq[Int]] = grp2.intervals.zipWithIndex.map(ii => (ii._2, newIntvs.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None))).toMap
+      val intvMap2: Map[Int, Seq[Int]] = grp2.intervals.zipWithIndex.map(ii => (ii._2, newIntvs.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None))).toMap[Int, Seq[Int]]
       val intvMap2B = ProgramContext.sc.broadcast(intvMap2)
       //for each index in a bitset, put the new one
       val grseq1: ParSeq[Graph[BitSet,BitSet]] = graphs.map(g => g.mapVertices{ (vid, attr) =>

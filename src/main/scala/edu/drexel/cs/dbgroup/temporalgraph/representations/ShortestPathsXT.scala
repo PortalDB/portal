@@ -1,10 +1,15 @@
 package edu.drexel.cs.dbgroup.temporalgraph.representations
 
-import org.apache.spark.graphx._
-import scala.reflect.ClassTag
-import scala.collection.breakOut
+import java.util.Map
 
+import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
+import scala.collection.breakOut
+import org.apache.spark.graphx._
+
+import scala.reflect.ClassTag
 import edu.drexel.cs.dbgroup.temporalgraph._
+import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap
 
 /**
   * Computes shortest paths to the given set of landmark vertices for temporal graphs
@@ -14,14 +19,14 @@ object ShortestPathsXT extends Serializable {
   /** Stores a map from the vertex id of a landmark to the distance to that landmark. */
   type SPMap = Map[VertexId, Int]
 
-  private def makeMap(x: (VertexId, Int)*) = Map(x: _*)
+  private def makeMap(x: (VertexId, Int)*) = x.toMap[VertexId, Int].asJava
 
   private def incrementMap(spmap: SPMap): SPMap = spmap.map { case (v, d) => v -> (d + 1) }
 
   private def addMaps(spmap1: SPMap, spmap2: SPMap): SPMap =
     (spmap1.keySet ++ spmap2.keySet).map {
-      k => k -> math.min(spmap1.getOrElse(k, Int.MaxValue), spmap2.getOrElse(k, Int.MaxValue))
-    }.toMap
+      k => k -> math.min(spmap1.getOrDefault(k, Int.MaxValue), spmap2.getOrDefault(k, Int.MaxValue))
+    }.toMap[VertexId, Int]
 
   /**
    * Computes shortest paths to the given set of landmark vertices.
