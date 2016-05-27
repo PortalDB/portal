@@ -19,9 +19,30 @@ object ShortestPathsXT extends Serializable {
   /** Stores a map from the vertex id of a landmark to the distance to that landmark. */
   type SPMap = Map[VertexId, Int]
 
-  private def makeMap(x: (VertexId, Int)*) = x.toMap[VertexId, Int].asJava
+  private def makeMap(x: (VertexId, Int)*) = {
+    val itr = x.iterator;
+    var tmpMap = new Long2IntOpenHashMap()
 
-  private def incrementMap(spmap: SPMap): SPMap = spmap.map { case (v, d) => v -> (d + 1) }
+    while (itr.hasNext) {
+      val k = itr.next()
+      tmpMap.put(k._1, k._2)
+    }
+    tmpMap.asInstanceOf[Map[VertexId, Int]]
+  }
+
+  private def incrementMap(spmap: SPMap): SPMap = {
+    val itr = spmap.entrySet().iterator
+    var tmpMap = new Long2IntOpenHashMap()
+
+    while (itr.hasNext) {
+      val entry = itr.next()
+      val k = entry.getKey()
+      val v = entry.getValue()
+
+      tmpMap.put(k, v+1)
+    }
+    tmpMap.asInstanceOf[Map[VertexId, Int]]
+  }
 
   private def addMaps(spmap1: SPMap, spmap2: SPMap): SPMap =
     (spmap1.keySet ++ spmap2.keySet).map {
