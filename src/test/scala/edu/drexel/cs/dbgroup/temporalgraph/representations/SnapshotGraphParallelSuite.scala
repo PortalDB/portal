@@ -1050,7 +1050,7 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter {
   }
 
 
-  ignore("connected components") {
+  test("connected components") {
     val nodes: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "John")),
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Mike")),
@@ -1108,7 +1108,7 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter {
 
   }
 
-  ignore("shortestPath") {
+  test("shortestPath") {
     val nodes: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "John")),
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Mike")),
@@ -1163,7 +1163,6 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter {
     val SGP = SnapshotGraphParallel.fromRDDs(nodes, edges, "Default")
 
     val actualSGP = SGP.shortestPaths(Seq(1L, 2L))
-
     assert(actualSGP.vertices.collect.toSet == expectedNodes.collect.toSet)
   }
 }
