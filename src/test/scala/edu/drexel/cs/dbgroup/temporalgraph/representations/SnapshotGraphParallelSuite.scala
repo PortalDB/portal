@@ -1166,6 +1166,63 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter {
     assert(actualSGP.vertices.collect.toSet == expectedNodes.collect.toSet)
   }
 
+  test("directed shortestPath") {
+    val nodes: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "John")),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Mike")),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Ron")),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Julia")),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Vera")),
+      (6L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Halima")),
+      (7L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Sanjana")),
+      (8L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Lovro"))
+    ))
+
+    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((2L, 6L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((2L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((3L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((4L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((5L, 6L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((7L, 8L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+
+      //second representative graph
+      ((1L, 3L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
+      ((1L, 5L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
+      ((3L, 7L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
+      ((5L, 7L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
+      ((2L, 4L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
+      ((2L, 6L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42))
+    ))
+
+    val expectedNodes:RDD[(VertexId, (Interval, Map[VertexId, Int]))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Map(5L->3, 6L->2))),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Map(5L->2, 6L->1))),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Map(5L->1, 6L->2))),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Map(5L->1, 6L->2))),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Map(5L->0, 6L->1))),
+      (6L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Map(6L->0))),
+      (7L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Map().asInstanceOf[Map[VertexId, Int]])),
+      (8L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Map().asInstanceOf[Map[VertexId, Int]])),
+
+      //second representative graph
+      (1L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Map(5L->1))),
+      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Map(6L->1))),
+      (3L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Map().asInstanceOf[Map[VertexId, Int]])),
+      (4L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Map().asInstanceOf[Map[VertexId, Int]])),
+      (5L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Map(5L->0)))
+    ))
+
+    val SGP = SnapshotGraphParallel.fromRDDs(nodes, edges, "Default")
+
+    val actualSGP = SGP.shortestPaths(true, Seq(5L, 6L))
+    assert(actualSGP.vertices.collect.toSet == expectedNodes.collect.toSet)
+  }
+
+
   test("directed pagerank") {
     val nodes: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "John")),
