@@ -464,78 +464,81 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
   
   //run shortestPaths on each interval
   override def shortestPaths(uni: Boolean, landmarks: Seq[VertexId]): OneGraphColumn[Map[VertexId, Int], ED] = {
-    //TODO: implement for directed graphs
 
-    //TODO: change this to a val function
-    def makeMap(x: (VertexId, Int)*) = Map(x: _*)
+    if (!uni) {
+      //TODO: change this to a val function
+      def makeMap(x: (VertexId, Int)*) = Map(x: _*)
 
-    val incrementMap = (spmap: Map[VertexId, Int]) => spmap.map { case (v, d) => v -> (d + 1) }
+      val incrementMap = (spmap: Map[VertexId, Int]) => spmap.map { case (v, d) => v -> (d + 1) }
 
-    val addMaps = (spmap1: Map[VertexId, Int], spmap2: Map[VertexId, Int]) =>
-    (spmap1.keySet ++ spmap2.keySet).map {
-      k => k -> math.min(spmap1.getOrElse(k, Int.MaxValue), spmap2.getOrElse(k, Int.MaxValue))
-    }.toMap
+      val addMaps = (spmap1: Map[VertexId, Int], spmap2: Map[VertexId, Int]) =>
+        (spmap1.keySet ++ spmap2.keySet).map {
+          k => k -> math.min(spmap1.getOrElse(k, Int.MaxValue), spmap2.getOrElse(k, Int.MaxValue))
+        }.toMap
 
-    val spGraph: Graph[Map[TimeIndex, Map[VertexId, Int]], BitSet] = graphs
-    // Set the vertex attributes to vertex id for each interval
-      .mapVertices { (vid, attr) =>
-      if (landmarks.contains(vid))
-        attr.map(x => (x, makeMap(vid -> 0))).toMap
-      else
-        attr.map(x => (x, makeMap())).toMap
-    }
-
-    val initialMessage: Map[TimeIndex, Map[VertexId, Int]] = (for (i <- 0 to intervals.size) yield (i -> makeMap()))(breakOut)
-
-    val addMapsCombined = (a: Map[TimeIndex, Map[VertexId, Int]], b: Map[TimeIndex, Map[VertexId, Int]]) => {
-      a ++ b.map { case (index, mp) => index -> addMaps(mp, a.getOrElse(index, makeMap()))}
-    }
-
-    val vertexProgram = (id: VertexId, attr: Map[TimeIndex, Map[VertexId, Int]], msg: Map[TimeIndex, Map[VertexId, Int]]) => {
-      //need to compute new shortestPaths to landmark for each interval
-      //each edge carries a message for one interval,
-      //which are combined by the combiner into a hash
-      //for each interval in the msg hash, update
-      var vals = attr
-      msg.foreach { x =>
-        val (k, v) = x
-        if (vals.contains(k)) {
-          var newMap = addMaps(attr(k), msg(k))
-          vals = vals.updated(k, newMap)
-        }
-      }
-      vals
-    }
-
-    val sendMessage = (edge: EdgeTriplet[Map[TimeIndex, Map[VertexId, Int]], BitSet]) => {
-      //This is a hack because of a bug in GraphX that
-      //does not fetch edge triplet attributes otherwise
-      edge.srcAttr
-      edge.dstAttr
-
-      //each vertex attribute is supposed to be a map of int->spmap for each index
-      edge.attr.flatMap{ k =>
-        val srcSpMap = edge.srcAttr(k)
-        val dstSpMap = edge.dstAttr(k)
-        val newAttr = incrementMap(dstSpMap)
-        val newAttr2 = incrementMap(srcSpMap)
-
-        if (srcSpMap != addMaps(newAttr, srcSpMap))
-          Some((edge.srcId, Map(k -> newAttr)))
-        else if (dstSpMap != addMaps(newAttr2, dstSpMap))
-          Some((edge.dstId, Map(k -> newAttr2)))
+      val spGraph: Graph[Map[TimeIndex, Map[VertexId, Int]], BitSet] = graphs
+        // Set the vertex attributes to vertex id for each interval
+        .mapVertices { (vid, attr) =>
+        if (landmarks.contains(vid))
+          attr.map(x => (x, makeMap(vid -> 0))).toMap
         else
-          None
+          attr.map(x => (x, makeMap())).toMap
       }
-        .iterator
+
+      val initialMessage: Map[TimeIndex, Map[VertexId, Int]] = (for (i <- 0 to intervals.size) yield (i -> makeMap())) (breakOut)
+
+      val addMapsCombined = (a: Map[TimeIndex, Map[VertexId, Int]], b: Map[TimeIndex, Map[VertexId, Int]]) => {
+        a ++ b.map { case (index, mp) => index -> addMaps(mp, a.getOrElse(index, makeMap())) }
+      }
+
+      val vertexProgram = (id: VertexId, attr: Map[TimeIndex, Map[VertexId, Int]], msg: Map[TimeIndex, Map[VertexId, Int]]) => {
+        //need to compute new shortestPaths to landmark for each interval
+        //each edge carries a message for one interval,
+        //which are combined by the combiner into a hash
+        //for each interval in the msg hash, update
+        var vals = attr
+        msg.foreach { x =>
+          val (k, v) = x
+          if (vals.contains(k)) {
+            var newMap = addMaps(attr(k), msg(k))
+            vals = vals.updated(k, newMap)
+          }
+        }
+        vals
+      }
+
+      val sendMessage = (edge: EdgeTriplet[Map[TimeIndex, Map[VertexId, Int]], BitSet]) => {
+        //This is a hack because of a bug in GraphX that
+        //does not fetch edge triplet attributes otherwise
+        edge.srcAttr
+        edge.dstAttr
+
+        //each vertex attribute is supposed to be a map of int->spmap for each index
+        edge.attr.flatMap { k =>
+          val srcSpMap = edge.srcAttr(k)
+          val dstSpMap = edge.dstAttr(k)
+          val newAttr = incrementMap(dstSpMap)
+          val newAttr2 = incrementMap(srcSpMap)
+
+          if (srcSpMap != addMaps(newAttr, srcSpMap))
+            Some((edge.srcId, Map(k -> newAttr)))
+          else if (dstSpMap != addMaps(newAttr2, dstSpMap))
+            Some((edge.dstId, Map(k -> newAttr2)))
+          else
+            None
+        }
+          .iterator
+      }
+
+      val resultGraph: Graph[Map[TimeIndex, Map[VertexId, Int]], BitSet] = Pregel(spGraph, initialMessage)(vertexProgram, sendMessage, addMapsCombined)
+
+      val intvs = ProgramContext.sc.broadcast(intervals)
+      val vattrs: RDD[(VertexId, (Interval, Map[VertexId, Int]))] = TGraphNoSchema.coalesce(resultGraph.vertices.flatMap { case (vid, vattr) => vattr.toSeq.map { case (k, v) => (vid, (intvs.value(k), v)) } })
+
+      new OneGraphColumn[Map[VertexId, Int], ED](intervals, vattrs, allEdges, graphs, Map[VertexId, Int](), storageLevel)
+    }else{
+      throw new UnsupportedOperationException("directed version of shortestPath not yet implemented")
     }
-
-    val resultGraph: Graph[Map[TimeIndex, Map[VertexId, Int]], BitSet] = Pregel(spGraph, initialMessage)(vertexProgram, sendMessage, addMapsCombined)
-
-    val intvs = ProgramContext.sc.broadcast(intervals)
-    val vattrs: RDD[(VertexId, (Interval, Map[VertexId, Int]))] = TGraphNoSchema.coalesce(resultGraph.vertices.flatMap{ case (vid, vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}})
-
-    new OneGraphColumn[Map[VertexId,Int], ED](intervals, vattrs, allEdges, graphs, Map[VertexId, Int](), storageLevel)
 
   }
 
