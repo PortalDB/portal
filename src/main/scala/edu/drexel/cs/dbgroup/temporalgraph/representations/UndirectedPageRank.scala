@@ -1,8 +1,13 @@
 package edu.drexel.cs.dbgroup.temporalgraph.representations
 
+import java.util.Map
+
+import it.unimi.dsi.fastutil.ints.{Int2DoubleOpenHashMap, Int2IntOpenHashMap, Int2ObjectOpenHashMap}
+
 import scala.reflect.ClassTag
 import org.apache.spark.graphx._
-import scala.collection.mutable.HashMap
+//import scala.collection.mutable.HashMap
+import scala.collection.JavaConversions._
 import scala.collection.breakOut
 import scala.collection.immutable.BitSet
 
@@ -74,17 +79,19 @@ object UndirectedPageRank {
       .mapVertices((vid, attr) => attr._1)
   } // end of runUntilConvergence
 
-  def runHybrid(graph: Graph[BitSet, BitSet], minIndex: Int, maxIndex: Int, tol: Double, resetProb: Double = 0.15, maxIter: Int = Int.MaxValue): Graph[HashMap[TimeIndex,(Double,Double)], HashMap[TimeIndex,(Double,Double)]] =
+  def runHybrid(graph: Graph[BitSet, BitSet], minIndex: Int, maxIndex: Int, tol: Double, resetProb: Double = 0.15, maxIter: Int = Int.MaxValue): Graph[Map[TimeIndex,(Double,Double)], Map[TimeIndex,(Double,Double)]] =
   {
-    def mergeFunc(a:HashMap[TimeIndex,Int], b:HashMap[TimeIndex,Int]): HashMap[TimeIndex,Int] = {
-      a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) }
+    def mergeFunc(a:Map[TimeIndex,Int], b:Map[TimeIndex,Int]): Map[TimeIndex,Int] = {
+      val tmp = b.map{ case (index,count) => index -> (count + a.getOrDefault(index, 0)) }
+      mapAsJavaMap(a ++ b)
+        //a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) }
     }
 
-    def vertexProgram(id: VertexId, attr: HashMap[TimeIndex, (Double,Double)], msg: HashMap[TimeIndex, Double]): HashMap[TimeIndex, (Double,Double)] = {
-      val vals = attr.clone
+    def vertexProgram(id: VertexId, attr: Map[TimeIndex, (Double,Double)], msg: Map[TimeIndex, Double]): Map[TimeIndex, (Double,Double)] = {
+      val vals = attr.clone.asInstanceOf[Map[TimeIndex, (Double,Double)]]
       msg.foreach { x =>
         val (k,v) = x
-        if (vals.contains(k)) {
+        if (vals.containsKey(k)) {
           val (oldPR, lastDelta) = vals(k)
           val newPR = oldPR + (1.0 - resetProb) * msg(k)
           vals.update(k,(newPR,newPR-oldPR))
@@ -94,7 +101,7 @@ object UndirectedPageRank {
       vals
     }
 
-    def sendMessage(edge: EdgeTriplet[HashMap[TimeIndex,(Double,Double)], HashMap[TimeIndex, (Double,Double)]]): Iterator[(VertexId, HashMap[TimeIndex,Double])] = {
+    def sendMessage(edge: EdgeTriplet[Map[TimeIndex,(Double,Double)], Map[TimeIndex, (Double,Double)]]): Iterator[(VertexId, Map[TimeIndex,Double])] = {
       //This is a hack because of a bug in GraphX that
       //does not fetch edge triplet attributes otherwise
       edge.srcAttr
@@ -102,13 +109,16 @@ object UndirectedPageRank {
 
       //need to generate an iterator of messages for each index
       edge.attr.flatMap{ case (k,v) =>
-        if (edge.srcAttr(k)._2 > tol &&
-          edge.dstAttr(k)._2 > tol) {
-          Iterator((edge.dstId, HashMap((k -> edge.srcAttr(k)._2 * v._1))), (edge.srcId, HashMap((k -> edge.dstAttr(k)._2 * v._2))))
-        } else if (edge.srcAttr(k)._2 > tol) {
-          Some((edge.dstId, HashMap((k -> edge.srcAttr(k)._2 * v._1))))
+        if (edge.srcAttr(k)._2 > tol && edge.dstAttr(k)._2 > tol) {
+          Iterator((edge.dstId, {var tmp = new Int2DoubleOpenHashMap(); tmp.put(k, edge.srcAttr(k)._2 * v._1); tmp.asInstanceOf[Map[TimeIndex,Double]] } ),
+                (edge.srcId, {var tmp = new Int2DoubleOpenHashMap(); tmp.put(k, edge.dstAttr(k)._2 * v._2); tmp.asInstanceOf[Map[TimeIndex,Double]] }))
+          //Iterator((edge.dstId, HashMap((k -> edge.srcAttr(k)._2 * v._1))), (edge.srcId, HashMap((k -> edge.dstAttr(k)._2 * v._2))))
+        }else if (edge.srcAttr(k)._2 > tol) {
+          Some((edge.dstId, {var tmp = new Int2DoubleOpenHashMap(); tmp.put(k, edge.srcAttr(k)._2 * v._1); tmp.asInstanceOf[Map[TimeIndex,Double]] }))
+          //Some((edge.dstId, HashMap((k -> edge.srcAttr(k)._2 * v._1))))
         } else if (edge.dstAttr(k)._2 > tol) {
-          Some((edge.srcId, HashMap((k -> edge.dstAttr(k)._2 * v._2))))
+          Some((edge.srcId, {var tmp = new Int2DoubleOpenHashMap(); tmp.put(k, edge.dstAttr(k)._2 * v._2); tmp.asInstanceOf[Map[TimeIndex,Double]] }))
+          //Some((edge.srcId, HashMap((k -> edge.dstAttr(k)._2 * v._2))))
         } else {
           None
         }
@@ -116,28 +126,40 @@ object UndirectedPageRank {
         .iterator
     }
 
-    def messageCombiner(a: HashMap[TimeIndex,Double], b: HashMap[TimeIndex,Double]): HashMap[TimeIndex,Double] = {
-      a ++ b.map { case (index, count) => index -> (count + a.getOrElse(index,0.0))}
+    def messageCombiner(a: Map[TimeIndex,Double], b: Map[TimeIndex,Double]): Map[TimeIndex,Double] = {
+      val tmp = b.map{ case (index, count) => index -> (count + a.getOrDefault(index,0.0))}
+      mapAsJavaMap(a ++ b)
     }
     
-    val degs: VertexRDD[HashMap[TimeIndex, Int]] = graph.aggregateMessages[HashMap[TimeIndex, Int]](
+    val degs: VertexRDD[Map[TimeIndex, Int]] = graph.aggregateMessages[Map[TimeIndex, Int]](
       ctx => {
-        ctx.sendToSrc(HashMap[TimeIndex,Int]() ++ ctx.attr.seq.map(x => (x,1)))
-        ctx.sendToDst(HashMap[TimeIndex,Int]() ++ ctx.attr.seq.map(x => (x,1)))
+        ctx.sendToSrc{var tmp = new Int2IntOpenHashMap(); (tmp ++ ctx.attr.seq.map(x => (x,1))).asInstanceOf[Map[TimeIndex, Int]]}
+        ctx.sendToDst{var tmp = new Int2IntOpenHashMap(); (tmp ++ ctx.attr.seq.map(x => (x,1))).asInstanceOf[Map[TimeIndex, Int]]}
+        //ctx.sendToSrc(HashMap[TimeIndex,Int]() ++ ctx.attr.seq.map(x => (x,1)))
+        //ctx.sendToDst(HashMap[TimeIndex,Int]() ++ ctx.attr.seq.map(x => (x,1)))
       },
       mergeFunc, TripletFields.EdgeOnly)
     
-    val joined: Graph[HashMap[TimeIndex,Int], BitSet] = graph.outerJoinVertices(degs) {
+    val joined: Graph[Map[TimeIndex,Int], BitSet] = graph.outerJoinVertices(degs) {
       case (vid, vdata, Some(deg)) => deg ++ vdata.filter(x => !deg.contains(x)).seq.map(x => (x,0))
-      case (vid, vdata, None) => HashMap[TimeIndex,Int]() ++ vdata.seq.map(x => (x,0))
+      case (vid, vdata, None) => {var tmp = new Int2IntOpenHashMap(); (tmp ++ vdata.seq.map(x => (x,0))).asInstanceOf[Map[TimeIndex, Int]]}
     }
 
-    val withtrips: Graph[HashMap[TimeIndex,Int], HashMap[TimeIndex, (Double,Double)]] = joined.mapTriplets{ e:EdgeTriplet[HashMap[TimeIndex,Int], BitSet] =>
-      new HashMap[TimeIndex, (Double, Double)]() ++ e.attr.seq.map(x => (x, (1.0 / e.srcAttr(x), 1.0 / e.dstAttr(x))))}
+    val withtrips: Graph[Map[TimeIndex,Int], Map[TimeIndex, (Double,Double)]] = joined.mapTriplets{ e:EdgeTriplet[Map[TimeIndex,Int], BitSet] =>
+      (new Int2ObjectOpenHashMap[(Double, Double)]() ++ e.attr.seq.map(x => (x, (1.0 / e.srcAttr(x), 1.0 / e.dstAttr(x))))).asInstanceOf[Map[TimeIndex, (Double, Double)]]}
+      //new HashMap[TimeIndex, (Double, Double)]() ++ e.attr.seq.map(x => (x, (1.0 / e.srcAttr(x), 1.0 / e.dstAttr(x))))}
 
-    val prankGraph:Graph[HashMap[TimeIndex, (Double,Double)], HashMap[TimeIndex, (Double,Double)]] = withtrips.mapVertices( (id,attr) => attr.map{ case (k,x) => (k,(0.0,0.0))}).cache()
+    val prankGraph:Graph[Map[TimeIndex, (Double,Double)], Map[TimeIndex, (Double,Double)]] = withtrips.mapVertices( (id,attr) =>
+      attr.map{ case (k,x) => k -> (0.0,0.0) }.asInstanceOf[Map[TimeIndex, (Double, Double)]]).cache()
 
-    val initialMessage: HashMap[TimeIndex,Double] = (for(i <- minIndex to maxIndex) yield (i -> resetProb / (1.0 - resetProb)))(breakOut)
+    val initialMessage: Map[TimeIndex,Double] = {
+      var tmpMap = new Int2DoubleOpenHashMap()
+
+      for(i <- minIndex to maxIndex) {
+        tmpMap.put(i, resetProb / (1.0 - resetProb))
+      }
+      tmpMap.asInstanceOf[Map[TimeIndex, Double]]
+    }
 
     Pregel(prankGraph, initialMessage, maxIter, activeDirection = EdgeDirection.Either)(vertexProgram, sendMessage, messageCombiner)
 

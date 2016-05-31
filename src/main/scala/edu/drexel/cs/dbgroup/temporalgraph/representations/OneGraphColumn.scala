@@ -3,7 +3,7 @@
 package edu.drexel.cs.dbgroup.temporalgraph.representations
 
 import java.util.Map
-
+import java.util.HashSet
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 
 import scala.collection.JavaConversions._
@@ -26,6 +26,7 @@ import org.apache.spark.rdd._
 import edu.drexel.cs.dbgroup.temporalgraph._
 import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
 import java.time.LocalDate
+import java.util
 
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap
 
@@ -509,13 +510,16 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
     }
 
     val addMaps = (spmap1: Map[VertexId, Int], spmap2: Map[VertexId, Int]) => {
-      spmap1.keySet.addAll(spmap2.keySet)
+      var tmpSet = new HashSet[VertexId]();
+      tmpSet.addAll(spmap1.keySet)
+      tmpSet.addAll(spmap2.keySet)
+      //spmap1.keySet.addAll(spmap2.keySet)
       var tmpMap = new Long2IntOpenHashMap()
-      val itr = spmap1.entrySet().iterator
+      val itr = tmpSet.iterator
 
       while(itr.hasNext){
-        val entry = itr.next()
-        val k = entry.getKey()
+        val k = itr.next()
+        //val k = entry.getKey()
 
         tmpMap.put(k, math.min(spmap1.getOrElse(k, Int.MaxValue), spmap2.getOrElse(k, Int.MaxValue)))
       }
