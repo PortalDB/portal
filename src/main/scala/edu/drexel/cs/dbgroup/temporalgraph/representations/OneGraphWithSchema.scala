@@ -27,7 +27,7 @@ import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
 import java.time.LocalDate
 import java.sql.Date
 
-class OneGraphWithSchema(intvs: Seq[Interval], verts: DataFrame, edgs: DataFrame, grs: Graph[BitSet, BitSet], storLevel: StorageLevel = StorageLevel.MEMORY_ONLY) extends TGraphWithSchema(intvs, verts, edgs, storLevel) {
+class OneGraphWithSchema(intvs: Seq[Interval], verts: DataFrame, edgs: DataFrame, grs: Graph[BitSet, BitSet], storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraphWithSchema(intvs, verts, edgs, storLevel, coal) {
   import sqlContext.implicits._
 
   private val graphs: Graph[BitSet, BitSet] = grs
@@ -139,7 +139,7 @@ class OneGraphWithSchema(intvs: Seq[Interval], verts: DataFrame, edgs: DataFrame
       this
   }
 
-  override protected def fromDataFrames(vs: DataFrame, es: DataFrame, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY): OneGraphWithSchema = OneGraphWithSchema.fromDataFrames(vs, es, storLevel)
+  override protected def fromDataFrames(vs: DataFrame, es: DataFrame, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false): OneGraphWithSchema = OneGraphWithSchema.fromDataFrames(vs, es, storLevel, coal)
   override protected def emptyGraph(sch: GraphSpec) = OneGraphWithSchema.emptyGraph(sch)  
 
 }
@@ -148,7 +148,7 @@ object OneGraphWithSchema {
   private val sqlContext = ProgramContext.getSqlContext
   import sqlContext.implicits._
 
-  def fromDataFrames(vs: DataFrame, es: DataFrame, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY): OneGraphWithSchema = {
+  def fromDataFrames(vs: DataFrame, es: DataFrame, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): OneGraphWithSchema = {
     val intervals = TGraphWithSchema.computeIntervals(vs, es)
     val intvs = sqlContext.createDataFrame(ProgramContext.sc.parallelize(intervals.zipWithIndex.map(x => Row(x._2, Date.valueOf(x._1.start), Date.valueOf(x._1.end)))), StructType(StructField("index", IntegerType, false) :: StructField("start", DateType, false) :: StructField("end", DateType, false) :: Nil))
 
@@ -158,8 +158,8 @@ object OneGraphWithSchema {
 
     val graphs: Graph[BitSet, BitSet] = Graph(verts, edgs, BitSet(), storLevel)
 
-    new OneGraphWithSchema(intervals, vs, es, graphs, storLevel)
+    new OneGraphWithSchema(intervals, vs, es, graphs, storLevel, coalesced)
   }
 
-  def emptyGraph(schema: GraphSpec):OneGraphWithSchema = new OneGraphWithSchema(Seq[Interval](), sqlContext.createDataFrame(ProgramContext.sc.emptyRDD[Row], StructType(schema.getVertexSchema)), sqlContext.createDataFrame(ProgramContext.sc.emptyRDD[Row], StructType(schema.getEdgeSchema)), Graph[BitSet,BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD))
+  def emptyGraph(schema: GraphSpec):OneGraphWithSchema = new OneGraphWithSchema(Seq[Interval](), sqlContext.createDataFrame(ProgramContext.sc.emptyRDD[Row], StructType(schema.getVertexSchema)), sqlContext.createDataFrame(ProgramContext.sc.emptyRDD[Row], StructType(schema.getEdgeSchema)), Graph[BitSet,BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD), coal = true)
 }
