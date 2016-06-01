@@ -4,10 +4,11 @@ package edu.drexel.cs.dbgroup.temporalgraph.representations
 
 import java.util.Map
 import java.util.HashSet
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
+
+import it.unimi.dsi.fastutil.ints.{Int2DoubleOpenHashMap, Int2IntOpenHashMap, Int2ObjectOpenHashMap}
 
 import scala.collection.JavaConversions._
-import scala.collection.JavaConverters._
+import collection.JavaConverters._
 import scala.collection.immutable.BitSet
 import scala.collection.breakOut
 import scala.collection.mutable.HashMap
@@ -347,26 +348,26 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
 
   //run pagerank on each interval
   override def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): OneGraphColumn[Double,Double] = {
-    throw new UnsupportedOperationException("pagerank not yet implemented")
-    /*
     if (uni) {
       val mergeFunc = (a:Map[TimeIndex,Int], b:Map[TimeIndex,Int]) => {
-        a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) }
+        mapAsJavaMap(a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) })
       }
 
       val degrees: VertexRDD[Map[TimeIndex,Int]] = graphs.aggregateMessages[Map[TimeIndex, Int]](
         ctx => {
-          ctx.sendToSrc(ctx.attr.seq.map(x => (x,1)).toMap)
-          ctx.sendToDst(ctx.attr.seq.map(x => (x,1)).toMap)
+          ctx.sendToSrc(mapAsJavaMap(ctx.attr.seq.map(x => (x,1)).toMap))
+          ctx.sendToDst(mapAsJavaMap(ctx.attr.seq.map(x => (x,1)).toMap))
+          //ctx.sendToSrc(ctx.attr.seq.map(x => (x,1)).toMap)
+          //ctx.sendToDst(ctx.attr.seq.map(x => (x,1)).toMap)
         },
         mergeFunc, TripletFields.EdgeOnly)
 
       val pagerankGraph: Graph[Map[TimeIndex,(Double,Double)], Map[TimeIndex,(Double,Double)]] = graphs.outerJoinVertices(degrees) {
-        case (vid, vdata, Some(deg)) => deg ++ vdata.filter(x => !deg.contains(x)).seq.map(x => (x,0)).toMap[TimeIndex,(Double,Double)]
-        case (vid, vdata, None) => vdata.seq.map(x => (x,0)).toMap[TimeIndex,(Double,Double)]
+        case (vid, vdata, Some(deg)) => mapAsJavaMap(deg ++ vdata.filter(x => !deg.contains(x)).seq.map(x => (x,0)).toMap)
+        case (vid, vdata, None) => mapAsJavaMap(vdata.seq.map(x => (x,0)).toMap)
       }
-        .mapTriplets( e =>  e.attr.seq.map(x => (x, (1.0 / e.srcAttr(x), 1.0 / e.dstAttr(x)))).toMap)
-        .mapVertices( (id,attr) => attr.mapValues{ x => (0.0,0.0)}.map(identity))
+        .mapTriplets( e =>  mapAsJavaMap(e.attr.seq.map(x => (x, (1.0 / e.srcAttr(x), 1.0 / e.dstAttr(x)))).toMap))
+        .mapVertices( (id,attr) => {var tmp = attr.mapValues{ x => (0.0,0.0)}.map(identity); mapAsJavaMap(tmp)})
         .cache()
 
       val vertexProgram = (id: VertexId, attr: Map[TimeIndex, (Double,Double)], msg: Map[TimeIndex, Double]) => {
@@ -391,11 +392,15 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
         edge.attr.flatMap{ case (k,v) =>
           if (edge.srcAttr.apply(k)._2 > tol &&
             edge.dstAttr.apply(k)._2 > tol) {
-            Iterator((edge.dstId, Map((k -> edge.srcAttr.apply(k)._2 * v._1))), (edge.srcId, Map((k -> edge.dstAttr.apply(k)._2 * v._2))))
+            Iterator((edge.dstId, {var tmp = new Int2DoubleOpenHashMap(); tmp.put(k, edge.srcAttr.apply(k)._2 * v._1); tmp.asInstanceOf[Map[TimeIndex,Double]]} ),
+              (edge.srcId, {var tmp = new Int2DoubleOpenHashMap(); tmp.put(k, edge.dstAttr.apply(k)._2 * v._2); tmp.asInstanceOf[Map[TimeIndex,Double]]} ))
+            //Iterator((edge.dstId, Map((k -> edge.srcAttr.apply(k)._2 * v._1))), (edge.srcId, Map((k -> edge.dstAttr.apply(k)._2 * v._2))))
           } else if (edge.srcAttr.apply(k)._2 > tol) {
-            Some((edge.dstId, Map((k -> edge.srcAttr.apply(k)._2 * v._1))))
+            Some((edge.dstId, {var tmp = new Int2DoubleOpenHashMap(); tmp.put(k, edge.srcAttr.apply(k)._2 * v._1); tmp.asInstanceOf[Map[TimeIndex,Double]]}))
+            //Some((edge.dstId, Map((k -> edge.srcAttr.apply(k)._2 * v._1))))
           } else if (edge.dstAttr.apply(k)._2 > tol) {
-            Some((edge.srcId, Map((k -> edge.dstAttr.apply(k)._2 * v._2))))
+            Some((edge.srcId, {var tmp = new Int2DoubleOpenHashMap(); tmp.put(k, edge.dstAttr.apply(k)._2 * v._2); tmp.asInstanceOf[Map[TimeIndex,Double]]}))
+            //Some((edge.srcId, Map((k -> edge.dstAttr.apply(k)._2 * v._2))))
           } else {
             None
           }
@@ -404,13 +409,19 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
       }
       
       val messageCombiner = (a: Map[TimeIndex,Double], b: Map[TimeIndex,Double]) => {
-        a ++ b.map { case (index, count) => index -> (count + a.getOrElse(index, 0.0))}
+        mapAsJavaMap(a ++ b.map { case (index, count) => index -> (count + a.getOrElse(index, 0.0))})
       }
 
       // The initial message received by all vertices in PageRank
       //has to be a map from every interval index
       var i:Int = 0
-      val initialMessage:Map[TimeIndex,Double] = (for(i <- 0 to intervals.size) yield (i -> resetProb / (1.0 - resetProb)))(breakOut)
+      val initialMessage:Map[TimeIndex,Double] = {
+        var tmpMap = new Int2DoubleOpenHashMap()
+        for(i <- 0 to intervals.size) {
+          tmpMap.put(i, resetProb / (1.0 - resetProb))
+        }
+        tmpMap.asInstanceOf[Map[TimeIndex,Double]]
+      }
 
       val resultGraph: Graph[Map[TimeIndex,(Double,Double)], Map[TimeIndex,(Double,Double)]] = Pregel(pagerankGraph, initialMessage, numIter, activeDirection = EdgeDirection.Either)(vertexProgram, sendMessage, messageCombiner)
 
@@ -425,7 +436,6 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
       //TODO: implement this using pregel
       throw new UnsupportedOperationException("directed version of pageRank not yet implemented")
     }
-    */
   }
   
   //run connected components on each interval
