@@ -73,7 +73,7 @@ object GraphLoader {
         Some(parts.head.toLong, (res.getInterval(dt), parts(1).toString))
       } else None
     }
-    val users = TGraphNoSchema.coalesce(usersnp.partitionBy(new HashPartitioner(usersnp.partitions.size)))
+    val users = usersnp.partitionBy(new HashPartitioner(usersnp.partitions.size))
 
     val linksnp: RDD[((VertexId,VertexId),(Interval,Int))] = MultifileLoad.readEdges(path, minDate, end)
       .flatMap{ x =>
@@ -93,15 +93,15 @@ object GraphLoader {
           Some((srcId, dstId), (res.getInterval(dt),attr))
       } else None
     }
-    val links = TGraphNoSchema.coalesce(linksnp.partitionBy(new HashPartitioner(linksnp.partitions.size)))
+    val links = linksnp.partitionBy(new HashPartitioner(linksnp.partitions.size))
 
     graphType match {
       case "SG" =>
-        SnapshotGraphParallel.fromRDDs(users, links, "Default", StorageLevel.MEMORY_ONLY_SER)
+        SnapshotGraphParallel.fromRDDs(users, links, "Default", StorageLevel.MEMORY_ONLY_SER, false)
       case "OG" =>
-        OneGraphColumn.fromRDDs(users, links, "Default", StorageLevel.MEMORY_ONLY_SER)
+        OneGraphColumn.fromRDDs(users, links, "Default", StorageLevel.MEMORY_ONLY_SER, false)
       case "HG" =>
-        HybridGraph.fromRDDs(users, links, "Default", StorageLevel.MEMORY_ONLY_SER)
+        HybridGraph.fromRDDs(users, links, "Default", StorageLevel.MEMORY_ONLY_SER, coalesced = false)
     }
   }
 
@@ -126,11 +126,11 @@ object GraphLoader {
 
     graphType match {
       case "SG" =>
-        SnapshotGraphParallel.fromRDDs(vs, es, deflt, StorageLevel.MEMORY_ONLY_SER)
+        SnapshotGraphParallel.fromRDDs(vs, es, deflt, StorageLevel.MEMORY_ONLY_SER, true)
       case "OG" =>
-        OneGraphColumn.fromRDDs(vs, es, deflt, StorageLevel.MEMORY_ONLY_SER)
+        OneGraphColumn.fromRDDs(vs, es, deflt, StorageLevel.MEMORY_ONLY_SER, true)
       case "HG" =>
-        HybridGraph.fromRDDs(vs, es, deflt, StorageLevel.MEMORY_ONLY_SER)
+        HybridGraph.fromRDDs(vs, es, deflt, StorageLevel.MEMORY_ONLY_SER, coalesced = true)
     }
   }
 
@@ -141,18 +141,19 @@ object GraphLoader {
     val users = sqlContext.read.parquet(url + "/nodes.parquet").select($"vid", $"estart", $"eend")
     val links = sqlContext.read.parquet(url + "/edges.parquet").select($"vid1", $"vid2", $"estart", $"eend")
 
-    //map to rdds, coalesce
+    //map to rdds
     val vs: RDD[(VertexId, (Interval, Null))] = users.map(row => (row.getLong(0), (Interval(row.getDate(1).toLocalDate(), row.getDate(2).toLocalDate()), null)))
     val es: RDD[((VertexId, VertexId), (Interval, Null))] = links.map(row => ((row.getLong(0), row.getLong(1)), (Interval(row.getDate(2).toLocalDate(), row.getDate(3).toLocalDate()), null)))
 
     //FIXME: we should be coalescing, but for current datasets it is unnecessary and very expensive
+    //i.e. should change these 'true' to 'false'
     graphType match {
       case "SG" =>
-        SnapshotGraphParallel.fromRDDs(vs, es, null, StorageLevel.MEMORY_ONLY_SER)
+        SnapshotGraphParallel.fromRDDs(vs, es, null, StorageLevel.MEMORY_ONLY_SER, true)
       case "OG" =>
-        OneGraphColumn.fromRDDs(vs, es, null, StorageLevel.MEMORY_ONLY_SER)
+        OneGraphColumn.fromRDDs(vs, es, null, StorageLevel.MEMORY_ONLY_SER, true)
       case "HG" =>
-        HybridGraph.fromRDDs(vs, es, null, StorageLevel.MEMORY_ONLY_SER)
+        HybridGraph.fromRDDs(vs, es, null, StorageLevel.MEMORY_ONLY_SER, coalesced = true)
     }
 
   }
@@ -170,6 +171,7 @@ object GraphLoader {
     val links = sqlContext.read.parquet(url + "/edges.parquet").select(coe.head, coe.tail: _*)
 
     //if we are not loading all the columns, we need to coalesce
+    //FIXME: lazy coalescing needed here
     val vs = if (schema.getVertexSchema.length == users.columns.length) users else TGraphWithSchema.coalesceV(users)
     val es = if (schema.getEdgeSchema.length == links.columns.length) links else TGraphWithSchema.coalesceE(links)
 
