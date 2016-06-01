@@ -57,7 +57,7 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
   lazy val compute = ( "compute" ~> "pagerank" ~> dir ~ doubleLit ~ doubleLit ~ numericLit ^^ { case dir ~ tol ~ reset ~ numIter => Pagerank(dir, tol, reset, numIter)}
     | "compute" ~> "degree" ^^^ Degrees()
     | "compute" ~> "components" ^^^ ConnectedComponents()
-    | "compute" ~> "spaths" ~> landmarks ^^ { case lds => ShortestPaths(lds) }
+    | "compute" ~> "spaths" ~> dir ~ landmarks ^^ { case dir ~ lds => ShortestPaths(dir, lds) }
   )
 
   lazy val landmarks: PackratParser[Seq[String]] = repsep(numericLit, ",")
@@ -468,10 +468,10 @@ object Interpreter {
         argNum += 1
         result
       }
-      case ShortestPaths(ids) => {
+      case ShortestPaths(dir, ids) => {
         val spStart = System.currentTimeMillis()
 
-        val result = gr.shortestPaths(false, ids.map(_.toLong)).asInstanceOf[TGraphNoSchema[Any,Any]]
+        val result = gr.shortestPaths(dir.value, ids.map(_.toLong)).asInstanceOf[TGraphNoSchema[Any,Any]]
         val spEnd = System.currentTimeMillis()
         val total = spEnd - spStart
         println(f"ShortestPaths Runtime: $total%dms ($argNum%d)")
@@ -516,7 +516,7 @@ sealed abstract class Compute
 case class Pagerank(dir: Direction, tol: Double, reset: Double, numIter: String) extends Compute
 case class Degrees() extends Compute
 case class ConnectedComponents() extends Compute
-case class ShortestPaths(ids: Seq[String]) extends Compute
+case class ShortestPaths(dir: Direction, ids: Seq[String]) extends Compute
 
 sealed abstract class Where
 case class TWhere(datec: Datecond) extends Where {
