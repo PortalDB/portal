@@ -5,7 +5,7 @@ package edu.drexel.cs.dbgroup.temporalgraph.representations
 import java.util.Map
 import java.util.HashSet
 
-import it.unimi.dsi.fastutil.ints.{Int2DoubleOpenHashMap, Int2IntOpenHashMap, Int2ObjectOpenHashMap}
+import it.unimi.dsi.fastutil.ints.{Int2DoubleOpenHashMap, Int2IntOpenHashMap, Int2LongOpenHashMap, Int2ObjectOpenHashMap}
 
 import scala.collection.JavaConversions._
 import collection.JavaConverters._
@@ -440,21 +440,19 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
   
   //run connected components on each interval
   override def connectedComponents(): OneGraphColumn[VertexId,ED] = {
-    throw new UnsupportedOperationException("components not yet implemented")
-    /*
     val conGraph: Graph[Map[TimeIndex, VertexId], BitSet] = graphs.mapVertices{ case (vid, bset) =>
-      bset.map(x => (x,vid)).toMap[TimeIndex, VertexId]
+      mapAsJavaMap(bset.map(x => (x,vid)).toMap)
     }
 
     val vertexProgram = (id: VertexId, attr: Map[TimeIndex, VertexId], msg: Map[TimeIndex, VertexId]) => {
-      var vals = attr
+      var vals = new Int2LongOpenHashMap()
       msg.foreach { x =>
         val (k,v) = x
-        if (vals.contains(k)) {
-          vals = vals.updated(k, math.min(v, vals(k)))
+        if (attr.contains(k)) {
+          vals.put(k, math.min(v, attr(k)))
         }
       }
-      vals
+      vals.asInstanceOf[Map[TimeIndex, VertexId]]
     }
 
     val sendMessage = (edge: EdgeTriplet[Map[TimeIndex, VertexId], BitSet]) => {
@@ -464,10 +462,12 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
       edge.dstAttr
 
       edge.attr.flatMap{ k =>
-        if (edge.srcAttr(k) < edge.dstAttr(k))
-          Some((edge.dstId, Map(k -> edge.srcAttr(k))))
-        else if (edge.srcAttr(k) > edge.dstAttr(k))
-          Some((edge.srcId, Map(k -> edge.dstAttr(k))))
+        if (edge.srcAttr.containsKey(k) && edge.dstAttr.containsKey(k) && edge.srcAttr(k) < edge.dstAttr(k))
+          Some((edge.dstId, {var tmp = new Int2LongOpenHashMap(); tmp.put(k, edge.srcAttr(k)); tmp.asInstanceOf[Map[TimeIndex, VertexId]]}))
+          //Some((edge.dstId, Map(k -> edge.srcAttr(k))))
+        else if (edge.srcAttr.containsKey(k) && edge.dstAttr.containsKey(k) && edge.srcAttr(k) > edge.dstAttr(k))
+          Some((edge.srcId, {var tmp = new Int2LongOpenHashMap(); tmp.put(k, edge.dstAttr(k)); tmp.asInstanceOf[Map[TimeIndex, VertexId]]}))
+          //Some((edge.srcId, Map(k -> edge.dstAttr(k))))
         else
           None
       }
@@ -475,11 +475,17 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
     }
 
     val messageCombiner = (a: Map[TimeIndex, VertexId], b: Map[TimeIndex, VertexId]) => {
-      a ++ b.map { case (index, minid) => index -> math.min(minid, a.getOrElse(index, Long.MaxValue))}
+      mapAsJavaMap(a ++ b.map { case (index, minid) => index -> math.min(minid, a.getOrElse(index, Long.MaxValue))})
     }
 
     val i: Int = 0
-    val initialMessage: Map[TimeIndex, VertexId] = (for(i <- 0 to intervals.size) yield (i -> Long.MaxValue))(breakOut)
+    val initialMessage: Map[TimeIndex, VertexId] = {
+      var tmpMap = new Int2LongOpenHashMap()
+      for(i <- 0 to intervals.size) {
+        tmpMap.put(i, Long.MaxValue)
+      }
+      tmpMap.asInstanceOf[Map[TimeIndex, VertexId]]
+    }
 
     val resultGraph: Graph[Map[TimeIndex, VertexId], BitSet] = Pregel(conGraph, initialMessage, activeDirection = EdgeDirection.Either)(vertexProgram, sendMessage, messageCombiner)
 
@@ -487,7 +493,6 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
     val vattrs = TGraphNoSchema.coalesce(resultGraph.vertices.flatMap{ case (vid, vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}})
 
     new OneGraphColumn[VertexId, ED](intervals, vattrs, allEdges, graphs, -1L, storageLevel)
-    */
 
   }
   

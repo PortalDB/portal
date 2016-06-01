@@ -520,7 +520,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
 
     //now extract values
     val intvs = ProgramContext.sc.broadcast(intervals)
-    val vattrs = TGraphNoSchema.coalesce(allgs.map{ g => g.vertices.flatMap{ case (vid,vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}}}.reduce(_ union _))
+    val vattrs = TGraphNoSchema.coalesce(allgs.map{ g => g.vertices.flatMap{ case (vid,vattr) => vattr.asInstanceOf[Map[TimeIndex, VertexId]].toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}}}.reduce(_ union _))
 
     new HybridGraph(intervals, vattrs, allEdges, widths, graphs, -1L, storageLevel)
   }
