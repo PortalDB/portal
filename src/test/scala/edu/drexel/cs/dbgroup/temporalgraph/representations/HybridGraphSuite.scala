@@ -1080,7 +1080,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter{
     ))
     val HG = HybridGraph.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
-    val actualHG = HG.project((edge, interval) => (edge.attr*edge.attr) , (vertex, interval, name) => name.toUpperCase, "Default")
+    val actualHG = HG.project(edge => (edge.attr*edge.attr) , (vertex, name) => name.toUpperCase, "Default")
 
     val expectedVertices: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2016-01-01")), "B")),

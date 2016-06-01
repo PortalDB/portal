@@ -23,7 +23,7 @@ import org.apache.spark.sql.types.{StructType,StructField}
 import edu.drexel.cs.dbgroup.temporalgraph._
 import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
 
-class SnapshotGraphWithSchema(intvs: Seq[Interval], verts: DataFrame, edgs: DataFrame, gps: ParSeq[Graph[Row,Row]], storLevel: StorageLevel = StorageLevel.MEMORY_ONLY) extends TGraphWithSchema(intvs, verts, edgs, storLevel) {
+class SnapshotGraphWithSchema(intvs: Seq[Interval], verts: DataFrame, edgs: DataFrame, gps: ParSeq[Graph[Row,Row]], storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraphWithSchema(intvs, verts, edgs, storLevel, coal) {
   import sqlContext.implicits._
 
   protected val graphs: ParSeq[Graph[Row, Row]] = gps
@@ -140,7 +140,7 @@ class SnapshotGraphWithSchema(intvs: Seq[Interval], verts: DataFrame, edgs: Data
       this
   }
 
-  override protected def fromDataFrames(vs: DataFrame, es: DataFrame, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY): SnapshotGraphWithSchema = SnapshotGraphWithSchema.fromDataFrames(vs, es, storLevel)
+  override protected def fromDataFrames(vs: DataFrame, es: DataFrame, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false): SnapshotGraphWithSchema = SnapshotGraphWithSchema.fromDataFrames(vs, es, storLevel, coal)
   override protected def emptyGraph(sch: GraphSpec) = SnapshotGraphWithSchema.emptyGraph(sch)
 }
 
@@ -148,7 +148,7 @@ object SnapshotGraphWithSchema {
   private val sqlContext = ProgramContext.getSqlContext
   import sqlContext.implicits._
 
-  def fromDataFrames(vs: DataFrame, es: DataFrame, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY): SnapshotGraphWithSchema = {
+  def fromDataFrames(vs: DataFrame, es: DataFrame, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): SnapshotGraphWithSchema = {
     val intervals = TGraphWithSchema.computeIntervals(vs, es)
 
     val graphs: ParSeq[Graph[Row,Row]] = intervals.map{ p =>
@@ -158,9 +158,9 @@ object SnapshotGraphWithSchema {
         es.where(!($"estart" >= pe || $"eend" <= ps)).map(row => Edge(row.getLong(0), row.getLong(1), row)), Row(), storLevel)
     }.par
 
-    new SnapshotGraphWithSchema(intervals, vs, es, graphs, storLevel)
+    new SnapshotGraphWithSchema(intervals, vs, es, graphs, storLevel, coal = coalesced)
 
   }
 
-  def emptyGraph(schema: GraphSpec):SnapshotGraphWithSchema = new SnapshotGraphWithSchema(Seq[Interval](), sqlContext.createDataFrame(ProgramContext.sc.emptyRDD[Row], StructType(schema.getVertexSchema)), sqlContext.createDataFrame(ProgramContext.sc.emptyRDD[Row], StructType(schema.getEdgeSchema)), ParSeq[Graph[Row,Row]]())
+  def emptyGraph(schema: GraphSpec):SnapshotGraphWithSchema = new SnapshotGraphWithSchema(Seq[Interval](), sqlContext.createDataFrame(ProgramContext.sc.emptyRDD[Row], StructType(schema.getVertexSchema)), sqlContext.createDataFrame(ProgramContext.sc.emptyRDD[Row], StructType(schema.getEdgeSchema)), ParSeq[Graph[Row,Row]](), coal = true)
 }

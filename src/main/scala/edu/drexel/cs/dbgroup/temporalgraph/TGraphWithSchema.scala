@@ -18,7 +18,7 @@ import org.apache.spark.mllib.rdd.RDDFunctions._
 import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps
 import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
 
-abstract class TGraphWithSchema(intvs: Seq[Interval], verts: DataFrame, edgs: DataFrame, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY) extends TGraph[Row,Row] {
+abstract class TGraphWithSchema(intvs: Seq[Interval], verts: DataFrame, edgs: DataFrame, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraph[Row,Row] {
   protected val sqlContext = ProgramContext.getSqlContext
   import sqlContext.implicits._
 
@@ -31,6 +31,7 @@ abstract class TGraphWithSchema(intvs: Seq[Interval], verts: DataFrame, edgs: Da
   val allEdges: DataFrame = edgs
   val intervals: Seq[Interval] = intvs
   val storageLevel = storLevel
+  val coalesced = coal
 
   lazy val span: Interval = if (intervals.size > 0) Interval(intervals.head.start, intervals.last.end) else Interval(LocalDate.now, LocalDate.now)
 
@@ -74,6 +75,15 @@ abstract class TGraphWithSchema(intvs: Seq[Interval], verts: DataFrame, edgs: Da
     val in = Date.valueOf(time)
     Graph[Row, Row](allVertices.where($"estart" <= in).where($"eend" > in).map(r => (r.getLong(0), Row.fromSeq(r.toSeq.drop(3)))),
       allEdges.where($"estart" <= in).where($"eend" > in).map(r => Edge(r.getLong(0), r.getLong(1), Row.fromSeq(r.toSeq.drop(4)))), Row(), storageLevel)
+  }
+
+  override def coalesce(): TGraphWithSchema = {
+    //coalesce the vertices and edges
+    //then recompute the intervals and graphs
+    if (coalesced)
+      this
+    else
+      fromDataFrames(TGraphWithSchema.coalesceV(allVertices), TGraphWithSchema.coalesceE(allEdges), storageLevel, coal = true)
   }
 
   override def slice(bound: Interval): TGraphWithSchema = {
@@ -222,7 +232,7 @@ abstract class TGraphWithSchema(intvs: Seq[Interval], verts: DataFrame, edgs: Da
     this
   }
 
-  protected def fromDataFrames(vs: DataFrame, es: DataFrame, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY): TGraphWithSchema
+  protected def fromDataFrames(vs: DataFrame, es: DataFrame, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false): TGraphWithSchema
   protected def emptyGraph(sch: GraphSpec): TGraphWithSchema
 }
 

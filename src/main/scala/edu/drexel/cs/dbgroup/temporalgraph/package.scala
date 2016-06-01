@@ -35,6 +35,7 @@ package object temporalgraph {
       if (sqlc == null) sqlc = new org.apache.spark.sql.hive.HiveContext(sc)
       sqlc
     }
+    lazy val eagerCoalesce: Boolean = if (sc.getConf.get("portal.coalesce", "lazy") == "eager") true else false
   }
 
   object PartitionStrategyType extends Enumeration {

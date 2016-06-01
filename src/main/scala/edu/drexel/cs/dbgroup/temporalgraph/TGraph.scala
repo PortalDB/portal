@@ -75,6 +75,13 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     */
 
   /**
+    * Coalesce the temporal graph.
+    * Some operations are known to have the potential to make the TGraph uncoalesced.
+    * If the graph is known to be coalesced, this is a no-op.
+    */
+  def coalesce(): TGraph[VD, ED]
+
+  /**
     * Select a temporal subset of the graph. T-Select.
     * This is different than calling 
     * select(vtpred = period => period.start >= bound.start && period.end < bound.end) 
@@ -113,6 +120,7 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * performed in pairs (ala reduce).
     * @return New tgraph 
     */
+  //TODO: change aggfuncs to include intervals? that way can support first/last/longest/etc.
   def aggregate(window: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId): TGraph[VD, ED]
 
   /**

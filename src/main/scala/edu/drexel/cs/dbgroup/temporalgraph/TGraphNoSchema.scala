@@ -13,13 +13,17 @@ import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps
 
 import java.time.LocalDate
 
-abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY) extends TGraph[VD, ED] {
+abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraph[VD, ED] {
 
   val allVertices: RDD[(VertexId, (Interval, VD))] = verts
   val allEdges: RDD[((VertexId, VertexId), (Interval, ED))] = edgs
   val intervals: Seq[Interval] = intvs
   val storageLevel = storLevel
   val defaultValue: VD = defValue
+  //whether this TGraph is known to be coalesced
+  //false means it may or may not be coalesced
+  //whereas true means definitely coalesced
+  val coalesced: Boolean = coal
 
   lazy val span: Interval = if (intervals.size > 0) Interval(intervals.head.start, intervals.last.end) else Interval(LocalDate.now, LocalDate.now)
 
@@ -38,7 +42,16 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     * We are returning RDD rather than VertexRDD because VertexRDD
     * cannot have duplicates for vid.
     */
-  override def vertices: RDD[(VertexId,(Interval, VD))] = allVertices
+  override def vertices: RDD[(VertexId,(Interval, VD))] = coalescedVertices
+
+  //because coalesce takes a long time and TGraphs are invariant, want to only
+  //do this once
+  private lazy val coalescedVertices = {
+    if (coalesced)
+      allVertices
+    else
+      TGraphNoSchema.coalesce(allVertices)
+  }
 
   /**
     * An RDD containing the vertices and their associated attributes.
@@ -47,18 +60,27 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     * The interval is maximal.
     */
   override def verticesAggregated: RDD[(VertexId,Map[Interval, VD])] = {
-    allVertices.mapValues(y => Map[Interval, VD](y._1 -> y._2))
+    vertices.mapValues(y => Map[Interval, VD](y._1 -> y._2))
       .reduceByKey((a: Map[Interval, VD], b: Map[Interval, VD]) => a ++ b)
   }
 
-  override def edges: RDD[((VertexId,VertexId),(Interval, ED))] = allEdges
+  override def edges: RDD[((VertexId,VertexId),(Interval, ED))] = coalescedEdges
+
+  //because coalesce takes a long time and TGraphs are invariant, want to only
+  //do this once
+  private lazy val coalescedEdges = {
+    if (coalesced)
+      allEdges
+    else
+      TGraphNoSchema.coalesce(allEdges)
+  }
 
   /**
     * An RDD containing the edges and their associated attributes.
     * @return an RDD containing the edges in this graph, across all intervals.
     */
   override def edgesAggregated: RDD[((VertexId,VertexId),Map[Interval, ED])] = {
-    allEdges.mapValues(y => Map[Interval, ED](y._1 -> y._2))
+    edges.mapValues(y => Map[Interval, ED](y._1 -> y._2))
       .reduceByKey((a: Map[Interval, ED], b: Map[Interval, ED]) => a ++ b)
   }
 
@@ -67,7 +89,14 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     * composing this tgraph. Intervals are consecutive but
     * not equally sized.
     */
-  override def getTemporalSequence: Seq[Interval] = intervals
+  override def getTemporalSequence: Seq[Interval] = coalescedIntervals
+
+  private lazy val coalescedIntervals = {
+    if (coalesced)
+      intervals
+    else
+      TGraphNoSchema.computeIntervals(vertices, edges)
+  }
 
   override def getSnapshot(time: LocalDate): Graph[VD,ED] = {
     val index = intervals.indexWhere(a => a.contains(time))
@@ -78,6 +107,15 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
       Graph[VD,ED](filteredvas, filterededs, defaultValue, storageLevel, storageLevel)
     } else
       Graph[VD,ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+  }
+
+  override def coalesce(): TGraphNoSchema[VD, ED] = {
+    //coalesce the vertices and edges
+    //then recompute the intervals and graphs
+    if (coalesced)
+      this
+    else
+      fromRDDs(TGraphNoSchema.coalesce(allVertices), TGraphNoSchema.coalesce(allEdges), defaultValue, storageLevel, true)
   }
 
   override def slice(bound: Interval): TGraphNoSchema[VD, ED] = {
@@ -91,13 +129,18 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     val endBound = if (bound.end.isBefore(span.end)) bound.end else span.end
     val selectBound:Interval = Interval(startBound, endBound)
 
-    fromRDDs(allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), allEdges.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), defaultValue, storageLevel)
+    //slice is correct on coalesced and uncoalesced data
+    //and maintains the coalesced/uncoalesced state
+    fromRDDs(allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), allEdges.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), defaultValue, storageLevel, coalesced)
   }
 
   override def select(vtpred: Interval => Boolean, etpred: Interval => Boolean): TGraphNoSchema[VD, ED] = {
     //because of the integrity constraint on edges, they have to 
     //satisfy both predicates
-    fromRDDs(allVertices.filter{ case (vid, (intv, attr)) => vtpred(intv)}, allEdges.filter{ case (ids, (intv, attr)) => vtpred(intv) && etpred(intv)}, defaultValue, storageLevel)
+    //select is only correct on coalesced data, thus use vertices/edges methods
+    //which guarantee coalesce
+    //and since coalesce is unaffected by select, the result is coalesced
+    fromRDDs(vertices.filter{ case (vid, (intv, attr)) => vtpred(intv)}, edges.filter{ case (ids, (intv, attr)) => vtpred(intv) && etpred(intv)}, defaultValue, storageLevel, true)
 
   }
 
@@ -119,14 +162,16 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     //simple select on vertices, then join the coalesced by structure result
     //to modify edges
 
-    val newVerts: RDD[(VertexId, (Interval, VD))] = if (vpred == defvp) allVertices else allVertices.filter{ case (vid, attrs) => vpred(vid, attrs)}
-    val filteredEdges: RDD[((VertexId, VertexId), (Interval, ED))] = allEdges.filter{ case (ids, attrs) => epred(ids, attrs)}
+    //select is only correct on coalesced data, thus use vertices/edges methods
+    //and thus the result is coalesced (select itself does not cause uncoalesce)
+    val newVerts: RDD[(VertexId, (Interval, VD))] = if (vpred == defvp) vertices else vertices.filter{ case (vid, attrs) => vpred(vid, attrs)}
+    val filteredEdges: RDD[((VertexId, VertexId), (Interval, ED))] = edges.filter{ case (ids, attrs) => epred(ids, attrs)}
 
     val newEdges = if (filteredEdges.isEmpty || vpred == defvp) filteredEdges else TGraphNoSchema.constrainEdges(newVerts, filteredEdges)
 
     //no need to coalesce either vertices or edges because we are removing some entities, but not extending them or modifying attributes
 
-    fromRDDs(newVerts, newEdges, defaultValue, storageLevel)
+    fromRDDs(newVerts, newEdges, defaultValue, storageLevel, true)
 
   }
 
@@ -135,9 +180,13 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     if (allVertices.isEmpty)
       return emptyGraph[VD,ED](defaultValue)
 
+    //aggregateByChange requires coalesced tgraph for correctness
+    //aggregateByTime does too for some functions (like count) and not others
+    //because we don't know which function is used, we have to coalesce
+    //both produce potentially uncoalesced TGraph
     res match {
-      case c : ChangeSpec => aggregateByChange(c, vgroupby, vquant, equant, vAggFunc, eAggFunc)
-      case t : TimeSpec => aggregateByTime(t, vgroupby, vquant, equant, vAggFunc, eAggFunc)
+      case c : ChangeSpec => coalesce().aggregateByChange(c, vgroupby, vquant, equant, vAggFunc, eAggFunc)
+      case t : TimeSpec => coalesce().aggregateByTime(t, vgroupby, vquant, equant, vAggFunc, eAggFunc)
       case _ => throw new IllegalArgumentException("unsupported window specification")
     }
   }
@@ -184,13 +233,13 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
       case Nil => List(c)
     }}
 
-    val newVerts: RDD[(VertexId, (Interval, VD))] = TGraphNoSchema.coalesce(splitVerts.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 ++ b._2)).filter(v => vquant.keep(combine(v._2._2).map(ii => ii.ratio(v._1._2)).reduce(_ + _))).map(v => (v._1._1, (v._1._2, v._2._1))))
+    val newVerts: RDD[(VertexId, (Interval, VD))] = splitVerts.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 ++ b._2)).filter(v => vquant.keep(combine(v._2._2).map(ii => ii.ratio(v._1._2)).reduce(_ + _))).map(v => (v._1._1, (v._1._2, v._2._1)))
     //same for edges
     val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 ++ b._2)).filter(e => equant.keep(combine(e._2._2).map(ii => ii.ratio(e._1._3)).reduce(_ + _))).map(e => ((e._1._1, e._1._2), (e._1._3, e._2._1)))
 
     val newEdges = if (aggEdges.isEmpty) aggEdges else TGraphNoSchema.constrainEdges(newVerts, aggEdges)
 
-    fromRDDs(newVerts, TGraphNoSchema.coalesce(newEdges), defaultValue, storageLevel)
+    fromRDDs(newVerts, newEdges, defaultValue, storageLevel, false)
 
   }
 
@@ -225,13 +274,13 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
         if (head.intersects(c)) Interval(head.start, TempGraphOps.maxDate(head.end, c.end)) :: tail else c :: head :: tail
       case Nil => List(c)
     }}
-    val newVerts: RDD[(VertexId, (Interval, VD))] = TGraphNoSchema.coalesce(splitVerts.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 ++ b._2)).filter(v => vquant.keep(combine(v._2._2).map(ii => ii.ratio(v._1._2)).reduce(_ + _))).map(v => (v._1._1, (v._1._2, v._2._1))))
+    val newVerts: RDD[(VertexId, (Interval, VD))] = splitVerts.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 ++ b._2)).filter(v => vquant.keep(combine(v._2._2).map(ii => ii.ratio(v._1._2)).reduce(_ + _))).map(v => (v._1._1, (v._1._2, v._2._1)))
     //same for edges
     val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 ++ b._2)).filter(e => equant.keep(combine(e._2._2).map(ii => ii.ratio(e._1._3)).reduce(_ + _))).map(e => ((e._1._1, e._1._2), (e._1._3, e._2._1)))
 
     val newEdges = if (aggEdges.isEmpty) aggEdges else TGraphNoSchema.constrainEdges(newVerts, aggEdges)
 
-    fromRDDs(newVerts, TGraphNoSchema.coalesce(newEdges), defaultValue, storageLevel)
+    fromRDDs(newVerts, newEdges, defaultValue, storageLevel, false)
   }
 
   /**
@@ -241,10 +290,11 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     * @param defaultValue The default value for attribute VD2. Should be something that is not an available value, like Null
     * @return tgraph The transformed graph. The temporal schema is unchanged.
     */
-  def project[ED2: ClassTag, VD2: ClassTag](emap: (Edge[ED], Interval) => ED2, vmap: (VertexId, Interval, VD) => VD2, defVal: VD2): TGraphNoSchema[VD2, ED2] = {
-    //project may cause coalesce but it does not affect the integrity constraint on E
+  def project[ED2: ClassTag, VD2: ClassTag](emap: Edge[ED] => ED2, vmap: (VertexId, VD) => VD2, defVal: VD2): TGraphNoSchema[VD2, ED2] = {
+    //project may cause uncoalesce but it does not affect the integrity constraint on E
     //so we don't need to check it
-    fromRDDs(TGraphNoSchema.coalesce(allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vmap(vid, intv, attr)))}), TGraphNoSchema.coalesce(allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, emap(Edge(ids._1, ids._2, attr), intv)))}), defVal, storageLevel)
+    //project does not care whether data is coalesced or not
+    fromRDDs(allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vmap(vid, attr)))}, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, emap(Edge(ids._1, ids._2, attr))))}, defVal, storageLevel, false)
   }
 
   /**
@@ -257,8 +307,8 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     * @tparam VD2 the new vertex data type
     *
     */
-  def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): TGraphNoSchema[VD2, ED] = {
-    fromRDDs(TGraphNoSchema.coalesce(allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, intv, attr)))}), allEdges, defaultValue, storageLevel)
+  def mapVertices[VD2: ClassTag](map: (VertexId, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): TGraphNoSchema[VD2, ED] = {
+    fromRDDs(allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, attr)))}, allEdges, defaultValue, storageLevel, false)
   }
 
   /**
@@ -272,11 +322,13 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
    * @tparam ED2 the new edge data type
    *
    */
-  def mapEdges[ED2: ClassTag](map: (Edge[ED], Interval) => ED2): TGraphNoSchema[VD, ED2] = {
-    fromRDDs(allVertices, TGraphNoSchema.coalesce(allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(Edge(ids._1, ids._2, attr), intv)))}), defaultValue, storageLevel)
+  def mapEdges[ED2: ClassTag](map: Edge[ED] => ED2): TGraphNoSchema[VD, ED2] = {
+    fromRDDs(allVertices, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(Edge(ids._1, ids._2, attr))))}, defaultValue, storageLevel, false)
   }
 
   override def union(other: TGraph[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED] = {
+    //union is correct whether the two input graphs are coalesced or not
+    //but the result is potentially uncoalesced
     var grp2: TGraphNoSchema[VD, ED] = other match {
       case grph: TGraphNoSchema[VD, ED] => grph
       case _ => throw new ClassCastException
@@ -297,21 +349,23 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
 
       val newVerts = allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}.union(grp2.allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}).reduceByKey((a,b) => vFunc(a,b)).map{ case (v, attr) => (v._1, (v._2, attr))}
       val newEdges = allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}.union(grp2.allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}).reduceByKey((a,b) => eFunc(a,b)).map{ case (e, attr) => ((e._1, e._2), (e._3, attr))}
-      fromRDDs(TGraphNoSchema.coalesce(newVerts), TGraphNoSchema.coalesce(newEdges), defaultValue, storageLevel)
+      fromRDDs(newVerts, newEdges, defaultValue, storageLevel, false)
 
 
     } else if (span.end == grp2.span.start || span.start == grp2.span.end) {
       //if the two spans are one right after another but do not intersect
-      //then we need to coalesce
-      fromRDDs(TGraphNoSchema.coalesce(allVertices.union(grp2.vertices)), TGraphNoSchema.coalesce(allEdges.union(grp2.edges)), defaultValue, storageLevel)
+      //then we may stil have uncoalesced
+      fromRDDs(allVertices.union(grp2.vertices), allEdges.union(grp2.edges), defaultValue, storageLevel, false)
     } else {
       //if there is no temporal intersection, then we can just add them together
       //no need to worry about coalesce or constraint on E; all still holds
-      fromRDDs(allVertices.union(grp2.vertices), allEdges.union(grp2.edges), defaultValue, storageLevel)
+      fromRDDs(allVertices.union(grp2.vertices), allEdges.union(grp2.edges), defaultValue, storageLevel, coalesced & grp2.coalesced)
     }
   }
 
   override def intersection(other: TGraph[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED] = {
+    //intersection is correct whether the two input graphs are coalesced or not
+    //but the result may be uncoalesced
     var grp2: TGraphNoSchema[VD, ED] = other match {
       case grph: TGraphNoSchema[VD, ED] => grph
       case _ => throw new ClassCastException
@@ -336,7 +390,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
 
       val newEdges = allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}.join(grp2.allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}).map{ case ((id1, id2, intv), (attr1, attr2)) => ((id1, id2), (intv, eFunc(attr1, attr2)))}
 
-      fromRDDs(TGraphNoSchema.coalesce(newVertices), TGraphNoSchema.coalesce(newEdges), defaultValue, storageLevel)
+      fromRDDs(newVertices, newEdges, defaultValue, storageLevel, false)
 
     } else {
       emptyGraph(defaultValue)
@@ -392,7 +446,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
   }
 
   /** Utility methods **/
-  protected def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY): TGraphNoSchema[V, E]
+  protected def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false): TGraphNoSchema[V, E]
 
   protected def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): TGraphNoSchema[V, E]
 
