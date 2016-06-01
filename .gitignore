@@ -23,3 +23,6 @@ src/main/driverutils/target
 *.prefs
 *.iml
 *.log
+*.lck
+*.dat
+*.ctrl

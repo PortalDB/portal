@@ -82,16 +82,15 @@ object UndirectedPageRank {
   def runHybrid(graph: Graph[BitSet, BitSet], minIndex: Int, maxIndex: Int, tol: Double, resetProb: Double = 0.15, maxIter: Int = Int.MaxValue): Graph[Map[TimeIndex,(Double,Double)], Map[TimeIndex,(Double,Double)]] =
   {
     def mergeFunc(a:Map[TimeIndex,Int], b:Map[TimeIndex,Int]): Map[TimeIndex,Int] = {
-      val tmp = b.map{ case (index,count) => index -> (count + a.getOrDefault(index, 0)) }
-      mapAsJavaMap(a ++ b)
+      mapAsJavaMap(a ++ b.map{ case (index,count) => index -> (count + a.getOrDefault(index, 0)) })
         //a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) }
     }
 
     def vertexProgram(id: VertexId, attr: Map[TimeIndex, (Double,Double)], msg: Map[TimeIndex, Double]): Map[TimeIndex, (Double,Double)] = {
-      val vals = attr.clone.asInstanceOf[Map[TimeIndex, (Double,Double)]]
+      val vals = attr.clone
       msg.foreach { x =>
         val (k,v) = x
-        if (vals.containsKey(k)) {
+        if (vals.contains(k)) {
           val (oldPR, lastDelta) = vals(k)
           val newPR = oldPR + (1.0 - resetProb) * msg(k)
           vals.update(k,(newPR,newPR-oldPR))
@@ -127,14 +126,13 @@ object UndirectedPageRank {
     }
 
     def messageCombiner(a: Map[TimeIndex,Double], b: Map[TimeIndex,Double]): Map[TimeIndex,Double] = {
-      val tmp = b.map{ case (index, count) => index -> (count + a.getOrDefault(index,0.0))}
-      mapAsJavaMap(a ++ b)
+      mapAsJavaMap(a ++ b.map{ case (index, count) => index -> (count + a.getOrDefault(index,0.0))})
     }
     
     val degs: VertexRDD[Map[TimeIndex, Int]] = graph.aggregateMessages[Map[TimeIndex, Int]](
       ctx => {
-        ctx.sendToSrc{var tmp = new Int2IntOpenHashMap(); (tmp ++ ctx.attr.seq.map(x => (x,1))).asInstanceOf[Map[TimeIndex, Int]]}
-        ctx.sendToDst{var tmp = new Int2IntOpenHashMap(); (tmp ++ ctx.attr.seq.map(x => (x,1))).asInstanceOf[Map[TimeIndex, Int]]}
+        ctx.sendToSrc{var tmp = new Int2IntOpenHashMap(); mapAsJavaMap(tmp ++ ctx.attr.seq.map(x => (x,1))).asInstanceOf[Map[TimeIndex, Int]]}
+        ctx.sendToDst{var tmp = new Int2IntOpenHashMap(); mapAsJavaMap(tmp ++ ctx.attr.seq.map(x => (x,1))).asInstanceOf[Map[TimeIndex, Int]]}
         //ctx.sendToSrc(HashMap[TimeIndex,Int]() ++ ctx.attr.seq.map(x => (x,1)))
         //ctx.sendToDst(HashMap[TimeIndex,Int]() ++ ctx.attr.seq.map(x => (x,1)))
       },
@@ -142,15 +140,15 @@ object UndirectedPageRank {
     
     val joined: Graph[Map[TimeIndex,Int], BitSet] = graph.outerJoinVertices(degs) {
       case (vid, vdata, Some(deg)) => deg ++ vdata.filter(x => !deg.contains(x)).seq.map(x => (x,0))
-      case (vid, vdata, None) => {var tmp = new Int2IntOpenHashMap(); (tmp ++ vdata.seq.map(x => (x,0))).asInstanceOf[Map[TimeIndex, Int]]}
+      case (vid, vdata, None) => mapAsJavaMap(new Int2IntOpenHashMap() ++ vdata.seq.map(x => (x,0))).asInstanceOf[Map[TimeIndex, Int]]
     }
 
     val withtrips: Graph[Map[TimeIndex,Int], Map[TimeIndex, (Double,Double)]] = joined.mapTriplets{ e:EdgeTriplet[Map[TimeIndex,Int], BitSet] =>
-      (new Int2ObjectOpenHashMap[(Double, Double)]() ++ e.attr.seq.map(x => (x, (1.0 / e.srcAttr(x), 1.0 / e.dstAttr(x))))).asInstanceOf[Map[TimeIndex, (Double, Double)]]}
+      mapAsJavaMap(new Int2ObjectOpenHashMap[(Double, Double)]() ++ e.attr.seq.map(x => (x, (1.0 / e.srcAttr(x), 1.0 / e.dstAttr(x))))).asInstanceOf[Map[TimeIndex, (Double, Double)]]}
       //new HashMap[TimeIndex, (Double, Double)]() ++ e.attr.seq.map(x => (x, (1.0 / e.srcAttr(x), 1.0 / e.dstAttr(x))))}
 
     val prankGraph:Graph[Map[TimeIndex, (Double,Double)], Map[TimeIndex, (Double,Double)]] = withtrips.mapVertices( (id,attr) =>
-      attr.map{ case (k,x) => k -> (0.0,0.0) }.asInstanceOf[Map[TimeIndex, (Double, Double)]]).cache()
+      {var tmp =  attr.map{ case (k,x) => (k, (0.0,0.0)) }; mapAsJavaMap(tmp)}).cache()
 
     val initialMessage: Map[TimeIndex,Double] = {
       var tmpMap = new Int2DoubleOpenHashMap()
