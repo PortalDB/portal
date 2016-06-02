@@ -15,6 +15,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
+import org.apache.spark.HashPartitioner
 
 import org.apache.spark.graphx.impl.GraphXPartitionExtension._
 
@@ -42,6 +43,10 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
 
   override def slice(bound: Interval): OneGraphColumn[VD, ED] = {
     if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
+
+    //if the graphs is not materialized, it is more efficient to use the parent method
+    if (!graphs.isCheckpointed)
+      return super.slice(bound).asInstanceOf[OneGraphColumn[VD,ED]]
 
     if (span.intersects(bound)) {
       val startBound = maxDate(span.start, bound.start)
@@ -618,13 +623,14 @@ object OneGraphColumn {
     val coal = coalesced | ProgramContext.eagerCoalesce
 
     val intervals = TGraphNoSchema.computeIntervals(cverts, cedges)
-    val broadcastIntervals = ProgramContext.sc.broadcast(intervals)
+    val broadcastIntervals = ProgramContext.sc.broadcast(intervals.zipWithIndex)
 
+    val redFactor = math.max(1, intervals.size / 2)
     val graphs: Graph[BitSet, BitSet] = Graph(cverts.mapValues{ v => 
-      BitSet() ++ broadcastIntervals.value.zipWithIndex.filter(ii => v._1.intersects(ii._1)).map(ii => ii._2)
-    }.reduceByKey((a,b) => a union b),
+      BitSet() ++ broadcastIntervals.value.filter(ii => v._1.intersects(ii._1)).map(ii => ii._2)
+    }.partitionBy(new HashPartitioner(cverts.partitions.size)).reduceByKey((a,b) => a union b, math.max(4, cverts.partitions.size/redFactor)),
       cedges.mapValues{ e =>
-        BitSet() ++ broadcastIntervals.value.zipWithIndex.filter(ii => e._1.intersects(ii._1)).map(ii => ii._2)}.reduceByKey((a,b) => a union b).map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storLevel, storLevel)
+        BitSet() ++ broadcastIntervals.value.filter(ii => e._1.intersects(ii._1)).map(ii => ii._2)}.partitionBy(new HashPartitioner(cedges.partitions.size)).reduceByKey((a,b) => a union b, math.max(4, cedges.partitions.size/redFactor)).map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storLevel, storLevel)
 
     new OneGraphColumn(intervals, cverts, cedges, graphs, defVal, storLevel, coal)
 
