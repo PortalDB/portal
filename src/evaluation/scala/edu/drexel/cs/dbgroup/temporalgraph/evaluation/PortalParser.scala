@@ -590,10 +590,10 @@ sealed abstract class Direction {
   def value: Boolean
 }
 case class Directed() extends Direction {
-  def value() = false
+  def value() = true
 }
 case class Undirected() extends Direction {
-  def value() = true
+  def value() = false
 }
 
 sealed abstract class Function extends Serializable
