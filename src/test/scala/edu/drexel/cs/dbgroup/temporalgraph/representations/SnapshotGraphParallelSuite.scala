@@ -1220,8 +1220,9 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter {
     assert(actualSGP.vertices.collect.toSet == expectedNodes.collect.toSet)
   }
 
-
   test("directed pagerank") {
+    //PageRank for each representative graph was tested by creating graph in graphX and using spark's pagerank
+    //The final SGP is sliced into the two representative graph to assert the values
     val nodes: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "John")),
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Mike")),
@@ -1253,84 +1254,206 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter {
       ((6L, 8L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42))
     ))
 
+    //Pagerank using spark's api
+    val testNodes: RDD[(VertexId, String)] = ProgramContext.sc.parallelize(Array(
+      (1L,  "John"),
+      (2L,  "Mike"),
+      (3L,  "Ron"),
+      (4L,  "Julia"),
+      (5L,  "Vera"),
+      (6L,  "Halima"),
+      (7L,  "Sanjana"),
+      (8L,  "Lovro")
+    ))
+    val testEdges: RDD[Edge[Int]] = ProgramContext.sc.parallelize(Array(
+      Edge(1L, 2L, 42),
+      Edge(2L, 3L, 42),
+      Edge(2L, 6L, 42),
+      Edge(2L, 4L, 42),
+      Edge(3L, 5L, 42),
+      Edge(3L, 4L, 42),
+      Edge(4L, 5L, 42),
+      Edge(5L, 6L, 42),
+      Edge(7L, 8L, 42)
+    ))
+    val graph1 = Graph(testNodes, testEdges, "Default")
+    val pageRank2010_2014 = graph1.staticPageRank(10, 0.15)
 
-    //PageRank for each representative graph was calculated by creating graph in  graphX and using spark's pagerank
-    //The pagerank values are used in assert statement
-    // Uncomment code below to execute spark's page rank
-    //    val testNodes: RDD[(VertexId, String)] = ProgramContext.sc.parallelize(Array(
-    //      (1L,  "John"),
-    //      (2L,  "Mike"),
-    //      (3L,  "Ron"),
-    //      (4L,  "Julia"),
-    //      (5L,  "Vera"),
-    //      (6L,  "Halima"),
-    //      (7L,  "Sanjana"),
-    //      (8L,  "Lovro")
-    //    ))
-    //    val testEdges: RDD[Edge[Int]] = ProgramContext.sc.parallelize(Array(
-    //      Edge(1L, 2L, 42),
-    //      Edge(2L, 3L, 42),
-    //      Edge(2L, 6L, 42),
-    //      Edge(2L, 4L, 42),
-    //      Edge(3L, 5L, 42),
-    //      Edge(3L, 4L, 42),
-    //      Edge(4L, 5L, 42),
-    //      Edge(5L, 6L, 42),
-    //      Edge(7L, 8L, 42)
-    //    ))
-    //    val graph1 = Graph(testNodes, testEdges, "Default")
-    //    val pageRank1 = graph1.staticPageRank(10, 0.15)
-    //
-    //    val testNodes2: RDD[(VertexId, String)] = ProgramContext.sc.parallelize(Array(
-    //      (1L,  "John"),
-    //      (2L,  "Mike"),
-    //      (3L,  "Ron"),
-    //      (4L,  "Julia"),
-    //      (5L,  "Vera"),
-    //      (6L,  "Halima"),
-    //      (7L,  "Sanjana"),
-    //      (8L,  "Lovro")
-    //    ))
-    //    val testEdges2: RDD[Edge[Int]] = ProgramContext.sc.parallelize(Array(
-    //      Edge(1L, 3L, 42),
-    //      Edge(1L, 5L, 42),
-    //      Edge(3L, 7L, 42),
-    //      Edge(5L, 7L, 42),
-    //      Edge(2L, 4L, 42),
-    //      Edge(2L, 6L, 42),
-    //      Edge(4L, 8L, 42),
-    //      Edge(6L, 8L, 42)
-    //    ))
-    //    val graph2 = Graph(testNodes2, testEdges2, "Default")
-    //    val pageRank2 = graph2.staticPageRank(10, 0.15)
-    //
-    //    println("first graph, 2010 - 2014")
-    //    pageRank1.vertices.foreach(println)
-    //    println("second graph, 2014-2018")
-    //    pageRank2.vertices.foreach(println)
+    val testNodes2: RDD[(VertexId, String)] = ProgramContext.sc.parallelize(Array(
+      (1L,  "John"),
+      (2L,  "Mike"),
+      (3L,  "Ron"),
+      (4L,  "Julia"),
+      (5L,  "Vera"),
+      (6L,  "Halima"),
+      (7L,  "Sanjana"),
+      (8L,  "Lovro")
+    ))
+    val testEdges2: RDD[Edge[Int]] = ProgramContext.sc.parallelize(Array(
+      Edge(1L, 3L, 42),
+      Edge(1L, 5L, 42),
+      Edge(3L, 7L, 42),
+      Edge(5L, 7L, 42),
+      Edge(2L, 4L, 42),
+      Edge(2L, 6L, 42),
+      Edge(4L, 8L, 42),
+      Edge(6L, 8L, 42)
+    ))
+    val graph2 = Graph(testNodes2, testEdges2, "Default")
+    val pageRank2014_2018 = graph2.staticPageRank(10, 0.15)
 
+    val pageRank2010_2014VerticesSorted = pageRank2010_2014.vertices.sortBy(_._1).collect()
+    val pageRank2014_2018VerticesSorted = pageRank2014_2018.vertices.sortBy(_._1).collect()
+    //End of Spark's pagerank
+
+    //Pagerank using Portal api
     val SGP = SnapshotGraphParallel.fromRDDs(nodes, edges, "Default")
     val actualSGP = SGP.pageRank(true, 0.001, 0.15, 10)
+    val sliced2010_2014 = actualSGP.slice(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")))
+    val sliced2014_2018 = actualSGP.slice(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")))
+    val actualSGP2010_2014VerticesSorted = sliced2010_2014.vertices.sortBy(_._1).collect()
+    val actualSGP2014_2018VerticesSorted = sliced2014_2018.vertices.sortBy(_._1).collect()
+    //End of Portal pagerank
 
-    val expectedNodes:RDD[(VertexId, (Interval, Double))] = ProgramContext.sc.parallelize(Array(
-      (1L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")),0.15)),
-      (2L,(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")),0.15)),
-      (2L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),0.27749999999999997)),
-      (3L,(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")),0.21375)),
-      (3L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),0.22862499999999997)),
-      (4L,(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")),0.21375)),
-      (4L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),0.32579062499999994)),
-      (5L,(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")),0.21375)),
-      (5L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),0.52408765625)),
-      (6L,(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")),0.21375)),
-      (6L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),0.6740995078125)),
-      (7L,(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")),0.513375)),
-      (7L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),0.15)),
-      (8L,(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")),0.513375)),
-      (8L,(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),0.27749999999999997))
+
+    //Assertion
+    for (i <- 0 until pageRank2010_2014VerticesSorted.length) {
+      val difference = pageRank2010_2014VerticesSorted(i)._2 - actualSGP2010_2014VerticesSorted(i)._2._2
+      assert(Math.abs(difference) < 0.0000001)
+    }
+
+    for (i <- 0 until pageRank2014_2018VerticesSorted.length) {
+      val difference = pageRank2014_2018VerticesSorted(i)._2 - actualSGP2014_2018VerticesSorted(i)._2._2
+      assert(Math.abs(difference) < 0.0000001)
+    }
+  }
+
+  test("undirected pagerank") {
+    //PageRank for each representative graph was tested by creating graph in graphX and using spark's pagerank
+    //Spark's pagerank only has directed pagerank so to test it, each edge is added both ways and spark's pagerank is computed
+    //The final SGP is sliced into the two representative graph to assert the values
+    val nodes: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "John")),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Mike")),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Ron")),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Julia")),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Vera")),
+      (6L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Halima")),
+      (7L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Sanjana")),
+      (8L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Lovro"))
     ))
 
-    assert(actualSGP.vertices.collect().toSet === expectedNodes.collect().toSet)
+    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((2L, 6L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), 42)),
+      ((2L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), 42)),
+      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((3L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((4L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((5L, 6L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((7L, 8L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+
+      //second representative graph
+      ((1L, 3L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
+      ((1L, 5L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
+      ((3L, 7L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
+      ((5L, 7L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
+      ((4L, 8L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
+      ((6L, 8L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42))
+    ))
+
+    //Pagerank using spark's api
+    val testNodes: RDD[(VertexId, String)] = ProgramContext.sc.parallelize(Array(
+      (1L,  "John"),
+      (2L,  "Mike"),
+      (3L,  "Ron"),
+      (4L,  "Julia"),
+      (5L,  "Vera"),
+      (6L,  "Halima"),
+      (7L,  "Sanjana"),
+      (8L,  "Lovro")
+    ))
+    val testEdges: RDD[Edge[Int]] = ProgramContext.sc.parallelize(Array(
+      Edge(1L, 2L, 42),
+      Edge(2L, 3L, 42),
+      Edge(2L, 6L, 42),
+      Edge(2L, 4L, 42),
+      Edge(3L, 5L, 42),
+      Edge(3L, 4L, 42),
+      Edge(4L, 5L, 42),
+      Edge(5L, 6L, 42),
+      Edge(7L, 8L, 42),
+
+      Edge(2L, 1L, 42),
+      Edge(3L, 2L, 42),
+      Edge(6L, 2L, 42),
+      Edge(4L, 2L, 42),
+      Edge(5L, 3L, 42),
+      Edge(4L, 3L, 42),
+      Edge(5L, 4L, 42),
+      Edge(6L, 5L, 42),
+      Edge(8L, 7L, 42)
+    ))
+    val graph1 = Graph(testNodes, testEdges, "Default")
+    val pageRank2010_2014 = graph1.staticPageRank(10, 0.15)
+
+    val testNodes2: RDD[(VertexId, String)] = ProgramContext.sc.parallelize(Array(
+      (1L,  "John"),
+      (2L,  "Mike"),
+      (3L,  "Ron"),
+      (4L,  "Julia"),
+      (5L,  "Vera"),
+      (6L,  "Halima"),
+      (7L,  "Sanjana"),
+      (8L,  "Lovro")
+    ))
+    val testEdges2: RDD[Edge[Int]] = ProgramContext.sc.parallelize(Array(
+      Edge(1L, 3L, 42),
+      Edge(1L, 5L, 42),
+      Edge(3L, 7L, 42),
+      Edge(5L, 7L, 42),
+      Edge(2L, 4L, 42),
+      Edge(2L, 6L, 42),
+      Edge(4L, 8L, 42),
+      Edge(6L, 8L, 42),
+
+      Edge(3L, 1L, 42),
+      Edge(5L, 1L, 42),
+      Edge(7L, 3L, 42),
+      Edge(7L, 5L, 42),
+      Edge(4L, 2L, 42),
+      Edge(6L, 2L, 42),
+      Edge(8L, 4L, 42),
+      Edge(8L, 6L, 42)
+    ))
+    val graph2 = Graph(testNodes2, testEdges2, "Default")
+    val pageRank2014_2018 = graph2.staticPageRank(10, 0.15)
+
+    val pageRank2010_2014VerticesSorted = pageRank2010_2014.vertices.sortBy(_._1).collect()
+    val pageRank2014_2018VerticesSorted = pageRank2014_2018.vertices.sortBy(_._1).collect()
+    //End of Spark's pagerank
+
+    //Pagerank using Portal api
+    val SGP = SnapshotGraphParallel.fromRDDs(nodes, edges, "Default")
+    val actualSGP = SGP.pageRank(false, 0.001, 0.15, 10)
+    val sliced2010_2014 = actualSGP.slice(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")))
+    val sliced2014_2018 = actualSGP.slice(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")))
+    val actualSGP2010_2014VerticesSorted = sliced2010_2014.vertices.sortBy(_._1).collect()
+    val actualSGP2014_2018VerticesSorted = sliced2014_2018.vertices.sortBy(_._1).collect()
+    //End of Portal pagerank
+
+
+    //Assertion
+    for (i <- 0 until pageRank2010_2014VerticesSorted.length) {
+      val difference = pageRank2010_2014VerticesSorted(i)._2 - actualSGP2010_2014VerticesSorted(i)._2._2
+      assert(Math.abs(difference) < 0.0000001)
+    }
+
+    for (i <- 0 until pageRank2014_2018VerticesSorted.length) {
+      val difference = pageRank2014_2018VerticesSorted(i)._2 - actualSGP2014_2018VerticesSorted(i)._2._2
+      assert(Math.abs(difference) < 0.0000001)
+    }
   }
 
 }
