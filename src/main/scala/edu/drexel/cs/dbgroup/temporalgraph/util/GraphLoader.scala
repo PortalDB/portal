@@ -126,11 +126,11 @@ object GraphLoader {
 
     graphType match {
       case "SG" =>
-        SnapshotGraphParallel.fromRDDs(vs, es, deflt, StorageLevel.MEMORY_ONLY_SER, true)
+        SnapshotGraphParallel.fromRDDs(vs, es, deflt, StorageLevel.MEMORY_ONLY_SER, true).partitionBy(strategy, runWidth)
       case "OG" =>
-        OneGraphColumn.fromRDDs(vs, es, deflt, StorageLevel.MEMORY_ONLY_SER, true)
+        OneGraphColumn.fromRDDs(vs, es, deflt, StorageLevel.MEMORY_ONLY_SER, true).partitionBy(strategy, runWidth)
       case "HG" =>
-        HybridGraph.fromRDDs(vs, es, deflt, StorageLevel.MEMORY_ONLY_SER, coalesced = true)
+        HybridGraph.fromRDDs(vs, es, deflt, StorageLevel.MEMORY_ONLY_SER, coalesced = true).partitionBy(strategy, runWidth)
     }
   }
 
@@ -149,11 +149,11 @@ object GraphLoader {
     //i.e. should change these 'true' to 'false'
     graphType match {
       case "SG" =>
-        SnapshotGraphParallel.fromRDDs(vs, es, null, StorageLevel.MEMORY_ONLY_SER, true)
+        SnapshotGraphParallel.fromRDDs(vs, es, null, StorageLevel.MEMORY_ONLY_SER, true).partitionBy(strategy, runWidth)
       case "OG" =>
-        OneGraphColumn.fromRDDs(vs, es, null, StorageLevel.MEMORY_ONLY_SER, true)
+        OneGraphColumn.fromRDDs(vs, es, null, StorageLevel.MEMORY_ONLY_SER, true).partitionBy(strategy, runWidth)
       case "HG" =>
-        HybridGraph.fromRDDs(vs, es, null, StorageLevel.MEMORY_ONLY_SER, coalesced = true)
+        HybridGraph.fromRDDs(vs, es, null, StorageLevel.MEMORY_ONLY_SER, coalesced = true).partitionBy(strategy, runWidth)
     }
 
   }

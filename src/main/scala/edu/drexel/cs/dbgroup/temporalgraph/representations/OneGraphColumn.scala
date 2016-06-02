@@ -618,13 +618,13 @@ object OneGraphColumn {
     val coal = coalesced | ProgramContext.eagerCoalesce
 
     val intervals = TGraphNoSchema.computeIntervals(cverts, cedges)
-    val broadcastIntervals = ProgramContext.sc.broadcast(intervals)
+    val broadcastIntervals = ProgramContext.sc.broadcast(intervals.zipWithIndex)
 
     val graphs: Graph[BitSet, BitSet] = Graph(cverts.mapValues{ v => 
-      BitSet() ++ broadcastIntervals.value.zipWithIndex.filter(ii => v._1.intersects(ii._1)).map(ii => ii._2)
+      BitSet() ++ broadcastIntervals.value.filter(ii => v._1.intersects(ii._1)).map(ii => ii._2)
     }.reduceByKey((a,b) => a union b),
       cedges.mapValues{ e =>
-        BitSet() ++ broadcastIntervals.value.zipWithIndex.filter(ii => e._1.intersects(ii._1)).map(ii => ii._2)}.reduceByKey((a,b) => a union b).map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storLevel, storLevel)
+        BitSet() ++ broadcastIntervals.value.filter(ii => e._1.intersects(ii._1)).map(ii => ii._2)}.reduceByKey((a,b) => a union b).map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storLevel, storLevel)
 
     new OneGraphColumn(intervals, cverts, cedges, graphs, defVal, storLevel, coal)
 
