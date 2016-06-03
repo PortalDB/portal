@@ -5,7 +5,7 @@ package edu.drexel.cs.dbgroup.temporalgraph.representations
 import java.util.Map
 import java.util.HashSet
 
-import it.unimi.dsi.fastutil.ints.{Int2DoubleOpenHashMap, Int2IntOpenHashMap, Int2LongOpenHashMap, Int2ObjectOpenHashMap}
+import it.unimi.dsi.fastutil.ints.{Int2DoubleOpenHashMap, Int2LongOpenHashMap, Int2ObjectOpenHashMap}
 
 import scala.collection.JavaConversions._
 import collection.JavaConverters._
@@ -440,33 +440,39 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
   
   //run connected components on each interval
   override def connectedComponents(): OneGraphColumn[VertexId,ED] = {
-    val conGraph: Graph[Map[TimeIndex, VertexId], BitSet] = graphs.mapVertices{ case (vid, bset) =>
-      mapAsJavaMap(bset.map(x => (x,vid)).toMap)
-    }
+    val conGraph: Graph[Int2LongOpenHashMap, BitSet]
+      = graphs.mapVertices{ case (vid, bset) => val tmp = new Int2LongOpenHashMap(); bset.foreach(x => tmp.put(x,vid)); tmp}
 
-    val vertexProgram = (id: VertexId, attr: Map[TimeIndex, VertexId], msg: Map[TimeIndex, VertexId]) => {
-      var vals = new Int2LongOpenHashMap()
+    println(conGraph.vertices.take(20).mkString("\n"))
+
+    val vertexProgram = (id: VertexId, attr: Int2LongOpenHashMap, msg: Int2LongOpenHashMap) => {
+      var vals = attr.clone()
+
       msg.foreach { x =>
         val (k,v) = x
-        if (attr.contains(k)) {
-          vals.put(k, math.min(v, attr(k)))
+        if (vals.contains(k)) {
+          vals.update(k, math.min(v, attr(k)))
         }
       }
-      vals.asInstanceOf[Map[TimeIndex, VertexId]]
+      vals
     }
 
-    val sendMessage = (edge: EdgeTriplet[Map[TimeIndex, VertexId], BitSet]) => {
+    val sendMessage = (edge: EdgeTriplet[Int2LongOpenHashMap, BitSet]) => {
       //This is a hack because of a bug in GraphX that
       //does not fetch edge triplet attributes otherwise
       edge.srcAttr
       edge.dstAttr
 
+      println("\nSRCAttr: " + edge.srcAttr + "; SRC_ID: " + edge.srcId)
+      println("DSTAttr: " + edge.dstAttr + "; DST_ID: " + edge.dstId)
+      println("Attr: " + edge.attr)
+
       edge.attr.flatMap{ k =>
-        if (edge.srcAttr.containsKey(k) && edge.dstAttr.containsKey(k) && edge.srcAttr(k) < edge.dstAttr(k))
-          Some((edge.dstId, {var tmp = new Int2LongOpenHashMap(); tmp.put(k, edge.srcAttr(k)); tmp.asInstanceOf[Map[TimeIndex, VertexId]]}))
+        if (edge.srcAttr(k) < edge.dstAttr(k))
+          Some((edge.dstId, {var tmp = new Int2LongOpenHashMap(); tmp.put(k, edge.srcAttr.get(k)); tmp}))
           //Some((edge.dstId, Map(k -> edge.srcAttr(k))))
-        else if (edge.srcAttr.containsKey(k) && edge.dstAttr.containsKey(k) && edge.srcAttr(k) > edge.dstAttr(k))
-          Some((edge.srcId, {var tmp = new Int2LongOpenHashMap(); tmp.put(k, edge.dstAttr(k)); tmp.asInstanceOf[Map[TimeIndex, VertexId]]}))
+        else if (edge.srcAttr(k) > edge.dstAttr(k))
+          Some((edge.srcId, {var tmp = new Int2LongOpenHashMap(); tmp.put(k, edge.dstAttr.get(k)); tmp}))
           //Some((edge.srcId, Map(k -> edge.dstAttr(k))))
         else
           None
@@ -474,20 +480,20 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
 	.iterator
     }
 
-    val messageCombiner = (a: Map[TimeIndex, VertexId], b: Map[TimeIndex, VertexId]) => {
-      mapAsJavaMap(a ++ b.map { case (index, minid) => index -> math.min(minid, a.getOrElse(index, Long.MaxValue))})
+    val messageCombiner = (a: Int2LongOpenHashMap, b: Int2LongOpenHashMap) => {
+      mapAsJavaMap(a ++ b.map { case (index, minid) => index -> math.min(minid, a.getOrDefault(index, Long.MaxValue))}).asInstanceOf[Int2LongOpenHashMap]
     }
 
     val i: Int = 0
-    val initialMessage: Map[TimeIndex, VertexId] = {
+    val initialMessage: Int2LongOpenHashMap = {
       var tmpMap = new Int2LongOpenHashMap()
-      for(i <- 0 to intervals.size) {
+      for(i <- 0 to intervals.size-1) {
         tmpMap.put(i, Long.MaxValue)
       }
-      tmpMap.asInstanceOf[Map[TimeIndex, VertexId]]
+      tmpMap
     }
 
-    val resultGraph: Graph[Map[TimeIndex, VertexId], BitSet] = Pregel(conGraph, initialMessage, activeDirection = EdgeDirection.Either)(vertexProgram, sendMessage, messageCombiner)
+    val resultGraph: Graph[Map[TimeIndex, VertexId], BitSet] = Pregel(conGraph, initialMessage, activeDirection = EdgeDirection.Either)(vertexProgram, sendMessage, messageCombiner).asInstanceOf[Graph[Map[TimeIndex, VertexId], BitSet]]
 
     val intvs = ProgramContext.sc.broadcast(intervals)
     val vattrs = TGraphNoSchema.coalesce(resultGraph.vertices.flatMap{ case (vid, vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}})
@@ -512,16 +518,15 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RD
 
     def incrementMap(spmap: Map[VertexId, Int]): Map[VertexId, Int] = {
       val itr = spmap.entrySet().iterator
-      var tmpMap = new Long2IntOpenHashMap()
 
       while (itr.hasNext) {
         val entry = itr.next()
         val k = entry.getKey()
         val v = entry.getValue()
 
-        tmpMap.put(k, v+1)
+        spmap.update(k, v+1)
       }
-      tmpMap.asInstanceOf[Map[VertexId, Int]]
+      spmap
     }
 
     val addMaps = (spmap1: Map[VertexId, Int], spmap2: Map[VertexId, Int]) => {
