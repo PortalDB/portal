@@ -633,9 +633,11 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
 
     val OGC = OneGraphColumn.fromRDDs(users, edges, null, StorageLevel.MEMORY_ONLY_SER)
     val actualOGC = OGC.aggregate(new ChangeSpec(1), Exists(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => attr1)()
+    val expectedOGC = OneGraphColumn.fromRDDs(users, edges, null, StorageLevel.MEMORY_ONLY_SER)
 
     assert(users.collect().toSet === actualOGC.vertices.collect().toSet)
     assert(edges.collect().toSet === actualOGC.edges.collect().toSet)
+    assert(expectedOGC.getTemporalSequence === actualOGC.getTemporalSequence)
 
     val actualOGC2 = OGC.aggregate(new ChangeSpec(2), Exists(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => attr1)()
     val expectedUsers: RDD[(VertexId, (Interval, Null))] = ProgramContext.sc.parallelize(Array(
@@ -658,9 +660,11 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
       ((4L, 9L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), null)),
       ((4L, 6L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2015-01-01")), null))
     ))
+    val expectedOGC2 = OneGraphColumn.fromRDDs(expectedUsers, expectedEdges, null, StorageLevel.MEMORY_ONLY_SER)
 
     assert(expectedUsers.collect().toSet === actualOGC2.vertices.collect().toSet)
     assert(expectedEdges.collect().toSet === actualOGC2.edges.collect().toSet)
+    assert(expectedOGC2.getTemporalSequence === actualOGC2.getTemporalSequence)
 
     val actualOGC3 = OGC.aggregate(new ChangeSpec(2), Always(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => attr1)()
 
@@ -679,9 +683,12 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
       ((1L, 2L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2017-01-01")), null)),
       ((4L, 6L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), null))
     ))
+    val expectedOGC3 = OneGraphColumn.fromRDDs(expectedUsers3, expectedEdges3, null, StorageLevel.MEMORY_ONLY_SER)
 
     assert(expectedUsers3.collect().toSet === actualOGC3.vertices.collect().toSet)
+    assert(expectedUsers3.collect().toSet === actualOGC3.vertices.collect().toSet)
     assert(expectedEdges3.collect().toSet === actualOGC3.edges.collect().toSet)
+    assert(expectedOGC3.getTemporalSequence === actualOGC3.getTemporalSequence)
   }
 
   test("size, getTemporalSequence") {
@@ -975,11 +982,12 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
       ((5L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), null))
     ))
 
-
+    val expectedOGCUnion = OneGraphColumn.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, null, StorageLevel.MEMORY_ONLY_SER)
     val resultOGCUnion = OGC.union(OGC2, (a, b) => a, (a, b) => a)
 
     assert(resultOGCUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultOGCUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
+    assert(resultOGCUnion.getTemporalSequence === expectedOGCUnion.getTemporalSequence)
 
     val resultOGCIntersection = OGC.intersection(OGC2, (a, b) => a, (a, b) => a)
 
@@ -993,10 +1001,11 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
       ((3L, 3L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), null)),
       ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null))
     ))
+    val expectedOGCIntersection = OneGraphColumn.fromRDDs(expectedVerticesIntersection, expectedEdgesIntersection, null, StorageLevel.MEMORY_ONLY_SER)
 
     assert(resultOGCIntersection.vertices.collect.toSet === expectedVerticesIntersection.collect.toSet)
     assert(resultOGCIntersection.edges.collect.toSet === expectedEdgesIntersection.collect.toSet)
-
+    assert(resultOGCIntersection.getTemporalSequence === expectedOGCIntersection.getTemporalSequence)
   }
 
   test("Union and intersection -when there is no overlap between two graphs and has null attributes") {
@@ -1035,14 +1044,17 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     ))
 
     val resultOGCUnion = OGC.union(OGC2, (a, b) => a, (a, b) => a)
+    val expectedOGCUnion = OneGraphColumn.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, null, StorageLevel.MEMORY_ONLY_SER)
 
     assert(resultOGCUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultOGCUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
+    assert(resultOGCUnion.getTemporalSequence === expectedOGCUnion.getTemporalSequence)
 
     val resultOGCIntersection = OGC.intersection(OGC2, (a, b) => a, (a, b) => a)
 
     assert(resultOGCIntersection.vertices.collect.toSet === OneGraphColumn.emptyGraph().vertices.collect.toSet)
     assert(resultOGCIntersection.edges.collect.toSet === OneGraphColumn.emptyGraph().edges.collect.toSet)
+    assert(resultOGCIntersection.getTemporalSequence === Seq[Interval]())
   }
 
   test("Union and intersection -when graph.span.start == graph2.span.end and has null attributes") {
@@ -1081,16 +1093,19 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     ))
 
     val resultOGCUnion = OGC.union(OGC2, (a, b) => a, (a, b) => a)
+    val expectedOGCUnion = OneGraphColumn.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, null, StorageLevel.MEMORY_ONLY_SER)
 
     assert(resultOGCUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultOGCUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
+    assert(resultOGCUnion.getTemporalSequence === expectedOGCUnion.getTemporalSequence)
 
     val resultOGCIntersection = OGC.intersection(OGC2, (a, b) => a, (a, b) => a)
 
     assert(resultOGCIntersection.vertices.collect.toSet === OneGraphColumn.emptyGraph().vertices.collect.toSet)
     assert(resultOGCIntersection.edges.collect.toSet === OneGraphColumn.emptyGraph().edges.collect.toSet)
+    assert(resultOGCIntersection.getTemporalSequence === Seq[Interval]())
   }
-
+  
   test("Project") {
     //Checks for projection and coalescing of vertices and edges
     val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
