@@ -68,6 +68,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
 
     assert(expectedHG.vertices.collect() === actualHG.vertices.collect())
     assert(expectedHG.edges.collect() === actualHG.edges.collect())
+    assert(expectedHG.getTemporalSequence === actualHG.getTemporalSequence)
     info("regular cases passed")
 
     //When interval is completely outside the graph
@@ -75,12 +76,14 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     val actualHG2 = HG.slice(sliceInterval2)
     assert(actualHG2.vertices.collect() === HybridGraph.emptyGraph().vertices.collect())
     assert(actualHG2.edges.collect() === HybridGraph.emptyGraph().edges.collect())
+    assert(actualHG2.getTemporalSequence === Seq[Interval]())
     info("interval completely outside the graph passed")
 
     //When the graph is empty
     val actualHG3 = HybridGraph.emptyGraph().slice(sliceInterval2)
     assert(actualHG3.vertices.collect() === HybridGraph.emptyGraph().vertices.collect())
     assert(actualHG3.edges.collect() === HybridGraph.emptyGraph().edges.collect())
+    assert(actualHG3.getTemporalSequence === Seq[Interval]())
     info("empty graph passed")
   }
 
@@ -119,6 +122,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
 
     assert(expectedHG.vertices.collect() === actualHG.vertices.collect())
     assert(expectedHG.edges.collect() === actualHG.edges.collect())
+    assert(expectedHG.getTemporalSequence === actualHG.getTemporalSequence)
     info("regular cases passed")
 
     //When interval is completely outside the graph
@@ -126,12 +130,14 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     val actualHG2 = HG.select(selectFunction, selectFunction)
     assert(actualHG2.vertices.collect() === HybridGraph.emptyGraph().vertices.collect())
     assert(actualHG2.edges.collect() === HybridGraph.emptyGraph().edges.collect())
+    assert(actualHG2.getTemporalSequence === Seq[Interval]())
     info("interval completely outside the graph passed")
 
     //When the graph is empty
     val actualHG3 = HybridGraph.emptyGraph().select(selectFunction, selectFunction)
     assert(actualHG3.vertices.collect() === HybridGraph.emptyGraph().vertices.collect())
     assert(actualHG3.edges.collect() === HybridGraph.emptyGraph().edges.collect())
+    assert(actualHG3.getTemporalSequence === Seq[Interval]())
     info("empty graph passed")
   }
 
@@ -178,6 +184,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
 
     assert(expectedHG.vertices.collect() === actualHG.vertices.collect())
     assert(expectedHG.edges.collect() === actualHG.edges.collect())
+    assert(expectedHG.getTemporalSequence === actualHG.getTemporalSequence)
   }
 
   test("structural select function - vpred") {
@@ -218,6 +225,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
 
     assert(expectedHG.vertices.collect() === actualHG.vertices.collect())
     assert(expectedHG.edges.collect() === actualHG.edges.collect())
+    assert(expectedHG.getTemporalSequence === actualHG.getTemporalSequence)
   }
 
   test("structural select function - vpred and epred") {
@@ -257,6 +265,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
 
     assert(expectedHG.vertices.collect() === actualHG.vertices.collect())
     assert(expectedHG.edges.collect() === actualHG.edges.collect())
+    assert(expectedHG.getTemporalSequence === actualHG.getTemporalSequence)
   }
 
   test("getSnapshot function") {
@@ -340,9 +349,11 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     val expectedEdges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
       ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 42))
     ))
+    val expectedHG = HybridGraph.fromRDDs(expectedVertices, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     assert(expectedVertices.collect().toSet === actualHG.vertices.collect().toSet)
     assert(expectedEdges.collect().toSet === actualHG.edges.collect().toSet)
+    assert(expectedHG.getTemporalSequence === actualHG.getTemporalSequence)
 
     val actualHG2 = HG.aggregate(new TimeSpec(resolution3Years), Always(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => Math.max(attr1, attr2))()
 
@@ -359,9 +370,11 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 42)),
       ((4L, 6L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 72))
     ))
+    val expectedHG2 = HybridGraph.fromRDDs(expectedVertices2, expectedEdges2, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     assert(expectedVertices2.collect().toSet === actualHG2.vertices.collect().toSet)
     assert(expectedEdges2.collect().toSet === actualHG2.edges.collect().toSet)
+    assert(expectedHG2.getTemporalSequence === actualHG2.getTemporalSequence)
   }
 
   test("aggregateByTime -with structural") {
@@ -398,7 +411,6 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     val longerString = (a: String, b: String) =>
       if (a.length > b.length) a else if (a.length < b.length) b else if (a.compareTo(b) > 0) a else b
 
-
     val actualHG = HG.aggregate(new TimeSpec(resolution3Years), Always(), Always(), (name1, name2) => longerString(name1, name2), (count1, count2) => Math.max(count1, count2))((vid, attr1) => if (attr1.length < 5) 1L else 2L)
 
     val expectedVertices: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
@@ -411,9 +423,11 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     val expectedEdges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
       ((1L, 2L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 42))
     ))
+    val expectedHG = HybridGraph.fromRDDs(expectedVertices, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     assert(expectedVertices.collect().toSet === actualHG.vertices.collect().toSet)
     assert(expectedEdges.collect().toSet === actualHG.edges.collect().toSet)
+    assert(expectedHG.getTemporalSequence === actualHG.getTemporalSequence)
 
     val actualHG2 = HG.aggregate(new TimeSpec(resolution3Years), Always(), Exists(), (name1, name2) => longerString(name1, name2), (count1, count2) => Math.max(count1, count2))((vid, name) => if (name.length < 5) 1L else 2L)
 
@@ -423,8 +437,6 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       (1L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), "Mike")),
       (2L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), "Halima"))
     ))
-
-
     val expectedEdges2: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
       ((1L, 1L), (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2015-01-01")), 42)),
       ((1L, 1L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), 22)),
@@ -434,9 +446,11 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       ((2L, 1L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 22)),
       ((2L, 2L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 72))
     ))
+    val expectedHG2 = HybridGraph.fromRDDs(expectedVertices2, expectedEdges2, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     assert(expectedVertices2.collect().toSet === actualHG2.vertices.collect.toSet)
     assert(expectedEdges2.collect().toSet === actualHG2.edges.collect().toSet)
+    assert(expectedHG2.getTemporalSequence === actualHG2.getTemporalSequence)
   }
 
 
@@ -465,9 +479,11 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
 
     val HG = HybridGraph.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
     val actualHG = HG.aggregate(new ChangeSpec(1), Exists(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => attr1)()
+    val expectedHG = HybridGraph.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     assert(users.collect().toSet === actualHG.vertices.collect().toSet)
     assert(edges.collect().toSet === actualHG.edges.collect().toSet)
+    assert(expectedHG.getTemporalSequence === actualHG.getTemporalSequence)
 
     val actualHG2 = HG.aggregate(new ChangeSpec(2), Exists(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => attr1)()
     val expectedUsers: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
@@ -491,9 +507,11 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       ((4L, 6L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), 22)),
       ((4L, 6L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2013-01-01")), 72))
     ))
+    val expectedHG2 = HybridGraph.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     assert(expectedUsers.collect().toSet === actualHG2.vertices.collect().toSet)
     assert(expectedEdges.collect().toSet === actualHG2.edges.collect().toSet)
+    assert(expectedHG2.getTemporalSequence === actualHG2.getTemporalSequence)
 
     val actualHG3 = HG.aggregate(new ChangeSpec(2), Always(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => attr1)()
 
@@ -512,9 +530,12 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       ((1L, 2L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2017-01-01")), 22)),
       ((4L, 6L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), 22))
     ))
+    val expectedHG3 = HybridGraph.fromRDDs(expectedUsers3, expectedEdges3, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     assert(expectedUsers3.collect().toSet === actualHG3.vertices.collect().toSet)
     assert(expectedEdges3.collect().toSet === actualHG3.edges.collect().toSet)
+    assert(expectedHG3.getTemporalSequence === actualHG3.getTemporalSequence)
+
   }
 
   test("aggregateByChange -with structural") {
@@ -558,9 +579,11 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       ((1L, 2L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 42)),
       ((2L, 2L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 72))
     ))
+    val expectedHG = HybridGraph.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     assert(expectedUsers.collect().toSet === actualHG.vertices.collect().toSet)
     assert(expectedEdges.collect().toSet === actualHG.edges.collect().toSet)
+    assert(expectedHG.getTemporalSequence === actualHG.getTemporalSequence)
 
     val actualHG2 = HG.aggregate(new ChangeSpec(3), Always(), Exists(), (name1, name2) => longerString(name1, name2), (attr1, attr2) => Math.max(attr1, attr2))((vid, attr1) => if (attr1.length < 5) 1L else 2L)
 
@@ -579,10 +602,11 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       ((2L, 2L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 72)),
       ((2L, 1L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 22))
     ))
+    val expectedHG2 = HybridGraph.fromRDDs(expectedUsers2, expectedEdges2, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     assert(expectedUsers2.collect().toSet === actualHG2.vertices.collect().toSet)
     assert(expectedEdges2.collect().toSet === actualHG2.edges.collect().toSet)
-
+    assert(expectedHG2.getTemporalSequence === actualHG2.getTemporalSequence)
   }
 
   test("aggregateByChange -with structural only") {
@@ -687,7 +711,6 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       Interval(LocalDate.parse("2017-01-01"), LocalDate.parse("2018-01-01"))
     )
     assert(resultSeq === expectedSequence)
-
   }
 
   test("degree") {
@@ -715,8 +738,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
 
     assert(expectedDegree.collect.toSet === resultDegree.collect.toSet)
   }
-
-
+  
   test("Union and Intersection") {
     val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "a")),
@@ -776,12 +798,12 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       ((2L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
       ((5L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), 22))
     ))
-
-
     val resultHGUnion = HG.union(HG2, (name1, name2) => if (name1.compareTo(name2) > 0) name1 else name2, (a, b) => Math.max(a, b))
+    val expectedHGUnion = HybridGraph.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     assert(resultHGUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultHGUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
+    assert(resultHGUnion.getTemporalSequence === expectedHGUnion.getTemporalSequence)
 
     val resultHGIntersection = HG.intersection(HG2, (name1, name2) => if (name1.compareTo(name2) > 0) name1 else name2, (a, b) => Math.max(a, b))
 
@@ -795,12 +817,15 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       ((3L, 3L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 42)),
       ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 52))
     ))
+    val expectedHGIntersection = HybridGraph.fromRDDs(expectedVerticesIntersection, expectedEdgesIntersection, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     assert(resultHGIntersection.vertices.collect.toSet === expectedVerticesIntersection.collect.toSet)
     assert(resultHGIntersection.edges.collect.toSet === expectedEdgesIntersection.collect.toSet)
+    assert(resultHGIntersection.getTemporalSequence === expectedHGIntersection.getTemporalSequence)
+
   }
 
-  test("Union and intersection -when there is no overlap between two graphs") {
+  test("Union and intersection - when there is no overlap between two graphs") {
     val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "a")),
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "b"))
@@ -834,16 +859,19 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
       ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), 52))
     ))
+    val expectedHGUnion = HybridGraph.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     val resultHGUnion = HG.union(HG2, (name1, name2) => if (name1.compareTo(name2) > 0) name1 else name2, (a, b) => Math.max(a, b))
 
     assert(resultHGUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultHGUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
+    assert(resultHGUnion.getTemporalSequence === expectedHGUnion.getTemporalSequence)
 
     val resultHGIntersection = HG.intersection(HG2, (name1, name2) => if (name1.compareTo(name2) > 0) name1 else name2, (a, b) => Math.max(a, b))
 
     assert(resultHGIntersection.vertices.collect.toSet === HybridGraph.emptyGraph().vertices.collect.toSet)
     assert(resultHGIntersection.edges.collect.toSet === HybridGraph.emptyGraph().edges.collect.toSet)
+    assert(resultHGIntersection.getTemporalSequence === Seq[Interval]())
   }
 
   test("Union and intersection -when graph.span.start == graph2.span.end") {
@@ -851,11 +879,9 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "a")),
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "b"))
     ))
-
     val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
       ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42))
     ))
-
     val HG = HybridGraph.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     val users2: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
@@ -863,11 +889,9 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), "b1")),
       (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), "C"))
     ))
-
     val edges2: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
       ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), 52))
     ))
-
     val HG2 = HybridGraph.fromRDDs(users2, edges2, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     val expectedVerticesUnion: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
@@ -876,23 +900,25 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), "b1")),
       (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), "C"))
     ))
-
     val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
       ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
       ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), 52))
     ))
+    val expectedHGUnion = HybridGraph.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     val resultHGUnion = HG.union(HG2, (name1, name2) => if (name1.compareTo(name2) > 0) name1 else name2, (a, b) => Math.max(a, b))
 
     assert(resultHGUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultHGUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
+    assert(resultHGUnion.getTemporalSequence === expectedHGUnion.getTemporalSequence)
 
     val resultHGIntersection = HG.intersection(HG2, (name1, name2) => if (name1.compareTo(name2) > 0) name1 else name2, (a, b) => Math.max(a, b))
 
     assert(resultHGIntersection.vertices.collect.toSet === HybridGraph.emptyGraph().vertices.collect.toSet)
     assert(resultHGIntersection.edges.collect.toSet === HybridGraph.emptyGraph().edges.collect.toSet)
+    assert(resultHGIntersection.getTemporalSequence === Seq[Interval]())
   }
-
+  
   test("Union and Intersection - with Null") {
     val users: RDD[(VertexId, (Interval, Null))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null)),
@@ -1091,9 +1117,11 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 16)),
       ((1L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 4))
     ))
+    val expectedHG = HybridGraph.fromRDDs(expectedVertices, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     assert(expectedVertices.collect().toSet === actualHG.vertices.collect().toSet)
     assert(expectedEdges.collect().toSet === actualHG.edges.collect().toSet)
+    assert(actualHG.getTemporalSequence === expectedHG.getTemporalSequence)
   }
 
   test("verticesAggregated and edgesAggregated functions") {
