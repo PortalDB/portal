@@ -17,7 +17,7 @@ import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap
  */
 object ShortestPathsXT extends Serializable {
   /** Stores a map from the vertex id of a landmark to the distance to that landmark. */
-  type SPMap = Map[VertexId, Int]
+  type SPMap = Long2IntOpenHashMap
 
   private def makeMap(x: (VertexId, Int)*) = {
     val itr = x.iterator;
@@ -27,27 +27,30 @@ object ShortestPathsXT extends Serializable {
       val k = itr.next()
       tmpMap.put(k._1, k._2)
     }
-    tmpMap.asInstanceOf[Map[VertexId, Int]]
+    tmpMap
   }
 
   private def incrementMap(spmap: SPMap): SPMap = {
-    val itr = spmap.entrySet().iterator
+    val itr = spmap.iterator
     var tmpMap = new Long2IntOpenHashMap()
 
     while (itr.hasNext) {
-      val entry = itr.next()
-      val k = entry.getKey()
-      val v = entry.getValue()
-
-      tmpMap.put(k, v+1)
+      val (k,v) = itr.next()
+      tmpMap.put(k: Long, v+1)
     }
-    tmpMap.asInstanceOf[Map[VertexId, Int]]
+    tmpMap
   }
 
-  private def addMaps(spmap1: SPMap, spmap2: SPMap): SPMap =
-    (spmap1.keySet ++ spmap2.keySet).map {
-      k => k -> math.min(spmap1.getOrDefault(k, Int.MaxValue), spmap2.getOrDefault(k, Int.MaxValue))
-    }.toMap[VertexId, Int]
+  private def addMaps(spmap1: SPMap, spmap2: SPMap): SPMap = {
+    val itr = spmap1.iterator
+
+    while(itr.hasNext){
+      val(k,v) = itr.next()
+
+      spmap2.update(k, math.min(spmap1.getOrDefault(k, Int.MaxValue), spmap2.getOrDefault(k, Int.MaxValue)))
+    }
+    spmap2
+  }
 
   /**
    * Computes shortest paths to the given set of landmark vertices.
@@ -61,7 +64,7 @@ object ShortestPathsXT extends Serializable {
    * @return a graph where each vertex attribute is a map containing the shortest-path distance to
    * each reachable landmark vertex.
    */
-  def run[VD, ED: ClassTag](graph: Graph[VD, ED], landmarks: Seq[VertexId]): Graph[SPMap, ED] = {
+  def run[VD, ED: ClassTag](graph: Graph[VD, ED], landmarks: Seq[VertexId]): Graph[Map[VertexId, Int], ED] = {
     val spGraph = graph.mapVertices { (vid, attr) =>
       if (landmarks.contains(vid)) makeMap(vid -> 0) else makeMap()
     }
@@ -84,7 +87,7 @@ object ShortestPathsXT extends Serializable {
           Iterator.empty
       }
 
-    Pregel(spGraph, initialMessage)(vertexProgram, sendMessage, addMaps)
+    Pregel(spGraph, initialMessage)(vertexProgram, sendMessage, addMaps).asInstanceOf[Graph[Map[VertexId, Int], ED]]
   }
 
 }

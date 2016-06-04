@@ -21,7 +21,7 @@ object ConnectedComponentsXT {
   def runHybrid(graph: Graph[BitSet,BitSet], minIndex: Int, maxIndex: Int): Graph[Map[TimeIndex, VertexId], BitSet] = {
     val conGraph: Graph[Int2LongOpenHashMap, BitSet]
     = graph.mapVertices{ case (vid, bset) => val tmp = new Int2LongOpenHashMap(); bset.foreach(x => tmp.put(x,vid)); tmp} //.cache()
-    //mapAsJavaMap(bset.toSeq.map(x => (x,vid)).toMap)
+
     def vertexProgram(id: VertexId, attr: Int2LongOpenHashMap, msg: Int2LongOpenHashMap): Int2LongOpenHashMap = {
       var vals = attr.clone()
 
@@ -61,7 +61,6 @@ object ConnectedComponentsXT {
         b.update(k, math.min(v, b.getOrDefault(k, Long.MaxValue)))
       }
       b
-      //a ++ b.map{ case (index, count) => index -> math.min(count, a.getOrDefault(index, Long.MaxValue))}
     }
 
     val i: Int = 0

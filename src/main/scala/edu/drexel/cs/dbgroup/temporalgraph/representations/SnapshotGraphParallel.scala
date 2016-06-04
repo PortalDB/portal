@@ -278,7 +278,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
   override def shortestPaths(landmarks: Seq[VertexId]): SnapshotGraphParallel[Map[VertexId, Int], ED] = {
     val safeShortestPaths = (grp: Graph[VD, ED]) => {
       if (grp.vertices.isEmpty) {
-        Graph[ShortestPathsXT.SPMap, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+        Graph[Map[VertexId, Int], ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
       } else {
         ShortestPathsXT.run(grp, landmarks)
       }
