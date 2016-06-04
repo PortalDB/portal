@@ -68,10 +68,13 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter{
     ))
     val expectedOGC = OneGraphColumn.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER )
 
+    //behavior is different for materialized and unmaterialized graph
+    //although the result should be the same
+    ogc.materialize
     var actualOGC = ogc.slice(sliceInterval)
 
-    assert(expectedOGC.vertices.collect() === actualOGC.vertices.collect())
-    assert(expectedOGC.edges.collect() === actualOGC.edges.collect())
+    assert(expectedOGC.vertices.collect().toSet === actualOGC.vertices.collect().toSet)
+    assert(expectedOGC.edges.collect().toSet === actualOGC.edges.collect().toSet)
     info("regular cases passed")
 
     //When interval is completely outside the graph
@@ -690,7 +693,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter{
       Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")),
       Interval(LocalDate.parse("2017-01-01"), LocalDate.parse("2018-01-01"))
     )
-    assert(resultSeq === expectedSequence)
+    assert(resultSeq.collect === expectedSequence)
 
   }
 

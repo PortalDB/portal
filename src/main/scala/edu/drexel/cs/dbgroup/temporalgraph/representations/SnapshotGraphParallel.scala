@@ -24,7 +24,7 @@ import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps
 
 import java.time.LocalDate
 
-class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], grphs: ParSeq[Graph[VD,ED]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraphNoSchema[VD, ED](intvs, verts, edgs, defValue, storLevel, coal) {
+class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], grphs: ParSeq[Graph[VD,ED]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraphNoSchema[VD, ED](intvs, verts, edgs, defValue, storLevel, coal) {
 
   protected val graphs: ParSeq[Graph[VD, ED]] = grphs
 
@@ -44,9 +44,9 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
   }
 
   override def getSnapshot(time: LocalDate): Graph[VD,ED] = {
-    val index = intervals.indexWhere(a => a.contains(time))
-    if (index >= 0) {
-      graphs(index)
+    val index = intervals.zipWithIndex.filter(g => g._1.contains(time))
+    if (!index.isEmpty) {
+      graphs(index.first._2.toInt)
     } else
       Graph[VD,ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
   }
@@ -54,6 +54,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
   /** Query operations */
 
   override def slice(bound: Interval): SnapshotGraphParallel[VD, ED] = {
+    if (graphs.size < 1) return this
     if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
 
     if (!span.intersects(bound)) {
@@ -64,20 +65,25 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
     val endBound = if (bound.end.isBefore(span.end)) bound.end else span.end
     val selectBound:Interval = Interval(startBound, endBound)
     //compute indices of start and stop
-    val selectStart:Int = intervals.indexWhere(intv => intv.intersects(selectBound))
-    var selectStop:Int = intervals.lastIndexWhere(intv => intv.intersects(selectBound))
-    if (selectStop < 0) selectStop = intervals.size - 1
-    val newIntvs: Seq[Interval] = intervals.slice(selectStart, selectStop+1)
+    val zipped = intervals.zipWithIndex.filter(intv => intv._1.intersects(selectBound))
+    val selectStart:Int = zipped.min._2.toInt
+    val selectStop:Int = zipped.max._2.toInt
+    val newIntvs: RDD[Interval] = zipped.map(x => x._1)
 
-    new SnapshotGraphParallel(newIntvs, allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), allEdges.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), graphs.slice(selectStart, selectStop+1), defaultValue, storageLevel, coalesced)
+    //TODO: this factor assumes uniform distribution of data across time
+    //which is of course usually incorrect. Find a better estimate
+    val redFactor = math.max(1, span.ratio(selectBound).toInt)
+    new SnapshotGraphParallel(newIntvs, allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}.coalesce(math.max(2, allVertices.getNumPartitions/redFactor))(null).mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), allEdges.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}.coalesce(math.max(2, allEdges.getNumPartitions/redFactor))(null).mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), graphs.slice(selectStart, selectStop+1), defaultValue, storageLevel, coalesced)
 
   }
 
   //expects coalesced input
   override protected def aggregateByChange(c: ChangeSpec, vgroupby: (VertexId, VD) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): SnapshotGraphParallel[VD, ED] = {
     val size: Integer = c.num
+    //TODO: rewrite to use the RDD insteand of seq
+    val intervalsc = intervals.collect
     var groups: ParSeq[List[(Graph[VD, ED], Interval)]] = if (size > 1) 
-      graphs.zip(intervals).foldLeft(List[List[(Graph[VD, ED], Interval)]](), 0) { (r, c) => r match {
+      graphs.zip(intervalsc).foldLeft(List[List[(Graph[VD, ED], Interval)]](), 0) { (r, c) => r match {
         case (head :: tail, num) =>
           if (num < size)  ( (c :: head) :: tail , num + 1 )
           else             ( List(c) :: head :: tail , 1 )
@@ -85,7 +91,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
       }
       }._1.foldLeft(List[List[(Graph[VD, ED], Interval)]]())( (r,c) => c.reverse :: r).par
     else
-      graphs.zip(intervals).map(g => List(g))
+      graphs.zip(intervalsc).map(g => List(g))
 
     implicit val ord = TempGraphOps.dateOrdering
     val combine = (lst: List[Interval]) => lst.sortBy(x => x.start).foldLeft(List[Interval]()){ (r,c) => r match {
@@ -119,7 +125,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
       Graph(vs.mapValues(v => v._1), es.map(e => Edge(e._1._1, e._1._2, e._2._1)), defaultValue, storageLevel, storageLevel).subgraph(epred = et => true, vpred = vp)
     }
 
-    val newIntervals: Seq[Interval] = intervals.grouped(size).map{group => group.reduce((a,b) => Interval(a.start, b.end))}.toSeq
+    val newIntervals: RDD[Interval] = intervals.zipWithIndex.map(x => ((x._2 / size), x._1)).reduceByKey((a,b) => Interval(TempGraphOps.minDate(a.start, b.start), TempGraphOps.maxDate(a.end, b.end))).sortBy(c => c._1, true).map(x => x._2)
 
     SnapshotGraphParallel.fromGraphs(newIntervals, newGraphs, defaultValue, storageLevel)
   }
@@ -138,26 +144,32 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
 
       //this is method A
       //compute new intervals
-      val newIntvs: Seq[Interval] = TempGraphOps.intervalUnion(intervals, grp2.intervals)
+      val newIntvs: RDD[Interval] = TempGraphOps.intervalUnion(intervals, grp2.intervals)
 
       var ii: Integer = 0
       var jj: Integer = 0
       val empty: Interval = new Interval(LocalDate.MAX, LocalDate.MAX)
+      implicit val ord: Ordering[Interval] = Ordering.fromLessThan((a,b) => a.start.isBefore(b.start))
 
-      val newGraphs: ParSeq[Graph[VD, ED]] = newIntvs.map { intv =>
-        if (intervals.lift(ii).getOrElse(empty).intersects(intv) && grp2.intervals.lift(jj).getOrElse(empty).intersects(intv)) {
+      //TODO: get rid of collect if possible
+      val intervalsZipped = intervals.zipWithIndex.map(_.swap)
+      val intervals2Zipped = grp2.intervals.zipWithIndex.map(_.swap)
+      val newGraphs: ParSeq[Graph[VD, ED]] = newIntvs.collect.map { intv =>
+        val iith = intervalsZipped.lookup(ii.toLong).lift(0).getOrElse(empty)
+        val jjth = intervals2Zipped.lookup(jj.toLong).lift(0).getOrElse(empty)
+        if (iith.intersects(intv) && jjth.intersects(intv)) {
           val ret = Graph(graphs(ii).vertices.union(grp2.graphs(jj).vertices).reduceByKey(vFunc), graphs(ii).edges.union(grp2.graphs(jj).edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eFunc).map(e => Edge(e._1._1, e._1._2, e._2)), defaultValue, storageLevel, storageLevel)
-          if (intervals(ii).end == intv.end)
+          if (iith.end == intv.end)
             ii = ii+1
-          if (grp2.intervals(jj).end == intv.end)
+          if (jjth.end == intv.end)
             jj = jj+1
           ret
-        } else if (intervals.lift(ii).getOrElse(empty).intersects(intv)) {
-          if (intervals(ii).end == intv.end)
+        } else if (iith.intersects(intv)) {
+          if (iith.end == intv.end)
             ii = ii+1
           graphs(ii-1)
-        } else if (grp2.intervals.lift(jj).getOrElse(empty).intersects(intv)) {
-          if (grp2.intervals(jj).end == intv.end)
+        } else if (jjth.intersects(intv)) {
+          if (jjth.end == intv.end)
             jj = jj+1
           grp2.graphs(jj-1)
         } else { //should never get here
@@ -169,7 +181,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
     } else if (span.end == grp2.span.start || span.start == grp2.span.end) {
       //if the two spans are one right after another but do not intersect
       //then we just put them together, but the result may be uncoalesced
-      val newIntvs = if (span.start.isBefore(grp2.span.start)) intervals ++ grp2.intervals else grp2.intervals ++ intervals
+      val newIntvs = intervals.union(grp2.intervals).sortBy(c => c, true)
       val newGraphs = if (span.start.isBefore(grp2.span.start)) graphs ++ grp2.graphs else grp2.graphs ++ graphs
       if (ProgramContext.eagerCoalesce) //fromRDDs will take care of coalescing
         fromRDDs(allVertices.union(grp2.vertices), allEdges.union(grp2.edges), defaultValue, storageLevel, false)
@@ -178,7 +190,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
     } else {
       //if there is no temporal intersection, then we can just add them together
       //no need to worry about coalesce or constraint on E; all still holds
-      val newIntvs = if (span.start.isBefore(grp2.span.start)) intervals ++ Seq(Interval(span.end, grp2.span.start)) ++ grp2.intervals else grp2.intervals ++ Seq(Interval(grp2.span.end, span.start)) ++ intervals
+      val newIntvs = intervals.union(grp2.intervals).union(ProgramContext.sc.parallelize(Seq(Interval(span.end, grp2.span.start)))).sortBy(c => c, true)
       val newGraphs = if (span.start.isBefore(grp2.span.start)) graphs ++ Seq(Graph[VD,ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)) ++ grp2.graphs else grp2.graphs ++ Seq(Graph[VD,ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)) ++ graphs
 
       new SnapshotGraphParallel(newIntvs, allVertices.union(grp2.vertices), allEdges.union(grp2.edges), newGraphs, defaultValue, storageLevel, coalesced && grp2.coalesced)
@@ -197,20 +209,31 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
       //this is by graphs
 
       //compute new intervals
-      val newIntvs: Seq[Interval] = TempGraphOps.intervalIntersect(intervals, grp2.intervals)
+      val newIntvs: RDD[Interval] = TempGraphOps.intervalIntersect(intervals, grp2.intervals)
 
       var ii: Integer = 0
       var jj: Integer = 0
       val empty: Interval = new Interval(LocalDate.MAX, LocalDate.MAX)
-      while (!intervals.lift(ii).getOrElse(empty).intersects(newIntvs.head)) ii = ii + 1
-      while (!grp2.intervals.lift(jj).getOrElse(empty).intersects(newIntvs.head)) jj = jj + 1
+      val intervalsZipped = intervals.zipWithIndex.map(_.swap)
+      val intervals2Zipped = grp2.intervals.zipWithIndex.map(_.swap)
 
-      val newGraphs: ParSeq[Graph[VD, ED]] = newIntvs.map { intv =>
-        if (intervals.lift(ii).getOrElse(empty).intersects(intv) && grp2.intervals.lift(jj).getOrElse(empty).intersects(intv)) {
-          val ret = Graph(graphs(ii).vertices.join(grp2.graphs(jj).vertices).mapValues{ case (a,b) => vFunc(a,b)}, graphs(ii).edges.innerJoin(grp2.graphs(jj).edges)((srcid, dstid, a, b) => eFunc(a,b)), defaultValue, storageLevel, storageLevel)
-          if (intervals(ii).end == intv.end)
+      val head = newIntvs.min
+
+      while (!intervalsZipped.lookup(ii.toLong).lift(0).getOrElse(empty).intersects(head)) ii = ii + 1
+      while (!intervals2Zipped.lookup(jj.toLong).lift(0).getOrElse(empty).intersects(head)) jj = jj + 1
+
+      //TODO: get rid of collect if possible
+      val newGraphs: ParSeq[Graph[VD, ED]] = newIntvs.collect.map { intv =>
+        val iith = intervalsZipped.lookup(ii.toLong).lift(0).getOrElse(empty)
+        val jjth = intervals2Zipped.lookup(jj.toLong).lift(0).getOrElse(empty)
+        if (iith.intersects(intv) && jjth.intersects(intv)) {
+          //TODO: an innerJoin on edges would be more efficient
+          //but it requires the exact same number of partitions and partition strategy
+          //see whether repartitioning and innerJoin is better
+          val ret = Graph(graphs(ii).vertices.join(grp2.graphs(jj).vertices).mapValues{ case (a,b) => vFunc(a,b)}, graphs(ii).edges.map(e => ((e.srcId, e.dstId), e.attr)).join(grp2.graphs(jj).edges.map(e => ((e.srcId, e.dstId), e.attr))).map{ case (k, v) => Edge(k._1, k._2, eFunc(v._1,v._2))}, defaultValue, storageLevel, storageLevel)
+          if (iith.end == intv.end)
             ii = ii+1
-          if (grp2.intervals(jj).end == intv.end)
+          if (jjth.end == intv.end)
             jj = jj+1
           ret
         } else { //should never get here
@@ -237,7 +260,8 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
 
   override def degree: RDD[(VertexId, (Interval, Int))] = {
     if (!allEdges.isEmpty) {
-      val total = graphs.zip(intervals)
+      //TODO: get rid of collect if possible
+      val total = graphs.zip(intervals.collect)
         .filterNot(x => x._1.edges.isEmpty)
         .map(x => x._1.degrees.mapValues(deg => (x._2,deg)))
       if (total.size > 0)
@@ -302,7 +326,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
   /** Spark-specific */
 
   override def numPartitions(): Int = {
-    graphs.filterNot(_.edges.isEmpty).map(_.edges.partitions.size).reduce(_ + _)
+    graphs.filterNot(_.edges.isEmpty).map(_.edges.getNumPartitions).reduce(_ + _)
   }
 
   override def persist(newLevel: StorageLevel = MEMORY_ONLY): SnapshotGraphParallel[VD, ED] = {
@@ -331,7 +355,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], ve
 
       //use that strategy to partition each of the snapshots
       new SnapshotGraphParallel(intervals, allVertices, allEdges, graphs.zipWithIndex.map { case (g,i) =>
-        val numParts: Int = if (parts > 0) parts else g.edges.partitions.size
+        val numParts: Int = if (parts > 0) parts else g.edges.getNumPartitions
         g.partitionBy(PartitionStrategies.makeStrategy(pst, i, graphs.size, runs), numParts)
       }, defaultValue, storageLevel, coalesced)
     } else
@@ -355,18 +379,23 @@ object SnapshotGraphParallel extends Serializable {
 
     //compute the graphs. due to spark lazy evaluation,
     //if these graphs are not needed, they aren't actually materialized
-    val graphs: ParSeq[Graph[V,E]] = intervals.map( p =>
-      Graph(cverts.filter(v => v._2._1.intersects(p)).map(v => (v._1, v._2._2)),
-        cedges.filter(e => e._2._1.intersects(p)).map(e => Edge(e._1._1, e._1._2, e._2._2)),
+    //TODO: get rid of collect if possible
+    val redFactor = intervals.count.toInt
+    val graphs: ParSeq[Graph[V,E]] = intervals.collect.map( p =>
+      Graph(cverts.filter(v => v._2._1.intersects(p)).coalesce(math.max(1, cverts.getNumPartitions/redFactor))(null).map(v => (v._1, v._2._2)),
+        cedges.filter(e => e._2._1.intersects(p)).coalesce(math.max(1, cedges.getNumPartitions/redFactor))(null).map(e => Edge(e._1._1, e._1._2, e._2._2)),
         defVal, storLevel, storLevel)).par
 
     new SnapshotGraphParallel(intervals, cverts, cedges, graphs, defVal, storLevel, coal)
 
   }
 
-  def fromGraphs[V: ClassTag, E: ClassTag](intervals: Seq[Interval], graphs: ParSeq[Graph[V, E]], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY): SnapshotGraphParallel[V, E] = {
-    val verts: RDD[(VertexId, (Interval, V))] = graphs.zip(intervals).map{ case (g,i) => g.vertices.map{ case (vid, attr) => (vid, (i, attr))}}.reduce((a, b) => a union b)
-    val edges: RDD[((VertexId, VertexId), (Interval, E))] = graphs.zip(intervals).map{ case (g,i) => g.edges.map(e => ((e.srcId, e.dstId), (i, e.attr)))}.reduce((a, b) => a union b)
+  def fromGraphs[V: ClassTag, E: ClassTag](intervals: RDD[Interval], graphs: ParSeq[Graph[V, E]], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY): SnapshotGraphParallel[V, E] = {
+    //TODO: get rid of collect if possible
+    val intervalsc = intervals.collect
+
+    val verts: RDD[(VertexId, (Interval, V))] = graphs.zip(intervalsc).map{ case (g,i) => g.vertices.map{ case (vid, attr) => (vid, (i, attr))}}.reduce((a, b) => a union b)
+    val edges: RDD[((VertexId, VertexId), (Interval, E))] = graphs.zip(intervalsc).map{ case (g,i) => g.edges.map(e => ((e.srcId, e.dstId), (i, e.attr)))}.reduce((a, b) => a union b)
 
     if (ProgramContext.eagerCoalesce)
       fromRDDs(verts, edges, defVal, storLevel, false)
@@ -374,6 +403,6 @@ object SnapshotGraphParallel extends Serializable {
       new SnapshotGraphParallel(intervals, verts, edges, graphs, defVal, storLevel, false)
   }
 
-  def emptyGraph[V: ClassTag, E: ClassTag](defVal: V):SnapshotGraphParallel[V, E] = new SnapshotGraphParallel(Seq[Interval](), ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD, ParSeq[Graph[V,E]](), defVal, coal = true)
+  def emptyGraph[V: ClassTag, E: ClassTag](defVal: V):SnapshotGraphParallel[V, E] = new SnapshotGraphParallel(ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD, ParSeq[Graph[V,E]](), defVal, coal = true)
  
 }

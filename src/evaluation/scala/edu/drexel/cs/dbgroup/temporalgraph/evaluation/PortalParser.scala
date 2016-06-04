@@ -17,6 +17,10 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
     //these are for debugging and testing
     "materialize")
   lexical.delimiters ++= List("-", "=", ".", "<", ">", "(", ")", "+", ",")
+  var strategy = PartitionStrategyType.None
+  var width = 8
+  def setStrategy(str: PartitionStrategyType.Value):Unit = strategy = str
+  def setRunWidth(rw: Int):Unit = width = rw
 
   def parse(input: String) = {
     println("parsing query " + input)
@@ -247,7 +251,7 @@ object Interpreter {
           }
         }
 
-        val res = gr1.union(gr2, fun1, fun2)
+        val res = gr1.union(gr2, fun1, fun2).partitionBy(PortalParser.strategy, PortalParser.width).asInstanceOf[TGraphNoSchema[Any,Any]]
         val countEnd = System.currentTimeMillis()
         val total = countEnd - countStart
         println(f"Union Runtime: $total%dms ($argNum%d)")
@@ -306,7 +310,7 @@ object Interpreter {
           }
         }
 
-        val res = gr1.intersection(gr2, fun1, fun2)
+        val res = gr1.intersection(gr2, fun1, fun2).partitionBy(PortalParser.strategy, PortalParser.width).asInstanceOf[TGraphNoSchema[Any,Any]]
         val countEnd = System.currentTimeMillis()
         val total = countEnd - countStart
         println(f"Intersection Runtime: $total%dms ($argNum%d)")
@@ -327,7 +331,7 @@ object Interpreter {
           case t: TWhere => {
             val gr = parseGraph(g)
             val opStart = System.currentTimeMillis()
-            val res = gr.slice(Interval(t.start, t.end))
+            val res = gr.slice(Interval(t.start, t.end)).partitionBy(PortalParser.strategy, PortalParser.width).asInstanceOf[TGraphNoSchema[Any,Any]]
             val opEnd = System.currentTimeMillis()
             val total = opEnd - opStart
             println(f"Slice Runtime: $total%dms ($argNum%d)")
@@ -340,7 +344,7 @@ object Interpreter {
             }
             val gr = parseGraph(g)
             val opStart = System.currentTimeMillis()
-            val res = gr.select(vpred = vp)
+            val res = gr.select(vpred = vp).partitionBy(PortalParser.strategy, PortalParser.width).asInstanceOf[TGraphNoSchema[Any,Any]]
             val opEnd = System.currentTimeMillis()
             val total = opEnd - opStart
             println(f"Subgraph Runtime: $total%dms ($argNum%d)")
@@ -403,7 +407,7 @@ object Interpreter {
           }
         }
 
-        val res = gr.aggregate(spec, gbp.vsem.value, gbp.esem.value, fun1, fun2)()
+        val res = gr.aggregate(spec, gbp.vsem.value, gbp.esem.value, fun1, fun2)().partitionBy(PortalParser.strategy, PortalParser.width).asInstanceOf[TGraphNoSchema[Any,Any]]
         val opEnd = System.currentTimeMillis()
         val total = opEnd - opStart
         println(f"Aggregation Runtime: $total%dms ($argNum%d)")

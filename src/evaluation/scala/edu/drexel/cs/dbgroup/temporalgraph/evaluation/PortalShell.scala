@@ -75,6 +75,8 @@ object PortalShell {
     GraphLoader.setRunWidth(runWidth)
 
     val startAsMili = System.currentTimeMillis()
+    PortalParser.setStrategy(partitionType)
+    PortalParser.setRunWidth(runWidth)
     PortalParser.parse(query.mkString(" "))
     val stopAsMili = System.currentTimeMillis()
     val runTime = stopAsMili - startAsMili

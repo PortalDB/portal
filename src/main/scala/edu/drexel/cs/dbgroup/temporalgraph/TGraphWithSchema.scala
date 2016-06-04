@@ -33,7 +33,7 @@ abstract class TGraphWithSchema(intvs: Seq[Interval], verts: DataFrame, edgs: Da
   val storageLevel = storLevel
   val coalesced = coal
 
-  lazy val span: Interval = if (intervals.size > 0) Interval(intervals.head.start, intervals.last.end) else Interval(LocalDate.now, LocalDate.now)
+  lazy val span: Interval = if (!intervals.isEmpty) Interval(intervals.min.start, intervals.max.end) else Interval(LocalDate.now, LocalDate.now)
 
   lazy val schema: GraphSpec = {
     GraphSpec(allVertices.schema.fields, allEdges.schema.fields)
@@ -69,7 +69,8 @@ abstract class TGraphWithSchema(intvs: Seq[Interval], verts: DataFrame, edgs: Da
   def verticesDataFrame: DataFrame = allVertices
   def edgesDataFrame: DataFrame = allEdges
 
-  override def getTemporalSequence: Seq[Interval] = intervals
+  //TODO: throughout here convert to intervals being RDDs and not seqs
+  override def getTemporalSequence: RDD[Interval] = ProgramContext.sc.parallelize(intervals)
 
   override def getSnapshot(time: LocalDate): Graph[Row, Row] = {
     val in = Date.valueOf(time)

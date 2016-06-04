@@ -62,7 +62,7 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * composing this tgraph. Intervals are consecutive but
     * not equally sized.
     */
-  def getTemporalSequence: Seq[Interval]
+  def getTemporalSequence: RDD[Interval]
 
   /**
     * Get a snapshot for a point in time

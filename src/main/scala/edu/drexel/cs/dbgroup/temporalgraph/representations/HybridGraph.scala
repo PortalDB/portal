@@ -24,17 +24,20 @@ import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
 
 import java.time.LocalDate
 
-class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], runs: Seq[Int], gps: ParSeq[Graph[BitSet, BitSet]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraphNoSchema[VD, ED](intvs, verts, edgs, defValue, storLevel, coal) with Serializable {
+class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], runs: Seq[Int], gps: ParSeq[Graph[BitSet, BitSet]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraphNoSchema[VD, ED](intvs, verts, edgs, defValue, storLevel, coal) with Serializable {
 
   val graphs: ParSeq[Graph[BitSet, BitSet]] = gps
   //this is how many consecutive intervals are in each aggregated graph
   val widths: Seq[Int] = runs
 
-  if (widths.size > 0 && intvs.size > 0) {
-    if (widths.reduce(_ + _) != intvs.size)
-      throw new IllegalArgumentException("temporal sequence and runs do not match: " + intvs.size + ", widthssum: " + widths.reduce(_+_))
-  } else if (!(widths.size == 0 && intvs.size == 0)) {
-    throw new IllegalArgumentException("temporal sequence and runs do not match")
+  {
+    val size = intvs.count
+    if (widths.size > 0 && size > 0) {
+      if (widths.reduce(_ + _) != size)
+        throw new IllegalArgumentException("temporal sequence and runs do not match: " + size + ", widthssum: " + widths.reduce(_+_))
+    } else if (!(widths.size == 0 && size == 0)) {
+      throw new IllegalArgumentException("temporal sequence and runs do not match")
+    }
   }
 
   override def materialize() = {
@@ -51,7 +54,11 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
   /** Query operations */
   
   override def slice(bound: Interval): HybridGraph[VD, ED] = {
+    if (graphs.size < 1) return this
     if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
+    
+    if (!graphs.head.isCheckpointed)
+      return super.slice(bound).asInstanceOf[HybridGraph[VD,ED]]
 
     if (span.intersects(bound)) {
       val startBound = maxDate(span.start, bound.start)
@@ -61,10 +68,10 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
 
       //compute indices of start and stop
       //start and stop both inclusive
-      val selectStart:Int = intervals.indexWhere(intv => intv.intersects(selectBound))
-      var selectStop:Int = intervals.lastIndexWhere(intv => intv.intersects(selectBound))
-      if (selectStop < 0) selectStop = intervals.size-1
-      val newIntvs: Seq[Interval] = intervals.slice(selectStart, selectStop+1)
+      val zipped = intervals.zipWithIndex.filter(intv => intv._1.intersects(selectBound))
+      val selectStart:Int = zipped.min._2.toInt
+      val selectStop:Int = zipped.max._2.toInt
+      val newIntvs: RDD[Interval] = zipped.map(x => x._1)
 
       //compute indices of the aggregates that should be included
       //both inclusive
@@ -98,8 +105,11 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
       }
 
       //now need to update the vertex attribute rdd and edge attr rdd
-      val vattrs = allVertices.filter{ case (k,v) => v._1.intersects(selectBound)}.mapValues( v => (Interval(maxDate(v._1.start, startBound), minDate(v._1.end, endBound)), v._2))
-      val eattrs = allEdges.filter{ case (k,v) => v._1.intersects(selectBound)}.mapValues( v => (Interval(maxDate(v._1.start, startBound), minDate(v._1.end, endBound)), v._2))
+      //TODO: this factor assumes uniform distribution of data across time
+      //which is of course usually incorrect. Find a better estimate
+      val redFactor = math.max(1, span.ratio(selectBound).toInt)
+      val vattrs = allVertices.filter{ case (k,v) => v._1.intersects(selectBound)}.coalesce(math.max(2, allVertices.getNumPartitions/redFactor))(null).mapValues( v => (Interval(maxDate(v._1.start, startBound), minDate(v._1.end, endBound)), v._2))
+      val eattrs = allEdges.filter{ case (k,v) => v._1.intersects(selectBound)}.coalesce(math.max(2, allEdges.getNumPartitions/redFactor))(null).mapValues( v => (Interval(maxDate(v._1.start, startBound), minDate(v._1.end, endBound)), v._2))
 
       new HybridGraph[VD, ED](newIntvs, vattrs, eattrs, runs, subg, defaultValue, storageLevel, coalesced)
 
@@ -120,12 +130,14 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
  
   private def aggregateByChangeStructureOnly(c: ChangeSpec, vquant: Quantification, equant: Quantification): HybridGraph[VD, ED] = {
     val size: Integer = c.num
-    val grp = intervals.grouped(size).toList
+    //TODO: get rid of collect if possible
+    val grp = intervals.collect.grouped(size).toList
     val countsSum = grp.map{ g => g.size }.scanLeft(0)(_ + _).tail
     val runsSum: Seq[Int] = widths.scanLeft(0)(_ + _).tail
-    val newIntvs = grp.map{ grp => grp.reduce((a,b) => Interval(a.start, b.end))}
-    val newIntvsb = ProgramContext.sc.broadcast(newIntvs)
-    val intvs = ProgramContext.sc.broadcast(intervals)
+    val newIntvs: RDD[Interval] = intervals.zipWithIndex.map(x => ((x._2 / size), x._1)).reduceByKey((a,b) => Interval(minDate(a.start, b.start), maxDate(a.end, b.end))).sortBy(c => c._1, true).map(x => x._2)
+    //TODO: get rid of collects
+    val newIntvsb = ProgramContext.sc.broadcast(newIntvs.collect)
+    val intvs = ProgramContext.sc.broadcast(intervals.collect)
 
     var gps: ParSeq[Graph[BitSet,BitSet]] = ParSeq[Graph[BitSet,BitSet]]()
     //there is no union of two graphs in graphx
@@ -220,13 +232,14 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
     }
 
     //compute new intervals
-    val newIntvs: Seq[Interval] = intervalUnion(intervals, grp2.intervals)
-    val newIntvsb = ProgramContext.sc.broadcast(newIntvs)
+    val newIntvs: RDD[Interval] = intervalUnion(intervals, grp2.intervals)
+    //TODO: make this work without collect
+    val newIntvsb = ProgramContext.sc.broadcast(newIntvs.collect)
 
     if (span.intersects(grp2.span)) {
-      val intvMap: Map[Int, Seq[Int]] = intervals.zipWithIndex.map(ii => (ii._2, newIntvs.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None))).toMap
+      val intvMap: Map[Int, Seq[Int]] = intervals.collect.zipWithIndex.map(ii => (ii._2, newIntvsb.value.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None).toList)).toMap
       val intvMapB = ProgramContext.sc.broadcast(intvMap)
-      val intvMap2: Map[Int, Seq[Int]] = grp2.intervals.zipWithIndex.map(ii => (ii._2, newIntvs.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None))).toMap
+      val intvMap2: Map[Int, Seq[Int]] = grp2.intervals.collect.zipWithIndex.map(ii => (ii._2, newIntvsb.value.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None).toList)).toMap
       val intvMap2B = ProgramContext.sc.broadcast(intvMap2)
 
       //for each index in a bitset, put the new one
@@ -241,10 +254,15 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
         BitSet() ++ e.attr.toSeq.flatMap(ii => intvMap2B.value(ii))
       }}
 
-      val gr1IndexStart:Int = newIntvs.indexWhere(ii => intervals.head.intersects(ii))
-      val gr2IndexStart:Int = newIntvs.indexWhere(ii => grp2.intervals.head.intersects(ii))
-      val gr1Pad:Int = newIntvs.size - newIntvs.lastIndexWhere(ii => intervals.last.intersects(ii)) - 1
-      val gr2Pad:Int = newIntvs.size - newIntvs.lastIndexWhere(ii => grp2.intervals.last.intersects(ii)) - 1
+      val zipped = newIntvs.zipWithIndex
+      val start = intervals.min
+      val start2 = grp2.intervals.min
+      val intvs1 = zipped.filter(intv => intv._1.intersects(start))
+      val intvs2 = zipped.filter(intv => intv._1.intersects(start2))
+      val gr1IndexStart: Int = intvs1.min._2.toInt
+      val gr2IndexStart: Int = intvs2.min._2.toInt
+      val gr1Pad:Int = (zipped.count - intvs1.max._2).toInt - 1
+      val gr2Pad:Int = (zipped.count - intvs2.max._2).toInt - 1
 
       val grseq1:ParSeq[Graph[BitSet,BitSet]] = ParSeq.fill(gr1IndexStart){Graph[BitSet,BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)} ++ gp1 ++ ParSeq.fill(gr1Pad){Graph[BitSet,BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)}
       val grseq2:ParSeq[Graph[BitSet,BitSet]] = ParSeq.fill(gr2IndexStart){Graph[BitSet,BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)} ++ gp2 ++ ParSeq.fill(gr2Pad){Graph[BitSet,BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)}
@@ -306,8 +324,11 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
     } else {
       //like above, but no intervals are split, so reindexing is simpler
       //compute the starting index for each graph (with no overlap there aren't any multiples)
-      val gr1IndexStart: Int = newIntvs.indexWhere(ii => intervals.head.intersects(ii))
-      val gr2IndexStart: Int = newIntvs.indexWhere(ii => grp2.intervals.head.intersects(ii))
+      val zipped = newIntvs.zipWithIndex
+      val start = intervals.min
+      val start2 = grp2.intervals.min
+      val gr1IndexStart: Int = zipped.filter(intv => intv._1.intersects(start)).min._2.toInt
+      val gr2IndexStart: Int = zipped.filter(intv => intv._1.intersects(start2)).min._2.toInt
 
       val gp1 = if (gr1IndexStart > 0) graphs.map(g => g.mapVertices{ (vid, attr) =>
         attr.map(ii => ii + gr1IndexStart)
@@ -353,11 +374,12 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
 
     if (span.intersects(grp2.span)) {
       //compute new intervals
-      val newIntvs: Seq[Interval] = intervalIntersect(intervals, grp2.intervals)
-      val newIntvsb = ProgramContext.sc.broadcast(newIntvs)
-      val intvMap: Map[Int, Seq[Int]] = intervals.zipWithIndex.map(ii => (ii._2, newIntvs.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None))).toMap
+      val newIntvs: RDD[Interval] = intervalIntersect(intervals, grp2.intervals)
+      //TODO: make this work without collect
+      val newIntvsb = ProgramContext.sc.broadcast(newIntvs.collect)
+      val intvMap: Map[Int, Seq[Int]] = intervals.collect.zipWithIndex.map(ii => (ii._2, newIntvsb.value.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None).toList)).toMap
       val intvMapB = ProgramContext.sc.broadcast(intvMap)
-      val intvMap2: Map[Int, Seq[Int]] = grp2.intervals.zipWithIndex.map(ii => (ii._2, newIntvs.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None))).toMap
+      val intvMap2: Map[Int, Seq[Int]] = grp2.intervals.collect.zipWithIndex.map(ii => (ii._2, newIntvsb.value.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None).toList)).toMap
       val intvMap2B = ProgramContext.sc.broadcast(intvMap2)
       //for each index in a bitset, put the new one
       val grseq1: ParSeq[Graph[BitSet,BitSet]] = graphs.map(g => g.mapVertices{ (vid, attr) =>
@@ -475,7 +497,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
       mergeFunc, TripletFields.None)
     )
 
-    val intvs = ProgramContext.sc.broadcast(intervals)
+    //TODO: make this work without collect
+    val intvs = ProgramContext.sc.broadcast(intervals.collect)
     TGraphNoSchema.coalesce(degRDDs.reduce((x: RDD[(VertexId, HashMap[TimeIndex, Int])], y: RDD[(VertexId, HashMap[TimeIndex, Int])]) => x union y).flatMap{ case (vid, map) => map.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}})
   }
 
@@ -495,7 +518,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
       val allgs:ParSeq[Graph[HashMap[TimeIndex,(Double,Double)], HashMap[TimeIndex,(Double,Double)]]] = graphs.zipWithIndex.map{ case (g,i) => prank(g, runSums.lift(i-1).getOrElse(0), runSums(i))}
 
       //now extract values
-      val intvs = ProgramContext.sc.broadcast(intervals)
+      //TODO: make this work without collect
+      val intvs = ProgramContext.sc.broadcast(intervals.collect)
       val vattrs= allgs.map{ g => g.vertices.flatMap{ case (vid,vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v._1))}}}.reduce(_ union _)
       val eattrs = allgs.map{ g => g.edges.flatMap{ e => e.attr.toSeq.map{ case (k,v) => ((e.srcId, e.dstId), (intvs.value(k), v._1))}}}.reduce(_ union _)
 
@@ -519,7 +543,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
     val allgs = graphs.zipWithIndex.map{ case (g,i) => conc(g, runSums.lift(i-1).getOrElse(0), runSums(i))}
 
     //now extract values
-    val intvs = ProgramContext.sc.broadcast(intervals)
+    //TODO: make this work without collect
+    val intvs = ProgramContext.sc.broadcast(intervals.collect)
     val vattrs = allgs.map{ g => g.vertices.flatMap{ case (vid,vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}}}.reduce(_ union _)
 
     new HybridGraph(intervals, vattrs, allEdges, widths, graphs, -1L, storageLevel, false)
@@ -532,7 +557,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
   /** Spark-specific */
 
   override def numPartitions(): Int = {
-    graphs.filterNot(_.edges.isEmpty).map(_.edges.partitions.size).reduce(_ + _)
+    graphs.filterNot(_.edges.isEmpty).map(_.edges.getNumPartitions).reduce(_ + _)
   }
 
   override def persist(newLevel: StorageLevel = MEMORY_ONLY): HybridGraph[VD, ED] = {
@@ -554,9 +579,10 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
 
   override def partitionBy(pst: PartitionStrategyType.Value, runs: Int, parts: Int): HybridGraph[VD, ED] = {
     if (pst != PartitionStrategyType.None) {
+      val count = intervals.count.toInt
       new HybridGraph(intervals, allVertices, allEdges, widths, graphs.zipWithIndex.map { case (g,index) =>
-        val numParts: Int = if (parts > 0) parts else g.edges.partitions.size
-        g.partitionBy(PartitionStrategies.makeStrategy(pst, index, intervals.size, runs), numParts)}, defaultValue, storageLevel, coalesced)
+        val numParts: Int = if (parts > 0) parts else g.edges.getNumPartitions
+        g.partitionBy(PartitionStrategies.makeStrategy(pst, index, count, runs), numParts)}, defaultValue, storageLevel, coalesced)
     } else
       this
   }
@@ -570,7 +596,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(
 }
 
 object HybridGraph extends Serializable {
-  def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): HybridGraph[V, E] = new HybridGraph(Seq[Interval](), ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD, Seq[Int](), ParSeq[Graph[BitSet,BitSet]](), defVal, coal = true)
+  def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): HybridGraph[V, E] = new HybridGraph(ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD, Seq[Int](), ParSeq[Graph[BitSet,BitSet]](), defVal, coal = true)
 
   def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, runWidth: Int = 8, coalesced: Boolean = false): HybridGraph[V, E] = {
     val cverts = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(verts) else verts
@@ -578,17 +604,26 @@ object HybridGraph extends Serializable {
     val coal = coalesced | ProgramContext.eagerCoalesce
 
     val intervals = TGraphNoSchema.computeIntervals(cverts, cedges)
+    val zipped = intervals.zipWithIndex
 
-    val combined = intervals.zipWithIndex.grouped(runWidth).map{ intvs =>
-      (intvs.size, 
-        Graph(cverts.filter(v => v._2._1.intersects(Interval(intvs.head._1.start, intvs.last._1.end))).mapValues{v =>
-          BitSet() ++ intvs.filter{ case (intv, index) => intv.intersects(v._1)}.map(ii => ii._2)
-        }.reduceByKey((a,b) => a union b),
-          cedges.filter(e => e._2._1.intersects(Interval(intvs.head._1.start, intvs.last._1.end))).mapValues{e =>
-            BitSet() ++ intvs.filter{ case (intv, index) => intv.intersects(e._1)}.map(ii => ii._2)}.reduceByKey((a,b) => a union b).map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storLevel, storLevel)
+    val count = intervals.count.toInt
+    val redFactor:Int = math.max(1, count/runWidth)
+    val vertsConverted = cverts.cartesian(zipped).filter(x => x._1._2._1.intersects(x._2._1)).map(x => (x._1._1, BitSet(x._2._2.toInt))).cache()
+    val edgesConverted = cedges.cartesian(zipped).filter(x => x._1._2._1.intersects(x._2._1)).map(x => (x._1._1, BitSet(x._2._2.toInt))).cache()
+
+    val vreducers = math.max(2, cverts.getNumPartitions/redFactor)
+    val ereducers = math.max(2, cedges.getNumPartitions/redFactor)
+    val combined = (0 to (count-1)).grouped(runWidth).map { intvs =>
+      val set = BitSet() ++ intvs
+      (intvs.size,
+        Graph(vertsConverted.filter(v => !(set & v._2).isEmpty).partitionBy(new HashPartitioner(vreducers)).reduceByKey((a,b) => a union b, vreducers),
+          edgesConverted.filter(e => !(set & e._2).isEmpty).partitionBy(new HashPartitioner(ereducers)).reduceByKey((a,b) => a union b, ereducers).map(e => Edge(e._1._1, e._1._2, e._2)),
+          BitSet(), storLevel, storLevel)
       )}.toList
 
-    new HybridGraph(intervals, cverts, cedges, combined.map(x => x._1), combined.map(x => x._2).par, defVal, storLevel, coal)
+    val runs = combined.map(x => x._1)
+    val graphs = combined.map(x => x._2).par
+    new HybridGraph(intervals, cverts, cedges, runs, graphs, defVal, storLevel, coal)
 
   }
 }

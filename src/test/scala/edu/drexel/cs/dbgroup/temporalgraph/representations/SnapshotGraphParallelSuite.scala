@@ -68,10 +68,11 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter {
     ))
     val expectedSgp = SnapshotGraphParallel.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
+    sgp.materialize
     var actualSGP = sgp.slice(sliceInterval)
 
-    assert(expectedSgp.vertices.collect() === actualSGP.vertices.collect())
-    assert(expectedSgp.edges.collect() === actualSGP.edges.collect())
+    assert(expectedSgp.vertices.collect().toSet === actualSGP.vertices.collect().toSet)
+    assert(expectedSgp.edges.collect().toSet === actualSGP.edges.collect().toSet)
     info("regular cases passed")
 
     //When interval is completely outside the graph
@@ -615,7 +616,7 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter {
       Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")),
       Interval(LocalDate.parse("2017-01-01"), LocalDate.parse("2018-01-01"))
     )
-    assert(resultSeq === expectedSequence)
+    assert(resultSeq.collect === expectedSequence)
 
   }
 
@@ -1023,7 +1024,7 @@ class SnapshotGraphParallelSuite  extends FunSuite with BeforeAndAfter {
     intervals = intervals :+ testInterval1 :+ testInterval2 :+ testInterval3
     graphs = graphs :+ graph1 :+ graph2 :+ graph3
 
-    val actualSgp = SnapshotGraphParallel.fromGraphs(intervals, graphs, "Default", StorageLevel.MEMORY_ONLY_SER)
+    val actualSgp = SnapshotGraphParallel.fromGraphs(ProgramContext.sc.parallelize(intervals), graphs, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), "John")),

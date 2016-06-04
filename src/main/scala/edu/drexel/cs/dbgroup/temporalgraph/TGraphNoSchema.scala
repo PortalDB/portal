@@ -13,11 +13,11 @@ import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps
 
 import java.time.LocalDate
 
-abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraph[VD, ED] {
+abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraph[VD, ED] {
 
   val allVertices: RDD[(VertexId, (Interval, VD))] = verts
   val allEdges: RDD[((VertexId, VertexId), (Interval, ED))] = edgs
-  val intervals: Seq[Interval] = intvs
+  val intervals: RDD[Interval] = intvs
   val storageLevel = storLevel
   val defaultValue: VD = defValue
   //whether this TGraph is known to be coalesced
@@ -25,7 +25,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
   //whereas true means definitely coalesced
   val coalesced: Boolean = coal
 
-  lazy val span: Interval = if (intervals.size > 0) Interval(intervals.head.start, intervals.last.end) else Interval(LocalDate.now, LocalDate.now)
+  lazy val span: Interval = if (!intervals.isEmpty) Interval(intervals.min.start, intervals.max.end) else Interval(LocalDate.now, LocalDate.now)
 
   /**
     * The duration the temporal sequence
@@ -89,7 +89,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     * composing this tgraph. Intervals are consecutive but
     * not equally sized.
     */
-  override def getTemporalSequence: Seq[Interval] = coalescedIntervals
+  override def getTemporalSequence: RDD[Interval] = coalescedIntervals
 
   private lazy val coalescedIntervals = {
     if (coalesced)
@@ -99,8 +99,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
   }
 
   override def getSnapshot(time: LocalDate): Graph[VD,ED] = {
-    val index = intervals.indexWhere(a => a.contains(time))
-    if (index >= 0) {
+    if (span.contains(time)) {
       val filteredvas: RDD[(VertexId,VD)] = allVertices.filter{ case (k,v) => v._1.contains(time)}
         .map{ case (k,v) => (k, v._2)}
       val filterededs: RDD[Edge[ED]] = allEdges.filter{ case (k,v) => v._1.contains(time)}.map{ case (k,v) => Edge(k._1, k._2, v._2)}
@@ -131,7 +130,10 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
 
     //slice is correct on coalesced and uncoalesced data
     //and maintains the coalesced/uncoalesced state
-    fromRDDs(allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), allEdges.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), defaultValue, storageLevel, coalesced)
+    //TODO: this factor assumes uniform distribution of data across time
+    //which is of course usually incorrect. Find a better estimate
+    val redFactor = math.max(1, span.ratio(selectBound).toInt)
+    fromRDDs(allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}.coalesce(math.max(2, allVertices.getNumPartitions/redFactor))(null).mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), allEdges.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}.coalesce(math.max(2, allEdges.getNumPartitions/redFactor))(null).mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), defaultValue, storageLevel, coalesced)
   }
 
   override def select(vtpred: Interval => Boolean, etpred: Interval => Boolean): TGraphNoSchema[VD, ED] = {
@@ -180,6 +182,9 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     if (allVertices.isEmpty)
       return emptyGraph[VD,ED](defaultValue)
 
+    //TODO: when we coalesce, we usually have a smaller graph
+    //coalesce the result into fewer partitions
+
     //aggregateByChange requires coalesced tgraph for correctness
     //aggregateByTime does too for some functions (like count) and not others
     //because we don't know which function is used, we have to coalesce
@@ -195,7 +200,8 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
     val size: Integer = c.num
 
     //each tuple interval must be split based on the overall intervals
-    val locali = ProgramContext.sc.broadcast(intervals.grouped(size).toList)
+    //TODO: get rid of collect if possible
+    val locali = ProgramContext.sc.broadcast(intervals.collect.grouped(size).toList)
     val split: (Interval => List[(Interval, List[Interval])]) = (interval: Interval) => {
       locali.value.flatMap{ group =>
         val res = group.flatMap{ case intv =>
@@ -336,10 +342,12 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
 
     if (span.intersects(grp2.span)) {
       //compute new intervals
-      val newIntvs: Seq[Interval] = TempGraphOps.intervalUnion(intervals, grp2.intervals)
+      val newIntvs: RDD[Interval] = TempGraphOps.intervalUnion(intervals, grp2.intervals)
 
+      //TODO: rewrite to use the newIntvs rdd instead of materializing
+      val newIntvsc = ProgramContext.sc.broadcast(newIntvs.collect)
       val split = (interval: Interval) => {
-        newIntvs.flatMap{ intv =>
+        newIntvsc.value.flatMap{ intv =>
           if (intv.intersects(interval))
             Some(intv)
           else
@@ -373,10 +381,12 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
 
     if (span.intersects(grp2.span)) {
       //compute new intervals
-      val newIntvs: Seq[Interval] = TempGraphOps.intervalIntersect(intervals, grp2.intervals)
+      val newIntvs: RDD[Interval] = TempGraphOps.intervalIntersect(intervals, grp2.intervals)
 
+      //TODO: rewrite to use the newIntvs rdd instead of materializing
+      val newIntvsc = ProgramContext.sc.broadcast(newIntvs.collect)
       val split = (interval: Interval) => {
-        newIntvs.flatMap{ intv =>
+        newIntvsc.value.flatMap{ intv =>
           if (intv.intersects(interval))
             Some(intv)
           else
@@ -453,10 +463,10 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: Seq[Interval], 
 }
 
 object TGraphNoSchema {
-  def computeIntervals[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))]): Seq[Interval] = {
+  def computeIntervals[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))]): RDD[Interval] = {
     val dates: RDD[LocalDate] = verts.flatMap{ case (id, (intv, attr)) => List(intv.start, intv.end)}.union(edgs.flatMap { case (ids, (intv, attr)) => List(intv.start, intv.end)}).distinct
     implicit val ord = TempGraphOps.dateOrdering
-    dates.sortBy(c => c, true).sliding(2).map(lst => Interval(lst(0), lst(1))).collect()
+    dates.sortBy(c => c, true, 1).sliding(2).map(lst => Interval(lst(0), lst(1)))
   }
 
   /*
@@ -469,7 +479,7 @@ object TGraphNoSchema {
   def coalesce[K: ClassTag, V: ClassTag](rdd: RDD[(K, (Interval, V))]): RDD[(K, (Interval, V))] = {
     implicit val ord = TempGraphOps.dateOrdering
     //it's faster if we hashpartition first
-    rdd.partitionBy(new HashPartitioner(rdd.partitions.size)).persist
+    rdd.partitionBy(new HashPartitioner(rdd.getNumPartitions)).persist
       .groupByKey.mapValues{ seq =>  //groupbykey produces RDD[(K, Seq[(p, V)])]
       seq.toSeq.sortBy(x => x._1.start)
         .foldLeft(List[(Interval, V)]()){ (r,c) => r match {
