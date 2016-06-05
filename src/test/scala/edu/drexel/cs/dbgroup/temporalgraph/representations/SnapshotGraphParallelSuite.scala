@@ -15,12 +15,19 @@ import edu.drexel.cs.dbgroup.temporalgraph._
 import scala.collection.parallel.ParSeq
 import org.apache.spark.graphx.{Edge, EdgeRDD, VertexId, Graph}
 
+import java.util.Map
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
+import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap
+import collection.JavaConverters._
+
 class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
   before {
     if (ProgramContext.sc == null) {
       Logger.getLogger("org").setLevel(Level.OFF)
       Logger.getLogger("akka").setLevel(Level.OFF)
       val conf = new SparkConf().setAppName("TemporalGraph Project").setSparkHome(System.getenv("SPARK_HOME")).setMaster("local[2]")
+      conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
       val sc = new SparkContext(conf)
       ProgramContext.setContext(sc)
       println(" ") //the first line starts from between
@@ -898,10 +905,10 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
     ))
 
     val expectedVertices: RDD[(VertexId, Map[Interval, String])] = ProgramContext.sc.parallelize(Array(
-      (1L, Map(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2022-01-01")) -> "John")),
-      (2L, Map(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")) -> "Mike", Interval(LocalDate.parse("2018-02-01"), LocalDate.parse("2020-01-01")) -> "Mike")),
-      (3L, Map(Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2014-01-01")) -> "Ron", Interval(LocalDate.parse("2019-01-01"), LocalDate.parse("2022-01-01")) -> "Ron")),
-      (4L, Map(Interval(LocalDate.parse("2006-01-01"), LocalDate.parse("2017-01-01")) -> "Julia", Interval(LocalDate.parse("2017-01-01"), LocalDate.parse("2019-07-14")) -> "Vera"))
+      (1L, new Object2ObjectOpenHashMap(Array(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2022-01-01"))), Array("John"))),
+      (2L, new Object2ObjectOpenHashMap(Array(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Interval(LocalDate.parse("2018-02-01"), LocalDate.parse("2020-01-01"))), Array("Mike",  "Mike"))),
+      (3L, new Object2ObjectOpenHashMap(Array(Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2014-01-01")), Interval(LocalDate.parse("2019-01-01"), LocalDate.parse("2022-01-01"))), Array("Ron",  "Ron"))),
+      (4L, new Object2ObjectOpenHashMap(Array(Interval(LocalDate.parse("2006-01-01"), LocalDate.parse("2017-01-01")), Interval(LocalDate.parse("2017-01-01"), LocalDate.parse("2019-07-14"))), Array("Julia",  "Vera")))
     ))
 
     val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
@@ -916,11 +923,11 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
     ))
 
     val expectedEdges: RDD[((VertexId, VertexId), Map[Interval, Int])] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), Map(Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01")) -> 42, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")) -> 12, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2015-01-01")) -> 56)),
-      ((3L, 5L), Map(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")) -> 42, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01")) -> 42)),
-      ((1L, 2L), Map(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")) -> 22)),
-      ((5L, 7L), Map(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")) -> 22)),
-      ((4L, 8L), Map(Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")) -> 42))
+      ((1L, 4L), new Object2IntOpenHashMap(Array(Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01")), Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2015-01-01"))), Array(42, 12, 56)).asInstanceOf[Map[Interval,Int]]),
+      ((3L, 5L), new Object2IntOpenHashMap(Array(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01"))), Array(42, 42)).asInstanceOf[Map[Interval,Int]]),
+      ((1L, 2L), new Object2IntOpenHashMap(Array(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01"))), Array(22)).asInstanceOf[Map[Interval,Int]]),
+      ((5L, 7L), new Object2IntOpenHashMap(Array(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01"))), Array(22)).asInstanceOf[Map[Interval,Int]]),
+      ((4L, 8L), new Object2IntOpenHashMap(Array(Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01"))), Array(42)).asInstanceOf[Map[Interval,Int]])
     ))
 
     val actualSGP = SnapshotGraphParallel.fromRDDs(vertices, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
@@ -1170,23 +1177,23 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
     ))
 
     val expectedNodes: RDD[(VertexId, (Interval, Map[VertexId, Int]))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Map(1L -> 0, 2L -> 1))),
-      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Map(1L -> 1, 2L -> 0))),
-      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Map(1L -> 2, 2L -> 1))),
-      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Map(1L -> 2, 2L -> 1))),
-      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Map(1L -> 3, 2L -> 2))),
-      (6L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Map(1L -> 2, 2L -> 1))),
-      (7L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Map().asInstanceOf[Map[VertexId, Int]])),
-      (8L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Map().asInstanceOf[Map[VertexId, Int]])),
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), new Long2IntOpenHashMap(Array(1L, 2L), Array(0, 1)).asInstanceOf[Map[VertexId,Int]])),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), new Long2IntOpenHashMap(Array(1L, 2L), Array(1, 0)).asInstanceOf[Map[VertexId,Int]])),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), new Long2IntOpenHashMap(Array(1L, 2L), Array(2, 1)).asInstanceOf[Map[VertexId,Int]])),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), new Long2IntOpenHashMap(Array(1L, 2L), Array(2, 1)).asInstanceOf[Map[VertexId,Int]])),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), new Long2IntOpenHashMap(Array(1L, 2L), Array(3, 2)).asInstanceOf[Map[VertexId,Int]])),
+      (6L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), new Long2IntOpenHashMap(Array(1L, 2L), Array(2, 1)).asInstanceOf[Map[VertexId,Int]])),
+      (7L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), new Long2IntOpenHashMap().asInstanceOf[Map[VertexId, Int]])),
+      (8L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), new Long2IntOpenHashMap().asInstanceOf[Map[VertexId, Int]])),
 
       //second representative graph
-      (1L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Map(1L -> 0))),
-      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Map(2L -> 0))),
-      (3L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Map(1L -> 1))),
-      (4L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Map(2L -> 1))),
-      (5L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Map(1L -> 1))),
-      (6L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Map(2L -> 1))),
-      (7L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Map((1L -> 2))))
+      (1L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), new Long2IntOpenHashMap(Array(1L), Array(0)).asInstanceOf[Map[VertexId,Int]])),
+      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), new Long2IntOpenHashMap(Array(2L), Array(0)).asInstanceOf[Map[VertexId,Int]])),
+      (3L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), new Long2IntOpenHashMap(Array(1L), Array(1)).asInstanceOf[Map[VertexId,Int]])),
+      (4L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), new Long2IntOpenHashMap(Array(2L), Array(1)).asInstanceOf[Map[VertexId,Int]])),
+      (5L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), new Long2IntOpenHashMap(Array(1L), Array(1)).asInstanceOf[Map[VertexId,Int]])),
+      (6L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), new Long2IntOpenHashMap(Array(2L), Array(1)).asInstanceOf[Map[VertexId,Int]])),
+      (7L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), new Long2IntOpenHashMap(Array(1L), Array(2)).asInstanceOf[Map[VertexId,Int]]))
     ))
 
     val SGP = SnapshotGraphParallel.fromRDDs(nodes, edges, "Default")
@@ -1228,27 +1235,27 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
     ))
 
     val expectedNodes: RDD[(VertexId, (Interval, Map[VertexId, Int]))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Map(5L -> 3, 6L -> 2))),
-      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Map(5L -> 2, 6L -> 1))),
-      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Map(5L -> 1, 6L -> 2))),
-      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Map(5L -> 1, 6L -> 2))),
-      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Map(5L -> 0, 6L -> 1))),
-      (6L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Map(6L -> 0))),
-      (7L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Map().asInstanceOf[Map[VertexId, Int]])),
-      (8L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Map().asInstanceOf[Map[VertexId, Int]])),
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), scala.collection.Map(5L -> 3, 6L -> 2).asJava)),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), scala.collection.Map(5L -> 2, 6L -> 1).asJava)),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), scala.collection.Map(5L -> 1, 6L -> 2).asJava)),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), scala.collection.Map(5L -> 1, 6L -> 2).asJava)),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), scala.collection.Map(5L -> 0, 6L -> 1).asJava)),
+      (6L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), scala.collection.Map(6L ->0).asJava)),
+      (7L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), scala.collection.Map[VertexId,Int]().asJava)),
+      (8L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), scala.collection.Map[VertexId,Int]().asJava)),
 
       //second representative graph
-      (1L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Map(5L -> 1))),
-      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Map(6L -> 1))),
-      (3L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Map().asInstanceOf[Map[VertexId, Int]])),
-      (4L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Map().asInstanceOf[Map[VertexId, Int]])),
-      (5L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Map(5L -> 0)))
+      (1L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), scala.collection.Map(5L -> 1).asJava)),
+      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), scala.collection.Map(6L -> 1).asJava)),
+      (3L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), scala.collection.Map[VertexId,Int]().asJava)),
+      (4L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), scala.collection.Map[VertexId,Int]().asJava)),
+      (5L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), scala.collection.Map(5L -> 0).asJava))
     ))
 
     val SGP = SnapshotGraphParallel.fromRDDs(nodes, edges, "Default")
 
     val actualSGP = SGP.shortestPaths(true, Seq(5L, 6L))
-    assert(actualSGP.vertices.collect.toSet == expectedNodes.collect.toSet)
+    assert(actualSGP.vertices.collect.toSet === expectedNodes.collect.toSet)
   }
 
   test("directed pagerank") {
