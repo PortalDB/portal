@@ -33,8 +33,8 @@ despite increased variety and availability of evolving graph data,
 first and foremost to the scalability and efficiency challenges
 inherent in evolving graph analysis, but also to considerations of
 usability and ease of dissemination.  {\em In this paper we present
-  \ql, a declarative query language, and its implementation in an
-  open-source distributed framework, that fills this gap.}
+  \ql, a system for scalable exploratory analysis of evolving graphs,
+  that fills this gap.}
 
 To further motivate our work, let us consider several categories of
 questions one may ask about evolving networks, as part of exploratory
@@ -100,14 +100,53 @@ graph.  Further, network states may be recorded at different, possibly
 overlapping, time periods, or even at different temporal scales.  Can
 these datasets be unified, in a principled way, to support analysis or
 meta-analysis of network evolution trends?  \ql supports several
-variants of the {\em temporal join operator} to enable this kind of
-analysis.
+variants of {\em temporal union and intersection} that enable this
+kind of analysis.
 
-{\bf Contributions.} In this paper we develop \ql, a declarative query
-language for efficient querying and exploratory analysis of evolving
-graphs. Our language supports a variety of operations including
-temporal selection, join, and aggregation, and a rich class of
-analytics.  Further, we provide a scalable and extensible open-source
+{\bf Contributions.} We make the following contributions to support
+analysis of evolving graphs. 
+
+\begin{itemize}
+
+\item We propose a flexible representation of evolving graphs, called
+  a \tg, which captures evolution of graph topology, and of attributes
+  of vertices and edges.  Conceptually, a \tg corresponds to a
+  collection of coalesced~\cite{DBLP:conf/vldb/BohlenSS96} temporal
+  SQL relations~\cite{DBLP:journals/sigmod/KulkarniM12}, with
+  appropriate integrity constraints.  Practically, to support
+  distributed computation and evolution of vertex and edge schemas, we
+  represent \tgs as a collection of RDDs \reminder {more details
+    here.}  The \tg model is presented in Section~\ref{sec:model}.
+
+\eat{We build on the temporal features of the SQL:2011
+  standard~\cite{DBLP:journals/sigmod/KulkarniM12}, and encode the
+  toploogy of an evolving graph as a pair of coalesced temporal SQL
+  relations, with appropriate integrity constraits.  Vertex and edge
+  attributes are likewise encoded in coalesced temporal SQL relations.
+}
+
+\eat{ Importantly, a \tg is
+  coalesced~\cite{DBLP:conf/vldb/BohlenSS96}, that is, each vertex
+  (resp. edge) of a \tg is represented exactly once for each time
+  period of maximal length when the vertex (resp. edge) is present,
+  and when none of the values of its attributes change.}
+
+\item 
+
+\end{itemize}  We define a \tg algebra, which includes a variety of operators
+such as temporal and structural selection, temporal and structural
+aggregation (with novel quantification mechanisms)
+
+In this paper we develop \ql, a system for
+efficient querying and exploratory analysis of evolving graphs.  
+
+\ql
+operates over \tgs, which represent graphs that evolve over time, and
+implement
+
+Our language supports a variety of operations including temporal
+selection, join, and aggregation, and a rich class of analytics.
+Further, we provide a scalable and extensible open-source
 implementation of \ql in scope of Apache Spark, an open-source
 distributed data processing framework.  We develop several novel
 physical representations of evolving graphs, and novel partitioning
@@ -115,10 +154,10 @@ strategies that explore the trade-off between structural and temporal
 locality.  We experimentally demonstrate that good performance can be
 achieved with careful engineering.
 
-{\bf Roadmap.}  We present our model in Section~\ref{sec:model}.  We
-describe the \ql query language in Section~\ref{sec:example}, and
-discuss its implementation in an open-source prototype in
-Section~\ref{sec:sys}.  Section~\ref{sec:exp} describes our extensive
-experimental evaluation on real datasets.  We discuss related work in
-Section~\ref{sec:related}.  Future work and conclusions are given in
-Section~\ref{sec:conc}.
+\eat{ {\bf Roadmap.}  We present our model in Section~\ref{sec:model}.
+  We describe the \ql query language in Section~\ref{sec:example}, and
+  discuss its implementation in an open-source prototype in
+  Section~\ref{sec:sys}.  Section~\ref{sec:exp} describes our
+  extensive experimental evaluation on real datasets.  We discuss
+  related work in Section~\ref{sec:related}.  Future work and
+  conclusions are given in Section~\ref{sec:conc}.}

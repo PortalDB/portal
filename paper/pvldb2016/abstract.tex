@@ -13,15 +13,15 @@ both stand-alone and in scope of data processing platforms. Yet, {\em
   systematic support} for scalable querying and analytics over {\em
   evolving graphs} still lacks.
 
-In this paper we present \ql, a declarative language that supports
-efficient querying and exploratory analysis of evolving graphs, and an
-implementation of \ql in scope of Apache Spark, an open-source
-distributed data processing framework. Our language supports a variety
-of operations including temporal selection, join and aggregation, and
-a rich class of analytics.  We develop multiple physical
-representations and partitioning strategies and study the trade-offs
+In this paper we present \ql, a system that supports efficient
+exploratory analysis of evolving graphs. \ql is implemented in scope
+of Apache Spark, an open-source distributed data processing framework,
+and supports a variety of operations over evolving graphs, including
+temporal and structural selection, temporal and structural
+aggregation, and a rich class of analytics.  We develop multiple
+physical representations of evolving graphs and study the trade-offs
 between structural and temporal locality.  We provide an extensive
-experimental evaluation of our system, demonstrating that careful
+experimental evaluation on real datasets, demonstrating that careful
 engineering can lead to good performance.
 
 \end{abstract}
