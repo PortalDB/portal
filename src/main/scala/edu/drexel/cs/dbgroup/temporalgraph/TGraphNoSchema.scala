@@ -133,7 +133,13 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
     //TODO: this factor assumes uniform distribution of data across time
     //which is of course usually incorrect. Find a better estimate
     val redFactor = math.max(1, span.ratio(selectBound).toInt)
-    fromRDDs(allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}.coalesce(math.max(2, allVertices.getNumPartitions/redFactor))(null).mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), allEdges.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}.coalesce(math.max(2, allEdges.getNumPartitions/redFactor))(null).mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), defaultValue, storageLevel, coalesced)
+    fromRDDs(allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}
+                  .coalesce(math.max(2, allVertices.getNumPartitions/redFactor), true)(null)
+                  .mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), 
+             allEdges.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}
+                  .coalesce(math.max(2, allEdges.getNumPartitions/redFactor), true)(null)
+                  .mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), 
+             defaultValue, storageLevel, coalesced)
   }
 
   override def select(vtpred: Interval => Boolean, etpred: Interval => Boolean): TGraphNoSchema[VD, ED] = {
@@ -476,10 +482,12 @@ object TGraphNoSchema {
    * single tuple (1, (1-4, "blah"))
    * Warning: This is a very expensive operation, use sparingly
    */
-  def coalesce[K: ClassTag, V: ClassTag](rdd: RDD[(K, (Interval, V))]): RDD[(K, (Interval, V))] = {
+  def coalesce[K: Ordering : ClassTag, V: ClassTag](rdd: RDD[(K, (Interval, V))]): RDD[(K, (Interval, V))] = {
     implicit val ord = TempGraphOps.dateOrdering
-    //it's faster if we hashpartition first
-    rdd.partitionBy(new HashPartitioner(rdd.getNumPartitions)).persist
+    //it's faster if we partition first
+    //TODO: in some cases RangePartition provides better performance, but in others it makes it too slow
+    //rdd.partitionBy(new org.apache.spark.RangePartitioner(rdd.getNumPartitions, rdd))
+    rdd.partitionBy(new HashPartitioner(rdd.getNumPartitions))
       .groupByKey.mapValues{ seq =>  //groupbykey produces RDD[(K, Seq[(p, V)])]
       seq.toSeq.sortBy(x => x._1.start)
         .foldLeft(List[(Interval, V)]()){ (r,c) => r match {
