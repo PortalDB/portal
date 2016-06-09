@@ -618,8 +618,11 @@ object HybridGraph extends Serializable {
     val combined = (0 to (count-1)).grouped(runWidth).map { intvs =>
       val set = BitSet() ++ intvs
       (intvs.size,
-        Graph(vertsConverted.filter(v => !(set & v._2).isEmpty).partitionBy(new HashPartitioner(vreducers)).reduceByKey((a,b) => a union b, vreducers),
-          edgesConverted.filter(e => !(set & e._2).isEmpty).partitionBy(new HashPartitioner(ereducers)).reduceByKey((a,b) => a union b, ereducers).map(e => Edge(e._1._1, e._1._2, e._2)),
+        Graph(vertsConverted.filter(v => !(set & v._2).isEmpty)
+              .reduceByKey((a,b) => a union b, vreducers),
+          edgesConverted.filter(e => !(set & e._2).isEmpty)
+              .reduceByKey((a,b) => a union b, ereducers)
+              .map(e => Edge(e._1._1, e._1._2, e._2)),
           BitSet(), storLevel, storLevel)
       )}.toList
 

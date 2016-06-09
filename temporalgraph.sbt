@@ -5,6 +5,7 @@ settings(
     scalaVersion := "2.10.5",
     scalaSource in Compile <<= baseDirectory(_ / "."),
     parallelExecution in Test := false,
+    scalacOptions ++= Seq("-unchecked", "-deprecation"),
     initialCommands in console := "import edu.drexel.cs.dbgroup.temporalgraph._",
     mainClass in (Compile, packageBin) := Some("edu.drexel.cs.dbgroup.temporalgraph.portal.PortalShell"),
     mainClass in (Compile, run) := Some("edu.drexel.cs.dbgroup.temporalgraph.portal.PortalShell"),

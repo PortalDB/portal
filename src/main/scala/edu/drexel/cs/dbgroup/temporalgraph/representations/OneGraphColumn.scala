@@ -742,9 +742,15 @@ object OneGraphColumn {
     val zipped = intervals.zipWithIndex
 
     //TODO: make this a better estimate based on evolution rate
-    val redFactor:Int = 3
-    val graphs: Graph[BitSet, BitSet] = Graph(cverts.cartesian(zipped).filter(x => x._1._2._1.intersects(x._2._1)).map(x => (x._1._1, BitSet(x._2._2.toInt))).partitionBy(new HashPartitioner(cverts.getNumPartitions)).reduceByKey((a,b) => a union b, math.max(4, cverts.getNumPartitions/redFactor)),
-      cedges.cartesian(zipped).filter(x => x._1._2._1.intersects(x._2._1)).map(x => (x._1._1, BitSet(x._2._2.toInt))).partitionBy(new HashPartitioner(cedges.getNumPartitions)).reduceByKey((a,b) => a union b, math.max(4, cedges.getNumPartitions/redFactor)).map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storLevel, storLevel)
+    val redFactor:Int = 2
+    val graphs: Graph[BitSet, BitSet] = Graph(cverts.cartesian(zipped).filter(x => x._1._2._1.intersects(x._2._1))
+          .map(x => (x._1._1, BitSet(x._2._2.toInt)))
+          .reduceByKey((a,b) => a union b, math.max(4, cverts.getNumPartitions/redFactor)),
+      cedges.cartesian(zipped).filter(x => x._1._2._1.intersects(x._2._1))
+          .map(x => (x._1._1, BitSet(x._2._2.toInt)))
+          .reduceByKey((a,b) => a union b, math.max(4, cedges.getNumPartitions/redFactor))
+          .map(e => Edge(e._1._1, e._1._2, e._2)), 
+      BitSet(), storLevel, storLevel)
 
     new OneGraphColumn(intervals, cverts, cedges, graphs, defVal, storLevel, coal)
 
