@@ -147,6 +147,18 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       new OneGraphColumn(newIntvs, vs, es, filtered, defaultValue, storageLevel, false)
   }
 
+  override def project[ED2: ClassTag, VD2: ClassTag](emap: Edge[ED] => ED2, vmap: (VertexId, VD) => VD2, defVal: VD2): OneGraphColumn[VD2, ED2] = {
+    new OneGraphColumn(intervals, allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vmap(vid, attr)))}, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, emap(Edge(ids._1, ids._2, attr))))}, graphs, defVal, storageLevel, false)
+  }
+
+  override def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): OneGraphColumn[VD2, ED] = {
+    new OneGraphColumn(intervals, allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, intv, attr)))}, allEdges, graphs, defaultValue, storageLevel, false)
+  }
+
+  override def mapEdges[ED2: ClassTag](map: (Interval, Edge[ED]) => ED2): OneGraphColumn[VD, ED2] = {
+    new OneGraphColumn(intervals, allVertices, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(intv, Edge(ids._1, ids._2, attr))))}, graphs, defaultValue, storageLevel, false)
+  }
+
   override def union(other: TGraph[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): OneGraphColumn[VD, ED] = {
     defaultValue match {
       case null => unionStructureOnly(other)

@@ -13,7 +13,7 @@ import edu.drexel.cs.dbgroup.temporalgraph._
 import edu.drexel.cs.dbgroup.temporalgraph.util.{LinearTrendEstimate, GraphLoader}
 
 object PortalParser extends StandardTokenParsers with PackratParsers {
-  lexical.reserved += ("select", "from", "union", "intersection", "min", "max", "sum", "any", "all", "exists", "directed", "undirected", "vertices", "edges", "group", "by", "with", "return", "compute", "pagerank", "degree", "components", "count", "id", "attr", "trend", "year", "month", "day", "changes", "start", "end", "where", "and", "length", "value", "spaths", "months", "days", "years",
+  lexical.reserved += ("select", "from", "union", "intersection", "min", "max", "sum", "any", "all", "exists", "directed", "undirected", "vertices", "edges", "group", "by", "with", "return", "compute", "pagerank", "degree", "components", "count", "id", "attr", "trend", "list", "ave", "year", "month", "day", "changes", "start", "end", "where", "and", "length", "value", "spaths", "months", "days", "years",
     //these are for debugging and testing
     "materialize")
   lexical.delimiters ++= List("-", "=", ".", "<", ">", "(", ")", "+", ",")
@@ -74,6 +74,7 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
   )
 
   //TODO: add vgroupby
+  //TODO: add group by size
   lazy val groupby = ("group" ~> "by" ~> numericLit ~ period ~ "vertices" ~ semantics ~ function ~ "edges" ~ semantics ~ function ^^ { case num ~ per ~ _ ~ vsem ~ vfunc ~ _ ~ esem ~ efunc => new GroupBy(num, per, vsem, vfunc, esem, efunc)})
 
   lazy val graph = ("(" ~> select <~ ")" ^^ { case s => Nested(s) }
@@ -132,11 +133,14 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
             | "undirected" ^^^ Undirected()
   )
 
+  //TODO: add first/last
   lazy val function = ( "min" ^^^ MinFunc()
                  | "max" ^^^ MaxFunc()
                  | "sum" ^^^ SumFunc()
                  | "any" ^^^ AnyFunc()
-//                 | "trend" ^^^ TrendFunc()
+                 | "trend" ^^^ TrendFunc()
+                 | "list" ^^^ ListFunc()
+                 | "ave" ^^^ AverageFunc()
   )
 
 
@@ -211,20 +215,24 @@ object Interpreter {
               case mi: MinFunc => if (st.length() > s2.toString.length()) s2.toString else st
               case ma: MaxFunc => if (st.length() < s2.toString.length()) s2.toString else s1
               case an: AnyFunc => st
+              case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the union operation")
             }
             case in: Int => vfunc match {
               case su: SumFunc => in + s2.asInstanceOf[Int]
               case mi: MinFunc => math.min(in, s2.asInstanceOf[Int])
               case ma: MaxFunc => math.max(in, s2.asInstanceOf[Int])
               case an: AnyFunc => in
+              case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the union operation")
             }
             case du: Double => vfunc match {
               case su: SumFunc => du + s2.asInstanceOf[Double]
               case mi: MinFunc => math.min(du, s2.asInstanceOf[Double])
               case ma: MaxFunc => math.max(du, s2.asInstanceOf[Double])
-              case an: AnyFunc => an
+              case an: AnyFunc => du
+              case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the union operation")
             }
             case null => null
+            case _ => throw new IllegalArgumentException("unsupported data type " + s1.getClass + " in union")
           }
         }
         val fun2 = (s1:Any, s2:Any) => {
@@ -234,20 +242,24 @@ object Interpreter {
               case mi: MinFunc => if (st.length() > s2.toString.length()) s2.toString else st
               case ma: MaxFunc => if (st.length() < s2.toString.length()) s2.toString else s1
               case an: AnyFunc => st
+              case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the union operation")
             }
             case in: Int => efunc match {
               case su: SumFunc => in + s2.asInstanceOf[Int]
               case mi: MinFunc => math.min(in, s2.asInstanceOf[Int])
               case ma: MaxFunc => math.max(in, s2.asInstanceOf[Int])
               case an: AnyFunc => in
+              case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the union operation")
             }
             case du: Double => efunc match {
               case su: SumFunc => du + s2.asInstanceOf[Double]
               case mi: MinFunc => math.min(du, s2.asInstanceOf[Double])
               case ma: MaxFunc => math.max(du, s2.asInstanceOf[Double])
-              case an: AnyFunc => an
+              case an: AnyFunc => du
+              case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the union operation")
             }
             case null => null
+            case _ => throw new IllegalArgumentException("unsupported data type " + s1.getClass + " in union")
           }
         }
 
@@ -270,20 +282,24 @@ object Interpreter {
               case mi: MinFunc => if (st.length() > s2.toString.length()) s2.toString else st
               case ma: MaxFunc => if (st.length() < s2.toString.length()) s2.toString else s1
               case an: AnyFunc => st
+              case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the intersection operation")
             }
             case in: Int => vfunc match {
               case su: SumFunc => in + s2.asInstanceOf[Int]
               case mi: MinFunc => math.min(in, s2.asInstanceOf[Int])
               case ma: MaxFunc => math.max(in, s2.asInstanceOf[Int])
               case an: AnyFunc => in
+              case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the intersection operation")
             }
             case du: Double => vfunc match {
               case su: SumFunc => du + s2.asInstanceOf[Double]
               case mi: MinFunc => math.min(du, s2.asInstanceOf[Double])
               case ma: MaxFunc => math.max(du, s2.asInstanceOf[Double])
-              case an: AnyFunc => an
+              case an: AnyFunc => du
+              case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the intersection operation")
             }
             case null => null
+            case _ => throw new IllegalArgumentException("unsupported data type " + s1.getClass + " in intersection")
           }
         }
         val fun2 = (s1:Any, s2:Any) => {
@@ -293,20 +309,24 @@ object Interpreter {
               case mi: MinFunc => if (st.length() > s2.toString.length()) s2.toString else st
               case ma: MaxFunc => if (st.length() < s2.toString.length()) s2.toString else s1
               case an: AnyFunc => st
+              case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the intersection operation")
             }
             case in: Int => efunc match {
               case su: SumFunc => in + s2.asInstanceOf[Int]
               case mi: MinFunc => math.min(in, s2.asInstanceOf[Int])
               case ma: MaxFunc => math.max(in, s2.asInstanceOf[Int])
               case an: AnyFunc => in
+              case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the intersection operation")
             }
             case du: Double => efunc match {
               case su: SumFunc => du + s2.asInstanceOf[Double]
               case mi: MinFunc => math.min(du, s2.asInstanceOf[Double])
               case ma: MaxFunc => math.max(du, s2.asInstanceOf[Double])
-              case an: AnyFunc => an
+              case an: AnyFunc => du
+              case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the intersection operation")
             }
             case null => null
+            case _ => throw new IllegalArgumentException("unsupported data type " + s1.getClass + " in intersection")
           }
         }
 
@@ -367,20 +387,40 @@ object Interpreter {
               case mi: MinFunc => if (st.length() > s2.toString.length()) s2.toString else st
               case ma: MaxFunc => if (st.length() < s2.toString.length()) s2.toString else s1
               case an: AnyFunc => st
+              case _ => throw new IllegalArgumentException("unsupported function " + gbp.vfun + " on string attribute of vertices")
             }
             case in: Int => gbp.vfun match {
               case su: SumFunc => in + s2.asInstanceOf[Int]
               case mi: MinFunc => math.min(in, s2.asInstanceOf[Int])
               case ma: MaxFunc => math.max(in, s2.asInstanceOf[Int])
               case an: AnyFunc => in
+              case _ => throw new IllegalArgumentException("unsupported function " + gbp.vfun + " on int attribute of vertices")
             }
             case du: Double => gbp.vfun match {
               case su: SumFunc => du + s2.asInstanceOf[Double]
               case mi: MinFunc => math.min(du, s2.asInstanceOf[Double])
               case ma: MaxFunc => math.max(du, s2.asInstanceOf[Double])
-              case an: AnyFunc => an
+              case an: AnyFunc => du
+              case _ => throw new IllegalArgumentException("unsupported function " + gbp.vfun + " on double attribute of vertices")
+            }
+            case lt: List[Any] => gbp.vfun match {
+              case su: SumFunc => lt ++ s2.asInstanceOf[List[Any]]
+              case lf: ListFunc => lt ++ s2.asInstanceOf[List[Any]]
+              case an: AnyFunc => lt
+              case _ => throw new IllegalArgumentException("only sum/list/any functions are supported with lists")
+            }
+            case mp: Map[Any,Any] => gbp.vfun match {
+              case su: SumFunc => mp ++ s2.asInstanceOf[Map[Any,Any]]
+              case td: TrendFunc => mp ++ s2.asInstanceOf[Map[Any,Any]]
+              case _ => throw new IllegalArgumentException("only sum and trend functions are supported with maps")
+            }
+            case tu: Tuple2[Double, Int] => gbp.vfun match {
+              case ave: AverageFunc => (tu._1 + s2.asInstanceOf[Tuple2[Double,Int]]._1, tu._2 + s2.asInstanceOf[Tuple2[Double,Int]]._2)
+              case an: AnyFunc => tu
+              case _ => throw new IllegalArgumentException("only average/any functions are supported with Tuples")
             }
             case null => null
+            case _ => throw new IllegalArgumentException("unsupported vertex attribute type in aggregation")
           }
         }
         val fun2 = (s1:Any, s2:Any) => {
@@ -390,24 +430,40 @@ object Interpreter {
               case mi: MinFunc => if (st.length() > s2.toString.length()) s2.toString else st
               case ma: MaxFunc => if (st.length() < s2.toString.length()) s2.toString else s1
               case an: AnyFunc => st
+              case _ => throw new IllegalArgumentException("unsupported function " + gbp.efun + " on string attribute of vertices")
             }
             case in: Int => gbp.efun match {
               case su: SumFunc => in + s2.asInstanceOf[Int]
               case mi: MinFunc => math.min(in, s2.asInstanceOf[Int])
               case ma: MaxFunc => math.max(in, s2.asInstanceOf[Int])
               case an: AnyFunc => in
+               case _ => throw new IllegalArgumentException("unsupported function " + gbp.efun + " on int attribute of vertices")           
             }
             case du: Double => gbp.efun match {
               case su: SumFunc => du + s2.asInstanceOf[Double]
               case mi: MinFunc => math.min(du, s2.asInstanceOf[Double])
               case ma: MaxFunc => math.max(du, s2.asInstanceOf[Double])
-              case an: AnyFunc => an
+              case an: AnyFunc => du
+              case _ => throw new IllegalArgumentException("unsupported function " + gbp.efun + " on double attribute of vertices")
             }
             case null => null
           }
         }
 
-        val res = gr.aggregate(spec, gbp.vsem.value, gbp.esem.value, fun1, fun2)().partitionBy(PortalParser.strategy, PortalParser.width).asInstanceOf[TGraphNoSchema[Any,Any]]
+        val mpd: TGraphNoSchema[Any,Any] = gbp.vfun match {
+          case td: TrendFunc => gr.mapVertices((vid, intv, attr) => Map(intv -> attr), Map[Interval,Double]())
+          case lt: ListFunc => gr.mapVertices((vid, intv, attr) => List(attr), List[Any]())
+          case ave: AverageFunc => gr.mapVertices((vid, intv, attr) => (attr, 1), (0, 1))
+          case _ => gr
+        }
+
+        val agg = mpd.aggregate(spec, gbp.vsem.value, gbp.esem.value, fun1, fun2)().partitionBy(PortalParser.strategy, PortalParser.width).asInstanceOf[TGraphNoSchema[Any,Any]]
+
+        val res: TGraphNoSchema[Any,Any] = gbp.vfun match {
+          case td: TrendFunc => agg.mapVertices((vid, intv, attr) => LinearTrendEstimate.calculateSlopeFromIntervals(attr.asInstanceOf[Map[Interval,Double]]), 0.0)
+          case ave: AverageFunc => agg.mapVertices((vid, intv, attr) => {val tp = attr.asInstanceOf[Tuple2[Double,Int]]; tp._1 / tp._2}, 0.0)
+          case _ => agg
+        }
         val opEnd = System.currentTimeMillis()
         val total = opEnd - opStart
         println(f"Aggregation Runtime: $total%dms ($argNum%d)")
@@ -429,9 +485,10 @@ object Interpreter {
     val selStart = System.currentTimeMillis()
     val res = if (name.endsWith("structure")) {
       GraphLoader.loadStructureOnlyParquet(PortalShell.uri + "/" + name.dropRight("structure".length)).asInstanceOf[TGraphNoSchema[Any,Any]]
-    } else {
+    } else if (name.toLowerCase.contains("parquet")) {
       GraphLoader.loadDataParquet(PortalShell.uri + "/" + name)
-    }
+    } else
+      GraphLoader.loadData(PortalShell.uri + "/" + name, LocalDate.MIN, LocalDate.MAX).asInstanceOf[TGraphNoSchema[Any,Any]]
     if (PortalShell.warmStart)
       res.materialize
     val selEnd = System.currentTimeMillis()
@@ -503,7 +560,6 @@ sealed abstract class AttrStr
 case class Count() extends AttrStr
 case class Id() extends AttrStr
 case class Attr() extends AttrStr
-//case class Trend extends AttrStr
 
 class Select(data: Graph) extends Serializable {
   val graph: Graph = data
@@ -605,6 +661,9 @@ case class MaxFunc() extends Function
 case class MinFunc() extends Function
 case class SumFunc() extends Function
 case class AnyFunc() extends Function
+case class TrendFunc() extends Function
+case class AverageFunc() extends Function
+case class ListFunc() extends Function
 
 sealed abstract class Semantics {
   def value: Quantification

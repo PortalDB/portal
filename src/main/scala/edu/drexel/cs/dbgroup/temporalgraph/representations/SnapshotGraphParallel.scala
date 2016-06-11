@@ -130,6 +130,18 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], ve
     SnapshotGraphParallel.fromGraphs(newIntervals, newGraphs, defaultValue, storageLevel)
   }
 
+  override def project[ED2: ClassTag, VD2: ClassTag](emap: Edge[ED] => ED2, vmap: (VertexId, VD) => VD2, defVal: VD2): SnapshotGraphParallel[VD2, ED2] = {
+    new SnapshotGraphParallel(intervals, allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vmap(vid, attr)))}, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, emap(Edge(ids._1, ids._2, attr))))}, graphs.map(g => g.mapVertices(vmap).mapEdges(emap)), defVal, storageLevel, false)
+  }
+
+  override def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): SnapshotGraphParallel[VD2, ED] = {
+    new SnapshotGraphParallel(intervals, allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, intv, attr)))}, allEdges, graphs.zip(intervals.collect).map(g => g._1.mapVertices((vid, attr) => map(vid, g._2, attr))), defaultValue, storageLevel, false)
+  }
+
+  override def mapEdges[ED2: ClassTag](map: (Interval, Edge[ED]) => ED2): SnapshotGraphParallel[VD, ED2] = {
+    new SnapshotGraphParallel(intervals, allVertices, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(intv, Edge(ids._1, ids._2, attr))))}, graphs.zip(intervals.collect).map(g => g._1.mapEdges(e => map(g._2, e))), defaultValue, storageLevel, false)
+  }
+
   override def union(other: TGraph[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): SnapshotGraphParallel[VD, ED] = {
     var grp2: SnapshotGraphParallel[VD, ED] = other match {
       case grph: SnapshotGraphParallel[VD, ED] => grph

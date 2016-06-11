@@ -219,6 +219,18 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
 
   }
 
+  override def project[ED2: ClassTag, VD2: ClassTag](emap: Edge[ED] => ED2, vmap: (VertexId, VD) => VD2, defVal: VD2): HybridGraph[VD2, ED2] = {
+    new HybridGraph(intervals, allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vmap(vid, attr)))}, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, emap(Edge(ids._1, ids._2, attr))))}, widths, graphs, defVal, storageLevel, false)
+  }
+
+  override def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): HybridGraph[VD2, ED] = {
+    new HybridGraph(intervals, allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, intv, attr)))}, allEdges, widths, graphs, defaultValue, storageLevel, false)
+  }
+
+  override def mapEdges[ED2: ClassTag](map: (Interval, Edge[ED]) => ED2): HybridGraph[VD, ED2] = {
+    new HybridGraph(intervals, allVertices, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(intv, Edge(ids._1, ids._2, attr))))}, widths, graphs, defaultValue, storageLevel, false)
+  }
+
   override def union(other: TGraph[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): HybridGraph[VD, ED] = {
     defaultValue match {
       case null => unionStructureOnly(other)

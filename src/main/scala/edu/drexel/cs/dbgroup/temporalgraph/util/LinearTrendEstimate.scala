@@ -1,9 +1,16 @@
 package edu.drexel.cs.dbgroup.temporalgraph.util
 
 import scala.collection.immutable.Map
+import edu.drexel.cs.dbgroup.temporalgraph.Interval
 
 // linear trend estimate algorithm 
 object LinearTrendEstimate {
+  def calculateSlopeFromIntervals(intervals: Map[Interval, Double]) : Double = {
+    //TODO
+
+    0.0
+  }
+
   /**
    * Run linear trend estimate on a given set of points
    *

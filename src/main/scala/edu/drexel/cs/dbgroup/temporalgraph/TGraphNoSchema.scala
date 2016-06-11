@@ -197,6 +197,8 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
     //both produce potentially uncoalesced TGraph
     res match {
       case c : ChangeSpec => coalesce().aggregateByChange(c, vgroupby, vquant, equant, vAggFunc, eAggFunc)
+      //TODO: push coalesce into aggregateByTime function and make it only
+      //be used if necessary
       case t : TimeSpec => coalesce().aggregateByTime(t, vgroupby, vquant, equant, vAggFunc, eAggFunc)
       case _ => throw new IllegalArgumentException("unsupported window specification")
     }
@@ -319,8 +321,8 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
     * @tparam VD2 the new vertex data type
     *
     */
-  def mapVertices[VD2: ClassTag](map: (VertexId, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): TGraphNoSchema[VD2, ED] = {
-    fromRDDs(allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, attr)))}, allEdges, defaultValue, storageLevel, false)
+  def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): TGraphNoSchema[VD2, ED] = {
+    fromRDDs(allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, intv, attr)))}, allEdges, defaultValue, storageLevel, false)
   }
 
   /**
@@ -334,8 +336,8 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
    * @tparam ED2 the new edge data type
    *
    */
-  def mapEdges[ED2: ClassTag](map: Edge[ED] => ED2): TGraphNoSchema[VD, ED2] = {
-    fromRDDs(allVertices, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(Edge(ids._1, ids._2, attr))))}, defaultValue, storageLevel, false)
+  def mapEdges[ED2: ClassTag](map: (Interval, Edge[ED]) => ED2): TGraphNoSchema[VD, ED2] = {
+    fromRDDs(allVertices, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(intv, Edge(ids._1, ids._2, attr))))}, defaultValue, storageLevel, false)
   }
 
   override def union(other: TGraph[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED] = {
