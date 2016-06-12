@@ -1,0 +1,284 @@
+\section{Algebra}
+\label{sec:algebra}
+
+All operations in our model take one or two \tgs and return a \tg,
+i.e. the algebra is compositional.  More importantly, all operations
+maintain the integrity of the model by computing the value of $V$,
+followed by the value of $E$, maintaining the foreign key constraint
+from $E$ to $V$ and the maximally coalesced non-overlapping time
+period contraint on both $V$ and $E$.
+
+\begin{definition}[Slice]
+Slice on $TG$ is a selection on periods of $V$ and $E$ such that
+$slice_{[a,b)}(TG) = \{t': t \in TG$, $t(p).overlaps(period(a,b)), t'
+  = fit(t, period(a,b))\}$ and $fit(t, period(a,b))$ shortens the
+  entity period $p$ to be within $[a,b)$.
+\label{def:slice}
+\end{definition}
+
+In SQL, slice can be expressed as follows for $V$
+(similarly for $E$):
+
+\begin{small}
+\begin{verbatim}
+SELECT vid, a1, ..., an, greatest(estart, DATE ':date1'), 
+       least(eend, DATE ':date2')
+FROM V
+WHERE eperiod OVERLAPS PERIOD (DATE ':date1', DATE ':date2')
+\end{verbatim}
+\end{small}
+
+\begin{definition}[Selection]
+Temporal and structural selection on $TG$ is a selection on the
+attributes of $V$ and $E$, including entity periods.  $\sigma_{a
+  \theta c}(TG)$, where $a$ are attributes of $V$ and/or $E$,
+including periods, $\theta$ is a binary operation in the set $\{<,
+\leq, =, \neq, \geq, >\}$, and $c$ is a value constant.
+\label{def:selection}
+\end{definition}
+
+Temporal and structural selection are supported by the same selection
+operator and can be used together.  For example, one could select a
+sub-graph in an evolving co-citation network of only authors whose
+names start with letter A, over the past decade.  Because of the
+constraint on $E$, even if the structural selection is only on
+attributes of $V$, only edges connecting selected vertices are
+retained.  Neither deduplication nor coalescing is required as a
+post-operation.  Note that temporal selection and slice are different
+because temporal selection does not modify entity periods, only
+selects some of them.
+
+In SQL, selection can be expressed as a regular selection on V, followed by a selection on E with integrity constraint enforced.
+
+\begin{definition}[Projection]
+Projection on $TG$ is projection on attributes of $V$ and $E$ with
+coalescing, i.e. \\$\Pi vid, p, a_1, \ldots, a_n(V); \Pi vid_1, vid_2,
+p, b_1, \ldots, b_m(E)$. 
+\label{def:projection}
+\end{definition}
+
+The primary key is always retained, so deduplication is not necessary.
+However, coalescing is always performed.  Projection and coalescing
+can be expressed in temporal SQL as follows in a structure-only case:
+
+\begin{small}
+\begin{verbatim}
+CREATE VIEW ProjV(vid, estart, eend) AS (
+  SELECT vid, estart, eend FROM V);
+CREATE VIEW ProjE(vid1, vid2, estart, eend) AS (
+  SELECT vid1, vid2, estart, eeend FROM E);
+CREATE VIEW CoalescV(vid, estart, eend) AS (
+  SELECT DISTINCT F.vid, F.estart, L.eend
+  FROM ProjV F, ProjV L
+  WHERE F.estart < L.eend AND F.vid = L.vid
+  AND NOT EXISTS (SELECT * FROM ProjV M
+    WHERE M.vid = F.vid
+    AND F.estart < M.estart AND M.estart <= L.eend
+    AND NOT EXISTS (SELECT * From ProjV M1
+      WHERE M1.vid = F.vid
+      AND M1.estart < M.estart
+      AND V.estart <= M1.eend ) )
+  AND NOT EXISTS (SELECT * from ProjV M2
+    WHERE M2.vid = F.vid
+    AND ( (M2.estart < F.estart AND F.estart <= M2.eend)
+    OR (M2.estart <= L.eend AND L.eend < M2.eend) ) ) );
+CREATE VIEW CoalescE(vid1, vid2, estart, eend) AS (
+  SELECT DISTINCT F.vid1, F.vid2, F.estart, L.eend
+  FROM ProjE F, ProjE L
+  WHERE F.estart < L.eend AND F.vid1 = L.vid1 
+  AND F.vid2 = L.vid2
+  AND NOT EXISTS (SELECT * FROM ProjE M
+    WHERE M.vid1 = F.vid1 AND M.vid2 = F.vid2
+    AND F.estart < M.estart AND M.estart <= L.eend
+    AND NOT EXISTS (SELECT * From ProjE M1
+      WHERE M1.vid1 = F.vid1
+      AND M1.vid2 = F.vid2
+      AND M1.estart < M.estart
+      AND V.estart <= M1.eend ) )
+  AND NOT EXISTS (SELECT * from ProjE M2
+    WHERE M2.vid1 = F.vid1 AND M2.vid2 = F.vid2
+    AND ( (M2.estart < F.estart AND F.estart <= M2.eend)
+    OR (M2.estart <= L.eend AND L.eend < M2.eend) ) ) )
+\end{verbatim}
+\end{small}
+
+As already mentioned, snapshots represent the state of the graph at a
+particular time instant $t$.  It is often useful to instead analyze
+the graph as an aggregation over some time period $p$.  We call such a
+graph a {\em representative graph}.  For example, a union of all
+vertices/edges over 1 month is representative of that graph during
+that month.  Analysis of representative graphs can lead to deeper
+insight than of a snapshot.  For example, a co-authorship network DBLP
+is very sparse - one can only publish so many papers in any given
+month - on a daily or even monthly level of granularity, but can show
+community formation and affiliation when aggregated over multiples of
+years.  From this perspective, an evolving graph is a sequence of
+representative graphs over consecutive arbitrary-length periods.
+
+In SQL, the representative graph periods can be computed as follows:
+
+\begin{small}
+\begin{verbatim}
+CREATE VIEW Changes(day) as (
+  SELECT DISTINCT estart FROM V
+  UNION SELECT DISTINCT eend FROM V
+  UNION SELECT DISTINCT estart from E
+  UNION SELECT DISTINCT eend FROM E);
+CREATE VIEW ChangePeriods(estart, eend) as (
+  SELECT P1.day, P2.day
+  FROM Changes P1, Changes P2
+  WHERE P1.day < P2.day AND NOT EXISTS (
+     SELECT * from Changes P3
+     WHERE P1.day < P3.day and P3.day < P2.day ) )
+\end{verbatim}
+\end{small}
+
+\begin{figure}
+\centering
+\includegraphics[width=3.4in]{figs/change_timeline.pdf}
+\caption{The regions of constant value within the whole graph compose
+  representative graphs.}
+\label{fig:changes}
+\end{figure}
+
+An example in Figure~\ref{fig:changes} illustrates this concept.
+
+Here we propose a general way to aggregate evolving graphs over our
+model.  This approach is based on the stream aggregation work by Li,
+et al.~\cite{Li2005} with addition of quantifiers.  Aggregation is
+performed through specification of time windows.  Windows can be
+defined in terms of {\em time} or {\em change}.  The time window is
+semantic and can be any multiples of $\{minutes, hours, days, weeks,
+\\ months, years\}$, i.e. the usual time units.  Window specification
+of 1 year would produce windows for each calendar year occurring in
+the data.  The {\em change} type is equivalent to the time period of
+one representative graph, i.e. period during which all the graph
+values are constant (this is similar to the slide-by-row type in
+stream aggregation).
+
+\vera{I realized that we still need to define the window direction for
+  cases like 2 years or 3 months.}
+
+Aggregation in relational algebra produces results for each grouping
+irrespective of how many results there are, unless a \insql{HAVING}
+restriction is applied.  The quantification over the aggregation
+results in evolving graphs is useful for producing different kinds of
+representative graphs.  For example, to produce a representative graph
+with only strong connections over a volatile evolving graph, we want
+to restrict results to those edges that span the entire window or a
+large subset of that window.  For this purpose we introduce
+quantifiers.
+
+Hsu and Parker define a ``{\em generalized quantifier} $Q(R)$ as a
+Boolean-valued function of a relation'' ~\cite{Hsu1995}.  A quantifier
+contains an {\em n-place determiner}.
+
+For example, ``at least one vertex in each window for each group'' is
+a 2-place determiner quantifier which has the existential semantics.
+Many kinds of quantifiers are possible.  In our work we restrict the
+determiners to be from the set $\{at\ least\ one, all, most,
+at\ least\ n\}$, where $n$ is an integer representing a ratio.  $all$
+is a usual universal quantifier that in standard SQL can be achieved
+with the use of two \insql{NOT EXISTS}.
+
+Now that we have the window semantics and quantification defined, we
+can define the aggregation operation over an evolving graph $TG$.
+
+\begin{definition}[Evolving Graph Aggregation]
+An {\em aggregation} operation over $TG$ is a function \\ $G_1, G_2,
+\ldots, G_n, W, Q g f_1(A_1), f_2(A_2), \ldots, f_m(A_m)(TG)$, where
+each $G_i$ is a grouping attribute from $TG$ with the exception of
+$p$; $W$ is the window specification; $Q$ is a generalized quantifier
+specification for vertices and edges on the coverage of the window;
+each $F_i$ is an aggregation function; and each $A_i$ is an attribute
+name from $TG$.
+\label{def:agg}
+\end{definition}
+
+This definition is similar to the regular relational algebra
+aggregation definition, with the addition of the window specification
+and the restriction of grouping attributes to exclude the time
+periods.  However, both $V$ and $E$ relations are aggregated by the
+same operation and the constraint on $E$ to contain only those
+vertices that exist in $V$ is maintained.  The aggregation defined
+this way allows to aggregate graphs structurally, temporally, or in
+combination.  To aggregate only temporally, the grouping attribute
+must be $vid$ for $V$ and $(vid1, vid2)$ for $E$.  To aggregate only
+structurally, the window specification must be by 1 change.  Observe
+that aggregation by 1 change with grouping by id is a no-op, and in
+fact the sequence of representative graphs on the source data is equal
+to the deduplicated sequence of snapshots.
+
+The quantifier is applied to the coverage of the window period within
+each grouping.  For example, to construct the persistent edges graph
+from the example above, we use the $all$ quantifier over the $E$ relation.
+Only the edges that span the duration of the window period are
+produced.  Since the universal quantification is very restrictive,
+$most$ and $at\ least\ n$ quantifiers are more appropriate in some
+aggregations, especially over long windows.  To obtain a stable
+1-month graph over an evolving network connections graph, we may ask
+for connections that exist in at least 90\% of the period.
+
+Remember that the schema for $V$ has a $(vid, p)$ primary key.  Any
+aggregation operation must produce both a valid $vid$ and valid time
+interval for each tuple.  We produce a $vid$ by using the hash of the
+grouping variables to maintain temporal consistency.  The time
+interval is produced by the window extent from the window
+specification. Similarly for $E$.
+
+The aggregation functions over the selected graph attributes are used
+to compute the new value representative of the whole window.  We
+support the standard set $\{count, min,$ $max, sum, average\}$, as
+well as $\{any, first, last, list\}$.  $first$ and $last$ refer to
+first/last non-null value in the window and are possible because the
+aggregating tuples have the time dimension, and the ties are decided
+arbitrarily.  $count$ is the count of the number of distinct values
+over the aggregation window.  Additional aggregation functions can be
+defined by the user.
+
+\begin{figure*}
+\includegraphics[width=6.5in]{figs/agg1.pdf}
+\caption{1-month window aggregation with grouping by id, with
+  existential vertex/edge quantifier.  Structure only.}
+\label{fig:agg1}
+\end{figure*}
+
+An example in Figure~\ref{fig:agg1} shows a small \tg and a result of
+aggregation by 1 month on that graph with $at\ least\ one$ quantifier,
+with group by id.
+
+It is possible but difficult to express the aggregation operation as
+defined above in temporal SQL because each tuple may belong to
+multiple windows.
+
+\begin{definition}[Union]
+Union of $TG1\ \cup\ TG2$ = $\{v, e: v \in TG1.V$ or $v \in TG2.V$ or
+$v(vid$, $f_1(a_{11}$, $a_{21})$, \ldots, $f_n(a_{1n}, a_{2n})$,
+$period(least(p_1, p_2), greatest(p_1, p_2)))$, $e \in TG1.E$ or $e
+\in TG2.E$ or $e(vid1, vid2, g_1(b_{11}, b_{21}), \ldots, g_m(b_{1m},
+b_{2m})$, $period(least(p_1, p_2), greatest(p_1, p_2))) \}$, where
+each $f$, respectively $G$, is an aggregation function over one
+vertex, respectively edge, attribute where the values intersect over
+some period $p$.
+\label{def:union}
+\end{definition}
+
+\begin{figure*}
+\includegraphics[width=6.5in]{figs/union.pdf}
+\caption{Union of TG1 and TG2.}
+\label{fig:union}
+\end{figure*}
+
+In other words, union of two \tgs is simply all vertices and edges
+from both \tgs, with vertex/edge attributes decided by specified
+aggregation functions for each period where both values are present,
+with coalescing.  Figure~\ref{fig:union} illustrates this concept.
+
+Similarly, intersection of two \tgs is an intersection of
+vertices/edges of two graphs, with values for each overlapping
+attribute computed by a specified aggregate function.
+
+\subsection{Attributes}
+
+Attributes --- temporal implementation, schema on load.
+
