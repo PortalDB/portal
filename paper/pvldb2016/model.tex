@@ -23,22 +23,23 @@ A {\em time period} \\$p = [start, end)$ is an interval of the
 
 \begin{figure}
 \centering
-\includegraphics[width=2.5in]{figs/T1_relations.pdf}
-\caption{\tg \insql{T1} as a sequence of changes to vertices and edges.}
+%\includegraphics[width=2.5in]{figs/T1_relations.pdf}
+\includegraphics[width=3.5in]{figs/T1_rel_tab.pdf}
+\caption{Vertex-edge representation of \tg \insql{T1}.}
 \label{fig:tg_ve}
 \end{figure}
 
-\begin{figure}
+\eat{\begin{figure}
 \centering
 \includegraphics[width=3in]{figs/T1_tables.pdf}
 \caption{\tg \insql{T1} as a pair of temporal SQL relations.}
 \label{fig:tg_tab}
-\end{figure}
+\end{figure}}
 
 \begin{figure}
 \centering
-\includegraphics[width=3in]{figs/T1_graphs.pdf}
-\caption{\tg \insql{T1} as a sequence of representative graphs.}
+\includegraphics[width=3.5in]{figs/T1_graphs.pdf}
+\caption{Representative graphs of \tg \insql{T1}.}
 \label{fig:tg_rg}
 \end{figure}
 
@@ -66,26 +67,35 @@ set of nodes with schema $V(\underline{v}, \underline{p}, a_1,
 nodes from $V$, with schema $E(\underline{v_1}, \underline{v_2},
 \underline{p}, b_1, \ldots, b_m)$, subject to the following
 conditions:
-\begin{align*}
-\forall E(v_1, v_2, p)~~\exists V(v_1, p_1), V(v_2, p_2)~~|~~\\
-                       \pred{p_1}{contains}{p}~\wedge~\pred{p_2}{contains}{p}\\
-\forall V(v, p, a_1, \ldots, a_n)~~\nexists V(v, p', a_1, \ldots, a_n)~~|~~ \\
-                       \pred{p}{meets}{p'}~\lor~\pred{p}{contains}{p'}~\lor~\pred{p}{overlaps}{p'}\\
-\forall E(v_1, v_2, p,  b_1, \ldots, b_m)~~\nexists E(v_1,v_2, p', b_1, \ldots, b_m)~~|~~\\
+\begin{multline}
+\forall E(v_1, v_2, p)~~\exists V(v_1, p_1), V(v_2, p_2)~~| \\
+                       \pred{p_1}{contains}{p}~\wedge~\pred{p_2}{contains}{p}
+\label{def:tg:c1}
+\end{multline}
+\vspace{-0.5cm}
+\begin{multline}
+\forall V(v, p, a_1, \ldots, a_n)~~\nexists V(v, p', a_1, \ldots, a_n)~~| \\
                        \pred{p}{meets}{p'}~\lor~\pred{p}{contains}{p'}~\lor~\pred{p}{overlaps}{p'}
-\end{align*}
-
+\label{def:tg:c2}
+\end{multline}
+\vspace{-0.5cm}
+\begin{multline}
+\forall E(v_1, v_2, p,  b_1, \ldots, b_m)~~\nexists E(v_1,v_2, p', b_1, \ldots, b_m)~~| \\
+                       \pred{p}{meets}{p'}~\lor~\pred{p}{contains}{p'}~\lor~\pred{p}{overlaps}{p'}
+\label{def:tg:c3}
+\end{multline}
+\vspace{-0.5cm}
 \label{def:tg}
 \end{definition}
 
-The graph represented by \tg may be directed or undirected.  For
-undirected graphs we choose a canonical representation of an edge, with
-$v_1 \leq v_2$ (self-loops are allowed).
+The graph may be directed or undirected.  For undirected graphs we
+choose a canonical representation of an edge, with $v_1 \leq v_2$
+(self-loops are allowed).
 
-The first condition in Definition~\ref{def:tg} states the natural
-integrity constraint that an edge linking two vertices can only exist
-during a time when both vertices exist.  Here, $\pred{p}{contains}{q}$
-is the Allen \predName{contains} relation with
+Condition~\ref{def:tg:c1} in Definition~\ref{def:tg} states the
+natural integrity constraint that an edge linking two vertices can
+only exist during a time when both vertices exist.  Here,
+$\pred{p}{contains}{q}$ is the Allen \predName{contains} relation with
 equality~\cite{allen83}, defined as $p.start \leq q.start \wedge p.end
 \geq q.end$.  Consider the vertex-edge representation of \tg
 \insql{T1} in Figure~\ref{fig:tg_ve}, where edge $e(v_1,v_2)$ exists
@@ -93,22 +103,30 @@ during the entire period when both $v_1$ and $v_2$ exist, while edge
 $e(v_2,v_3)$ exists only for a portion of the period when both $v_2$
 and $v_3$ exist.
 
-The second and third conditions in Definition~\ref{def:tg} state that
-\tg is coalesced~\cite{DBLP:conf/vldb/BohlenSS96}, which means that
-each entity (vertex or edge) is represented exactly once for each time
+Conditions~\ref{def:tg:c2} and~\ref{def:tg:c3} in
+Definition~\ref{def:tg} state that \tg is
+coalesced~\cite{DBLP:conf/vldb/BohlenSS96}, which means that each
+entity (vertex or edge) is represented exactly once for each time
 period of maximal length when it is present, and when none of the
 values of its attributes change.  Semantically, this means that the
 entity exists continuously through the entire time period.  Here,
 again, \predName{meets}, \predName{contains} and \predName{overlaps}
 are the corresponding Allen relations~\cite{allen83}, with
 equality. Consider the contents of $V$ and $E$ relations of \insql{T1}
-in Figure~\ref{fig:tg_tables}, and note that there is a single tuple
+in Figure~\ref{fig:tg_ve}, and note that there is a single tuple
 corresponding to vertex $v_1$ in $V$, but two tuples corresponding to
 $v_2$, because the value of the attribute $school$ of $v_2$ changed at
 time $t_3$.
 
-The \tg of Definition~\ref{def:tg} (with only the key attributes) is
-implemented in temporal SQL as follows:
+Coalescing requires that the system automatically merge adjacent and
+overlapping time periods.  This operation, which is similar to
+duplicate elimination in conventional databases, has been extensively
+studied in the
+literature~\cite{DBLP:conf/vldb/BohlenSS96,DBLP:journals/sigmod/Zimanyi06},
+but is not fully supported by the SQL:2011 standard.
+
+The \tg of Definition~\ref{def:tg}, although only partially enforcing
+the constraints, can be implemented in temporal SQL as follows:
 
 \begin{small}
 \begin{verbatim}
@@ -117,6 +135,8 @@ CREATE TABLE V (
   pstart DATE,
   pend DATE,
   PERIOD for p (pstart, pend),
+  name varchar(32),
+  school varchar(32),
   PRIMARY KEY (v, p WITHOUT OVERLAPS) )
 
 CREATE TABLE E (
@@ -125,26 +145,22 @@ CREATE TABLE E (
   pstart DATE,
   pend DATE,
   PERIOD for p (pstart, pend),
+  score integer,
   PRIMARY KEY (v1, v2, p WITHOUT OVERLAPS),
   FOREIGN KEY (v1, PERIOD p) REFERENCES V(v, PERIOD p),
   FOREIGN KEY (v2, PERIOD p) REFERENCES V(v, PERIOD p) )
 \end{verbatim}
 \end{small}
 
-Coalescing requires that the system automatically merge adjacent and
-overlapping time periods.  This operation, which is similar to
-duplicate elimination in conventional databases, has been studied in
-the
-literature~\cite{DBLP:conf/vldb/BohlenSS96,DBLP:journals/sigmod/Zimanyi06},
-but is not fully supported by the SQL:2011 standard.  The
-implementation above enforces that time periods do not overlap, but it
-does not prevent the existence of two adjacent time periods for the
-same $v$ in $V$, and for the same $(v_1, v_2)$ in $E$, i.e., periods
-$p$ and $q$ for which $\pred{p}{meets}{q}$ holds are not merged.
-Perhaps more importantly, there is no convenient and efficient
-implementation of the coalesce operator in temporal SQL.
-See~\cite{DBLP:reference/db/Bohlen09} for SQL implementations of the
-coalesce operator.
+The implementation above ensures that time periods corresponding to a
+vertex (resp. edge) do not overlap, and that one does not contain the
+other, but it does not prevent the existence of two adjacent time
+periods, i.e., periods $p$ and $q$ for which $\pred{p}{meets}{q}$
+holds.  That is, there may well be two tuples in $V$ for $v_1$, one
+associated with $[t_0,t1)$ and the other with $[t_1,t_2)$ Another
+    limitation of temporal SQL is that there is no convenient and
+    efficient implementation of the coalesce operator (
+    see~\cite{DBLP:reference/db/Bohlen09} for possible implementations).
 
 Note that, while it is an important property of our logical model that
 time periods be coalesced, eagerly coalescing is both expensive and,
@@ -163,11 +179,24 @@ disadvantages --- flexibility of a schema-less representation at the
 expense of missed performance optimization opportunities afforded by a
 structured representation.
 
-To conclude, let us revisit \tg \insql{T1} in Figure~\ref{fig:ve}
-Figure~\ref{fig:rg} represents \insql{T1} as a continuous sequence of
-states, each corresponding to time periods $p_1 \ldots p_5$ in which
-no change occurred to the graph (to either its topology or to the
-attribute values of its vertices and edges).  This view, to which we
-refer as {\em representative graphs} of a \tg, is an important
-abstraction when discussing the operations of \tg algebra, presented
-in the next section.
+To conclude this section, let us revisit \tg \insql{T1} in
+Figure~\ref{fig:ve}.  Figure~\ref{fig:rg} represents \insql{T1} as a
+continuous sequence of graph states, each corresponding to a time
+period during which no change occurred to the graph, in terms of
+either topology or attribute values.
+
+\eat{\begin{definition}[\rgs]
+A {\em representative graphs} view of a \tg is a sequence of
+(non-temporal) graphs associated with a sequence of consecutive
+non-overlapping time periods.
+\label{def:rgs} 
+\end{definition}}
+
+This view, to which we refer as \rgs of \insql{T1}, is computed from
+properly coalesced $V$ and $E$ by (1) enumerating all time points
+during which some change occured, i.e., that appear as either the
+start or the end of some time period in $V$ and $E$, and (2)
+generating pairs of adjacent time points. See Appendix for details.
+\rgs is an important abstraction that will be useful to us in the next
+section, where we present \tg algebra.
+
