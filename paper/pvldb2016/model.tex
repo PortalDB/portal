@@ -171,8 +171,8 @@ implementation (Section~\ref{sec:system}).
 Non-key attributes of $V$ and $E$ are not restricted to be of atomic
 types, but may, e.g., be maps or tuples.  Because of this, \ql
 supports {\em schema evolution} in a \tg in much the same way as is
-done in popular (non-temporal) graph databases like Neo4j~\cite{}.  At
-an extreme, the vertex (resp. edge) relation will have a single
+done in popular (non-temporal) graph databases like Neo4j.  At an
+extreme, the vertex (resp. edge) relation will have a single
 unstructured non-key attribute, which would store all attribute
 information.  This representation has the usual advantages and
 disadvantages --- flexibility of a schema-less representation at the
@@ -180,7 +180,7 @@ expense of missed performance optimization opportunities afforded by a
 structured representation.
 
 To conclude this section, let us revisit \tg \insql{T1} in
-Figure~\ref{fig:ve}.  Figure~\ref{fig:rg} represents \insql{T1} as a
+Figure~\ref{fig:tg_ve}.  Figure~\ref{fig:tg_rg} represents \insql{T1} as a
 continuous sequence of graph states, each corresponding to a time
 period during which no change occurred to the graph, in terms of
 either topology or attribute values.
