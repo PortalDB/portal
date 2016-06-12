@@ -6,7 +6,7 @@ evolves continuously over time.  A \tg represents evolution of graph
 topology, i.e., the presence or absence of its vertices and edges, and
 of the values of vertex and edge attributes.  Our choice to represent
 continuous graph evolution is in contrast to a less-general discrete
-snapshot-based representation.  We will discuss this distrinction
+snapshot-based representation.  We will discuss this distinction
 further in Section~\ref{sec:related}.
 
 Following the SQL:2011
@@ -98,7 +98,7 @@ The second and third conditions in Definition~\ref{def:tg} state that
 each entity (vertex or edge) is represented exactly once for each time
 period of maximal length when it is present, and when none of the
 values of its attributes change.  Semantically, this means that the
-entity exists continously through the entire time period.  Here,
+entity exists continuously through the entire time period.  Here,
 again, \predName{meets}, \predName{contains} and \predName{overlaps}
 are the corresponding Allen relations~\cite{allen83}, with
 equality. Consider the contents of $V$ and $E$ relations of \insql{T1}
@@ -166,7 +166,7 @@ structured representation.
 To conclude, let us revisit \tg \insql{T1} in Figure~\ref{fig:ve}
 Figure~\ref{fig:rg} represents \insql{T1} as a continuous sequence of
 states, each corresponding to time periods $p_1 \ldots p_5$ in which
-no change occured to the graph (to either its topology or to the
+no change occurred to the graph (to either its topology or to the
 attribute values of its vertices and edges).  This view, to which we
 refer as {\em representative graphs} of a \tg, is an important
 abstraction when discussing the operations of \tg algebra, presented
