@@ -1,14 +1,25 @@
 package edu.drexel.cs.dbgroup.temporalgraph.util
 
 import scala.collection.immutable.Map
-import edu.drexel.cs.dbgroup.temporalgraph.Interval
+import edu.drexel.cs.dbgroup.temporalgraph.{Interval,Resolution}
 
 // linear trend estimate algorithm 
 object LinearTrendEstimate {
   def calculateSlopeFromIntervals(intervals: Map[Interval, Double]) : Double = {
-    //TODO
+    //first find the common resolution
+    val unit = intervals.keys.map{ intv => Resolution.between(intv.start, intv.end).unit }
+      .reduce( (x,y) => if (x.compareTo(y) < 0) x else y)
+    //val res = Resolution.between(LocalDate.MIN, unit.addTo(LocalDate.MIN))
 
-    0.0
+    //get the smallest date as start
+    val st = intervals.keys.map(ii => ii.start).reduce((x,y) => if (x.isBefore(y)) x else y)
+
+    //now turn intervals into points by unit
+    calculateSlope(intervals.flatMap{ case (k,v) =>
+      val inst = unit.between(st, k.start).toInt
+      val inen = unit.between(st, k.end).toInt
+      (inst to inen).map(ii => (ii, v))
+    })
   }
 
   /**
