@@ -14,6 +14,8 @@ object TempGraphOps extends Serializable {
 
   def minDate(a: LocalDate, b: LocalDate): LocalDate = if (a.isBefore(b)) a else b
   def maxDate(a: LocalDate, b: LocalDate): LocalDate = if (a.isBefore(b)) b else a
+  def minDate(a: LocalDate, b: LocalDate, c: LocalDate): LocalDate = minDate(minDate(a,b),c)
+  def maxDate(a: LocalDate, b: LocalDate, c: LocalDate): LocalDate = maxDate(maxDate(a,b),c)
 
   implicit def dateWrapper(dt: LocalDate): Date = Date.valueOf(dt)
 

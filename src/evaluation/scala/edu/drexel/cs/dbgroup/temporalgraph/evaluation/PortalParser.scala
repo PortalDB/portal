@@ -485,10 +485,8 @@ object Interpreter {
     val selStart = System.currentTimeMillis()
     val res = if (name.endsWith("structure")) {
       GraphLoader.loadStructureOnlyParquet(PortalShell.uri + "/" + name.dropRight("structure".length)).asInstanceOf[TGraphNoSchema[Any,Any]]
-    } else if (name.toLowerCase.contains("parquet")) {
-      GraphLoader.loadDataParquet(PortalShell.uri + "/" + name)
     } else
-      GraphLoader.loadData(PortalShell.uri + "/" + name, LocalDate.MIN, LocalDate.MAX).asInstanceOf[TGraphNoSchema[Any,Any]]
+      GraphLoader.loadDataParquet(PortalShell.uri + "/" + name)
     if (PortalShell.warmStart)
       res.materialize
     val selEnd = System.currentTimeMillis()

@@ -32,7 +32,7 @@ package object temporalgraph {
     def setContext(c: SparkContext):Unit = sc = c
     def getSqlContext:SQLContext = {
       //hive context is usually recommended to be used instead of plain sqlcontext
-      if (sqlc == null) sqlc = new org.apache.spark.sql.hive.HiveContext(sc)
+      if (sqlc == null) sqlc = new org.apache.spark.sql.SQLContext(sc)
       sqlc
     }
     lazy val eagerCoalesce: Boolean = if (sc.getConf.get("portal.coalesce", "lazy") == "eager") true else false

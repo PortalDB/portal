@@ -8,7 +8,7 @@ import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.mllib.rdd.RDDFunctions._
-import org.apache.spark.HashPartitioner
+import org.apache.spark.{HashPartitioner,RangePartitioner}
 import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps
 import java.time.LocalDate
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
@@ -148,6 +148,8 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
     //select is only correct on coalesced data, thus use vertices/edges methods
     //which guarantee coalesce
     //and since coalesce is unaffected by select, the result is coalesced
+    //FIXME: this might be incorrect. We may have to apply vtpred to vertices and then enforce integrity constraints on edges
+    //to have correctness.
     fromRDDs(vertices.filter{ case (vid, (intv, attr)) => vtpred(intv)}, edges.filter{ case (ids, (intv, attr)) => vtpred(intv) && etpred(intv)}, defaultValue, storageLevel, true)
 
   }
@@ -164,7 +166,8 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
     * may cause different representative intervals.
     */
   protected val defvp = (vid: VertexId, attrs: (Interval, VD)) => true
-  def select(epred: ((VertexId, VertexId), (Interval, ED)) => Boolean = ((ids, ed) => true), vpred: (VertexId, (Interval, VD)) => Boolean = defvp): TGraphNoSchema[VD, ED] = {
+  protected val defep = (ids: (VertexId, VertexId), attrs: (Interval, ED)) => true
+  def select(epred: ((VertexId, VertexId), (Interval, ED)) => Boolean = defep, vpred: (VertexId, (Interval, VD)) => Boolean = defvp): TGraphNoSchema[VD, ED] = {
     //if the vpred is not provided, i.e. is true
     //then we can skip most of the work on enforcing integrity constraints with V
     //simple select on vertices, then join the coalesced by structure result
@@ -173,9 +176,10 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
     //select is only correct on coalesced data, thus use vertices/edges methods
     //and thus the result is coalesced (select itself does not cause uncoalesce)
     val newVerts: RDD[(VertexId, (Interval, VD))] = if (vpred == defvp) vertices else vertices.filter{ case (vid, attrs) => vpred(vid, attrs)}
-    val filteredEdges: RDD[((VertexId, VertexId), (Interval, ED))] = edges.filter{ case (ids, attrs) => epred(ids, attrs)}
 
-    val newEdges = if (filteredEdges.isEmpty || vpred == defvp) filteredEdges else TGraphNoSchema.constrainEdges(newVerts, filteredEdges)
+    //constrain first, then filter
+    val constrained = if (vpred == defvp) edges else TGraphNoSchema.constrainEdges(newVerts, edges)
+    val newEdges = if (epred == defep) constrained else constrained.filter{ case (ids, attrs) => epred(ids, attrs)}
 
     //no need to coalesce either vertices or edges because we are removing some entities, but not extending them or modifying attributes
 
@@ -510,13 +514,17 @@ object TGraphNoSchema {
    */
   def coalesceStructure[K: ClassTag, V: ClassTag](rdd: RDD[(K, (Interval, V))]): RDD[(K, Interval)] = {
     implicit val ord = TempGraphOps.dateOrdering
-    rdd.groupByKey.mapValues{ seq =>  //groupbykey produces RDD[(K, Seq[(p, V)])]
-      seq.toSeq.sortBy(x => x._1.start)
-        .foldLeft(List[(Interval, V)]()){ (r,c) => r match {
-          case head :: tail => if (head._1.end == c._1.start) (Interval(head._1.start, c._1.end), head._2) :: tail else c :: r
+    rdd.mapValues(_._1)
+      .partitionBy(new HashPartitioner(rdd.getNumPartitions))
+      .groupByKey.mapValues{ seq =>
+      seq.toSeq.sortBy(x => x.start)
+        .foldLeft(List[Interval]()){ (r,c) => r match {
+          case head :: tail =>
+            if (head.end == c.start) Interval(head.start, c.end) :: tail
+            else c :: r
           case Nil => List(c)
-        }}
-    }.flatMap{ case (k,v) => v.map(x => (k, x._1))}
+        }
+    }}.flatMap{ case (k,v) => v.map(x => (k, x))}
   }
 
   /*
@@ -527,23 +535,29 @@ object TGraphNoSchema {
    * Warning: This is a very expensive operation, use only when needed.
    */
   def constrainEdges[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))]): RDD[((VertexId, VertexId), (Interval, E))] = {
-    val coalescV: RDD[(VertexId, Interval)] = TGraphNoSchema.coalesceStructure(verts)
+    if (verts.isEmpty) return ProgramContext.sc.emptyRDD[((VertexId, VertexId), (Interval, E))]
+
+    val coalescV = verts.mapValues(_._1)
 
     //get edges that are valid for each of their two vertices
-    val e1: RDD[((VertexId, VertexId), (Interval, E))] = edgs.map(e => (e._1._1, e))
+    val e1 = edgs.map(e => (e._1._1, e))
+    //  .partitionBy(hashp)
       .join(coalescV) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
       .filter{case (vid, (e, v)) => e._2._1.intersects(v) } //this keeps only matches of vertices and edges where periods overlap
-      .map{case (vid, (e, v)) => (e._1, (Interval(TempGraphOps.maxDate(e._2._1.start, v.start), TempGraphOps.minDate(e._2._1.end, v.end)), e._2._2))} //because the periods overlap we don't have to worry that maxdate is after mindate
-    val e2: RDD[((VertexId, VertexId), (Interval, E))] = edgs.map(e => (e._1._2, e))
+      .map{case (vid, (e, v)) => ((e._1, e._2._1), (e._2._2, v))}
+
+    val e2 = edgs.map(e => (e._1._2, e))
+    //  .partitionBy(hashp)
       .join(coalescV) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
       .filter{case (vid, (e, v)) => e._2._1.intersects(v) } //this keeps only matches of vertices and edges where periods overlap
-      .map{case (vid, (e, v)) => (e._1, (Interval(TempGraphOps.maxDate(e._2._1.start, v.start), TempGraphOps.minDate(e._2._1.end, v.end)), e._2._2))} //because the periods overlap we don't have to worry that maxdate is after mindate
+      .map{case (vid, (e, v)) => ((e._1, e._2._1), (e._2._2, v))}
 
     //now join them to keep only those that satisfy both foreign key constraints
     e1.join(e2)
     //keep only an edge that meets constraints on both vertex ids
-      .filter{ case (k, (e1, e2)) => e1._1.intersects(e2._1) && e1._2 == e2._2 }
-      .map{ case (k, (e1, e2)) => (k, (Interval(TempGraphOps.maxDate(e1._1.start, e2._1.start), TempGraphOps.minDate(e1._1.end, e2._1.end)), e1._2))}
+      .filter{ case (k, (ee1, ee2)) => ee1._2.intersects(ee2._2) }
+      .map{ case (k, (ee1, ee2)) => (k._1, (Interval(TempGraphOps.maxDate(ee1._2.start, ee2._2.start, k._2.start), TempGraphOps.minDate(ee1._2.end, ee2._2.end, k._2.end)), ee1._1))}
+
   }
 
 }
