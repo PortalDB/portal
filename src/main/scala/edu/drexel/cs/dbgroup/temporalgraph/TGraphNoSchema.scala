@@ -538,15 +538,38 @@ object TGraphNoSchema {
   def constrainEdges[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))]): RDD[((VertexId, VertexId), (Interval, E))] = {
     if (verts.isEmpty) return ProgramContext.sc.emptyRDD[((VertexId, VertexId), (Interval, E))]
 
-    val coalescV = verts.mapValues(_._1)
+    //if we don't have many vertices, we can do a better job with broadcasts
+    if (verts.getNumPartitions < 1000) { //FIXME: what should this number be?
+      //coalesce before collect
+      val bverts = ProgramContext.sc.broadcast(verts.aggregateByKey(List[Interval]())(seqOp = (u,v) => v._1 :: u, combOp = (u1,u2) => u1 ++ u2).collectAsMap().mapValues(_.sorted.foldLeft(List[Interval]()){ (r,c) => r match {
+        case head :: tail =>
+          if (head.end == c.start) Interval(head.start, c.end) :: tail
+          else c :: r
+        case Nil => List(c)
+      }}))
 
-    //get edges that are valid for each of their two vertices
-    val e1 = edgs.map(e => (e._1._1, e))
-    //  .partitionBy(hashp)
-      .join(coalescV) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
-      .filter{case (vid, (e, v)) => e._2._1.intersects(v) } //this keeps only matches of vertices and edges where periods overlap
-      .map{case (vid, (e, v)) => ((e._1, e._2._1), (e._2._2, v))}
+      edgs.mapPartitions({ iter =>
+        val m: Map[VertexId, List[Interval]] = bverts.value
+        for {
+          ((vid1, vid2), (p, v)) <- iter
+          if m.contains(vid1) && m.contains(vid2) && m(vid1).filter(ii => ii.intersects(p)).size == 1 && m(vid2).filter(ii => ii.intersects(p)).size == 1 && m(vid1).find(_.intersects(p)).get.intersects(m(vid2).find(_.intersects(p)).get)
+        } yield ((vid1, vid2), (Interval(TempGraphOps.maxDate(p.start, m(vid1).find(_.intersects(p)).get.start, m(vid2).find(_.intersects(p)).get.start), TempGraphOps.minDate(p.end, m(vid1).find(_.intersects(p)).get.end, m(vid2).find(_.intersects(p)).get.end)), v))
+      }, preservesPartitioning = true)
 
+    } else {
+        val coalescV = verts.mapValues(_._1)
+
+        //get edges that are valid for each of their two vertices
+        edgs.map(e => (e._1._1, e))
+          .join(coalescV) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
+          .filter{case (vid, (e, v)) => e._2._1.intersects(v) } //this keeps only matches of vertices and edges where periods overlap
+          .map{case (vid, (e, v)) => (e._1._2, (e, v))}       //((e._1, e._2._1), (e._2._2, v))}
+          .join(coalescV) //this creates RDD[(VertexId, ((((VertexId, VertexId), (Interval, ED)), Interval), Interval)
+          .filter{ case (vid, (e, v)) => e._1._2._1.intersects(v) && e._2.intersects(v)}
+          .map{ case (vid, (e, v)) => (e._1._1, (Interval(TempGraphOps.maxDate(v.start, e._1._2._1.start, e._2.start), TempGraphOps.minDate(v.end, e._1._2._1.end, e._2.end)), e._1._2._2))}
+    }
+
+/*
     val e2 = edgs.map(e => (e._1._2, e))
     //  .partitionBy(hashp)
       .join(coalescV) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
@@ -558,7 +581,7 @@ object TGraphNoSchema {
     //keep only an edge that meets constraints on both vertex ids
       .filter{ case (k, (ee1, ee2)) => ee1._2.intersects(ee2._2) }
       .map{ case (k, (ee1, ee2)) => (k._1, (Interval(TempGraphOps.maxDate(ee1._2.start, ee2._2.start, k._2.start), TempGraphOps.minDate(ee1._2.end, ee2._2.end, k._2.end)), ee1._1))}
-
+ */
   }
 
 }
