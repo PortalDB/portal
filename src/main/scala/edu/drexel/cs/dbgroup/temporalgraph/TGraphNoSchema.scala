@@ -130,14 +130,9 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
 
     //slice is correct on coalesced and uncoalesced data
     //and maintains the coalesced/uncoalesced state
-    //TODO: this factor assumes uniform distribution of data across time
-    //which is of course usually incorrect. Find a better estimate
-    val redFactor = math.max(1, span.ratio(selectBound).toInt)
     fromRDDs(allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}
-                  .coalesce(math.max(2, allVertices.getNumPartitions/redFactor), true)(null)
                   .mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), 
              allEdges.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}
-                  .coalesce(math.max(2, allEdges.getNumPartitions/redFactor), true)(null)
                   .mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), 
              defaultValue, storageLevel, coalesced)
   }
@@ -539,20 +534,24 @@ object TGraphNoSchema {
     if (verts.isEmpty) return ProgramContext.sc.emptyRDD[((VertexId, VertexId), (Interval, E))]
 
     //if we don't have many vertices, we can do a better job with broadcasts
-    if (verts.getNumPartitions < 1000) { //FIXME: what should this number be?
+    //FIXME: what should this number be? it should depend on memory size
+    //TODO: pull this logic into query optimization or use DataFrames so that sql can do it automatically
+    if (verts.countApprox(2).getFinalValue.high < 10000000) {
       //coalesce before collect
-      val bverts = ProgramContext.sc.broadcast(verts.aggregateByKey(List[Interval]())(seqOp = (u,v) => v._1 :: u, combOp = (u1,u2) => u1 ++ u2).collectAsMap().mapValues(_.sorted.foldLeft(List[Interval]()){ (r,c) => r match {
+      val bverts = ProgramContext.sc.broadcast(verts.aggregateByKey(List[Interval]())(seqOp = (u,v) => v._1 :: u, combOp = (u1,u2) => u1 ++ u2).mapValues(_.sorted.foldLeft(List[Interval]()){ (r,c) => r match {
         case head :: tail =>
           if (head.end == c.start) Interval(head.start, c.end) :: tail
           else c :: r
         case Nil => List(c)
-      }}))
+      }}).collectAsMap())
 
       edgs.mapPartitions({ iter =>
-        val m: Map[VertexId, List[Interval]] = bverts.value
+        val m: scala.collection.Map[VertexId, List[Interval]] = bverts.value
         for {
           ((vid1, vid2), (p, v)) <- iter
-          if m.contains(vid1) && m.contains(vid2) && m(vid1).filter(ii => ii.intersects(p)).size == 1 && m(vid2).filter(ii => ii.intersects(p)).size == 1 && m(vid1).find(_.intersects(p)).get.intersects(m(vid2).find(_.intersects(p)).get)
+          val l1 = m.get(vid1).getOrElse(List[Interval]()).filter(ii => ii.intersects(p))
+          val l2 = m.get(vid2).getOrElse(List[Interval]()).filter(ii => ii.intersects(p))
+          if l1.size == 1 && l2.size == 1 && l1.head.intersects(l2.head)
         } yield ((vid1, vid2), (Interval(TempGraphOps.maxDate(p.start, m(vid1).find(_.intersects(p)).get.start, m(vid2).find(_.intersects(p)).get.start), TempGraphOps.minDate(p.end, m(vid1).find(_.intersects(p)).get.end, m(vid2).find(_.intersects(p)).get.end)), v))
       }, preservesPartitioning = true)
 
@@ -568,20 +567,6 @@ object TGraphNoSchema {
           .filter{ case (vid, (e, v)) => e._1._2._1.intersects(v) && e._2.intersects(v)}
           .map{ case (vid, (e, v)) => (e._1._1, (Interval(TempGraphOps.maxDate(v.start, e._1._2._1.start, e._2.start), TempGraphOps.minDate(v.end, e._1._2._1.end, e._2.end)), e._1._2._2))}
     }
-
-/*
-    val e2 = edgs.map(e => (e._1._2, e))
-    //  .partitionBy(hashp)
-      .join(coalescV) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
-      .filter{case (vid, (e, v)) => e._2._1.intersects(v) } //this keeps only matches of vertices and edges where periods overlap
-      .map{case (vid, (e, v)) => ((e._1, e._2._1), (e._2._2, v))}
-
-    //now join them to keep only those that satisfy both foreign key constraints
-    e1.join(e2)
-    //keep only an edge that meets constraints on both vertex ids
-      .filter{ case (k, (ee1, ee2)) => ee1._2.intersects(ee2._2) }
-      .map{ case (k, (ee1, ee2)) => (k._1, (Interval(TempGraphOps.maxDate(ee1._2.start, ee2._2.start, k._2.start), TempGraphOps.minDate(ee1._2.end, ee2._2.end, k._2.end)), ee1._1))}
- */
   }
 
 }

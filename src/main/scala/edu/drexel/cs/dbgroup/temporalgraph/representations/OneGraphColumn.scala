@@ -48,10 +48,6 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
   override def slice(bound: Interval): OneGraphColumn[VD, ED] = {
     if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
 
-    //if the graphs is not materialized, it is more efficient to use the parent method
-    if (!graphs.isCheckpointed)
-      return super.slice(bound).asInstanceOf[OneGraphColumn[VD,ED]]
-
     if (span.intersects(bound)) {
       val startBound = maxDate(span.start, bound.start)
       val endBound = minDate(span.end, bound.end)
@@ -75,11 +71,10 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       val resg = subg.mapVertices((vid, vattr) => vattr.filter(x => x >= selectStart && x <= selectStop).map(_ - selectStart)).mapEdges(e => e.attr.filter(x => x >= selectStart && x <= selectStop).map(_ - selectStart))
 
       //now need to update the vertex attribute rdd and edge attr rdd
-      //TODO: this factor assumes uniform distribution of data across time
-      //which is of course usually incorrect. Find a better estimate
-      val redFactor = math.max(1, span.ratio(selectBound).toInt)
-      val vattrs = allVertices.filter{ case (k,v) => v._1.intersects(selectBound)}.coalesce(math.max(4, allVertices.getNumPartitions/redFactor))(null).mapValues( v => (Interval(maxDate(v._1.start, startBound), minDate(v._1.end, endBound)), v._2))
-      val eattrs = allEdges.filter{ case (k,v) => v._1.intersects(selectBound)}.coalesce(math.max(4, allEdges.getNumPartitions/redFactor))(null).mapValues( v => (Interval(maxDate(v._1.start, startBound), minDate(v._1.end, endBound)), v._2))
+      val vattrs = allVertices.filter{ case (k,v) => v._1.intersects(selectBound)}
+                              .mapValues( v => (Interval(maxDate(v._1.start, startBound), minDate(v._1.end, endBound)), v._2))
+      val eattrs = allEdges.filter{ case (k,v) => v._1.intersects(selectBound)}
+                           .mapValues( v => (Interval(maxDate(v._1.start, startBound), minDate(v._1.end, endBound)), v._2))
 
       new OneGraphColumn[VD, ED](newIntvs, vattrs, eattrs, resg, defaultValue, storageLevel, coalesced)
 
