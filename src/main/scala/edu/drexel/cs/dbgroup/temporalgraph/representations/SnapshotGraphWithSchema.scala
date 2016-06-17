@@ -122,19 +122,15 @@ class SnapshotGraphWithSchema(intvs: Seq[Interval], verts: DataFrame, edgs: Data
     this
   }
 
-  override def partitionBy(pst: PartitionStrategyType.Value, runs: Int): SnapshotGraphWithSchema = {
-    partitionBy(pst, runs, 0)
-  }
-
-  override def partitionBy(pst: PartitionStrategyType.Value, runs: Int, parts: Int): SnapshotGraphWithSchema = {
-    if (pst != PartitionStrategyType.None) {
+  override def partitionBy(tgp: TGraphPartitioning): SnapshotGraphWithSchema = {
+    if (tgp.pst != PartitionStrategyType.None) {
       //not changing the intervals, only the graphs at their indices
       //each partition strategy for SG needs information about the graph
 
       //use that strategy to partition each of the snapshots
       new SnapshotGraphWithSchema(intervals, allVertices, allEdges, graphs.zipWithIndex.map { case (g,i) =>
-        val numParts: Int = if (parts > 0) parts else g.edges.partitions.size
-        g.partitionBy(PartitionStrategies.makeStrategy(pst, i, graphs.size, runs), numParts)
+        val numParts: Int = if (tgp.parts > 0) tgp.parts else g.edges.partitions.size
+        g.partitionBy(PartitionStrategies.makeStrategy(tgp.pst, i, graphs.size, tgp.runs), numParts)
       }, storageLevel)
     } else
       this

@@ -716,16 +716,12 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
     this
   }
 
-  override def partitionBy(pst: PartitionStrategyType.Value, runs: Int): OneGraphColumn[VD, ED] = {
-    partitionBy(pst, runs, graphs.edges.getNumPartitions)
-  }
+  override def partitionBy(tgp: TGraphPartitioning): OneGraphColumn[VD, ED] = {
+    var numParts = if (tgp.parts > 0) tgp.parts else graphs.edges.getNumPartitions
 
-  override def partitionBy(pst: PartitionStrategyType.Value, runs: Int, parts: Int): OneGraphColumn[VD, ED] = {
-    var numParts = if (parts > 0) parts else graphs.edges.getNumPartitions
-
-    if (pst != PartitionStrategyType.None) {
+    if (tgp.pst != PartitionStrategyType.None) {
       //not changing the intervals
-      new OneGraphColumn[VD, ED](intervals, allVertices, allEdges, graphs.partitionByExt(PartitionStrategies.makeStrategy(pst, 0, intervals.count.toInt, runs), numParts), defaultValue, storageLevel, coalesced)
+      new OneGraphColumn[VD, ED](intervals, allVertices, allEdges, graphs.partitionByExt(PartitionStrategies.makeStrategy(tgp.pst, 0, intervals.count.toInt, tgp.runs), numParts), defaultValue, storageLevel, coalesced)
     } else
       this
   }

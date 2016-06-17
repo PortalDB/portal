@@ -125,16 +125,12 @@ class OneGraphWithSchema(intvs: Seq[Interval], verts: DataFrame, edgs: DataFrame
     this
   }
 
-  override def partitionBy(pst: PartitionStrategyType.Value, runs: Int): OneGraphWithSchema = {
-    partitionBy(pst, runs, graphs.edges.partitions.size)
-  }
+  override def partitionBy(tgp: TGraphPartitioning): OneGraphWithSchema = {
+    var numParts = if (tgp.parts > 0) tgp.parts else graphs.edges.partitions.size
 
-  override def partitionBy(pst: PartitionStrategyType.Value, runs: Int, parts: Int): OneGraphWithSchema = {
-    var numParts = if (parts > 0) parts else graphs.edges.partitions.size
-
-    if (pst != PartitionStrategyType.None) {
+    if (tgp.pst != PartitionStrategyType.None) {
       //not changing the intervals
-      new OneGraphWithSchema(intervals, allVertices, allEdges, graphs.partitionByExt(PartitionStrategies.makeStrategy(pst, 0, intervals.size, runs), numParts), storageLevel)
+      new OneGraphWithSchema(intervals, allVertices, allEdges, graphs.partitionByExt(PartitionStrategies.makeStrategy(tgp.pst, 0, intervals.size, tgp.runs), numParts), storageLevel)
     } else
       this
   }

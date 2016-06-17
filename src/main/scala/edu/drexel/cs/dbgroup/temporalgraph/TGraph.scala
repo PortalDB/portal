@@ -243,24 +243,11 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
 
   /**
     * Repartition the edges in the graph according to the strategy.
-    * The number of partitions remains the same as prior to this operation.
     * @param partitionStrategy the partitioning strategy type to use. The strategy
     * object itself is created by the PartitionStrategies.makeStrategy factory call.
-    * @param runs The width of the run (only applicable for hybrid strategies, 
-    * otherwise ignored.
+    * @param tgp The partitioning object including strategy, runs, and number of partitions.
     * @return new partitioned graph
     */
-  def partitionBy(pst: PartitionStrategyType.Value, runs: Int): TGraph[VD, ED]
-
-  /**
-    * Repartition the edges in the graph according to the strategy.
-    * @param partitionStrategy the partitioning strategy type to use. The strategy
-    * object itself is created by the PartitionStrategies.makeStrategy factory call.
-    * @param runs The width of the run (only applicable for hybrid strategies, 
-    * otherwise ignored.
-    * @param parts The number of partitions to partition into.
-    * @return new partitioned graph
-    */
-  def partitionBy(pst: PartitionStrategyType.Value, runs: Int, parts: Int): TGraph[VD, ED]
+  def partitionBy(tgp: TGraphPartitioning): TGraph[VD, ED]
 
 }

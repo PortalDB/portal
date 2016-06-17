@@ -263,7 +263,7 @@ object Interpreter {
           }
         }
 
-        val res = gr1.union(gr2, fun1, fun2).partitionBy(PortalParser.strategy, PortalParser.width).asInstanceOf[TGraphNoSchema[Any,Any]]
+        val res = gr1.union(gr2, fun1, fun2).partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]
         val countEnd = System.currentTimeMillis()
         val total = countEnd - countStart
         println(f"Union Runtime: $total%dms ($argNum%d)")
@@ -330,7 +330,7 @@ object Interpreter {
           }
         }
 
-        val res = gr1.intersection(gr2, fun1, fun2).partitionBy(PortalParser.strategy, PortalParser.width).asInstanceOf[TGraphNoSchema[Any,Any]]
+        val res = gr1.intersection(gr2, fun1, fun2).partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]
         val countEnd = System.currentTimeMillis()
         val total = countEnd - countStart
         println(f"Intersection Runtime: $total%dms ($argNum%d)")
@@ -351,7 +351,7 @@ object Interpreter {
           case t: TWhere => {
             val gr = parseGraph(g)
             val opStart = System.currentTimeMillis()
-            val res = gr.slice(Interval(t.start, t.end)).partitionBy(PortalParser.strategy, PortalParser.width).asInstanceOf[TGraphNoSchema[Any,Any]]
+            val res = gr.slice(Interval(t.start, t.end)).partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]
             val opEnd = System.currentTimeMillis()
             val total = opEnd - opStart
             println(f"Slice Runtime: $total%dms ($argNum%d)")
@@ -364,7 +364,7 @@ object Interpreter {
             }
             val gr = parseGraph(g)
             val opStart = System.currentTimeMillis()
-            val res = gr.select(vpred = vp).partitionBy(PortalParser.strategy, PortalParser.width).asInstanceOf[TGraphNoSchema[Any,Any]]
+            val res = gr.select(vpred = vp).partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]
             val opEnd = System.currentTimeMillis()
             val total = opEnd - opStart
             println(f"Subgraph Runtime: $total%dms ($argNum%d)")
@@ -457,7 +457,7 @@ object Interpreter {
           case _ => gr
         }
 
-        val agg = mpd.aggregate(spec, gbp.vsem.value, gbp.esem.value, fun1, fun2)().partitionBy(PortalParser.strategy, PortalParser.width).asInstanceOf[TGraphNoSchema[Any,Any]]
+        val agg = mpd.aggregate(spec, gbp.vsem.value, gbp.esem.value, fun1, fun2)().partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]
 
         val res: TGraphNoSchema[Any,Any] = gbp.vfun match {
           case td: TrendFunc => agg.mapVertices((vid, intv, attr) => LinearTrendEstimate.calculateSlopeFromIntervals(attr.asInstanceOf[Map[Interval,Double]]), 0.0)

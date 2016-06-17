@@ -47,6 +47,8 @@ package object temporalgraph {
     val CanonicalRandomVertexCut, EdgePartition2D, NaiveTemporal, NaiveTemporalEdge, ConsecutiveTemporal, ConsecutiveTemporalEdge, HybridRandomTemporal, HybridRandomEdgeTemporal, Hybrid2DTemporal, Hybrid2DEdgeTemporal, None = Value
   }
 
+  case class TGraphPartitioning(pst: PartitionStrategyType.Value = PartitionStrategyType.None, runs: Int = 1, parts: Int = 0)
+
   trait WindowSpecification extends Serializable
   case class ChangeSpec(num: Integer) extends WindowSpecification
   case class TimeSpec(res: Resolution) extends WindowSpecification
