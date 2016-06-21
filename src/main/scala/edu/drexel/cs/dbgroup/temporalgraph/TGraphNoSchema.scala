@@ -251,7 +251,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
     val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 ++ b._2)).filter(e => equant.keep(combine(e._2._2).map(ii => ii.ratio(e._1._3)).reduce(_ + _))).map(e => ((e._1._1, e._1._2), (e._1._3, e._2._1)))
 
     //we only need to enforce the integrity constraint on edges if the vertices have all quantification but edges have exists; otherwise it's maintained naturally
-    val newEdges = if (aggEdges.isEmpty || vquant.threshold <= equant.threshold) aggEdges else TGraphNoSchema.constrainEdges(newVerts, aggEdges)
+    val newEdges = if (vquant.threshold <= equant.threshold) aggEdges else TGraphNoSchema.constrainEdges(newVerts, aggEdges)
 
     fromRDDs(newVerts, newEdges, defaultValue, storageLevel, false)
 
@@ -292,7 +292,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
     //same for edges
     val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 ++ b._2)).filter(e => equant.keep(combine(e._2._2).map(ii => ii.ratio(e._1._3)).reduce(_ + _))).map(e => ((e._1._1, e._1._2), (e._1._3, e._2._1)))
 
-    val newEdges = if (aggEdges.isEmpty || vquant.threshold <= equant.threshold) aggEdges else TGraphNoSchema.constrainEdges(newVerts, aggEdges)
+    val newEdges = if (vquant.threshold <= equant.threshold) aggEdges else TGraphNoSchema.constrainEdges(newVerts, aggEdges)
 
     fromRDDs(newVerts, newEdges, defaultValue, storageLevel, false)
   }
