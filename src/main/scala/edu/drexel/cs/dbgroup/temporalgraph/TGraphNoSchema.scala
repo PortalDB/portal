@@ -263,19 +263,20 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
     //then we can skip the expensive joins
     val splitVerts: RDD[((VertexId, Interval), (VD, List[Interval]))] = if (vgroupby == vgb) {
       //for each vertex, we split it into however many intervals it falls into
-      allVertices.flatMap{ case (vid, (intv, attr)) => intv.split(c.res, start).map(ii => ((vid, ii._3), (attr, List(ii._1))))}
+      allVertices.flatMap{ case (vid, (intv, attr)) => intv.split(c.res, start).map(ii => ((vid, ii._2), (attr, List(ii._1))))}
     } else {
-      allVertices.flatMap{ case (vid, (intv, attr)) => intv.split(c.res, start).map(ii => ((vgroupby(vid,attr), ii._3), (attr, List(ii._1))))}
+      allVertices.flatMap{ case (vid, (intv, attr)) => intv.split(c.res, start).map(ii => ((vgroupby(vid,attr), ii._2), (attr, List(ii._1))))}
     }
 
     val splitEdges: RDD[((VertexId, VertexId, Interval),(ED, List[Interval]))] = if (vgroupby == vgb) {
-      allEdges.flatMap{ case (ids, (intv, attr)) => intv.split(c.res, start).map(ii => ((ids._1, ids._2, ii._3), (attr, List(ii._1))))}
+      allEdges.flatMap{ case (ids, (intv, attr)) => intv.split(c.res, start).map(ii => ((ids._1, ids._2, ii._2), (attr, List(ii._1))))}
     } else {
       val newVIds: RDD[(VertexId, (Interval, VertexId))] = allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vgroupby(vid, attr)))}
 
       //for each edge, similar except computing the new ids requires joins with V
+      //TODO: rewrite more efficiently
       val edgesWithIds: RDD[((VertexId, VertexId), (Interval, ED))] = allEdges.map(e => (e._1._1, e)).join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => (e._1._2, (v._2, (Interval(TempGraphOps.maxDate(e._2._1.start, v._1.start), TempGraphOps.minDate(e._2._1.end, v._1.end)), e._2._2)))}.join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => ((e._1, v._2), (Interval(TempGraphOps.maxDate(e._2._1.start, v._1.start), TempGraphOps.minDate(e._2._1.end, v._1.end)), e._2._2))}
-      edgesWithIds.flatMap{ case (ids, (intv, attr)) => intv.split(c.res, start).map(ii => ((ids._1, ids._2, ii._3), (attr, List(ii._1))))}
+      edgesWithIds.flatMap{ case (ids, (intv, attr)) => intv.split(c.res, start).map(ii => ((ids._1, ids._2, ii._2), (attr, List(ii._1))))}
     }
 
     //reduce vertices by key, also computing the total period occupied

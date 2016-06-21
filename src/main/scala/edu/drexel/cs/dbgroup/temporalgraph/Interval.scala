@@ -96,10 +96,10 @@ class Interval(st: LocalDate, en: LocalDate) extends Ordered[Interval] with Seri
    * The results are in reverse order, from latest to earliest.
    * For each period, the coverage is computed as a ratio (0-1)
    */
-  def split(period: Resolution, mark: LocalDate): Seq[(Interval, Double, Interval)] = {
+  def split(period: Resolution, mark: LocalDate): Seq[(Interval, Interval)] = {
     if(mark.isAfter(this.start))
       throw new IllegalArgumentException("markDate cannot be after interval start date")
-    var res: List[(Interval,Double,Interval)] = List()
+    var res: List[(Interval,Interval)] = List()
     var markStart: LocalDate = start
     var markEnd: LocalDate = mark
 
@@ -107,8 +107,7 @@ class Interval(st: LocalDate, en: LocalDate) extends Ordered[Interval] with Seri
       val step = period.getInterval(markEnd)
       if (markStart.isBefore(step.end)) {
         val nextIntv: Interval = if (markStart == step.start && end == step.end) step else Interval(markStart, minDate(step.end, end))
-        val ratio: Double = nextIntv.ratio(step)
-        res = (nextIntv, ratio, step) :: res
+        res = (nextIntv, step) :: res
         markStart = step.end
       }
       markEnd = step.end
