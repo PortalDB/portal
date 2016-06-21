@@ -25,7 +25,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
   //whereas true means definitely coalesced
   val coalesced: Boolean = coal
 
-  lazy val span: Interval = if (!intervals.isEmpty) Interval(intervals.min.start, intervals.max.end) else Interval(LocalDate.now, LocalDate.now)
+  lazy val span: Interval = computeSpan
 
   /**
     * The duration the temporal sequence
@@ -119,7 +119,6 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
 
   override def slice(bound: Interval): TGraphNoSchema[VD, ED] = {
     if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
-
     if (!span.intersects(bound)) {
       return emptyGraph[VD,ED](defaultValue)
     }
@@ -468,6 +467,14 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
 
   protected def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): TGraphNoSchema[V, E]
 
+  protected def computeSpan: Interval = {
+    implicit val ord = TempGraphOps.dateOrdering
+    val dates = allVertices.flatMap{ case (id, (intv, attr)) => List(intv.start, intv.end)}.distinct.sortBy(c => c, true, 1)
+    if (dates.isEmpty)
+      Interval(LocalDate.now, LocalDate.now)
+    else
+      Interval(dates.min, dates.max)
+  }
 }
 
 object TGraphNoSchema {

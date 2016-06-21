@@ -46,8 +46,10 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
   /** Query operations */
 
   override def slice(bound: Interval): OneGraphColumn[VD, ED] = {
-    if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
+    //TODO: find a better way to tell whether the graphs are materialized
+    if (!(graphs.edges.getStorageLevel.deserialized && intervals.getStorageLevel.deserialized)) return super.slice(bound).asInstanceOf[OneGraphColumn[VD,ED]]
 
+    if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
     if (span.intersects(bound)) {
       val startBound = maxDate(span.start, bound.start)
       val endBound = minDate(span.end, bound.end)
