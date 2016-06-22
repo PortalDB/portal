@@ -80,14 +80,6 @@ class SnapshotGraphWithSchema(intvs: Seq[Interval], verts: DataFrame, edgs: Data
 
   }
 
-  override def union(other: TGraph[Row, Row], vFunc: (Row, Row) => Row, eFunc: (Row, Row) => Row): SnapshotGraphWithSchema = {
-    throw new UnsupportedOperationException("not yet implemented")
-  }
-
-  override def intersection(other: TGraph[Row, Row], vFunc: (Row, Row) => Row, eFunc: (Row, Row) => Row): SnapshotGraphWithSchema = {
-    throw new UnsupportedOperationException("not yet implemented")
-  }
-
   override def pregel[A: ClassTag]
      (initialMsg: A, defValue: A, maxIterations: Int = Int.MaxValue,
        activeDirection: EdgeDirection = EdgeDirection.Either)

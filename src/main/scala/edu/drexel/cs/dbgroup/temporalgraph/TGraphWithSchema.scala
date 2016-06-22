@@ -212,6 +212,15 @@ abstract class TGraphWithSchema(intvs: Seq[Interval], verts: DataFrame, edgs: Da
     throw new UnsupportedOperationException("not yet implemented")
   }
 
+  //FIXME: we need to change the interface because this makes no sense
+  def union[VD2: ClassTag, ED2: ClassTag](other: TGraph[VD2, ED2]): TGraph[(Option[Row], Option[VD2]), (Option[Row], Option[ED2])] = {
+    throw new UnsupportedOperationException("not yet implemented")
+  }
+
+  def intersection[VD2: ClassTag, ED2: ClassTag](other: TGraph[VD2, ED2]): TGraph[(Row,VD2), (Row,ED2)] = {
+    throw new UnsupportedOperationException("not yet implemented")
+  }
+
 /*
 
 

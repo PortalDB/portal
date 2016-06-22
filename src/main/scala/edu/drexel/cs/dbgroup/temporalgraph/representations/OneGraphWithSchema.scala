@@ -83,14 +83,6 @@ class OneGraphWithSchema(intvs: Seq[Interval], verts: DataFrame, edgs: DataFrame
       OneGraphWithSchema.emptyGraph(schema)
   }
 
-  override def union(other: TGraph[Row, Row], vFunc: (Row, Row) => Row, eFunc: (Row, Row) => Row): OneGraphWithSchema = {
-    throw new UnsupportedOperationException("not yet implemented")
-  }
-
-  override def intersection(other: TGraph[Row, Row], vFunc: (Row, Row) => Row, eFunc: (Row, Row) => Row): OneGraphWithSchema = {
-    throw new UnsupportedOperationException("not yet implemented")
-  }
-
   override def pregel[A: ClassTag]
      (initialMsg: A, defValue: A, maxIterations: Int = Int.MaxValue,
        activeDirection: EdgeDirection = EdgeDirection.Either)

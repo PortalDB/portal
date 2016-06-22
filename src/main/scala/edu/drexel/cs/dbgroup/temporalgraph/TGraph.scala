@@ -126,27 +126,17 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
 
   /**
     * Produce a union of two temporal graphs. 
-    * For the overlaps in attribute value over time period,
-    * the transformation function vFunc/eFunc is applied.
-    * @param other The other TGraph with the same structural schema
-    * @param vFunc The combination function when the same vertex is found within the same time period
-    * @param eFunc The combination function when the same edge is found within the same time period
+    * @param other The other TGraph
     * @return new TGraph with the union of entities from both graphs
     */
-  @throws(classOf[IllegalArgumentException])
-  def union(other: TGraph[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TGraph[VD, ED]
+  def union[VD2: ClassTag, ED2: ClassTag](other: TGraph[VD2, ED2]): TGraph[(Option[VD], Option[VD2]), (Option[ED], Option[ED2])]
 
   /**
     * Produce the intersection of two temporal graphs.
-    * Where the intersection exists, the transformation function 
-    * vFunc/eFunc is applied to compute the new aggregate value.
-    * @param other The other TGraph with the same structural schema
-    * @param vFunc The combination function when the same vertex is found within the same time period
-    * @param eFunc The combination function when the same edge is found within the same time period
+    * @param other The other TGraph
     * @return new TemporaGraph with the intersection of entities from both graphs
     */
-  @throws(classOf[IllegalArgumentException])
-  def intersection(other: TGraph[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TGraph[VD, ED]
+  def intersection[VD2: ClassTag, ED2: ClassTag](other: TGraph[VD2, ED2]): TGraph[(VD,VD2), (ED,ED2)]
 
   /**
     * The analytics methods
