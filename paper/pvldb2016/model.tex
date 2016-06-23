@@ -3,7 +3,7 @@
 
 The basic element of our model is a \tg, which represents a graph that
 evolves continuously over time.  Our choice to represent continuous
-graph evolution is in contrast to a less-general discrete
+graph evolution is in contrast with a less-general discrete
 snapshot-based representation.  We will discuss this distinction
 further in Section~\ref{sec:related}.  Following the SQL:2011
 standard~\cite{DBLP:journals/sigmod/KulkarniM12}, we adopt the {\em
@@ -13,7 +13,7 @@ including the start time, continuing to but excluding the end time.
 
 \begin{definition}[Time period]
 A {\em time period} \\$p = [start, end)$ is an interval of the
-  continuous time domain $T$, subject to the constraint $start < end$.
+  continuous time domain, subject to the constraint $start < end$.
 \label{def:period} 
 \end{definition}
 
@@ -64,11 +64,15 @@ representative graph of $T$ during period $p$.
 
 An example of a \tg is given in Figure~\ref{fig:tg_rg}, where 5
 representative graphs (states) of \insql{T1} are associated with 5
-consecutive time periods $[p_1=t_0,t_1), \ldots, p_5=[t_4,t_5)$.  As
+consecutive time periods $p_1=[t_0,t_1), \ldots, p_5=[t_4,t_5)$.  As
     is typically the case in interval-based models, we assume that
     each representative graph exists continuously, and remains
-    unchanged, during the associated period.  Note that it is not
-    required that time periods in $T$ be consecutive and with no gaps.
+    unchanged, during the associated period.  The statement that $T$
+    is coalesced means that each fact (which in our case corresponds
+    to unchanging state of the graph) is represented exactly once for
+    each time period of maximal length when it
+    holds~\cite{DBLP:conf/vldb/BohlenSS96}.  Note that it is not
+    required that time periods be consecutive and with no gaps.
 
 To make the model of Definition~\ref{def:tg_abstract} more concrete,
 and to help specify semantics of \tg operations, we will use
@@ -122,7 +126,7 @@ An edge connects a pair of vertices that exist at the time when the edge exists:
 relations $A^{V}_i(\underline{v},\underline{p},a)$ and edge attribute
 relations
 $A^{E}_j(\underline{v_1},\underline{v_2},\underline{p},a)$. Each
-$A^{V}_i$ is coalesced, and assigns attribute values to existing
+$A^{V}_i$ is coalesced, and associates attribute values with existing
 vertices.
 \begin{multline}
 \forall A^{V}_i(v, p, a)~~\nexists A^{V}_i(v, p', a)~~| \\
@@ -153,15 +157,14 @@ a canonical representation of an edge, with $v_1 \leq v_2$ (self-loops
 are allowed).
 
 Conditions~\ref{def:tg:c2} and~\ref{def:tg:c3} in
-Definition~\ref{def:tg} state that the \tg is
-coalesced~\cite{DBLP:conf/vldb/BohlenSS96}, i.e., that each entity
-(vertex or edge) is represented exactly once for each time period of
-maximal length when it is present.  Conditions~\ref{def:tg:c4}
+Definition~\ref{def:tg} state that $V$ and $E$ are
+coalesced~\cite{DBLP:conf/vldb/BohlenSS96}, i.e., that each vertex and
+edge is represented exactly once for each time period of maximal
+length when it is present.  Conditions~\ref{def:tg:c4}
 and~\ref{def:tg:c6} state that all attribute relations are coalesced,
 i.e., that an attribute is represented exactly once for each time
-period of maximal length in which its value did not change.
-
-Consider the contents of $V$ and $E$ relations of \insql{T1} in
+period of maximal length in which its value did not change.  Consider
+the contents of $V$ and $E$ relations of \insql{T1} in
 Figure~\ref{fig:tg_ve}, and note that there is a single tuple
 corresponding to vertex $v_2$ in $V$, but two tuples corresponding to
 $v_2$ in $A^{V}$, because the value of $a.school$ changed at time
@@ -169,7 +172,7 @@ $t_3$.
 
 Definitions~\ref{def:tg_abstract} (\rgs) and~\ref{def:tg} (\ve) give
 two alternative views of graph evolution.  In
-Definitions~\ref{def:tg_abstract} the graph is represented in its
+Definition~\ref{def:tg_abstract} the graph is represented in its
 entirety, with a change of state occurring whenever there is a change
 in graph topology or in its attribute schemas or values.  In other
 words, time periods here are at their finest granularity.  In
@@ -183,7 +186,7 @@ the end of some time period in $V$, $E$, or in any $A^{V}_i$ and
 $A^{E}_j$; and (2) generating pairs of adjacent time points. See
 Appendix for details.
 
-{\bf Is temporal SQL enough?} The $V$ and $E$ relations of a \tg of
+{\bf Is temporal SQL enough?} The $V$ and $E$ relations of
 Definition~\ref{def:tg}, although only partially enforcing the
 constraints, can be implemented as follows:
 
@@ -225,12 +228,11 @@ corresponding to a vertex (resp. edge) do not overlap, and that one
 does not contain the other, but it does not prevent the existence of
 two adjacent time periods for a vertex or edge, i.e., periods $p$ and
 $q$ for which $\pred{p}{meets}{q}$.  That is, there may well be two
-tuples in $V$ for $v_1$ in Figure~\ref{fig:tg+ve}, one associated with
+tuples in $V$ for $v_1$ in Figure~\ref{fig:tg_ve}, one associated with
 $[t_0,t_1)$ and the other with $[t_1,t_4)$.
 
 Another limitation of temporal SQL is that it does not provide a
-convenient and efficient implementation of the coalesce operator
-(see~\cite{DBLP:reference/db/Bohlen09} for possible implementations).
+convenient and efficient implementation of the coalesce operator.
 Coalescing requires that the system automatically merge adjacent and
 overlapping time periods.  This operation, which is similar to
 duplicate elimination in conventional databases, has been extensively
@@ -246,7 +248,7 @@ Spark / GraphX (Section~\ref{sec:system}).
 {\bf More about vertex and edge attributes.} While our \ve
 represenation is based on temporal SQL, we remark here that non-key
 attributes of vertices and edges are not restricted to be of atomic
-types, and may, e.g., be lists, maps or tuples. This is illustrated by
+types, and may, e.g., be maps or tuples. This is illustrated by
 relation $A^V$ in Figure~\ref{fig:tg_ve}.
 
 Definition~\ref{def:tg} gives a columnar representation of vertex and
