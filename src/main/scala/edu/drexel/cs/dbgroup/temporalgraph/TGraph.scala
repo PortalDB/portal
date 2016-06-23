@@ -129,14 +129,14 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * @param other The other TGraph
     * @return new TGraph with the union of entities from both graphs
     */
-  def union[VD2: ClassTag, ED2: ClassTag](other: TGraph[VD2, ED2]): TGraph[(Option[VD], Option[VD2]), (Option[ED], Option[ED2])]
+  def union(other: TGraph[VD, ED]): TGraph[Set[VD], Set[ED]]
 
   /**
     * Produce the intersection of two temporal graphs.
     * @param other The other TGraph
     * @return new TemporaGraph with the intersection of entities from both graphs
     */
-  def intersection[VD2: ClassTag, ED2: ClassTag](other: TGraph[VD2, ED2]): TGraph[(VD,VD2), (ED,ED2)]
+  def intersection(other: TGraph[VD, ED]): TGraph[Set[VD], Set[ED]]
 
   /**
     * The analytics methods
