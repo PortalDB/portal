@@ -322,7 +322,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], ve
   }
 
   //run PageRank on each contained snapshot
-  override def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): SnapshotGraphParallel[Double, Double] = {
+  override def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): SnapshotGraphParallel[(VD,Double), ED] = {
     if (graphs.size < 1) computeGraphs()
 
     val safePagerank = (grp: Graph[VD, ED]) => {
@@ -338,11 +338,16 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], ve
       }
     }
 
-    SnapshotGraphParallel.fromGraphs(intervals, graphs.map(safePagerank), 0.0, storageLevel)
+    val pranks = graphs.map(safePagerank)
+    //need to join vertices
+    val newGraphs = graphs.zip(pranks).map{ case (a,b) =>
+      a.outerJoinVertices(b.vertices)((vid, attr, deg) => (attr, deg.getOrElse(0.0)))
+    }
+    SnapshotGraphParallel.fromGraphs(intervals, newGraphs, (defaultValue,0.0), storageLevel)
 
   }
 
-  override def connectedComponents(): SnapshotGraphParallel[VertexId, ED] = {
+  override def connectedComponents(): SnapshotGraphParallel[(VD,VertexId), ED] = {
     if (graphs.size < 1) computeGraphs()
 
     val safeConnectedComponents = (grp: Graph[VD, ED]) => {
@@ -352,12 +357,15 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], ve
         grp.connectedComponents()
       }
     }
-
-    SnapshotGraphParallel.fromGraphs(intervals, graphs.map(safeConnectedComponents), -1, storageLevel)
+    val cons = graphs.map(safeConnectedComponents)
+    val newGraphs = graphs.zip(cons).map{ case (a,b) =>
+      a.outerJoinVertices(b.vertices)((vid, attr, con) => (attr, con.getOrElse(-1L)))
+    }
+    SnapshotGraphParallel.fromGraphs(intervals, newGraphs, (defaultValue, -1), storageLevel)
 
   }
 
-  override def shortestPaths(uni: Boolean, landmarks: Seq[VertexId]): SnapshotGraphParallel[Map[VertexId, Int], ED] = {
+  override def shortestPaths(uni: Boolean, landmarks: Seq[VertexId]): SnapshotGraphParallel[(VD,Map[VertexId, Int]), ED] = {
     if (graphs.size < 1) computeGraphs()
 
     val safeShortestPaths = (grp: Graph[VD, ED]) => {
@@ -370,8 +378,12 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], ve
           ShortestPaths.run(grp, landmarks).mapVertices((vid, vattr) => mapAsJavaMap(vattr))
       }
     }
-
-    SnapshotGraphParallel.fromGraphs(intervals, graphs.map(safeShortestPaths), new Long2IntOpenHashMap().asInstanceOf[Map[VertexId,Int]], storageLevel)
+    val spaths = graphs.map(safeShortestPaths)
+    val defV = new Long2IntOpenHashMap().asInstanceOf[Map[VertexId,Int]]
+    val newGraphs = graphs.zip(spaths).map{ case (a,b) =>
+      a.outerJoinVertices(b.vertices)((vid, attr, pa) => (attr, pa.getOrElse(defV)))
+    }
+    SnapshotGraphParallel.fromGraphs(intervals, newGraphs, (defaultValue, defV), storageLevel)
 
   }
 

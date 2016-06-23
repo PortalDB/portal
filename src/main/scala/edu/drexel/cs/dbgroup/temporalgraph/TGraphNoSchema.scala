@@ -428,7 +428,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
     * until convergence of the tol argument.
     * @return New graph with pageranks for each interval (coalesced)
     */
-  def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): TGraphNoSchema[Double, Double]
+  def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): TGraphNoSchema[(VD,Double), ED]
 
   /**
    * Run connected components algorithm on a temporal graph
@@ -439,7 +439,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
    * the smallest vertex in each connected component 
    * for Intervals in which the vertex appears
    */
-  def connectedComponents(): TGraphNoSchema[VertexId, ED]
+  def connectedComponents(): TGraphNoSchema[(VD,VertexId), ED]
   
   /**
    * Computes shortest paths to the given set of landmark vertices.
@@ -448,7 +448,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
     * @return Graph with vertices where each vertex attribute
    * is the shortest-path distance to each reachable landmark vertex.
    */
-  def shortestPaths(uni: Boolean, landmarks: Seq[VertexId]): TGraphNoSchema[Map[VertexId, Int], ED]
+  def shortestPaths(uni: Boolean, landmarks: Seq[VertexId]): TGraphNoSchema[(VD,Map[VertexId, Int]), ED]
 
   /** Spark-specific */
 

@@ -396,7 +396,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
   }
 
   //run pagerank on each interval
-  override def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): OneGraphColumn[Double,Double] = {
+  override def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): OneGraphColumn[(VD,Double),ED] = {
     if (!uni) {
       val mergeFunc = (a:Int2IntOpenHashMap, b:Int2IntOpenHashMap) => {
         val itr = a.iterator
@@ -485,13 +485,16 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       //now need to extract the values into a separate rdd again
       //TODO: make this work without collect
       val intvs = ProgramContext.sc.broadcast(intervals.collect)
-      val vattrs = resultGraph.vertices.flatMap{ case (vid,vattr) => vattr.toSeq.map{ case (k,v) => (vid,(intvs.value(k), v._1))}}
-      val eattrs = resultGraph.edges.flatMap{ e => e.attr.toSeq.map{ case (k,v) => ((e.srcId, e.dstId), (intvs.value(k), v._1))}}
+      val vattrs: RDD[(VertexId, (Interval, Double))] = resultGraph.vertices.flatMap{ case (vid,vattr) => vattr.toSeq.map{ case (k,v) => (vid,(intvs.value(k), v._1))}}
+      //now need to join with the previous value
+      val newverts: RDD[(VertexId, (Interval, (VD, Double)))] = allVertices.leftOuterJoin(vattrs)
+        .filter{ case (k, (v, u)) => u.isEmpty || v._1.intersects(u.get._1)}
+        .mapValues{ case (v, u) => if (u.isEmpty) (v._1, (v._2, 0.0)) else (v._1.intersection(u.get._1).get, (v._2, u.get._2))}
 
       if (ProgramContext.eagerCoalesce)
-        fromRDDs(vattrs, eattrs, 0.0, storageLevel, false)
+        fromRDDs(newverts, allEdges, (defaultValue, 0.0), storageLevel, false)
       else
-        new OneGraphColumn[Double, Double](intervals, vattrs, eattrs, graphs, 0.0, storageLevel, false)
+        new OneGraphColumn[(VD, Double), ED](intervals, newverts, allEdges, graphs, (defaultValue, 0.0), storageLevel, false)
 
     } else {
       //TODO: implement this using pregel
@@ -500,7 +503,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
   }
   
   //run connected components on each interval
-  override def connectedComponents(): OneGraphColumn[VertexId,ED] = {
+  override def connectedComponents(): OneGraphColumn[(VD, VertexId),ED] = {
     val conGraph: Graph[Int2LongOpenHashMap, BitSet]
       = graphs.mapVertices{ case (vid, bset) => val tmp = new Int2LongOpenHashMap(); bset.foreach(x => tmp.put(x,vid)); tmp}
 
@@ -557,15 +560,19 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
     //TODO: make this work without collect
     val intvs = ProgramContext.sc.broadcast(intervals.collect)
     val vattrs = resultGraph.vertices.flatMap{ case (vid, vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}}
+    //now need to join with the previous value
+    val newverts = allVertices.leftOuterJoin(vattrs)
+      .filter{ case (k, (v, u)) => u.isEmpty || v._1.intersects(u.get._1)}
+      .mapValues{ case (v, u) => if (u.isEmpty) (v._1, (v._2, -1L)) else (v._1.intersection(u.get._1).get, (v._2, u.get._2))}
 
     if (ProgramContext.eagerCoalesce)
-      fromRDDs(vattrs, allEdges, -1L, storageLevel, false)
+      fromRDDs(newverts, allEdges, (defaultValue, -1L), storageLevel, false)
     else
-      new OneGraphColumn[VertexId, ED](intervals, vattrs, allEdges, graphs, -1L, storageLevel, false)
+      new OneGraphColumn[(VD, VertexId), ED](intervals, newverts, allEdges, graphs, (defaultValue, -1L), storageLevel, false)
   }
   
   //run shortestPaths on each interval
-  override def shortestPaths(uni: Boolean, landmarks: Seq[VertexId]): OneGraphColumn[Map[VertexId, Int], ED] = {
+  override def shortestPaths(uni: Boolean, landmarks: Seq[VertexId]): OneGraphColumn[(VD, Map[VertexId, Int]), ED] = {
 
     if (!uni) {
       //TODO: change this to a val function
@@ -689,11 +696,16 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       //TODO: make this work without collect
       val intvs = ProgramContext.sc.broadcast(intervals.collect)
       val vattrs: RDD[(VertexId, (Interval, Map[VertexId, Int]))] = resultGraph.vertices.flatMap { case (vid, vattr) => vattr.toSeq.map { case (k, v) => (vid, (intvs.value(k), v)) } }
+      //now need to join with the previous value
+      val emptym = new Long2IntOpenHashMap().asInstanceOf[Map[VertexId, Int]]
+      val newverts = allVertices.leftOuterJoin(vattrs)
+        .filter{ case (k, (v, u)) => u.isEmpty || v._1.intersects(u.get._1)}
+        .mapValues{ case (v, u) => if (u.isEmpty) (v._1, (v._2, emptym)) else (v._1.intersection(u.get._1).get, (v._2, u.get._2))}
 
       if (ProgramContext.eagerCoalesce)
-        fromRDDs(vattrs, allEdges, new Long2IntOpenHashMap().asInstanceOf[Map[VertexId, Int]], storageLevel, false)
+        fromRDDs(newverts, allEdges, (defaultValue, emptym), storageLevel, false)
       else
-        new OneGraphColumn[Map[VertexId,Int], ED](intervals, vattrs, allEdges, graphs, new Long2IntOpenHashMap().asInstanceOf[Map[VertexId, Int]], storageLevel)
+        new OneGraphColumn[(VD, Map[VertexId,Int]), ED](intervals, newverts, allEdges, graphs, (defaultValue, emptym), storageLevel)
     } else {
       throw new UnsupportedOperationException("directed version of shortestPath not yet implemented")
     }

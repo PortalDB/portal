@@ -545,7 +545,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
   }
 
 
-  override def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): HybridGraph[Double, Double] = {
+  override def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): HybridGraph[(VD, Double), ED] = {
     if (graphs.size < 1) computeGraphs()
     val runSums = widths.scanLeft(0)(_ + _).tail
 
@@ -564,15 +564,21 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
       //TODO: make this work without collect
       val intvs = ProgramContext.sc.broadcast(intervals.collect)
       val vattrs= allgs.map{ g => g.vertices.flatMap{ case (vid,vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v._1))}}}.reduce(_ union _)
-      val eattrs = allgs.map{ g => g.edges.flatMap{ e => e.attr.toSeq.map{ case (k,v) => ((e.srcId, e.dstId), (intvs.value(k), v._1))}}}.reduce(_ union _)
+      //now need to join with the previous value
+      val newverts = allVertices.leftOuterJoin(vattrs)
+        .filter{ case (k, (v, u)) => u.isEmpty || v._1.intersects(u.get._1)}
+        .mapValues{ case (v, u) => if (u.isEmpty) (v._1, (v._2, 0.0)) else (v._1.intersection(u.get._1).get, (v._2, u.get._2))}
 
-      new HybridGraph(intervals, vattrs, eattrs, widths, graphs, 0.0, storageLevel, false)
+      if (ProgramContext.eagerCoalesce)
+        fromRDDs(newverts, allEdges, (defaultValue, 0.0), storageLevel, false)
+      else
+        new HybridGraph(intervals, newverts, allEdges, widths, graphs, (defaultValue, 0.0), storageLevel, false)
 
     } else
       throw new UnsupportedOperationException("directed version of pagerank not yet implemented")
   }
 
-  override def connectedComponents(): HybridGraph[VertexId, ED] = {
+  override def connectedComponents(): HybridGraph[(VD, VertexId), ED] = {
     if (graphs.size < 1) computeGraphs()
     val runSums = widths.scanLeft(0)(_ + _).tail
 
@@ -590,11 +596,18 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
     //TODO: make this work without collect
     val intvs = ProgramContext.sc.broadcast(intervals.collect)
     val vattrs = allgs.map{ g => g.vertices.flatMap{ case (vid,vattr) => vattr.asInstanceOf[Map[TimeIndex, VertexId]].toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}}}.reduce(_ union _)
+    //now need to join with the previous value
+    val newverts = allVertices.leftOuterJoin(vattrs)
+      .filter{ case (k, (v, u)) => u.isEmpty || v._1.intersects(u.get._1)}
+      .mapValues{ case (v, u) => if (u.isEmpty) (v._1, (v._2, -1L)) else (v._1.intersection(u.get._1).get, (v._2, u.get._2))}
 
-    new HybridGraph(intervals, vattrs, allEdges, widths, graphs, -1L, storageLevel, false)
+    if (ProgramContext.eagerCoalesce)
+      fromRDDs(newverts, allEdges, (defaultValue, -1L), storageLevel, false)
+    else
+      new HybridGraph(intervals, newverts, allEdges, widths, graphs, (defaultValue, -1L), storageLevel, false)
   }
 
-  override def shortestPaths(uni: Boolean, landmarks: Seq[VertexId]): HybridGraph[Map[VertexId, Int], ED] = {
+  override def shortestPaths(uni: Boolean, landmarks: Seq[VertexId]): HybridGraph[(VD, Map[VertexId, Int]), ED] = {
     throw new UnsupportedOperationException("shortest paths not yet implemented")
   }
 
