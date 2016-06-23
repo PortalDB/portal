@@ -17,7 +17,7 @@ A {\em time period} \\$p = [start, end)$ is an interval of the
 \label{def:period} 
 \end{definition}
 
-It will be useful to quantify relatiobnships between time periods
+It will be useful to quantify relationships between time periods
 using Allen's relations~\cite{allen83} \predName{meets},
 \predName{contains} and \predName{overlaps}, with equality.  We will
 use $\pred{p}{contains}{q}$ as a shorthand for $\pred{p}{starts}{q}
@@ -80,7 +80,7 @@ valid-time temporal SQL relations~\cite{DBLP:conf/vldb/BohlenSS96} to
 represent evolution of graph topology, of its vertex and edge schemas,
 and of values of its vertex and edge attributes.  This representation,
 which we term the {\em \ve \tg}, is still a logical representation,
-whith multiple possible physical representations.
+with multiple possible physical representations.
 
 An example of a \ve representation of a \tg is given in
 Figure~\ref{fig:tg_ve}.  In its basic form, a \tg is represented by a
@@ -90,7 +90,7 @@ and edge attributes with relations $A^{V}_1, \ldots, A^{V}_n$ and
 $A^{E}_1, \ldots, A^{E}_m$.
 
 \eat{ Following notation in~\ref{DBLP:conf/vldb/BohlenSS96}, we will
-  make use of $value\_equivalent(x,y) = (x[A] = y[A])$ --- a boolean
+  make use of $value\_equivalent(x,y) = (x[A] = y[A])$ --- a Boolean
   predicate that evaluates to true of $x$ and $y$ agree on values of
   their explicit (non-temporal) attributes.}
 
@@ -177,11 +177,11 @@ entirety, with a change of state occurring whenever there is a change
 in graph topology or in its attribute schemas or values.  In other
 words, time periods here are at their finest granularity.  In
 contrast, Definition~\ref{def:tg} decouples evolution of graph
-vertices, edes and attribute values, coalescing each relation
+vertices, edges and attribute values, coalescing each relation
 independently of the others.  This makes graph maintenance and
-manipulation more manageable.  The \rgs represetation can be computed
+manipulation more manageable.  The \rgs representation can be computed
 from the \ve representation by (1) enumerating all time points during
-which some change occured, i.e., that appear as either the start or
+which some change occurred, i.e., that appear as either the start or
 the end of some time period in $V$, $E$, or in any $A^{V}_i$ and
 $A^{E}_j$; and (2) generating pairs of adjacent time points. See
 Appendix for details.
@@ -246,7 +246,7 @@ unnecessary.  We will discuss this when presenting \tg algebra
 Spark / GraphX (Section~\ref{sec:system}).
 
 {\bf More about vertex and edge attributes.} While our \ve
-represenation is based on temporal SQL, we remark here that non-key
+representation is based on temporal SQL, we remark here that non-key
 attributes of vertices and edges are not restricted to be of atomic
 types, and may, e.g., be maps or tuples. This is illustrated by
 relation $A^V$ in Figure~\ref{fig:tg_ve}.
@@ -301,7 +301,7 @@ non-overlapping time periods.
 
 \eat{This view, to which we refer as \rgs of \insql{T1}, is computed from
 properly coalesced $V$, $E$, $A^{V}$, and $A^{E}$ by (1) enumerating
-all time points during which some change occured, i.e., that appear as
+all time points during which some change occurred, i.e., that appear as
 either the start or the end of some time period, and (2) generating
 pairs of adjacent time points. See Appendix for details.  \rgs is an
 important abstraction that will be useful to us in the next section,
