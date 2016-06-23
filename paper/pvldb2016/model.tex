@@ -54,25 +54,38 @@ We are now ready to present the basic building block of our model,
 called a \tg.  
 
 \begin{definition}[TGraph]
-A \tg $T(g:graph, p:period) = \{ (g,p) \}$ is a coalesced valid-time
+A \tg $T(g:graph, p:period) = \{ (g,p) \}$ is a valid-time
 period-based relation in which a tuple associates a state of the graph
 $g$ with a time period $p$ during which the graph is in that state.
+$T$ is temporally coalesced:
+\begin{multline}
+\forall T(v,p)~~\nexists T(v,p')~~| \\
+        \pred{p}{meets}{p'}~\lor~\pred{p}{contains}{p'}~\lor~\pred{p}{overlaps}{p'}
+\end{multline}
 We refer to each $g$ that appears in some tuple $(g,p)$ of $T$ as a
 representative graph of $T$ during period $p$.
+
 \label{def:tg_abstract}
 \end{definition}
 
 An example of a \tg is given in Figure~\ref{fig:tg_rg}, where 5
 representative graphs (states) of \insql{T1} are associated with 5
-consecutive time periods $p_1=[t_0,t_1), \ldots, p_5=[t_4,t_5)$.  As
-    is typically the case in interval-based models, we assume that
-    each representative graph exists continuously, and remains
-    unchanged, during the associated period.  The statement that $T$
-    is coalesced means that each fact (which in our case corresponds
-    to unchanging state of the graph) is represented exactly once for
-    each time period of maximal length when it
-    holds~\cite{DBLP:conf/vldb/BohlenSS96}.  Note that it is not
-    required that time periods be consecutive and with no gaps.
+consecutive time periods $p_1=[t_0,t_1), \ldots, p_5=[t_4,t_5)$.  
+%
+As is typically the case in interval-based models, we assume that each
+representative graph exists continuously, and remains unchanged,
+during the associated period.  Note that it is not required that time
+periods be consecutive and with no gaps.
+
+The statement that $T$ is temporally coalesced means that each fact
+(which in our case corresponds to unchanging state of the graph) is
+represented exactly once for each time period of maximal length when
+it holds~\cite{DBLP:conf/vldb/BohlenSS96}.\eat{ This is the standard
+  meaning of the term ``coalesce'' in temporal databases, and is
+  unrealted to the SQL coalesce function.}  For interval-based models,
+requiring that relations be coalesced is both space-efficient and
+avoids semantic ambiguity (see~\cite{DBLP:reference/db/JensenS09k}
+Fig. 2 and its description).
 
 To make the model of Definition~\ref{def:tg_abstract} more concrete,
 and to help specify semantics of \tg operations, we will use
