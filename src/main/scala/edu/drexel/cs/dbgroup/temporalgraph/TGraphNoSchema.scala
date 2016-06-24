@@ -207,32 +207,30 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
 
     //each tuple interval must be split based on the overall intervals
     //TODO: get rid of collect if possible
-    val locali = ProgramContext.sc.broadcast(intervals.collect.grouped(size).toList)
-    val split: (Interval => List[(Interval, List[Interval])]) = (interval: Interval) => {
-      locali.value.flatMap{ group =>
-        val res = group.flatMap{ case intv =>
-          if (intv.intersects(interval)) Some(intv) else None
-        }.toList
+    val locali = ProgramContext.sc.broadcast(intervals.collect.grouped(size).map(ii => Interval(ii.head.start, ii.last.end)).toList)
+    val split: (Interval => List[(Interval, Interval)]) = (interval: Interval) => {
+      locali.value.flatMap{ intv =>
+        val res = intv.intersection(interval)
         if (res.isEmpty)
           None
         else
-          Some(Interval(group.head.start, group.last.end), res)
+          Some(intv, res.get)
       }
     }
     val splitVerts: RDD[((VertexId, Interval), (VD, List[Interval]))] = if (vgroupby == vgb) {
-      allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii._1), (attr, ii._2)))}
+      allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii._1), (attr, List(ii._2))))}
     } else {
-      allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vgroupby(vid,attr), ii._1), (attr, ii._2)))}
+      allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vgroupby(vid,attr), ii._1), (attr, List(ii._2))))}
     }
 
     val splitEdges: RDD[((VertexId, VertexId, Interval),(ED, List[Interval]))] = if (vgroupby == vgb) {
-      allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii._1), (attr, ii._2)))}
+      allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii._1), (attr, List(ii._2))))}
     } else {
       val newVIds: RDD[(VertexId, (Interval, VertexId))] = allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vgroupby(vid, attr)))}
 
       //for each edge, similar except computing the new ids requires joins with V
       val edgesWithIds: RDD[((VertexId, VertexId), (Interval, ED))] = allEdges.map(e => (e._1._1, e)).join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => (e._1._2, (v._2, (Interval(TempGraphOps.maxDate(e._2._1.start, v._1.start), TempGraphOps.minDate(e._2._1.end, v._1.end)), e._2._2)))}.join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => ((e._1, v._2), (Interval(TempGraphOps.maxDate(e._2._1.start, v._1.start), TempGraphOps.minDate(e._2._1.end, v._1.end)), e._2._2))}
-      edgesWithIds.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii._1), (attr, ii._2)))}
+      edgesWithIds.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii._1), (attr, List(ii._2))))}
     }
 
     //reduce vertices by key, also computing the total period occupied
