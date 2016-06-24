@@ -790,48 +790,53 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
 
     val OGC2 = OneGraphColumn.fromRDDs(users2, edges2, "Default", StorageLevel.MEMORY_ONLY_SER)
 
-    val expectedVerticesUnion: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "a")),
-      (1L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), "A")),
-      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "b")),
-      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), "b1")),
-      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "c")),
-      (3L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), "C")),
-      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "d1")),
-      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "e"))
+    val expectedVerticesUnion: RDD[(VertexId, (Interval, Set[String]))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set("a"))),
+      (1L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set("A"))),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set("b"))),
+      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Set("b1"))),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), Set("c"))),
+      (3L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), Set("c", "C"))),
+      (3L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Set("C"))),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set("d", "d1"))),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), Set("e"))),
+      (5L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), Set("e", "E"))),
+      (5L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2014-01-01")), Set("e")))
     ))
 
-    val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((1L, 2L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), 22)),
-      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((2L, 3L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 52)),
-      ((3L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((3L, 3L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 22)),
-      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 52)),
-      ((2L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((5L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), 22))
+    val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Set[Int]))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set(42))),
+      ((1L, 2L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set(22))),
+      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set(42))),
+      ((2L, 3L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Set(52))),
+      ((3L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), Set(42))),
+      ((3L, 3L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), Set(42, 22))),
+      ((3L, 3L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Set(22))),
+      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set(42, 52))),
+      ((2L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set(42))),
+      ((5L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), Set(22)))
     ))
-    val resultOGCUnion = OGC.union(OGC2, (name1, name2) => if (name1.compareTo(name2) > 0) name1 else name2, (a, b) => Math.max(a, b))
-    val expectedOGCUnion = OneGraphColumn.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, "Default", StorageLevel.MEMORY_ONLY_SER)
+
+    val resultOGCUnion = OGC.union(OGC2)
+    val expectedOGCUnion = OneGraphColumn.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, Set("Default"), StorageLevel.MEMORY_ONLY_SER)
 
     assert(resultOGCUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultOGCUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
     assert(resultOGCUnion.getTemporalSequence.collect === expectedOGCUnion.getTemporalSequence.collect)
 
-    val resultOGCIntersection = OGC.intersection(OGC2, (name1, name2) => if (name1.compareTo(name2) > 0) name1 else name2, (a, b) => Math.max(a, b))
+    val resultOGCIntersection = OGC.intersection(OGC2)
 
-    val expectedVerticesIntersection: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
-      (3L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), "c")),
-      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "d1")),
-      (5L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), "e"))
+    val expectedVerticesIntersection: RDD[(VertexId, (Interval, Set[String]))] = ProgramContext.sc.parallelize(Array(
+      (3L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), Set("c", "C"))),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set("d", "d1"))),
+      (5L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), Set("e", "E")))
     ))
 
-    val expectedEdgesIntersection: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((3L, 3L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 52))
+    val expectedEdgesIntersection: RDD[((VertexId, VertexId), (Interval, Set[Int]))] = ProgramContext.sc.parallelize(Array(
+      ((3L, 3L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), Set(42, 22))),
+      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set(42, 52)))
     ))
-    val expectedOGCIntersection = OneGraphColumn.fromRDDs(expectedVerticesIntersection, expectedEdgesIntersection, "Default", StorageLevel.MEMORY_ONLY_SER)
+    val expectedOGCIntersection = OneGraphColumn.fromRDDs(expectedVerticesIntersection, expectedEdgesIntersection, Set("Default"), StorageLevel.MEMORY_ONLY_SER)
 
     assert(resultOGCIntersection.vertices.collect.toSet === expectedVerticesIntersection.collect.toSet)
     assert(resultOGCIntersection.edges.collect.toSet === expectedEdgesIntersection.collect.toSet)
@@ -862,26 +867,27 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
 
     val OGC2 = OneGraphColumn.fromRDDs(users2, edges2, "Default", StorageLevel.MEMORY_ONLY_SER)
 
-    val expectedVerticesUnion: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "a")),
-      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "b")),
-      (2L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), "b1")),
-      (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), "C"))
+    val expectedVerticesUnion: RDD[(VertexId, (Interval, Set[String]))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set("a"))),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set("b"))),
+      (2L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set("b1"))),
+      (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set("C")))
     ))
 
-    val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), 52))
+    val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Set[Int]))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set(42))),
+      ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set(52)))
     ))
-    val expectedOGCUnion = OneGraphColumn.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, "Default", StorageLevel.MEMORY_ONLY_SER)
 
-    val resultOGCUnion = OGC.union(OGC2, (name1, name2) => if (name1.compareTo(name2) > 0) name1 else name2, (a, b) => Math.max(a, b))
+    val expectedOGCUnion = OneGraphColumn.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, Set("Default"), StorageLevel.MEMORY_ONLY_SER)
+
+    val resultOGCUnion = OGC.union(OGC2)
 
     assert(resultOGCUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultOGCUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
     assert(resultOGCUnion.getTemporalSequence.collect === expectedOGCUnion.getTemporalSequence.collect)
 
-    val resultOGCIntersection = OGC.intersection(OGC2, (name1, name2) => if (name1.compareTo(name2) > 0) name1 else name2, (a, b) => Math.max(a, b))
+    val resultOGCIntersection = OGC.intersection(OGC2)
 
     assert(resultOGCIntersection.vertices.collect.toSet === OneGraphColumn.emptyGraph().vertices.collect.toSet)
     assert(resultOGCIntersection.edges.collect.toSet === OneGraphColumn.emptyGraph().edges.collect.toSet)
@@ -908,25 +914,25 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     ))
     val OGC2 = OneGraphColumn.fromRDDs(users2, edges2, "Default", StorageLevel.MEMORY_ONLY_SER)
 
-    val expectedVerticesUnion: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "a")),
-      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "b")),
-      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), "b1")),
-      (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), "C"))
+    val expectedVerticesUnion: RDD[(VertexId, (Interval, Set[String]))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Set("a"))),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set("b"))),
+      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Set("b1"))),
+      (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set("C")))
     ))
-    val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), 52))
+    val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Set[Int]))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set(42))),
+      ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set(52)))
     ))
-    val expectedOGCUnion = OneGraphColumn.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, "Default", StorageLevel.MEMORY_ONLY_SER)
+    val expectedOGCUnion = OneGraphColumn.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, Set("Default"), StorageLevel.MEMORY_ONLY_SER)
 
-    val resultOGCUnion = OGC.union(OGC2, (name1, name2) => if (name1.compareTo(name2) > 0) name1 else name2, (a, b) => Math.max(a, b))
+    val resultOGCUnion = OGC.union(OGC2)
 
     assert(resultOGCUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultOGCUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
     assert(resultOGCUnion.getTemporalSequence.collect === expectedOGCUnion.getTemporalSequence.collect)
 
-    val resultOGCIntersection = OGC.intersection(OGC2, (name1, name2) => if (name1.compareTo(name2) > 0) name1 else name2, (a, b) => Math.max(a, b))
+    val resultOGCIntersection = OGC.intersection(OGC2)
 
     assert(resultOGCIntersection.vertices.collect.toSet === OneGraphColumn.emptyGraph().vertices.collect.toSet)
     assert(resultOGCIntersection.edges.collect.toSet === OneGraphColumn.emptyGraph().edges.collect.toSet)
@@ -970,45 +976,45 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
 
     val OGC2 = OneGraphColumn.fromRDDs(users2, edges2, null, StorageLevel.MEMORY_ONLY_SER)
 
-    val expectedVerticesUnion: RDD[(VertexId, (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null)),
-      (1L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), null)),
-      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), null)),
-      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), null)),
-      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null)),
-      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null))
+    val expectedVerticesUnion: RDD[(VertexId, (Interval, Set[Nothing]))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set())),
+      (1L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set())),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Set())),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Set())),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set())),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set()))
     ))
 
-    val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null)),
-      ((1L, 2L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), null)),
-      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), null)),
-      ((3L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), null)),
-      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null)),
-      ((2L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null)),
-      ((5L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), null))
+    val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Set[Nothing]))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set())),
+      ((1L, 2L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set())),
+      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Set())),
+      ((3L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Set())),
+      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set())),
+      ((2L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set())),
+      ((5L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), Set()))
     ))
 
-    val expectedOGCUnion = OneGraphColumn.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, null, StorageLevel.MEMORY_ONLY_SER)
-    val resultOGCUnion = OGC.union(OGC2, (a, b) => a, (a, b) => a)
+    val expectedOGCUnion = OneGraphColumn.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, Set(), StorageLevel.MEMORY_ONLY_SER)
+    val resultOGCUnion = OGC.union(OGC2)
 
     assert(resultOGCUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultOGCUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
     assert(resultOGCUnion.getTemporalSequence.collect === expectedOGCUnion.getTemporalSequence.collect)
 
-    val resultOGCIntersection = OGC.intersection(OGC2, (a, b) => a, (a, b) => a)
+    val resultOGCIntersection = OGC.intersection(OGC2)
 
-    val expectedVerticesIntersection: RDD[(VertexId, (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      (3L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), null)),
-      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null)),
-      (5L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), null))
+    val expectedVerticesIntersection: RDD[(VertexId, (Interval, Set[Nothing]))] = ProgramContext.sc.parallelize(Array(
+      (3L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), Set())),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set())),
+      (5L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), Set()))
     ))
 
-    val expectedEdgesIntersection: RDD[((VertexId, VertexId), (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      ((3L, 3L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), null)),
-      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null))
+    val expectedEdgesIntersection: RDD[((VertexId, VertexId), (Interval, Set[Nothing]))] = ProgramContext.sc.parallelize(Array(
+      ((3L, 3L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), Set())),
+      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set()))
     ))
-    val expectedOGCIntersection = OneGraphColumn.fromRDDs(expectedVerticesIntersection, expectedEdgesIntersection, null, StorageLevel.MEMORY_ONLY_SER)
+    val expectedOGCIntersection = OneGraphColumn.fromRDDs(expectedVerticesIntersection, expectedEdgesIntersection, Set(), StorageLevel.MEMORY_ONLY_SER)
 
     assert(resultOGCIntersection.vertices.collect.toSet === expectedVerticesIntersection.collect.toSet)
     assert(resultOGCIntersection.edges.collect.toSet === expectedEdgesIntersection.collect.toSet)
@@ -1038,26 +1044,26 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
 
     val OGC2 = OneGraphColumn.fromRDDs(users2, edges2, null, StorageLevel.MEMORY_ONLY_SER)
 
-    val expectedVerticesUnion: RDD[(VertexId, (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null)),
-      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null)),
-      (2L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), null)),
-      (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), null))
+    val expectedVerticesUnion: RDD[(VertexId, (Interval, Set[Nothing]))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set())),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set())),
+      (2L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set())),
+      (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set()))
     ))
 
-    val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null)),
-      ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), null))
+    val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Set[Nothing]))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set())),
+      ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set()))
     ))
 
-    val resultOGCUnion = OGC.union(OGC2, (a, b) => a, (a, b) => a)
-    val expectedOGCUnion = OneGraphColumn.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, null, StorageLevel.MEMORY_ONLY_SER)
+    val resultOGCUnion = OGC.union(OGC2)
+    val expectedOGCUnion = OneGraphColumn.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, Set(), StorageLevel.MEMORY_ONLY_SER)
 
     assert(resultOGCUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultOGCUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
     assert(resultOGCUnion.getTemporalSequence.collect === expectedOGCUnion.getTemporalSequence.collect)
 
-    val resultOGCIntersection = OGC.intersection(OGC2, (a, b) => a, (a, b) => a)
+    val resultOGCIntersection = OGC.intersection(OGC2)
 
     assert(resultOGCIntersection.vertices.collect.toSet === OneGraphColumn.emptyGraph().vertices.collect.toSet)
     assert(resultOGCIntersection.edges.collect.toSet === OneGraphColumn.emptyGraph().edges.collect.toSet)
@@ -1088,25 +1094,25 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
 
     val OGC2 = OneGraphColumn.fromRDDs(users2, edges2, null, StorageLevel.MEMORY_ONLY_SER)
 
-    val expectedVerticesUnion: RDD[(VertexId, (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), null)),
-      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), null)),
-      (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), null))
+    val expectedVerticesUnion: RDD[(VertexId, (Interval, Set[Nothing]))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Set())),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Set())),
+      (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set()))
     ))
 
-    val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null)),
-      ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), null))
+    val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Set[Nothing]))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set())),
+      ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set()))
     ))
 
-    val resultOGCUnion = OGC.union(OGC2, (a, b) => a, (a, b) => a)
-    val expectedOGCUnion = OneGraphColumn.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, null, StorageLevel.MEMORY_ONLY_SER)
+    val resultOGCUnion = OGC.union(OGC2)
+    val expectedOGCUnion = OneGraphColumn.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, Set(), StorageLevel.MEMORY_ONLY_SER)
 
     assert(resultOGCUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultOGCUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
     assert(resultOGCUnion.getTemporalSequence.collect === expectedOGCUnion.getTemporalSequence.collect)
 
-    val resultOGCIntersection = OGC.intersection(OGC2, (a, b) => a, (a, b) => a)
+    val resultOGCIntersection = OGC.intersection(OGC2)
 
     assert(resultOGCIntersection.vertices.collect.toSet === OneGraphColumn.emptyGraph().vertices.collect.toSet)
     assert(resultOGCIntersection.edges.collect.toSet === OneGraphColumn.emptyGraph().edges.collect.toSet)
@@ -1298,22 +1304,21 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
       ((6L, 8L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42))
     ))
 
-    val expectedNodes: RDD[(VertexId, (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), 1)),
-      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 1)),
-      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 2)),
-      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), 1)),
-      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 1)),
-      (4L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 2)),
-      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), 1)),
-      (6L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 1)),
-      (6L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 2)),
-      (7L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 7)),
-      (7L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 1)),
-      (8L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 7)),
-      (8L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 2))
+    val expectedNodes: RDD[(VertexId, (Interval, (String, Int)))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), ("John", 1))),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), ("Mike", 1))),
+      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), ("Mike", 2))),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), ("Ron", 1))),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), ("Julia", 1))),
+      (4L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), ("Julia", 2))),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), ("Vera", 1))),
+      (6L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), ("Halima", 1))),
+      (6L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), ("Halima", 2))),
+      (7L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), ("Sanjana", 7))),
+      (7L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), ("Sanjana", 1))),
+      (8L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), ("Lovro", 7))),
+      (8L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), ("Lovro", 2)))
     ))
-
 
     val OGC = OneGraphColumn.fromRDDs(nodes, edges, "Default")
 
@@ -1354,24 +1359,24 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
       // Here, 8 is coalesced.
     ))
 
-    val expectedNodes: RDD[(VertexId, (Interval, Map[VertexId, Int]))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), new Long2IntOpenHashMap(Array(1L, 2L), Array(0, 1)).asInstanceOf[Map[VertexId,Int]])),
-      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), new Long2IntOpenHashMap(Array(1L, 2L), Array(1, 0)).asInstanceOf[Map[VertexId,Int]])),
-      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), new Long2IntOpenHashMap(Array(1L, 2L), Array(2, 1)).asInstanceOf[Map[VertexId,Int]])),
-      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), new Long2IntOpenHashMap(Array(1L, 2L), Array(2, 1)).asInstanceOf[Map[VertexId,Int]])),
-      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), new Long2IntOpenHashMap(Array(1L, 2L), Array(3, 2)).asInstanceOf[Map[VertexId,Int]])),
-      (6L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), new Long2IntOpenHashMap(Array(1L, 2L), Array(2, 1)).asInstanceOf[Map[VertexId,Int]])),
-      (7L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), new Long2IntOpenHashMap().asInstanceOf[Map[VertexId, Int]])),
-      (8L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), new Long2IntOpenHashMap().asInstanceOf[Map[VertexId, Int]])),
+    val expectedNodes: RDD[(VertexId, (Interval, (String, Map[VertexId, Int])))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), ("John", new Long2IntOpenHashMap(Array(1L, 2L), Array(0, 1)).asInstanceOf[Map[VertexId,Int]]))),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), ("Mike", new Long2IntOpenHashMap(Array(1L, 2L), Array(1, 0)).asInstanceOf[Map[VertexId,Int]]))),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), ("Ron", new Long2IntOpenHashMap(Array(1L, 2L), Array(2, 1)).asInstanceOf[Map[VertexId,Int]]))),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), ("Julia", new Long2IntOpenHashMap(Array(1L, 2L), Array(2, 1)).asInstanceOf[Map[VertexId,Int]]))),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), ("Vera", new Long2IntOpenHashMap(Array(1L, 2L), Array(3, 2)).asInstanceOf[Map[VertexId,Int]]))),
+      (6L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), ("Halima", new Long2IntOpenHashMap(Array(1L, 2L), Array(2, 1)).asInstanceOf[Map[VertexId,Int]]))),
+      (7L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), ("Sanjana", new Long2IntOpenHashMap().asInstanceOf[Map[VertexId, Int]]))),
+      (8L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), ("Lovro", new Long2IntOpenHashMap().asInstanceOf[Map[VertexId, Int]]))),
 
       //second representative graph
-      (1L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), new Long2IntOpenHashMap(Array(1L), Array(0)).asInstanceOf[Map[VertexId,Int]])),
-      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), new Long2IntOpenHashMap(Array(2L), Array(0)).asInstanceOf[Map[VertexId,Int]])),
-      (3L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), new Long2IntOpenHashMap(Array(1L), Array(1)).asInstanceOf[Map[VertexId,Int]])),
-      (4L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), new Long2IntOpenHashMap(Array(2L), Array(1)).asInstanceOf[Map[VertexId,Int]])),
-      (5L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), new Long2IntOpenHashMap(Array(1L), Array(1)).asInstanceOf[Map[VertexId,Int]])),
-      (6L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), new Long2IntOpenHashMap(Array(2L), Array(1)).asInstanceOf[Map[VertexId,Int]])),
-      (7L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), new Long2IntOpenHashMap(Array(1L), Array(2)).asInstanceOf[Map[VertexId,Int]]))
+      (1L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), ("John", new Long2IntOpenHashMap(Array(1L), Array(0)).asInstanceOf[Map[VertexId,Int]]))),
+      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), ("Mike", new Long2IntOpenHashMap(Array(2L), Array(0)).asInstanceOf[Map[VertexId,Int]]))),
+      (3L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), ("Ron", new Long2IntOpenHashMap(Array(1L), Array(1)).asInstanceOf[Map[VertexId,Int]]))),
+      (4L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), ("Julia", new Long2IntOpenHashMap(Array(2L), Array(1)).asInstanceOf[Map[VertexId,Int]]))),
+      (5L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), ("Vera", new Long2IntOpenHashMap(Array(1L), Array(1)).asInstanceOf[Map[VertexId,Int]]))),
+      (6L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), ("Halima", new Long2IntOpenHashMap(Array(2L), Array(1)).asInstanceOf[Map[VertexId,Int]]))),
+      (7L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), ("Sanjana", new Long2IntOpenHashMap(Array(1L), Array(2)).asInstanceOf[Map[VertexId,Int]])))
     ))
 
     val OGC = OneGraphColumn.fromRDDs(nodes, edges, "Default")
@@ -1413,22 +1418,22 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
       // Here, 8 is coalesced.
     ))
 
-    val expectedNodes: RDD[(VertexId, (Interval, Map[VertexId, Int]))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), new Long2IntOpenHashMap(Array(5L, 6L), Array(3, 2)).asInstanceOf[Map[VertexId,Int]])),
-      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), new Long2IntOpenHashMap(Array(5L, 6L), Array(2, 1)).asInstanceOf[Map[VertexId,Int]])),
-      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), new Long2IntOpenHashMap(Array(5L, 6L), Array(1, 2)).asInstanceOf[Map[VertexId,Int]])),
-      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), new Long2IntOpenHashMap(Array(5L, 6L), Array(1, 2)).asInstanceOf[Map[VertexId,Int]])),
-      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), new Long2IntOpenHashMap(Array(5L, 6L), Array(0, 1)).asInstanceOf[Map[VertexId,Int]])),
-      (6L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), new Long2IntOpenHashMap(Array(6L), Array(0)).asInstanceOf[Map[VertexId,Int]])),
-      (7L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), new Long2IntOpenHashMap().asInstanceOf[Map[VertexId, Int]])),
-      (8L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), new Long2IntOpenHashMap().asInstanceOf[Map[VertexId, Int]])),
+    val expectedNodes: RDD[(VertexId, (Interval, (String, Map[VertexId, Int])))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), ("John", new Long2IntOpenHashMap(Array(5L, 6L), Array(3, 2)).asInstanceOf[Map[VertexId,Int]]))),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), ("Mike", new Long2IntOpenHashMap(Array(5L, 6L), Array(2, 1)).asInstanceOf[Map[VertexId,Int]]))),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), ("Ron", new Long2IntOpenHashMap(Array(5L, 6L), Array(1, 2)).asInstanceOf[Map[VertexId,Int]]))),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), ("Julia", new Long2IntOpenHashMap(Array(5L, 6L), Array(1, 2)).asInstanceOf[Map[VertexId,Int]]))),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), ("Vera", new Long2IntOpenHashMap(Array(5L, 6L), Array(0, 1)).asInstanceOf[Map[VertexId,Int]]))),
+      (6L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), ("Halima", new Long2IntOpenHashMap(Array(6L), Array(0)).asInstanceOf[Map[VertexId,Int]]))),
+      (7L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), ("Sanjana", new Long2IntOpenHashMap().asInstanceOf[Map[VertexId, Int]]))),
+      (8L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), ("Lovro", new Long2IntOpenHashMap().asInstanceOf[Map[VertexId, Int]]))),
 
       //second representative graph
-      (1L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), new Long2IntOpenHashMap(Array(5L), Array(1)).asInstanceOf[Map[VertexId,Int]])),
-      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), new Long2IntOpenHashMap(Array(6L), Array(1)).asInstanceOf[Map[VertexId,Int]])),
-      (3L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), new Long2IntOpenHashMap().asInstanceOf[Map[VertexId, Int]])),
-      (4L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), new Long2IntOpenHashMap().asInstanceOf[Map[VertexId, Int]])),
-      (5L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), new Long2IntOpenHashMap(Array(5L), Array(0)).asInstanceOf[Map[VertexId,Int]]))
+      (1L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), ("John", new Long2IntOpenHashMap(Array(5L), Array(1)).asInstanceOf[Map[VertexId,Int]]))),
+      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), ("Mike", new Long2IntOpenHashMap(Array(6L), Array(1)).asInstanceOf[Map[VertexId,Int]]))),
+      (3L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), ("Ron", new Long2IntOpenHashMap().asInstanceOf[Map[VertexId, Int]]))),
+      (4L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), ("Julia", new Long2IntOpenHashMap().asInstanceOf[Map[VertexId, Int]]))),
+      (5L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), ("Vera", new Long2IntOpenHashMap(Array(5L), Array(0)).asInstanceOf[Map[VertexId,Int]])))
     ))
 
     val OGC = OneGraphColumn.fromRDDs(nodes, edges, "Default")
@@ -1535,12 +1540,12 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
 
     //Assertion
     for (i <- 0 until pageRank2010_2014VerticesSorted.length) {
-      val difference = pageRank2010_2014VerticesSorted(i)._2 - actualOGC2010_2014VerticesSorted(i)._2._2
+      val difference = pageRank2010_2014VerticesSorted(i)._2 - actualOGC2010_2014VerticesSorted(i)._2._2._2
       assert(Math.abs(difference) < 0.0000001)
     }
 
     for (i <- 0 until pageRank2014_2018VerticesSorted.length) {
-      val difference = pageRank2014_2018VerticesSorted(i)._2 - actualOGC2014_2018VerticesSorted(i)._2._2
+      val difference = pageRank2014_2018VerticesSorted(i)._2 - actualOGC2014_2018VerticesSorted(i)._2._2._2
       assert(Math.abs(difference) < 0.0000001)
     }
   }
@@ -1670,12 +1675,12 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
  */
     //Assertion
     for (i <- 0 until pageRank2010_2014VerticesSorted.length) {
-      val difference = pageRank2010_2014VerticesSorted(i)._2 - actualOGC2010_2014VerticesSorted(i)._2._2
+      val difference = pageRank2010_2014VerticesSorted(i)._2 - actualOGC2010_2014VerticesSorted(i)._2._2._2
       assert(Math.abs(difference) < 0.0000001)
     }
 
     for (i <- 0 until pageRank2014_2018VerticesSorted.length) {
-      val difference = pageRank2014_2018VerticesSorted(i)._2 - actualOGC2014_2018VerticesSorted(i)._2._2
+      val difference = pageRank2014_2018VerticesSorted(i)._2 - actualOGC2014_2018VerticesSorted(i)._2._2._2
       assert(Math.abs(difference) < 0.0000001)
     }
   }
