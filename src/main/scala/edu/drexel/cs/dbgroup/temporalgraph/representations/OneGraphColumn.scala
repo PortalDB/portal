@@ -34,11 +34,14 @@ import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap
 
 class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], grs: Graph[BitSet, BitSet], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraphNoSchema[VD, ED](intvs, verts, edgs, defValue, storLevel, coal) {
 
-  private val graphs: Graph[BitSet, BitSet] = grs
+  private var graphs: Graph[BitSet, BitSet] = grs
+  private lazy val collectedIntervals: Array[Interval] = intervals.collect
+  protected var partitioning = TGraphPartitioning(PartitionStrategyType.None, 1, 0)
 
   override def materialize() = {
     allVertices.count
     allEdges.count
+    if (graphs == null) computeGraph()
     graphs.numVertices
     graphs.numEdges
   }
@@ -46,8 +49,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
   /** Query operations */
 
   override def slice(bound: Interval): OneGraphColumn[VD, ED] = {
-    //TODO: find a better way to tell whether the graphs are materialized
-    if (!(graphs.edges.getStorageLevel.deserialized && intervals.getStorageLevel.deserialized)) return super.slice(bound).asInstanceOf[OneGraphColumn[VD,ED]]
+    if (graphs == null) return super.slice(bound).asInstanceOf[OneGraphColumn[VD,ED]]
 
     if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
     if (span.intersects(bound)) {
@@ -97,14 +99,15 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
  
   private def aggregateByChangeStructureOnly(c: ChangeSpec, vquant: Quantification, equant: Quantification): OneGraphColumn[VD, ED] = {
     val size: Integer = c.num
+    if (graphs == null) computeGraph()
     //TODO: get rid of collect if possible
-    val grp = intervals.collect.grouped(size).toList
+    val grp = collectedIntervals.grouped(size).toList
     val countSums = ProgramContext.sc.broadcast(grp.map{ g => g.size }.scanLeft(0)(_ + _).tail)
     val newIntvs: RDD[Interval] = intervals.zipWithIndex.map(x => ((x._2 / size), x._1)).reduceByKey((a,b) => Interval(minDate(a.start, b.start), maxDate(a.end, b.end))).sortBy(c => c._1, true).map(x => x._2)
 
     //TODO: get rid of collects
     val newIntvsb = ProgramContext.sc.broadcast(newIntvs.collect)
-    val intvs = ProgramContext.sc.broadcast(intervals.collect)
+    val intvs = ProgramContext.sc.broadcast(collectedIntervals)
 
     val filtered: Graph[BitSet, BitSet] = graphs.mapVertices { (vid, attr) =>
       BitSet() ++ (0 to (countSums.value.size-1)).flatMap{ case (index) =>
@@ -170,15 +173,18 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       case _ => throw new IllegalArgumentException("graphs must be of the same type")
     }
 
+    if (graphs == null) computeGraph()
+    if (grp2.graphs == null) grp2.computeGraph()
+
     //compute new intervals
     val newIntvs: RDD[Interval] = intervalUnion(intervals, grp2.intervals)
     //TODO: make this work without collect
     val newIntvsb = ProgramContext.sc.broadcast(newIntvs.collect)
  
     if (span.intersects(grp2.span)) {
-      val intvMap: Map[Int, Seq[Int]] = intervals.collect.zipWithIndex.map(ii => (ii._2, newIntvsb.value.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None).toList)).toMap[Int, Seq[Int]]
+      val intvMap: Map[Int, Seq[Int]] = collectedIntervals.zipWithIndex.map(ii => (ii._2, newIntvsb.value.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None).toList)).toMap[Int, Seq[Int]]
       val intvMapB = ProgramContext.sc.broadcast(intvMap)
-      val intvMap2: Map[Int, Seq[Int]] = grp2.intervals.collect.zipWithIndex.map(ii => (ii._2, newIntvsb.value.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None).toList)).toMap[Int, Seq[Int]]
+      val intvMap2: Map[Int, Seq[Int]] = grp2.collectedIntervals.zipWithIndex.map(ii => (ii._2, newIntvsb.value.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None).toList)).toMap[Int, Seq[Int]]
       val intvMap2B = ProgramContext.sc.broadcast(intvMap2)
 
       //for each index in a bitset, put the new one
@@ -208,8 +214,8 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       //like above, but no intervals are split, so reindexing is simpler
       //compute the starting index for each graph (with no overlap there aren't any multiples)
       val zipped = newIntvs.zipWithIndex
-      val start = intervals.min
-      val start2 = grp2.intervals.min
+      val start = collectedIntervals.head
+      val start2 = grp2.collectedIntervals.head
       val gr1IndexStart: Int = zipped.filter(intv => intv._1.intersects(start)).min._2.toInt
       val gr2IndexStart: Int = zipped.filter(intv => intv._1.intersects(start2)).min._2.toInt
 
@@ -256,13 +262,16 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
     }
 
     if (span.intersects(grp2.span)) {
+      if (graphs == null) computeGraph()
+      if (grp2.graphs == null) grp2.computeGraph()
+
       //compute new intervals
       val newIntvs: RDD[Interval] = intervalIntersect(intervals, grp2.intervals)
       //TODO: make this work without collect
       val newIntvsb = ProgramContext.sc.broadcast(newIntvs.collect)
-      val intvMap: Map[Int, Seq[Int]] = intervals.collect.zipWithIndex.map(ii => (ii._2, newIntvsb.value.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None).toList)).toMap[Int, Seq[Int]]
+      val intvMap: Map[Int, Seq[Int]] = collectedIntervals.zipWithIndex.map(ii => (ii._2, newIntvsb.value.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None).toList)).toMap[Int, Seq[Int]]
       val intvMapB = ProgramContext.sc.broadcast(intvMap)
-      val intvMap2: Map[Int, Seq[Int]] = grp2.intervals.collect.zipWithIndex.map(ii => (ii._2, newIntvsb.value.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None).toList)).toMap[Int, Seq[Int]]
+      val intvMap2: Map[Int, Seq[Int]] = grp2.collectedIntervals.zipWithIndex.map(ii => (ii._2, newIntvsb.value.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None).toList)).toMap[Int, Seq[Int]]
       val intvMap2B = ProgramContext.sc.broadcast(intvMap2)
 
       //for each index in a bitset, put the new one
@@ -350,7 +359,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
     }
 
     //TODO: make this work without collect
-    val intvs = ProgramContext.sc.broadcast(intervals.collect)
+    val intvs = ProgramContext.sc.broadcast(collectedIntervals)
     val split = (interval: Interval) => {
       intvs.value.zipWithIndex.flatMap{ intv =>
         if (intv._1.intersects(interval))
@@ -385,7 +394,8 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
     //compute degree of each vertex for each interval
     //this should produce a map from interval to degree for each vertex
     //TODO: make this work without collect
-    val intvs = ProgramContext.sc.broadcast(intervals.collect)
+    if (graphs == null) computeGraph()
+    val intvs = ProgramContext.sc.broadcast(collectedIntervals)
     val res = graphs.aggregateMessages[HashMap[TimeIndex,Int]](
       ctx => {
         ctx.sendToSrc(HashMap[TimeIndex,Int]() ++ ctx.attr.seq.map(x => (x,1)))
@@ -401,6 +411,8 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
 
   //run pagerank on each interval
   override def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): OneGraphColumn[(VD,Double),ED] = {
+    if (graphs == null) computeGraph()
+
     if (!uni) {
       val mergeFunc = (a:Int2IntOpenHashMap, b:Int2IntOpenHashMap) => {
         val itr = a.iterator
@@ -477,7 +489,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       var i:Int = 0
       val initialMessage:Int2DoubleOpenHashMap = {
         var tmpMap = new Int2DoubleOpenHashMap()
-        for(i <- 0 to intervals.count.toInt-1) {
+        for(i <- 0 to collectedIntervals.size-1) {
           tmpMap.put(i, resetProb / (1.0 - resetProb))
         }
         tmpMap
@@ -488,7 +500,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
 
       //now need to extract the values into a separate rdd again
       //TODO: make this work without collect
-      val intvs = ProgramContext.sc.broadcast(intervals.collect)
+      val intvs = ProgramContext.sc.broadcast(collectedIntervals)
       val vattrs: RDD[(VertexId, (Interval, Double))] = resultGraph.vertices.flatMap{ case (vid,vattr) => vattr.toSeq.map{ case (k,v) => (vid,(intvs.value(k), v._1))}}
       //now need to join with the previous value
       val newverts: RDD[(VertexId, (Interval, (VD, Double)))] = allVertices.leftOuterJoin(vattrs)
@@ -508,6 +520,8 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
   
   //run connected components on each interval
   override def connectedComponents(): OneGraphColumn[(VD, VertexId),ED] = {
+    if (graphs == null) computeGraph()
+
     val conGraph: Graph[Int2LongOpenHashMap, BitSet]
       = graphs.mapVertices{ case (vid, bset) => val tmp = new Int2LongOpenHashMap(); bset.foreach(x => tmp.put(x,vid)); tmp}
 
@@ -553,7 +567,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
     val i: Int = 0
     val initialMessage: Int2LongOpenHashMap = {
       var tmpMap = new Int2LongOpenHashMap()
-      for(i <- 0 to intervals.count.toInt-1) {
+      for(i <- 0 to collectedIntervals.size-1) {
         tmpMap.put(i, Long.MaxValue)
       }
       tmpMap
@@ -562,7 +576,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
     val resultGraph: Graph[Map[TimeIndex, VertexId], BitSet] = Pregel(conGraph, initialMessage, activeDirection = EdgeDirection.Either)(vertexProgram, sendMessage, messageCombiner).asInstanceOf[Graph[Map[TimeIndex, VertexId], BitSet]]
 
     //TODO: make this work without collect
-    val intvs = ProgramContext.sc.broadcast(intervals.collect)
+    val intvs = ProgramContext.sc.broadcast(collectedIntervals)
     val vattrs = resultGraph.vertices.flatMap{ case (vid, vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}}
     //now need to join with the previous value
     val newverts = allVertices.leftOuterJoin(vattrs)
@@ -577,6 +591,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
   
   //run shortestPaths on each interval
   override def shortestPaths(uni: Boolean, landmarks: Seq[VertexId]): OneGraphColumn[(VD, Map[VertexId, Int]), ED] = {
+    if (graphs == null) computeGraph()
 
     if (!uni) {
       //TODO: change this to a val function
@@ -638,7 +653,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       val initialMessage: Int2ObjectOpenHashMap[Long2IntOpenHashMap] = {
         var tmpMap = new Int2ObjectOpenHashMap[Long2IntOpenHashMap]()
 
-        for (i <- 0 to intervals.count.toInt-1) {
+        for (i <- 0 to collectedIntervals.size-1) {
           tmpMap.put(i, makeMap())
         }
         tmpMap
@@ -698,7 +713,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
         .asInstanceOf[Graph[Map[TimeIndex, Map[VertexId, Int]], BitSet]]
 
       //TODO: make this work without collect
-      val intvs = ProgramContext.sc.broadcast(intervals.collect)
+      val intvs = ProgramContext.sc.broadcast(collectedIntervals)
       val vattrs: RDD[(VertexId, (Interval, Map[VertexId, Int]))] = resultGraph.vertices.flatMap { case (vid, vattr) => vattr.toSeq.map { case (k, v) => (vid, (intvs.value(k), v)) } }
       //now need to join with the previous value
       val emptym = new Long2IntOpenHashMap().asInstanceOf[Map[VertexId, Int]]
@@ -718,6 +733,8 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
   /** Spark-specific */
 
   override def numPartitions(): Int = {
+    //FIXME: this seems an overkill to compute graphs just to get the number of partitions
+    if (graphs == null) computeGraph()
     if (graphs.edges.isEmpty)
       0
     else
@@ -726,22 +743,24 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
 
   override def persist(newLevel: StorageLevel = MEMORY_ONLY): OneGraphColumn[VD, ED] = {
     super.persist(newLevel)
-    graphs.persist(newLevel)
+    if (graphs != null) graphs.persist(newLevel)
     this
   }
 
   override def unpersist(blocking: Boolean = true): OneGraphColumn[VD, ED] = {
     super.unpersist(blocking)
-    graphs.unpersist(blocking)
+    if (graphs != null) graphs.unpersist(blocking)
     this
   }
 
   override def partitionBy(tgp: TGraphPartitioning): OneGraphColumn[VD, ED] = {
-    var numParts = if (tgp.parts > 0) tgp.parts else graphs.edges.getNumPartitions
-
     if (tgp.pst != PartitionStrategyType.None) {
-      //not changing the intervals
-      new OneGraphColumn[VD, ED](intervals, allVertices, allEdges, graphs.partitionByExt(PartitionStrategies.makeStrategy(tgp.pst, 0, intervals.count.toInt, tgp.runs), numParts), defaultValue, storageLevel, coalesced)
+      partitioning = tgp
+      if (graphs != null) {
+        var numParts = if (tgp.parts > 0) tgp.parts else graphs.edges.getNumPartitions
+        //not changing the intervals
+        new OneGraphColumn[VD, ED](intervals, allVertices, allEdges, graphs.partitionByExt(PartitionStrategies.makeStrategy(tgp.pst, 0, intervals.count.toInt, tgp.runs), numParts), defaultValue, storageLevel, coalesced)
+      } else this //will apply partitioning when graphs are computed later
     } else
       this
   }
@@ -751,6 +770,26 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
   }
 
   override protected def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): OneGraphColumn[V, E] = OneGraphColumn.emptyGraph(defVal)
+
+  protected def computeGraph(): Unit = {
+    //TODO: get rid of collect if possible
+    val zipped = ProgramContext.sc.broadcast(collectedIntervals.toList.zipWithIndex)
+    val split: (Interval => BitSet) = (interval: Interval) => {
+      BitSet() ++ zipped.value.flatMap( ii => if (interval.intersects(ii._1)) Some(ii._2) else None)
+    }
+
+    //TODO: make this a better estimate based on evolution rate
+    val redFactor:Int = 2
+    graphs = Graph(allVertices.mapValues{ case (intv, attr) => split(intv)}.reduceByKey((a,b) => a union b, math.max(4, allVertices.getNumPartitions/redFactor)),
+      allEdges.mapValues{ case (intv, attr) => split(intv)}.reduceByKey((a,b) => a union b, math.max(4, allEdges.getNumPartitions/redFactor)).map(e => Edge(e._1._1, e._1._2, e._2)),
+      BitSet(), storageLevel, storageLevel)
+
+    if (partitioning.pst != PartitionStrategyType.None) {
+      var numParts = if (partitioning.parts > 0) partitioning.parts else graphs.edges.getNumPartitions
+      graphs.partitionByExt(PartitionStrategies.makeStrategy(partitioning.pst, 0, collectedIntervals.size, partitioning.runs), numParts)
+    }
+  }
+
 }
 
 object OneGraphColumn {
@@ -762,20 +801,8 @@ object OneGraphColumn {
     val coal = coalesced | ProgramContext.eagerCoalesce
 
     val intervals = TGraphNoSchema.computeIntervals(cverts, cedges)
-    val zipped = intervals.zipWithIndex
 
-    //TODO: make this a better estimate based on evolution rate
-    val redFactor:Int = 2
-    val graphs: Graph[BitSet, BitSet] = Graph(cverts.cartesian(zipped).filter(x => x._1._2._1.intersects(x._2._1))
-          .map(x => (x._1._1, BitSet(x._2._2.toInt)))
-          .reduceByKey((a,b) => a union b, math.max(4, cverts.getNumPartitions/redFactor)),
-      cedges.cartesian(zipped).filter(x => x._1._2._1.intersects(x._2._1))
-          .map(x => (x._1._1, BitSet(x._2._2.toInt)))
-          .reduceByKey((a,b) => a union b, math.max(4, cedges.getNumPartitions/redFactor))
-          .map(e => Edge(e._1._1, e._1._2, e._2)), 
-      BitSet(), storLevel, storLevel)
-
-    new OneGraphColumn(intervals, cverts, cedges, graphs, defVal, storLevel, coal)
+    new OneGraphColumn(intervals, cverts, cedges, null, defVal, storLevel, coal)
 
   }
 
