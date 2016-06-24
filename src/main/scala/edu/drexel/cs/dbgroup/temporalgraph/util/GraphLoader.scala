@@ -25,7 +25,7 @@ object GraphLoader {
 
   def setGraphType(tp: String):Unit = {
     tp match {
-      case "SG" | "OG" | "HG" => graphType = tp
+      case "SG" | "OG" | "HG" | "VE" => graphType = tp
       case _ => throw new IllegalArgumentException("unknown graph type")
     }
   }
@@ -102,6 +102,8 @@ object GraphLoader {
         OneGraphColumn.fromRDDs(users, links, "Default", StorageLevel.MEMORY_ONLY_SER, false)
       case "HG" =>
         HybridGraph.fromRDDs(users, links, "Default", StorageLevel.MEMORY_ONLY_SER, coalesced = false)
+      case "VE" =>
+        VEGraph.fromRDDs(users, links, "Default", StorageLevel.MEMORY_ONLY_SER, coalesced = false)
     }
   }
 
@@ -131,6 +133,8 @@ object GraphLoader {
         OneGraphColumn.fromRDDs(vs, es, deflt, StorageLevel.MEMORY_ONLY_SER, true).partitionBy(TGraphPartitioning(strategy, runWidth, 0))
       case "HG" =>
         HybridGraph.fromRDDs(vs, es, deflt, StorageLevel.MEMORY_ONLY_SER, coalesced = true).partitionBy(TGraphPartitioning(strategy, runWidth, 0))
+      case "VE" =>
+        VEGraph.fromRDDs(vs, es, deflt, StorageLevel.MEMORY_ONLY_SER, coalesced = true)
     }
   }
 
@@ -154,6 +158,8 @@ object GraphLoader {
         OneGraphColumn.fromRDDs(vs, es, null, StorageLevel.MEMORY_ONLY_SER, true).partitionBy(TGraphPartitioning(strategy, runWidth, 0))
       case "HG" =>
         HybridGraph.fromRDDs(vs, es, null, StorageLevel.MEMORY_ONLY_SER, coalesced = true).partitionBy(TGraphPartitioning(strategy, runWidth, 0))
+      case "VE" =>
+        VEGraph.fromRDDs(vs, es, null, StorageLevel.MEMORY_ONLY_SER, coalesced = true)
     }
 
   }
