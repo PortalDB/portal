@@ -156,16 +156,17 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
     new OneGraphColumn(intervals, allVertices, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(intv, Edge(ids._1, ids._2, attr))))}, graphs, defaultValue, storageLevel, false)
   }
 
-  override def union[VD2: ClassTag, ED2: ClassTag](other: TGraph[VD2, ED2]): OneGraphColumn[(Option[VD],Option[VD2]), (Option[ED],Option[ED2])] = {
+  override def union(other: TGraph[VD, ED]): OneGraphColumn[Set[VD],Set[ED]] = {
     defaultValue match {
       case null => unionStructureOnly(other)
-      case _ => super.union(other).asInstanceOf[OneGraphColumn[(Option[VD],Option[VD2]), (Option[ED],Option[ED2])]]
+      case _ => super.union(other).asInstanceOf[OneGraphColumn[Set[VD],Set[ED]]]
     }
   }
 
-  private def unionStructureOnly[VD2: ClassTag, ED2: ClassTag](other: TGraph[VD2, ED2]): OneGraphColumn[(Option[VD],Option[VD2]), (Option[ED],Option[ED2])] = {
-    var grp2: OneGraphColumn[VD2, ED2] = other match {
-      case grph: OneGraphColumn[VD2, ED2] => grph
+  private def unionStructureOnly(other: TGraph[VD, ED]): OneGraphColumn[Set[VD],Set[ED]] = {
+    //TODO: if the other graph is not OG, should use the parent method which doesn't care
+    var grp2: OneGraphColumn[VD, ED] = other match {
+      case grph: OneGraphColumn[VD, ED] => grph
       case _ => throw new IllegalArgumentException("graphs must be of the same type")
     }
 
@@ -193,9 +194,9 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       }
 
       val newGraphs: Graph[BitSet,BitSet] = Graph(gp1.vertices.union(gp2.vertices).reduceByKey((a,b) => a ++ b), gp1.edges.union(gp2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey((a,b) => a ++ b).map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storageLevel, storageLevel)
-      val newDefVal: (Option[VD],Option[VD2]) = (None,None)
+      val newDefVal = Set[VD]()
       val vs = newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}
-      val tmp: (Option[ED],Option[ED2]) = (None,None)
+      val tmp = Set[ED]()
       val es = newGraphs.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp))))
 
       if (ProgramContext.eagerCoalesce)
@@ -224,30 +225,33 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       } else grp2.graphs
 
       val newGraphs: Graph[BitSet,BitSet] = Graph(gp1.vertices.union(gp2.vertices).reduceByKey((a,b) => a ++ b), gp1.edges.union(gp2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey((a,b) => a ++ b).map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storageLevel, storageLevel)
-      val newDefVal: (Option[VD],Option[VD2]) = (None,None)
+      val newDefVal = Set[VD]()
       val vs = newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}
-      val tmp: (Option[ED],Option[ED2]) = (None,None)      
+      val tmp = Set[ED]()
       val es = newGraphs.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp))))
 
-      if (ProgramContext.eagerCoalesce)
+      //whether the result is coalesced depends on whether the two inputs are coalesced and whether their spans meet
+      val col = coalesced && grp2.coalesced && span.end != grp2.span.start && span.start != grp2.span.end
+      if (ProgramContext.eagerCoalesce && !col)
         fromRDDs(vs, es, newDefVal, storageLevel, false)
       else
-        new OneGraphColumn(newIntvs, vs, es, newGraphs, newDefVal, storageLevel, false)
+        new OneGraphColumn(newIntvs, vs, es, newGraphs, newDefVal, storageLevel, col)
 
     }
   }
 
-  override def intersection[VD2: ClassTag, ED2: ClassTag](other: TGraph[VD2, ED2]): OneGraphColumn[(VD,VD2), (ED,ED2)] = {
+  override def intersection(other: TGraph[VD, ED]): OneGraphColumn[Set[VD],Set[ED]] = {
     //TODO: find a better way to do this
     defaultValue match {
       case null => intersectionStructureOnly(other)
-      case _ => super.intersection(other).asInstanceOf[OneGraphColumn[(VD,VD2), (ED,ED2)]]
+      case _ => super.intersection(other).asInstanceOf[OneGraphColumn[Set[VD],Set[ED]]]
     }
   }
 
-  private def intersectionStructureOnly[VD2: ClassTag, ED2: ClassTag](other: TGraph[VD2, ED2]): OneGraphColumn[(VD,VD2), (ED,ED2)] = {
-    var grp2: OneGraphColumn[VD2, ED2] = other match {
-      case grph: OneGraphColumn[VD2, ED2] => grph
+  private def intersectionStructureOnly(other: TGraph[VD, ED]): OneGraphColumn[Set[VD],Set[ED]] = {
+    //TODO: if the other graph is not OG, should use the parent method which doesn't care
+    var grp2: OneGraphColumn[VD, ED] = other match {
+      case grph: OneGraphColumn[VD, ED] => grph
       case _ => throw new IllegalArgumentException("graphs must be of the same type")
     }
 
@@ -279,16 +283,16 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       //but it requires the exact same number of partitions and partition strategy
       //see whether repartitioning and innerJoin is better
       val newGraphs = Graph(gp1.vertices.join(gp2.vertices).mapValues{ case (a,b) => a & b}.filter(v => !v._2.isEmpty), gp1.edges.map(e => ((e.srcId, e.dstId), e.attr)).join(gp2.edges.map(e => ((e.srcId, e.dstId), e.attr))).map{ case (k, v) => Edge(k._1, k._2, v._1 & v._2)}.filter(e => !e.attr.isEmpty), BitSet(), storageLevel, storageLevel)
-      val newDefVal: (VD,VD2) = (defaultValue, grp2.defaultValue)
+      val newDefVal = Set[VD]()
       val vs = newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}
-      val tmp: (ED,ED2) = (new Array[ED](1)(0), new Array[ED2](1)(0))
+      val tmp = Set[ED]()
       val es = newGraphs.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp))))
 
       //intersection of two coalesced structure-only graphs is also coalesced
       new OneGraphColumn(newIntvs, vs, es, newGraphs, newDefVal, storageLevel, this.coalesced && grp2.coalesced)
 
     } else {
-      emptyGraph((defaultValue,grp2.defaultValue))
+      emptyGraph(Set(defaultValue))
     }
   }
 

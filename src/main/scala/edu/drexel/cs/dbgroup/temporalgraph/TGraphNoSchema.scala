@@ -340,10 +340,10 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
     fromRDDs(allVertices, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(intv, Edge(ids._1, ids._2, attr))))}, defaultValue, storageLevel, false)
   }
 
-  override def union[VD2: ClassTag, ED2: ClassTag](other: TGraph[VD2, ED2]): TGraphNoSchema[(Option[VD],Option[VD2]), (Option[ED],Option[ED2])] = {
+  override def union(other: TGraph[VD, ED]): TGraphNoSchema[Set[VD], Set[ED]] = {
     //union is correct whether the two input graphs are coalesced or not
-    var grp2: TGraphNoSchema[VD2, ED2] = other match {
-      case grph: TGraphNoSchema[VD2, ED2] => grph
+    var grp2: TGraphNoSchema[VD, ED] = other match {
+      case grph: TGraphNoSchema[VD, ED] => grph
       case _ => throw new ClassCastException
     }
 
@@ -362,28 +362,28 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
         }
       }
 
-      //TODO: find a more efficient way that does not require post-coalesce
-      val newVerts = allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}.fullOuterJoin(grp2.allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}).map{ case (v, attr) => (v._1, (v._2, attr))}
-      val newEdges = allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}.fullOuterJoin(grp2.allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}).map{ case (e, attr) => ((e._1, e._2), (e._3, attr))}
-      fromRDDs(newVerts, newEdges, (None,None), storageLevel, false)
+      val newVerts = allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}.fullOuterJoin(grp2.allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}).map{ case (v, attr) => (v._1, (v._2, (attr._1.toList ++ attr._2.toList).toSet))}
+      val newEdges = allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}.fullOuterJoin(grp2.allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}).map{ case (e, attr) => ((e._1, e._2), (e._3, (attr._1.toList ++ attr._2.toList).toSet))}
+      fromRDDs(newVerts, newEdges, Set(defaultValue), storageLevel, false)
 
     } else {
       //if the two spans are one right after another but do not intersect
-      //or there is no temporal intersection, we just add them together
       //and the results of coalesced are also coalesced
-      val verts1: RDD[(VertexId, (Interval, (Option[VD],Option[VD2])))] = allVertices.mapValues{ case (intv, attr) => (intv, (Some(attr),None))}
-      val verts2: RDD[(VertexId, (Interval, (Option[VD],Option[VD2])))] = grp2.allVertices.mapValues{ case (intv, attr) => (intv, (None,Some(attr)))}
-      val edg1: RDD[((VertexId,VertexId),(Interval,(Option[ED],Option[ED2])))] = allEdges.mapValues{ case (intv, attr) => (intv, (Some(attr),None))}
-      val edg2: RDD[((VertexId,VertexId),(Interval,(Option[ED],Option[ED2])))] = grp2.allEdges.mapValues{ case (intv, attr) => (intv, (None,Some(attr)))}
+      //if the two spans touch but do not interest, the results are uncoalesced
+      val col = coalesced && grp2.coalesced && span.end != grp2.span.start && span.start != grp2.span.end
+      val verts1: RDD[(VertexId, (Interval, Set[VD]))] = allVertices.mapValues{ case (intv, attr) => (intv, Set(attr))}
+      val verts2: RDD[(VertexId, (Interval, Set[VD]))] = grp2.allVertices.mapValues{ case (intv, attr) => (intv, Set(attr))}
+      val edg1: RDD[((VertexId,VertexId),(Interval,Set[ED]))] = allEdges.mapValues{ case (intv, attr) => (intv, Set(attr))}
+      val edg2: RDD[((VertexId,VertexId),(Interval,Set[ED]))] = grp2.allEdges.mapValues{ case (intv, attr) => (intv, Set(attr))}
       fromRDDs(verts1.union(verts2), edg1.union(edg2), 
-        (None,None), storageLevel, coalesced && grp2.coalesced)
+        Set(defaultValue), storageLevel, coalesced && grp2.coalesced)
     }
   }
 
-  override def intersection[VD2: ClassTag, ED2: ClassTag](other: TGraph[VD2, ED2]): TGraphNoSchema[(VD,VD2), (ED,ED2)] = {
+  override def intersection(other: TGraph[VD, ED]): TGraphNoSchema[Set[VD], Set[ED]] = {
     //intersection is correct whether the two input graphs are coalesced or not
-    var grp2: TGraphNoSchema[VD2, ED2] = other match {
-      case grph: TGraphNoSchema[VD2, ED2] => grph
+    var grp2: TGraphNoSchema[VD, ED] = other match {
+      case grph: TGraphNoSchema[VD, ED] => grph
       case _ => throw new ClassCastException
     }
 
@@ -404,15 +404,15 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
 
       //split the intervals
       //then perform inner join
-      //TODO: find a more efficient way that does not require post-coalesce
-      val newVertices = allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}.join(grp2.allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}).map{ case ((vid, intv), attrs) => (vid, (intv, attrs))}
+      //TODO: find a more efficient way that avoids splitting except at intersections
+      val newVertices = allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}.join(grp2.allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}).map{ case ((vid, intv), attrs) => (vid, (intv, Set(attrs._1, attrs._2)))}
 
-      val newEdges = allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}.join(grp2.allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}).map{ case ((id1, id2, intv), attrs) => ((id1, id2), (intv, attrs))}
+      val newEdges = allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}.join(grp2.allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}).map{ case ((id1, id2, intv), attrs) => ((id1, id2), (intv, Set(attrs._1, attrs._2)))}
 
-      fromRDDs(newVertices, newEdges, (defaultValue,grp2.defaultValue), storageLevel, false)
+      fromRDDs(newVertices, newEdges, Set(defaultValue), storageLevel, false)
 
     } else {
-      emptyGraph((defaultValue,grp2.defaultValue))
+      emptyGraph(Set(defaultValue))
     }
 
   }

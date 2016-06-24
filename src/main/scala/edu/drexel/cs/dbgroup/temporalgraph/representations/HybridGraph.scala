@@ -239,17 +239,17 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
       super.mapEdges(map).asInstanceOf[HybridGraph[VD,ED2]]
   }
 
-  override def union[VD2: ClassTag, ED2: ClassTag](other: TGraph[VD2, ED2]): HybridGraph[(Option[VD],Option[VD2]), (Option[ED],Option[ED2])] = {
+  override def union(other: TGraph[VD, ED]): HybridGraph[Set[VD],Set[ED]] = {
     defaultValue match {
       case null => unionStructureOnly(other)
-      case _ => super.union(other).asInstanceOf[HybridGraph[(Option[VD],Option[VD2]),(Option[ED],Option[ED2])]]
+      case _ => super.union(other).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
     }
   }
 
-  private def unionStructureOnly[VD2: ClassTag, ED2: ClassTag](other: TGraph[VD2, ED2]): HybridGraph[(Option[VD],Option[VD2]), (Option[ED],Option[ED2])] = {
+  private def unionStructureOnly(other: TGraph[VD, ED]): HybridGraph[Set[VD],Set[ED]] = {
     //TODO: if the other graph is not HG, should use the parent method which doesn't care
-    var grp2: HybridGraph[VD2, ED2] = other match {
-      case grph: HybridGraph[VD2, ED2] => grph
+    var grp2: HybridGraph[VD, ED] = other match {
+      case grph: HybridGraph[VD, ED] => grph
       case _ => throw new IllegalArgumentException("graphs must be of the same type")
     }
 
@@ -340,13 +340,15 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
       }
 
       //collect vertices and edges
-      val vs = gps.map(g => g.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), (None.asInstanceOf[Option[VD]],None.asInstanceOf[Option[VD2]]))))}).reduce(_ union _)
-      val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), (None.asInstanceOf[Option[ED]],None.asInstanceOf[Option[ED2]]))))}).reduce(_ union _)
+      val newDefVal = Set[VD]()
+      val tmp = Set[ED]()
+      val vs = gps.map(g => g.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}).reduce(_ union _)
+      val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))}).reduce(_ union _)
 
       if (ProgramContext.eagerCoalesce)
-        fromRDDs(vs, es, (None,None), storageLevel, false)
+        fromRDDs(vs, es, newDefVal, storageLevel, false)
       else
-        new HybridGraph(newIntvs, vs, es, runs, gps, (None,None), storageLevel, false)
+        new HybridGraph(newIntvs, vs, es, runs, gps, newDefVal, storageLevel, false)
 
     } else {
       //like above, but no intervals are split, so reindexing is simpler
@@ -377,29 +379,31 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
       }
 
       //collect vertices and edges
-      val newDefVal: (Option[VD],Option[VD2]) = (None,None)
-      val tmp: (Option[ED],Option[ED2]) = (None,None)      
+      val newDefVal = Set[VD]()
+      val tmp = Set[ED]()
       val vs = gps.map(g => g.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}).reduce(_ union _)
       val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))}).reduce(_ union _)
 
-      if (ProgramContext.eagerCoalesce)
+      //whether the result is coalesced depends on whether the two inputs are coalesced and whether their spans meet
+      val col = coalesced && grp2.coalesced && span.end != grp2.span.start && span.start != grp2.span.end
+      if (ProgramContext.eagerCoalesce && !col)
         fromRDDs(vs, es, newDefVal, storageLevel, false)
       else
-        new HybridGraph(newIntvs, vs, es, runs, gps, newDefVal, storageLevel, false)
+        new HybridGraph(newIntvs, vs, es, runs, gps, newDefVal, storageLevel, col)
 
     }
   }
 
-  override def intersection[VD2: ClassTag, ED2: ClassTag](other: TGraph[VD2, ED2]): HybridGraph[(VD,VD2), (ED,ED2)] = {
+  override def intersection(other: TGraph[VD, ED]): HybridGraph[Set[VD], Set[ED]] = {
     defaultValue match {
       case null => intersectionStructureOnly(other)
-      case _ => super.intersection(other).asInstanceOf[HybridGraph[(VD,VD2),(ED,ED2)]]
+      case _ => super.intersection(other).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
     }
   }
 
-  private def intersectionStructureOnly[VD2: ClassTag, ED2: ClassTag](other: TGraph[VD2, ED2]): HybridGraph[(VD,VD2), (ED,ED2)] = {
-    var grp2: HybridGraph[VD2, ED2] = other match {
-      case grph: HybridGraph[VD2, ED2] => grph
+  private def intersectionStructureOnly(other: TGraph[VD, ED]): HybridGraph[Set[VD],Set[ED]] = {
+    var grp2: HybridGraph[VD, ED] = other match {
+      case grph: HybridGraph[VD, ED] => grph
       case _ => throw new ClassCastException
     }
 
@@ -498,8 +502,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
       }
 
       //collect vertices and edges
-      val newDefVal = (defaultValue, grp2.defaultValue)
-      val tmp: (ED,ED2) = (new Array[ED](1)(0), new Array[ED2](1)(0))
+      val newDefVal = Set[VD]()
+      val tmp = Set[ED]()
       val vs = gps.map(g => g.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}).reduce(_ union _)
       val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))}).reduce(_ union _)
 
@@ -507,7 +511,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
       new HybridGraph(newIntvs, vs, es, runs, gps, newDefVal, storageLevel, this.coalesced && grp2.coalesced)
 
     } else {
-      emptyGraph((defaultValue,grp2.defaultValue))
+      emptyGraph(Set(defaultValue))
     }
 
   }

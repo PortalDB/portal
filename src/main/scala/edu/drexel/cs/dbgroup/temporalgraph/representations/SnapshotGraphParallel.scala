@@ -153,9 +153,9 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], ve
       super.mapEdges(map).asInstanceOf[SnapshotGraphParallel[VD,ED2]]
   }
 
-  override def union[VD2: ClassTag, ED2: ClassTag](other: TGraph[VD2, ED2]): SnapshotGraphParallel[(Option[VD],Option[VD2]), (Option[ED],Option[ED2])] = {
-    var grp2: SnapshotGraphParallel[VD2, ED2] = other match {
-      case grph: SnapshotGraphParallel[VD2, ED2] => grph
+  override def union(other: TGraph[VD, ED]): SnapshotGraphParallel[Set[VD], Set[ED]] = {
+    var grp2: SnapshotGraphParallel[VD, ED] = other match {
+      case grph: SnapshotGraphParallel[VD, ED] => grph
       case _ => throw new ClassCastException
     }
 
@@ -180,13 +180,13 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], ve
       //TODO: get rid of collect if possible
       val intervalsZipped = intervals.zipWithIndex.map(_.swap)
       val intervals2Zipped = grp2.intervals.zipWithIndex.map(_.swap)
-      val newGraphs: ParSeq[Graph[(Option[VD],Option[VD2]), (Option[ED],Option[ED2])]] = newIntvs.collect.map { intv =>
+      val newGraphs: ParSeq[Graph[Set[VD],Set[ED]]] = newIntvs.collect.map { intv =>
         val iith = intervalsZipped.lookup(ii.toLong).lift(0).getOrElse(empty)
         val jjth = intervals2Zipped.lookup(jj.toLong).lift(0).getOrElse(empty)
         if (iith.intersects(intv) && jjth.intersects(intv)) {
-          val ret: Graph[(Option[VD],Option[VD2]), (Option[ED],Option[ED2])] = Graph(graphs(ii).vertices.fullOuterJoin(grp2.graphs(jj).vertices), 
-            graphs(ii).edges.map(e => ((e.srcId, e.dstId), e.attr)).fullOuterJoin(grp2.graphs(jj).edges.map(e => ((e.srcId, e.dstId), e.attr))).map(e => Edge(e._1._1, e._1._2, e._2)),
-            (None,None), storageLevel, storageLevel)
+          val ret: Graph[Set[VD], Set[ED]] = Graph(graphs(ii).vertices.fullOuterJoin(grp2.graphs(jj).vertices).mapValues{ attr => (attr._1.toList ++ attr._2.toList).toSet}, 
+            graphs(ii).edges.map(e => ((e.srcId, e.dstId), e.attr)).fullOuterJoin(grp2.graphs(jj).edges.map(e => ((e.srcId, e.dstId), e.attr))).map(e => Edge(e._1._1, e._1._2, (e._2._1.toList ++ e._2._2.toList).toSet)),
+            Set(defaultValue), storageLevel, storageLevel)
           if (iith.end == intv.end)
             ii = ii+1
           if (jjth.end == intv.end)
@@ -195,53 +195,51 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], ve
         } else if (iith.intersects(intv)) {
           if (iith.end == intv.end)
             ii = ii+1
-          graphs(ii-1).mapVertices((vid,attr) => (Some(attr).asInstanceOf[Option[VD]],None.asInstanceOf[Option[VD2]])).mapEdges(e => (Some(e.attr).asInstanceOf[Option[ED]],None.asInstanceOf[Option[ED2]]))
+          graphs(ii-1).mapVertices((vid,attr) => Set(attr)).mapEdges(e => Set(e.attr))
         } else if (jjth.intersects(intv)) {
           if (jjth.end == intv.end)
             jj = jj+1
-          grp2.graphs(jj-1).mapVertices((vid,attr) => (None.asInstanceOf[Option[VD]],Some(attr).asInstanceOf[Option[VD2]])).mapEdges(e => (None.asInstanceOf[Option[ED]],Some(e.attr).asInstanceOf[Option[ED2]]))
+          grp2.graphs(jj-1).mapVertices((vid,attr) => Set(attr)).mapEdges(e => Set(e.attr))
         } else { //should never get here
           throw new SparkException("bug in union")
         }
       }.par
 
-      SnapshotGraphParallel.fromGraphs(newIntvs, newGraphs, (None,None), storageLevel)
+      SnapshotGraphParallel.fromGraphs(newIntvs, newGraphs, Set(defaultValue), storageLevel)
     } else if (span.end == grp2.span.start || span.start == grp2.span.end) {
       //if the two spans are one right after another but do not intersect
       //then we just put them together
       val newIntvs = intervals.union(grp2.intervals).sortBy(c => c, true, 1)
       //need to update values for all vertices and edges
-      val gr1: ParSeq[Graph[(Option[VD],Option[VD2]),(Option[ED],Option[ED2])]] = graphs.map(g => g.mapVertices((vid,attr) => (Some(attr).asInstanceOf[Option[VD]],None.asInstanceOf[Option[VD2]])).mapEdges(e => (Some(e.attr).asInstanceOf[Option[ED]],None.asInstanceOf[Option[ED2]])))
-      val gr2: ParSeq[Graph[(Option[VD],Option[VD2]),(Option[ED],Option[ED2])]] = grp2.graphs.map(g => g.mapVertices((vid,attr) => (None.asInstanceOf[Option[VD]],Some(attr).asInstanceOf[Option[VD2]])).mapEdges(e => (None.asInstanceOf[Option[ED]],Some(e.attr).asInstanceOf[Option[ED2]])))
+      val gr1: ParSeq[Graph[Set[VD],Set[ED]]] = graphs.map(g => g.mapVertices((vid,attr) => Set(attr)).mapEdges(e => Set(e.attr)))
+      val gr2: ParSeq[Graph[Set[VD],Set[ED]]] = grp2.graphs.map(g => g.mapVertices((vid,attr) => Set(attr)).mapEdges(e => Set(e.attr)))
       val newGraphs = if (span.start.isBefore(grp2.span.start)) gr1 ++ gr2 else gr2 ++ gr1
-      //the union of coalesced is coalesced
-      val verts1: RDD[(VertexId, (Interval, (Option[VD],Option[VD2])))] = allVertices.mapValues{ case (intv, attr) => (intv, (Some(attr),None))}
-      val verts2: RDD[(VertexId, (Interval, (Option[VD],Option[VD2])))] = grp2.allVertices.mapValues{ case (intv, attr) => (intv, (None,Some(attr)))}
-      val edg1: RDD[((VertexId,VertexId),(Interval,(Option[ED],Option[ED2])))] = allEdges.mapValues{ case (intv, attr) => (intv, (Some(attr),None))}
-      val edg2: RDD[((VertexId,VertexId),(Interval,(Option[ED],Option[ED2])))] = grp2.allEdges.mapValues{ case (intv, attr) => (intv, (None,Some(attr)))}
-      new SnapshotGraphParallel(newIntvs, verts1.union(verts2), edg1.union(edg2), newGraphs, (None,None), storageLevel, coalesced && grp2.coalesced)
+      val verts1: RDD[(VertexId, (Interval, Set[VD]))] = allVertices.mapValues{ case (intv, attr) => (intv, Set(attr))}
+      val verts2: RDD[(VertexId, (Interval, Set[VD]))] = grp2.allVertices.mapValues{ case (intv, attr) => (intv, Set(attr))}
+      val edg1: RDD[((VertexId,VertexId),(Interval,Set[ED]))] = allEdges.mapValues{ case (intv, attr) => (intv, Set(attr))}
+      val edg2: RDD[((VertexId,VertexId),(Interval,Set[ED]))] = grp2.allEdges.mapValues{ case (intv, attr) => (intv, Set(attr))}
+      new SnapshotGraphParallel(newIntvs, verts1.union(verts2), edg1.union(edg2), newGraphs, Set(defaultValue), storageLevel, false)
     } else {
       //if there is no temporal intersection, then we can just add them together
       //no need to worry about coalesce or constraint on E; all still holds
       val newIntvs = intervals.union(grp2.intervals).union(ProgramContext.sc.parallelize(Seq(Interval(span.end, grp2.span.start)))).sortBy(c => c, true)
       //need to update values for all vertices and edges
-      val gr1: ParSeq[Graph[(Option[VD],Option[VD2]),(Option[ED],Option[ED2])]] = graphs.map(g => g.mapVertices((vid,attr) => (Some(attr).asInstanceOf[Option[VD]],None.asInstanceOf[Option[VD2]])).mapEdges(e => (Some(e.attr).asInstanceOf[Option[ED]],None.asInstanceOf[Option[ED2]])))
-      val gr2: ParSeq[Graph[(Option[VD],Option[VD2]),(Option[ED],Option[ED2])]] = grp2.graphs.map(g => g.mapVertices((vid,attr) => (None.asInstanceOf[Option[VD]],Some(attr).asInstanceOf[Option[VD2]])).mapEdges(e => (None.asInstanceOf[Option[ED]],Some(e.attr).asInstanceOf[Option[ED2]])))
-      val newGraphs = if (span.start.isBefore(grp2.span.start)) gr1 ++ Seq(Graph[(Option[VD],Option[VD2]),(Option[ED],Option[ED2])](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)) ++ gr2 else gr2 ++ Seq(Graph[(Option[VD],Option[VD2]),(Option[ED],Option[ED2])](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)) ++ gr1
+      val gr1: ParSeq[Graph[Set[VD],Set[ED]]] = graphs.map(g => g.mapVertices((vid,attr) => Set(attr)).mapEdges(e => Set(e.attr)))
+      val gr2: ParSeq[Graph[Set[VD],Set[ED]]] = grp2.graphs.map(g => g.mapVertices((vid,attr) => Set(attr)).mapEdges(e => Set(e.attr)))
+      val newGraphs = if (span.start.isBefore(grp2.span.start)) gr1 ++ Seq(Graph[Set[VD],Set[ED]](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)) ++ gr2 else gr2 ++ Seq(Graph[Set[VD],Set[ED]](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)) ++ gr1
       //the union of coalesced is coalesced
-      val verts1: RDD[(VertexId, (Interval, (Option[VD],Option[VD2])))] = allVertices.mapValues{ case (intv, attr) => (intv, (Some(attr),None.asInstanceOf[Option[VD2]]))}
-      val verts2: RDD[(VertexId, (Interval, (Option[VD],Option[VD2])))] = grp2.allVertices.mapValues{ case (intv, attr) => (intv, (None.asInstanceOf[Option[VD]],Some(attr)))}
-      val edg1: RDD[((VertexId,VertexId),(Interval,(Option[ED],Option[ED2])))] = allEdges.mapValues{ case (intv, attr) => (intv, (Some(attr),None.asInstanceOf[Option[ED2]]))}
-        val edg2: RDD[((VertexId,VertexId), (Interval,(Option[ED],Option[ED2])))] = grp2.allEdges.mapValues{ case (intv, attr) => (intv, (None.asInstanceOf[Option[ED]],Some(attr)))}
+      val verts1: RDD[(VertexId, (Interval, Set[VD]))] = allVertices.mapValues{ case (intv, attr) => (intv, Set(attr))}
+      val verts2: RDD[(VertexId, (Interval, Set[VD]))] = grp2.allVertices.mapValues{ case (intv, attr) => (intv, Set(attr))}
+      val edg1: RDD[((VertexId,VertexId), (Interval,Set[ED]))] = allEdges.mapValues{ case (intv, attr) => (intv, Set(attr))}
+      val edg2: RDD[((VertexId,VertexId), (Interval,Set[ED]))] = grp2.allEdges.mapValues{ case (intv, attr) => (intv, Set(attr))}
 
-      new SnapshotGraphParallel(newIntvs, verts1.union(verts2), edg1.union(edg2), newGraphs, (None,None), storageLevel, coalesced && grp2.coalesced)
+      new SnapshotGraphParallel(newIntvs, verts1.union(verts2), edg1.union(edg2), newGraphs, Set(defaultValue), storageLevel, coalesced && grp2.coalesced)
     }
   }
 
-  override def intersection[VD2: ClassTag, ED2: ClassTag](other: TGraph[VD2, ED2]): SnapshotGraphParallel[(VD,VD2), (ED,ED2)] = {
-    //TODO: if the two graphs are different data structures, can use the parent method which doesn't care
-    var grp2: SnapshotGraphParallel[VD2, ED2] = other match {
-      case grph: SnapshotGraphParallel[VD2, ED2] => grph
+  override def intersection(other: TGraph[VD, ED]): SnapshotGraphParallel[Set[VD], Set[ED]] = {
+    var grp2: SnapshotGraphParallel[VD, ED] = other match {
+      case grph: SnapshotGraphParallel[VD, ED] => grph
       case _ => throw new ClassCastException
     }
 
@@ -267,15 +265,15 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], ve
       while (!intervals2Zipped.lookup(jj.toLong).lift(0).getOrElse(empty).intersects(head)) jj = jj + 1
 
       //TODO: get rid of collect if possible
-      val newGraphs: ParSeq[Graph[(VD,VD2), (ED,ED2)]] = newIntvs.collect.map { intv =>
+      val newGraphs: ParSeq[Graph[Set[VD], Set[ED]]] = newIntvs.collect.map { intv =>
         val iith = intervalsZipped.lookup(ii.toLong).lift(0).getOrElse(empty)
         val jjth = intervals2Zipped.lookup(jj.toLong).lift(0).getOrElse(empty)
         if (iith.intersects(intv) && jjth.intersects(intv)) {
           //TODO: an innerJoin on edges would be more efficient
           //but it requires the exact same number of partitions and partition strategy
           //see whether repartitioning and innerJoin is better
-          val ret = Graph(graphs(ii).vertices.join(grp2.graphs(jj).vertices), 
-            graphs(ii).edges.map(e => ((e.srcId, e.dstId), e.attr)).join(grp2.graphs(jj).edges.map(e => ((e.srcId, e.dstId), e.attr))).map{ case (k, v) => Edge(k._1, k._2, v)}, (defaultValue,grp2.defaultValue), storageLevel, storageLevel)
+          val ret = Graph(graphs(ii).vertices.join(grp2.graphs(jj).vertices).mapValues( attr => Set(attr._1, attr._2)), 
+            graphs(ii).edges.map(e => ((e.srcId, e.dstId), e.attr)).join(grp2.graphs(jj).edges.map(e => ((e.srcId, e.dstId), e.attr))).map{ case (k, v) => Edge(k._1, k._2, Set(v._1, v._2))}, Set(defaultValue), storageLevel, storageLevel)
           if (iith.end == intv.end)
             ii = ii+1
           if (jjth.end == intv.end)
@@ -286,10 +284,10 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], ve
         }
       }.par
 
-      SnapshotGraphParallel.fromGraphs(newIntvs, newGraphs, (defaultValue,grp2.defaultValue), storageLevel)
+      SnapshotGraphParallel.fromGraphs(newIntvs, newGraphs, Set(defaultValue), storageLevel)
 
     } else {
-      SnapshotGraphParallel.emptyGraph((defaultValue,grp2.defaultValue))
+      SnapshotGraphParallel.emptyGraph(Set(defaultValue))
     }
   }
 

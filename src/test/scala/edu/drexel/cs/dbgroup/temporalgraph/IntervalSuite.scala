@@ -37,38 +37,35 @@ class IntervalSuite extends FunSuite with BeforeAndAfter{
 
 
     val expectedSplittedByMonth = Seq(
-      (Interval(LocalDate.parse("2012-04-01"), LocalDate.parse("2012-04-10")),0.3,Interval(LocalDate.parse("2012-04-01"), LocalDate.parse("2012-05-01"))),
-      (Interval(LocalDate.parse("2012-03-01"), LocalDate.parse("2012-04-01")),1.0,Interval(LocalDate.parse("2012-03-01"), LocalDate.parse("2012-04-01"))),
-      (Interval(LocalDate.parse("2012-02-01"), LocalDate.parse("2012-03-01")),1.0,Interval(LocalDate.parse("2012-02-01"), LocalDate.parse("2012-03-01"))),
-      (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2012-02-01")),1.0,Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2012-02-01"))),
-      (Interval(LocalDate.parse("2011-12-01"), LocalDate.parse("2012-01-01")),1.0,Interval(LocalDate.parse("2011-12-01"), LocalDate.parse("2012-01-01"))),
-      (Interval(LocalDate.parse("2011-11-01"), LocalDate.parse("2011-12-01")),1.0,Interval(LocalDate.parse("2011-11-01"), LocalDate.parse("2011-12-01"))),
-      (Interval(LocalDate.parse("2011-10-01"), LocalDate.parse("2011-11-01")),1.0,Interval(LocalDate.parse("2011-10-01"), LocalDate.parse("2011-11-01"))),
-      (Interval(LocalDate.parse("2011-09-01"), LocalDate.parse("2011-10-01")),1.0,Interval(LocalDate.parse("2011-09-01"), LocalDate.parse("2011-10-01"))),
-      (Interval(LocalDate.parse("2011-08-01"), LocalDate.parse("2011-09-01")),1.0,Interval(LocalDate.parse("2011-08-01"), LocalDate.parse("2011-09-01"))),
-      (Interval(LocalDate.parse("2011-07-01"), LocalDate.parse("2011-08-01")),1.0,Interval(LocalDate.parse("2011-07-01"), LocalDate.parse("2011-08-01"))),
-      (Interval(LocalDate.parse("2011-06-16"), LocalDate.parse("2011-07-01")),0.5,Interval(LocalDate.parse("2011-06-01"), LocalDate.parse("2011-07-01")))
+      (Interval(LocalDate.parse("2012-04-01"), LocalDate.parse("2012-04-10")),Interval(LocalDate.parse("2012-04-01"), LocalDate.parse("2012-05-01"))),
+      (Interval(LocalDate.parse("2012-03-01"), LocalDate.parse("2012-04-01")),Interval(LocalDate.parse("2012-03-01"), LocalDate.parse("2012-04-01"))),
+      (Interval(LocalDate.parse("2012-02-01"), LocalDate.parse("2012-03-01")),Interval(LocalDate.parse("2012-02-01"), LocalDate.parse("2012-03-01"))),
+      (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2012-02-01")),Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2012-02-01"))),
+      (Interval(LocalDate.parse("2011-12-01"), LocalDate.parse("2012-01-01")),Interval(LocalDate.parse("2011-12-01"), LocalDate.parse("2012-01-01"))),
+      (Interval(LocalDate.parse("2011-11-01"), LocalDate.parse("2011-12-01")),Interval(LocalDate.parse("2011-11-01"), LocalDate.parse("2011-12-01"))),
+      (Interval(LocalDate.parse("2011-10-01"), LocalDate.parse("2011-11-01")),Interval(LocalDate.parse("2011-10-01"), LocalDate.parse("2011-11-01"))),
+      (Interval(LocalDate.parse("2011-09-01"), LocalDate.parse("2011-10-01")),Interval(LocalDate.parse("2011-09-01"), LocalDate.parse("2011-10-01"))),
+      (Interval(LocalDate.parse("2011-08-01"), LocalDate.parse("2011-09-01")),Interval(LocalDate.parse("2011-08-01"), LocalDate.parse("2011-09-01"))),
+      (Interval(LocalDate.parse("2011-07-01"), LocalDate.parse("2011-08-01")),Interval(LocalDate.parse("2011-07-01"), LocalDate.parse("2011-08-01"))),
+      (Interval(LocalDate.parse("2011-06-16"), LocalDate.parse("2011-07-01")),Interval(LocalDate.parse("2011-06-01"), LocalDate.parse("2011-07-01")))
       )
 
-    val ratio1: Double = ChronoUnit.DAYS.between(LocalDate.parse("2013-01-01"), LocalDate.parse("2013-04-10")) / ChronoUnit.DAYS.between(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")).toDouble
-    val ratio2: Double = ChronoUnit.DAYS.between(LocalDate.parse("2011-06-16"), LocalDate.parse("2012-01-01")) / ChronoUnit.DAYS.between(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")).toDouble
-
     val expectedSplittedByYear = Seq(
-      (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2013-04-10")),ratio1,Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01"))),
-      (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01")),1.0,Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01"))),
-      (Interval(LocalDate.parse("2011-06-16"), LocalDate.parse("2012-01-01")),ratio2,Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")))
+      (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2013-04-10")),Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01"))),
+      (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01")),Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01"))),
+      (Interval(LocalDate.parse("2011-06-16"), LocalDate.parse("2012-01-01")),Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")))
     )
 
     val expectedSplittedByDays = Seq(
-      (Interval(LocalDate.parse("2011-06-10"), LocalDate.parse("2011-06-11")),1.0,Interval(LocalDate.parse("2011-06-10"), LocalDate.parse("2011-06-11"))),
-      (Interval(LocalDate.parse("2011-06-09"), LocalDate.parse("2011-06-10")),1.0,Interval(LocalDate.parse("2011-06-09"), LocalDate.parse("2011-06-10"))),
-      (Interval(LocalDate.parse("2011-06-08"), LocalDate.parse("2011-06-09")),1.0,Interval(LocalDate.parse("2011-06-08"), LocalDate.parse("2011-06-09"))),
-      (Interval(LocalDate.parse("2011-06-07"), LocalDate.parse("2011-06-08")),1.0,Interval(LocalDate.parse("2011-06-07"), LocalDate.parse("2011-06-08"))),
-      (Interval(LocalDate.parse("2011-06-06"), LocalDate.parse("2011-06-07")),1.0,Interval(LocalDate.parse("2011-06-06"), LocalDate.parse("2011-06-07"))),
-      (Interval(LocalDate.parse("2011-06-05"), LocalDate.parse("2011-06-06")),1.0,Interval(LocalDate.parse("2011-06-05"), LocalDate.parse("2011-06-06"))),
-      (Interval(LocalDate.parse("2011-06-04"), LocalDate.parse("2011-06-05")),1.0,Interval(LocalDate.parse("2011-06-04"), LocalDate.parse("2011-06-05"))),
-      (Interval(LocalDate.parse("2011-06-03"), LocalDate.parse("2011-06-04")),1.0,Interval(LocalDate.parse("2011-06-03"), LocalDate.parse("2011-06-04"))),
-      (Interval(LocalDate.parse("2011-06-02"), LocalDate.parse("2011-06-03")),1.0,Interval(LocalDate.parse("2011-06-02"), LocalDate.parse("2011-06-03")))
+      (Interval(LocalDate.parse("2011-06-10"), LocalDate.parse("2011-06-11")),Interval(LocalDate.parse("2011-06-10"), LocalDate.parse("2011-06-11"))),
+      (Interval(LocalDate.parse("2011-06-09"), LocalDate.parse("2011-06-10")),Interval(LocalDate.parse("2011-06-09"), LocalDate.parse("2011-06-10"))),
+      (Interval(LocalDate.parse("2011-06-08"), LocalDate.parse("2011-06-09")),Interval(LocalDate.parse("2011-06-08"), LocalDate.parse("2011-06-09"))),
+      (Interval(LocalDate.parse("2011-06-07"), LocalDate.parse("2011-06-08")),Interval(LocalDate.parse("2011-06-07"), LocalDate.parse("2011-06-08"))),
+      (Interval(LocalDate.parse("2011-06-06"), LocalDate.parse("2011-06-07")),Interval(LocalDate.parse("2011-06-06"), LocalDate.parse("2011-06-07"))),
+      (Interval(LocalDate.parse("2011-06-05"), LocalDate.parse("2011-06-06")),Interval(LocalDate.parse("2011-06-05"), LocalDate.parse("2011-06-06"))),
+      (Interval(LocalDate.parse("2011-06-04"), LocalDate.parse("2011-06-05")),Interval(LocalDate.parse("2011-06-04"), LocalDate.parse("2011-06-05"))),
+      (Interval(LocalDate.parse("2011-06-03"), LocalDate.parse("2011-06-04")),Interval(LocalDate.parse("2011-06-03"), LocalDate.parse("2011-06-04"))),
+      (Interval(LocalDate.parse("2011-06-02"), LocalDate.parse("2011-06-03")),Interval(LocalDate.parse("2011-06-02"), LocalDate.parse("2011-06-03")))
     )
 
     assert(expectedSplittedByMonth === spilttedByMonth)
