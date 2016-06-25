@@ -310,6 +310,7 @@ object Interpreter {
               case _ => throw new IllegalArgumentException("only average/any functions are supported with Tuples")
             }
             case null => null
+            case at: StructureOnlyAttr => at
             case _ => throw new IllegalArgumentException("unsupported vertex attribute type in aggregation")
           }
         }
@@ -337,6 +338,8 @@ object Interpreter {
               case _ => throw new IllegalArgumentException("unsupported function " + gbp.efun + " on double attribute of vertices")
             }
             case null => null
+            case at: StructureOnlyAttr => at
+            case _ => throw new IllegalArgumentException("unsupported edge attribute type in aggregation")
           }
         }
 
