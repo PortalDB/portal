@@ -138,7 +138,7 @@ object GraphLoader {
     }
   }
 
-  def loadStructureOnlyParquet(url: String): TGraphNoSchema[Null, Null] = {
+  def loadStructureOnlyParquet(url: String): TGraphNoSchema[StructureOnlyAttr, StructureOnlyAttr] = {
     val sqlContext = ProgramContext.getSqlContext
     import sqlContext.implicits._
 
@@ -146,20 +146,20 @@ object GraphLoader {
     val links = sqlContext.read.parquet(url + "/edges.parquet").select($"vid1", $"vid2", $"estart", $"eend")
 
     //map to rdds
-    val vs: RDD[(VertexId, (Interval, Null))] = users.map(row => (row.getLong(0), (Interval(row.getDate(1).toLocalDate(), row.getDate(2).toLocalDate()), null)))
-    val es: RDD[((VertexId, VertexId), (Interval, Null))] = links.map(row => ((row.getLong(0), row.getLong(1)), (Interval(row.getDate(2).toLocalDate(), row.getDate(3).toLocalDate()), null)))
+    val vs: RDD[(VertexId, (Interval, StructureOnlyAttr))] = users.map(row => (row.getLong(0), (Interval(row.getDate(1).toLocalDate(), row.getDate(2).toLocalDate()), true)))
+    val es: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = links.map(row => ((row.getLong(0), row.getLong(1)), (Interval(row.getDate(2).toLocalDate(), row.getDate(3).toLocalDate()), true)))
 
     //FIXME: we should be coalescing, but for current datasets it is unnecessary and very expensive
     //i.e. should change these 'true' to 'false'
     graphType match {
       case "SG" =>
-        SnapshotGraphParallel.fromRDDs(vs, es, null, StorageLevel.MEMORY_ONLY_SER, true).partitionBy(TGraphPartitioning(strategy, runWidth, 0))
+        SnapshotGraphParallel.fromRDDs(vs, es, true, StorageLevel.MEMORY_ONLY_SER, true).partitionBy(TGraphPartitioning(strategy, runWidth, 0))
       case "OG" =>
-        OneGraphColumn.fromRDDs(vs, es, null, StorageLevel.MEMORY_ONLY_SER, true).partitionBy(TGraphPartitioning(strategy, runWidth, 0))
+        OneGraphColumn.fromRDDs(vs, es, true, StorageLevel.MEMORY_ONLY_SER, true).partitionBy(TGraphPartitioning(strategy, runWidth, 0))
       case "HG" =>
-        HybridGraph.fromRDDs(vs, es, null, StorageLevel.MEMORY_ONLY_SER, coalesced = true).partitionBy(TGraphPartitioning(strategy, runWidth, 0))
+        HybridGraph.fromRDDs(vs, es, true, StorageLevel.MEMORY_ONLY_SER, coalesced = true).partitionBy(TGraphPartitioning(strategy, runWidth, 0))
       case "VE" =>
-        VEGraph.fromRDDs(vs, es, null, StorageLevel.MEMORY_ONLY_SER, coalesced = true)
+        VEGraph.fromRDDs(vs, es, true, StorageLevel.MEMORY_ONLY_SER, coalesced = true)
     }
 
   }

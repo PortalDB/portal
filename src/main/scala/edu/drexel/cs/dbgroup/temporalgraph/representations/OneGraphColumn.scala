@@ -90,9 +90,8 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
   override protected def aggregateByChange(c: ChangeSpec, vgroupby: (VertexId, VD) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): OneGraphColumn[VD, ED] = {
     //if we only have the structure, we can do efficient aggregation with the graph
     //otherwise just use the parent
-    //FIXME: find a better way to tell there's only structure
     defaultValue match {
-      case null if (vgroupby == vgb) => aggregateByChangeStructureOnly(c, vquant, equant)
+      case a: StructureOnlyAttr if (vgroupby == vgb) => aggregateByChangeStructureOnly(c, vquant, equant)
       case _ => super.aggregateByChange(c, vgroupby, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[OneGraphColumn[VD,ED]]
     }
   }
@@ -161,7 +160,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
 
   override def union(other: TGraph[VD, ED]): OneGraphColumn[Set[VD],Set[ED]] = {
     defaultValue match {
-      case null => unionStructureOnly(other)
+      case a: StructureOnlyAttr => unionStructureOnly(other)
       case _ => super.union(other).asInstanceOf[OneGraphColumn[Set[VD],Set[ED]]]
     }
   }
@@ -249,7 +248,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
   override def intersection(other: TGraph[VD, ED]): OneGraphColumn[Set[VD],Set[ED]] = {
     //TODO: find a better way to do this
     defaultValue match {
-      case null => intersectionStructureOnly(other)
+      case a: StructureOnlyAttr => intersectionStructureOnly(other)
       case _ => super.intersection(other).asInstanceOf[OneGraphColumn[Set[VD],Set[ED]]]
     }
   }

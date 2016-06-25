@@ -121,10 +121,10 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], ve
 
     //now we can create new graphs
     //to enforce constraint on edges, subgraph vertices that have default attribute value
-    val defval = defaultValue
-    val vp = (vid: VertexId, attr: VD) => attr != defval
+    val vp = (vid: VertexId, attr: VD) => attr != null
     val newGraphs: ParSeq[Graph[VD, ED]] = reduced.map { case (vs, es) =>
-      Graph(vs.mapValues(v => v._1), es.map(e => Edge(e._1._1, e._1._2, e._2._1)), defaultValue, storageLevel, storageLevel).subgraph(epred = et => true, vpred = vp)
+      val g = Graph(vs.mapValues(v => v._1), es.map(e => Edge(e._1._1, e._1._2, e._2._1)), null.asInstanceOf[VD], storageLevel, storageLevel)
+      if (vquant.threshold <= equant.threshold) g else g.subgraph(epred = et => true, vpred = vp)
     }
 
     val newIntervals: RDD[Interval] = intervals.zipWithIndex.map(x => ((x._2 / size), x._1)).reduceByKey((a,b) => Interval(TempGraphOps.minDate(a.start, b.start), TempGraphOps.maxDate(a.end, b.end))).sortBy(c => c._1, true).map(x => x._2)

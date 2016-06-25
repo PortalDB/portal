@@ -122,7 +122,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
     //otherwise just use the parent
     //FIXME: find a better way to tell there's only structure
     defaultValue match {
-      case null if (vgroupby == vgb) => aggregateByChangeStructureOnly(c, vquant, equant)
+      case a: StructureOnlyAttr if (vgroupby == vgb) => aggregateByChangeStructureOnly(c, vquant, equant)
       case _ => super.aggregateByChange(c, vgroupby, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[HybridGraph[VD,ED]]
     }
   }
@@ -242,7 +242,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
 
   override def union(other: TGraph[VD, ED]): HybridGraph[Set[VD],Set[ED]] = {
     defaultValue match {
-      case null => unionStructureOnly(other)
+      case a: StructureOnlyAttr => unionStructureOnly(other)
       case _ => super.union(other).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
     }
   }
@@ -397,7 +397,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
 
   override def intersection(other: TGraph[VD, ED]): HybridGraph[Set[VD], Set[ED]] = {
     defaultValue match {
-      case null => intersectionStructureOnly(other)
+      case a: StructureOnlyAttr => intersectionStructureOnly(other)
       case _ => super.intersection(other).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
     }
   }
