@@ -58,13 +58,13 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], ve
   /** Query operations */
 
   override def slice(bound: Interval): SnapshotGraphParallel[VD, ED] = {
-    if (graphs.size < 1) return super.slice(bound).asInstanceOf[SnapshotGraphParallel[VD,ED]]
     if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
 
     if (!span.intersects(bound)) {
       return SnapshotGraphParallel.emptyGraph[VD,ED](defaultValue)
     }
 
+    if (graphs.size < 1) computeGraphs()
     val startBound = if (bound.start.isAfter(span.start)) bound.start else span.start
     val endBound = if (bound.end.isBefore(span.end)) bound.end else span.end
     val selectBound:Interval = Interval(startBound, endBound)
@@ -133,24 +133,18 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], ve
   }
 
   override def project[ED2: ClassTag, VD2: ClassTag](emap: Edge[ED] => ED2, vmap: (VertexId, VD) => VD2, defVal: VD2): SnapshotGraphParallel[VD2, ED2] = {
-    if (graphs.size > 0)
-      new SnapshotGraphParallel(intervals, allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vmap(vid, attr)))}, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, emap(Edge(ids._1, ids._2, attr))))}, graphs.map(g => g.mapVertices(vmap).mapEdges(emap)), defVal, storageLevel, false)
-    else
-      super.project(emap, vmap, defVal).asInstanceOf[SnapshotGraphParallel[VD2,ED2]]
+    if (graphs.size < 1) computeGraphs()
+    SnapshotGraphParallel.fromGraphs(intervals, graphs.map(g => g.mapVertices(vmap).mapEdges(emap)), defVal, storageLevel)
   }
 
   override def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): SnapshotGraphParallel[VD2, ED] = {
-    if (graphs.size > 0)
-      new SnapshotGraphParallel(intervals, allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, intv, attr)))}, allEdges, graphs.zip(intervals.collect).map(g => g._1.mapVertices((vid, attr) => map(vid, g._2, attr))), defaultValue, storageLevel, false)
-    else
-      super.mapVertices(map, defVal).asInstanceOf[SnapshotGraphParallel[VD2,ED]]
+    if (graphs.size < 1) computeGraphs()
+    SnapshotGraphParallel.fromGraphs(intervals, graphs.zip(intervals.collect).map(g => g._1.mapVertices((vid, attr) => map(vid, g._2, attr))), defVal, storageLevel)
   }
 
   override def mapEdges[ED2: ClassTag](map: (Interval, Edge[ED]) => ED2): SnapshotGraphParallel[VD, ED2] = {
-    if (graphs.size > 0)
-      new SnapshotGraphParallel(intervals, allVertices, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(intv, Edge(ids._1, ids._2, attr))))}, graphs.zip(intervals.collect).map(g => g._1.mapEdges(e => map(g._2, e))), defaultValue, storageLevel, false)
-    else
-      super.mapEdges(map).asInstanceOf[SnapshotGraphParallel[VD,ED2]]
+    if (graphs.size < 1) computeGraphs()
+    SnapshotGraphParallel.fromGraphs(intervals, graphs.zip(intervals.collect).map(g => g._1.mapEdges(e => map(g._2, e))), defaultValue, storageLevel)
   }
 
   override def union(other: TGraph[VD, ED]): SnapshotGraphParallel[Set[VD], Set[ED]] = {

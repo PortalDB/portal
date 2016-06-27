@@ -59,10 +59,11 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
   /** Query operations */
   
   override def slice(bound: Interval): HybridGraph[VD, ED] = {
-    if (graphs.size < 1) return super.slice(bound).asInstanceOf[HybridGraph[VD,ED]]
     if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
     
     if (span.intersects(bound)) {
+      if (graphs.size < 1) computeGraphs()
+
       val startBound = maxDate(span.start, bound.start)
       val endBound = minDate(span.end, bound.end)
       val selectBound:Interval = Interval(startBound, endBound)
@@ -220,24 +221,15 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
   }
 
   override def project[ED2: ClassTag, VD2: ClassTag](emap: Edge[ED] => ED2, vmap: (VertexId, VD) => VD2, defVal: VD2): HybridGraph[VD2, ED2] = {
-    if (graphs.size > 0)
-      new HybridGraph(intervals, allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vmap(vid, attr)))}, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, emap(Edge(ids._1, ids._2, attr))))}, widths, graphs, defVal, storageLevel, false)
-    else
-      super.project(emap, vmap, defVal).asInstanceOf[HybridGraph[VD2,ED2]]
+    new HybridGraph(intervals, allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vmap(vid, attr)))}, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, emap(Edge(ids._1, ids._2, attr))))}, widths, graphs, defVal, storageLevel, false)
   }
 
   override def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): HybridGraph[VD2, ED] = {
-    if (graphs.size > 0)
-      new HybridGraph(intervals, allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, intv, attr)))}, allEdges, widths, graphs, defaultValue, storageLevel, false)
-    else
-      super.mapVertices(map, defVal).asInstanceOf[HybridGraph[VD2,ED]]
+    new HybridGraph(intervals, allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, intv, attr)))}, allEdges, widths, graphs, defaultValue, storageLevel, false)
   }
 
   override def mapEdges[ED2: ClassTag](map: (Interval, Edge[ED]) => ED2): HybridGraph[VD, ED2] = {
-    if (graphs.size > 0)
-      new HybridGraph(intervals, allVertices, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(intv, Edge(ids._1, ids._2, attr))))}, widths, graphs, defaultValue, storageLevel, false)
-    else
-      super.mapEdges(map).asInstanceOf[HybridGraph[VD,ED2]]
+    new HybridGraph(intervals, allVertices, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(intv, Edge(ids._1, ids._2, attr))))}, widths, graphs, defaultValue, storageLevel, false)
   }
 
   override def union(other: TGraph[VD, ED]): HybridGraph[Set[VD],Set[ED]] = {

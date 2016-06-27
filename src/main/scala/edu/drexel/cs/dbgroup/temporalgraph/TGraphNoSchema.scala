@@ -563,17 +563,17 @@ object TGraphNoSchema {
       }, preservesPartitioning = true)
 
     } else {
-      //TODO: coalesce structure first so that edges are not split up
-        val coalescV = verts.mapValues(_._1)
+      //coalesce structure first so that edges are not split up
+      val coalescV = TGraphNoSchema.coalesceStructure(verts)
 
-        //get edges that are valid for each of their two vertices
-        edgs.map(e => (e._1._1, e))
-          .join(coalescV) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
-          .filter{case (vid, (e, v)) => e._2._1.intersects(v) } //this keeps only matches of vertices and edges where periods overlap
-          .map{case (vid, (e, v)) => (e._1._2, (e, v))}       //((e._1, e._2._1), (e._2._2, v))}
-          .join(coalescV) //this creates RDD[(VertexId, ((((VertexId, VertexId), (Interval, ED)), Interval), Interval)
-          .filter{ case (vid, (e, v)) => e._1._2._1.intersects(v) && e._2.intersects(v)}
-          .map{ case (vid, (e, v)) => (e._1._1, (Interval(TempGraphOps.maxDate(v.start, e._1._2._1.start, e._2.start), TempGraphOps.minDate(v.end, e._1._2._1.end, e._2.end)), e._1._2._2))}
+      //get edges that are valid for each of their two vertices
+      edgs.map(e => (e._1._1, e))
+        .join(coalescV) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
+        .filter{case (vid, (e, v)) => e._2._1.intersects(v) } //this keeps only matches of vertices and edges where periods overlap
+        .map{case (vid, (e, v)) => (e._1._2, (e, v))}       //((e._1, e._2._1), (e._2._2, v))}
+        .join(coalescV) //this creates RDD[(VertexId, ((((VertexId, VertexId), (Interval, ED)), Interval), Interval)
+        .filter{ case (vid, (e, v)) => e._1._2._1.intersects(v) && e._2.intersects(v)}
+        .map{ case (vid, (e, v)) => (e._1._1, (Interval(TempGraphOps.maxDate(v.start, e._1._2._1.start, e._2.start), TempGraphOps.minDate(v.end, e._1._2._1.end, e._2.end)), e._1._2._2))}
     }
   }
 
