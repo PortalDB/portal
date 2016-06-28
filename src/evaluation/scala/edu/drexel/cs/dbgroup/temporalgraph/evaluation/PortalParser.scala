@@ -208,7 +208,7 @@ object Interpreter {
         val gr2 = parseSelect(g2)
         val countStart = System.currentTimeMillis()
 
-        val res = gr1.union(gr2).partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]].persist(StorageLevel.MEMORY_ONLY_SER)
+        val res = gr1.union(gr2).partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
         val countEnd = System.currentTimeMillis()
         val total = countEnd - countStart
         println(f"Union Runtime: $total%dms ($argNum%d)")
@@ -220,7 +220,7 @@ object Interpreter {
         val gr2 = parseSelect(g2)
         val countStart = System.currentTimeMillis()
 
-        val res = gr1.intersection(gr2).partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]].persist(StorageLevel.MEMORY_ONLY_SER)
+        val res = gr1.intersection(gr2).partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
         val countEnd = System.currentTimeMillis()
         val total = countEnd - countStart
         println(f"Intersection Runtime: $total%dms ($argNum%d)")
@@ -241,7 +241,7 @@ object Interpreter {
           case t: TWhere => {
             val gr = parseGraph(g)
             val opStart = System.currentTimeMillis()
-            val res = gr.slice(Interval(t.start, t.end)).partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]].persist(StorageLevel.MEMORY_ONLY_SER)
+            val res = gr.slice(Interval(t.start, t.end)).partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
             val opEnd = System.currentTimeMillis()
             val total = opEnd - opStart
             println(f"Slice Runtime: $total%dms ($argNum%d)")
@@ -254,7 +254,7 @@ object Interpreter {
             }
             val gr = parseGraph(g)
             val opStart = System.currentTimeMillis()
-            val res = gr.select(vpred = vp).partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]].persist(StorageLevel.MEMORY_ONLY_SER)
+            val res = gr.select(vpred = vp).partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
             val opEnd = System.currentTimeMillis()
             val total = opEnd - opStart
             println(f"Subgraph Runtime: $total%dms ($argNum%d)")
@@ -350,7 +350,7 @@ object Interpreter {
           case _ => gr
         }
 
-        val agg = mpd.aggregate(spec, gbp.vsem.value, gbp.esem.value, fun1, fun2)().partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]].persist(StorageLevel.MEMORY_ONLY_SER)
+        val agg = mpd.aggregate(spec, gbp.vsem.value, gbp.esem.value, fun1, fun2)().partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
 
         val res: TGraphNoSchema[Any,Any] = gbp.vfun match {
           case td: TrendFunc => agg.mapVertices((vid, intv, attr) => LinearTrendEstimate.calculateSlopeFromIntervals(attr.asInstanceOf[Map[Interval,Double]]), 0.0)
@@ -377,9 +377,9 @@ object Interpreter {
   def load(name: String): TGraphNoSchema[Any,Any] = {
     val selStart = System.currentTimeMillis()
     val res = if (name.endsWith("structure")) {
-      GraphLoader.loadStructureOnlyParquet(PortalShell.uri + "/" + name.dropRight("structure".length)).asInstanceOf[TGraphNoSchema[Any,Any]].persist(StorageLevel.MEMORY_ONLY_SER)
+      GraphLoader.loadStructureOnlyParquet(PortalShell.uri + "/" + name.dropRight("structure".length)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
     } else
-      GraphLoader.loadDataParquet(PortalShell.uri + "/" + name).persist(StorageLevel.MEMORY_ONLY_SER)
+      GraphLoader.loadDataParquet(PortalShell.uri + "/" + name)//.persist(StorageLevel.MEMORY_ONLY_SER)
     if (PortalShell.warmStart)
       res.materialize
     val selEnd = System.currentTimeMillis()
@@ -393,7 +393,7 @@ object Interpreter {
     com match {
       case Pagerank(dir, tol, res, numIter) => {
         val prStart = System.currentTimeMillis()
-        val result = gr.pageRank(dir.value, tol, res, numIter.toInt).asInstanceOf[TGraphNoSchema[Any,Any]].persist(StorageLevel.MEMORY_ONLY_SER)
+        val result = gr.pageRank(dir.value, tol, res, numIter.toInt).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
         val prEnd = System.currentTimeMillis()
         val total = prEnd - prStart
         println(f"PageRank Runtime: $total%dms ($argNum%d)")
@@ -413,7 +413,7 @@ object Interpreter {
       case ConnectedComponents() => {
         val conStart = System.currentTimeMillis()
 
-        val result = gr.connectedComponents().asInstanceOf[TGraphNoSchema[Any,Any]].persist(StorageLevel.MEMORY_ONLY_SER)
+        val result = gr.connectedComponents().asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
         val conEnd = System.currentTimeMillis()
         val total = conEnd - conStart
         println(f"ConnectedComponents Runtime: $total%dms ($argNum%d)")
@@ -423,7 +423,7 @@ object Interpreter {
       case ShortestPaths(dir, ids) => {
         val spStart = System.currentTimeMillis()
 
-        val result = gr.shortestPaths(dir.value, ids.map(_.toLong)).asInstanceOf[TGraphNoSchema[Any,Any]].persist(StorageLevel.MEMORY_ONLY_SER)
+        val result = gr.shortestPaths(dir.value, ids.map(_.toLong)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
         val spEnd = System.currentTimeMillis()
         val total = spEnd - spStart
         println(f"ShortestPaths Runtime: $total%dms ($argNum%d)")
