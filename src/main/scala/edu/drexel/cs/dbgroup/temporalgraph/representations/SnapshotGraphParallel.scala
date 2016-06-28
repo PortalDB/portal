@@ -74,7 +74,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], ve
     val selectStop:Int = zipped.max._2.toInt
     val newIntvs: RDD[Interval] = zipped.map(x => x._1)
 
-    new SnapshotGraphParallel(newIntvs, allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), allEdges.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}.mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), graphs.slice(selectStart, selectStop+1), defaultValue, storageLevel, coalesced)
+    SnapshotGraphParallel.fromGraphs(newIntvs, graphs.slice(selectStart, selectStop+1), defaultValue, storageLevel)
 
   }
 
