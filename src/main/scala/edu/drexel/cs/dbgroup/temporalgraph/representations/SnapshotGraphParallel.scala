@@ -95,13 +95,6 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], ve
     else
       graphs.zip(intervalsc).map(g => List(g))
 
-    implicit val ord = TempGraphOps.dateOrdering
-    val combine = (lst: List[Interval]) => lst.sortBy(x => x.start).foldLeft(List[Interval]()){ (r,c) => r match {
-      case head :: tail =>
-        if (head.intersects(c)) Interval(head.start, TempGraphOps.maxDate(head.end, c.end)) :: tail else c :: head :: tail
-      case Nil => List(c)
-    }}
-
     //for each group, reduce into vertices and edges
     //compute new value, filter by quantification
     val reduced: ParSeq[(RDD[(VertexId, (VD, List[Interval]))], RDD[((VertexId, VertexId),(ED, List[Interval]))])] = groups.map(group => 
@@ -113,9 +106,9 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], ve
         //reduce by key with aggregate functions
     ).map{ case (vs, es, intv) =>
         (vs.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 ++ b._2))
-          .filter(v => vquant.keep(combine(v._2._2).map(ii => ii.ratio(intv)).reduce(_ + _))),
+          .filter(v => vquant.keep(TempGraphOps.combine(v._2._2).map(ii => ii.ratio(intv)).reduce(_ + _))),
           es.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 ++ b._2))
-          .filter(e => equant.keep(combine(e._2._2).map(ii => ii.ratio(intv)).reduce(_ + _)))
+          .filter(e => equant.keep(TempGraphOps.combine(e._2._2).map(ii => ii.ratio(intv)).reduce(_ + _)))
         )
     }
 
@@ -130,6 +123,47 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], ve
     val newIntervals: RDD[Interval] = intervals.zipWithIndex.map(x => ((x._2 / size), x._1)).reduceByKey((a,b) => Interval(TempGraphOps.minDate(a.start, b.start), TempGraphOps.maxDate(a.end, b.end))).sortBy(c => c._1, true).map(x => x._2)
 
     SnapshotGraphParallel.fromGraphs(newIntervals, newGraphs, defaultValue, storageLevel)
+  }
+
+  override def aggregateByTime(c: TimeSpec, vgroupby: (VertexId, VD) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED] = {
+    //TODO: rewrite to use the RDD instead of seq
+    val intervalsc = intervals.collect
+
+    //we need groups of graphs
+    //each graph may map into 1 or more new intervals
+    val start = span.start
+    if (graphs.size < 1) computeGraphs()
+    val groups: ParSeq[(Interval, ParSeq[(Graph[VD, ED], Interval)])] = graphs.zip(intervalsc).flatMap{ case (g,ii) => ii.split(c.res, start).map(x => (x._2, (g, ii)))}.groupBy(_._1).toList.map(x => (x._1, x._2.map(y => y._2))).par
+
+    //for each group, reduce into vertices and edges
+    //compute new value, filter by quantification
+    val reduced: ParSeq[(RDD[(VertexId, (VD, List[Interval]))], RDD[((VertexId, VertexId),(ED, List[Interval]))])] = groups.map{ case (intv, group) => 
+      group.map{ case (g,ii) => 
+        //map each vertex into its new key
+        (g.vertices.map{ case (vid, vattr) => (vgroupby(vid, vattr), (vattr, List(ii)))}, 
+          g.triplets.map{ e => ((vgroupby(e.srcId, e.srcAttr), vgroupby(e.dstId, e.dstAttr)), (e.attr, List(ii)))}, intv)}
+        .reduce((a: (RDD[(VertexId, (VD, List[Interval]))], RDD[((VertexId, VertexId), (ED, List[Interval]))], Interval), b: (RDD[(VertexId, (VD, List[Interval]))], RDD[((VertexId, VertexId),(ED, List[Interval]))], Interval)) => (a._1.union(b._1), a._2.union(b._2), a._3))
+        //reduce by key with aggregate functions
+    }.map{ case (vs, es, intv) =>
+        (vs.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 ++ b._2))
+          .filter(v => vquant.keep(TempGraphOps.combine(v._2._2).map(ii => ii.ratio(intv)).reduce(_ + _))),
+          es.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 ++ b._2))
+          .filter(e => equant.keep(TempGraphOps.combine(e._2._2).map(ii => ii.ratio(intv)).reduce(_ + _)))
+        )
+    }
+
+    //now we can create new graphs
+    //to enforce constraint on edges, subgraph vertices that have default attribute value
+    val vp = (vid: VertexId, attr: VD) => attr != null
+    val newGraphs: ParSeq[Graph[VD, ED]] = reduced.map { case (vs, es) =>
+      val g = Graph(vs.mapValues(v => v._1), es.map(e => Edge(e._1._1, e._1._2, e._2._1)), null.asInstanceOf[VD], storageLevel, storageLevel)
+      if (vquant.threshold <= equant.threshold) g else g.subgraph(epred = et => true, vpred = vp)
+    }
+
+    val newIntervals: RDD[Interval] = ProgramContext.sc.parallelize(span.split(c.res, start).map(_._2).reverse)
+
+    SnapshotGraphParallel.fromGraphs(newIntervals, newGraphs, defaultValue, storageLevel)
+
   }
 
   override def project[ED2: ClassTag, VD2: ClassTag](emap: Edge[ED] => ED2, vmap: (VertexId, VD) => VD2, defVal: VD2): SnapshotGraphParallel[VD2, ED2] = {

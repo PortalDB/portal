@@ -13,7 +13,7 @@ import edu.drexel.cs.dbgroup.temporalgraph._
 import edu.drexel.cs.dbgroup.temporalgraph.util.{LinearTrendEstimate, GraphLoader}
 
 object PortalParser extends StandardTokenParsers with PackratParsers {
-  lexical.reserved += ("select", "from", "union", "intersection", "min", "max", "sum", "any", "all", "exists", "directed", "undirected", "vertices", "edges", "group", "by", "with", "return", "compute", "pagerank", "degree", "components", "count", "id", "attr", "trend", "list", "ave", "year", "month", "day", "changes", "start", "end", "where", "and", "length", "value", "spaths", "months", "days", "years",
+  lexical.reserved += ("select", "from", "union", "intersection", "min", "max", "sum", "any", "all", "exists", "directed", "undirected", "vertices", "edges", "group", "by", "with", "return", "compute", "pagerank", "degree", "components", "count", "id", "attr", "trend", "list", "ave", "year", "month", "day", "changes", "start", "end", "where", "and", "length", "value", "spaths", "months", "days", "years", "project", "first", "second",
     //these are for debugging and testing
     "materialize")
   lexical.delimiters ++= List("-", "=", ".", "<", ">", "(", ")", "+", ",")
@@ -55,6 +55,7 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
     "select" ~> "from" ~> graph ~ compute ^^ { case g ~ cmp => new SCompute(g, cmp) }
       | "select" ~> "from" ~> graph ~ where ^^ { case g ~ w => new SWhere(g, w) }
       | "select" ~> "from" ~> graph ~ groupby ^^ { case g ~ gpb => new SGroupBy(g, gpb) }
+      | "select" ~> "from" ~> graph ~ "project" ~ entity ~ projfunction ^^ { case g ~ _ ~ e ~ pr => new SProject(g, e, pr) }
       | "select" ~> "from" ~> graph ^^ { case g => new Select(g) }
   )
 
@@ -76,6 +77,11 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
   //TODO: add vgroupby
   //TODO: add group by size
   lazy val groupby = ("group" ~> "by" ~> numericLit ~ period ~ "vertices" ~ semantics ~ function ~ "edges" ~ semantics ~ function ^^ { case num ~ per ~ _ ~ vsem ~ vfunc ~ _ ~ esem ~ efunc => new GroupBy(num, per, vsem, vfunc, esem, efunc)})
+
+  lazy val projfunction = ("first" ^^^ ProjectFirst()
+    | "second" ^^^ ProjectSecond()
+    | "length" ^^^ ProjectLength()
+  )
 
   lazy val graph = ("(" ~> select <~ ")" ^^ { case s => Nested(s) }
     | stringLit ^^ { case s => DataSet(s) }
@@ -363,6 +369,76 @@ object Interpreter {
         argNum += 1
         res
       }
+      case SProject(g, e, f) => {
+        val gr = parseGraph(g)
+        val opStart = System.currentTimeMillis()
+        val vm = (vid:Long, attr:Any) => {
+          attr match {
+            case t: (Any,Any) => f match {
+              case f: ProjectFirst => t._1
+              case s: ProjectSecond => t._2
+              case l: ProjectLength => 2
+            }
+            case s: Set[Any] => f match {
+              case f: ProjectFirst => s.head
+              case se: ProjectSecond => s.tail
+              case l: ProjectLength => s.size
+            }
+            case st: String => f match {
+              case f: ProjectLength => st.length
+              case _ => throw new IllegalArgumentException("unsupported function + " + f + " for string attributes")
+            }
+            case _ => throw new IllegalArgumentException("project not supported for this attribute type")
+          }
+        }
+        val em = (e: Edge[Any]) => {
+          e.attr match {
+            case t: (Any,Any) => f match {
+              case f: ProjectFirst => t._1
+              case s: ProjectSecond => t._2
+              case l: ProjectLength => 2
+            }
+            case s: Set[Any] => f match {
+              case f: ProjectFirst => s.head
+              case se: ProjectSecond => s.tail
+              case l: ProjectLength => s.size
+            }
+            case st: String => f match {
+              case f: ProjectLength => st.length
+              case _ => throw new IllegalArgumentException("unsupported function + " + f + " for string attributes")
+            }
+            case _ => throw new IllegalArgumentException("project not supported for this attribute type")
+          }
+        }
+
+        val res = e match {
+          case v: Vertices => {
+            val dfv = gr.defaultValue match {
+              case t: (Any,Any) => f match {
+                case f: ProjectFirst => t._1
+                case s: ProjectSecond => t._2
+                case l: ProjectLength => 0
+              }
+              case s: Set[Any] => f match {
+                case l: ProjectLength => 0
+                case _ => s.head
+              }
+              case st: String => f match {
+                case f: ProjectLength => 0
+                case _ => throw new IllegalArgumentException("unsupported function " + f + " on string attribute")
+              }
+              case _ => throw new IllegalArgumentException("project not supported for this attribute type")
+            }
+            gr.project(emap = e => e.attr, vmap = vm, dfv)
+          }
+          case ed: Edges => gr.project(emap = em, vmap = (vid, attr) => attr, gr.defaultValue)
+        }
+        val opEnd = System.currentTimeMillis()
+        val total = opEnd - opStart
+        println(f"Project Runtime: $total%dms ($argNum%d)")
+        argNum += 1
+        res
+      }
       case s: Select => parseGraph(s.graph)
     }
   }
@@ -458,6 +534,7 @@ class Select(data: Graph) extends Serializable {
 case class SCompute(data: Graph, com: Compute) extends Select(data)
 case class SWhere(data: Graph, w: Where) extends Select(data)
 case class SGroupBy(data: Graph, g: GroupBy) extends Select(data)
+case class SProject(data: Graph, e: Entity, f: ProjectFunction) extends Select(data)
 
 sealed abstract class Graph
 case class DataSet(name: String) extends Graph
@@ -555,6 +632,11 @@ case class AnyFunc() extends Function
 case class TrendFunc() extends Function
 case class AverageFunc() extends Function
 case class ListFunc() extends Function
+
+sealed abstract class ProjectFunction extends Serializable
+case class ProjectFirst() extends ProjectFunction
+case class ProjectSecond() extends ProjectFunction
+case class ProjectLength() extends ProjectFunction
 
 sealed abstract class Semantics {
   def value: Quantification

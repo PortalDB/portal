@@ -546,6 +546,7 @@ object TGraphNoSchema {
     //TODO: pull this logic into query optimization or use DataFrames so that sql can do it automatically
     if (verts.countApprox(2).getFinalValue.high < 10000000) {
       //coalesce before collect
+      //TODO: use future so that this broadcast only happens if we need edges
       val bverts = ProgramContext.sc.broadcast(verts.aggregateByKey(List[Interval]())(seqOp = (u,v) => v._1 :: u, combOp = (u1,u2) => u1 ++ u2).mapValues(_.sorted.foldLeft(List[Interval]()){ (r,c) => r match {
         case head :: tail =>
           if (head.end == c.start) Interval(head.start, c.end) :: tail

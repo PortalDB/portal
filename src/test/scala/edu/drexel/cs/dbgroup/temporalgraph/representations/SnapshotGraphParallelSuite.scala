@@ -78,8 +78,8 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
     SGP.materialize
     var actualSGP = SGP.slice(sliceInterval)
 
-    assert(expectedSGP.vertices.collect() === actualSGP.vertices.collect())
-    assert(expectedSGP.edges.collect() === actualSGP.edges.collect())
+    assert(expectedSGP.vertices.collect().toSet === actualSGP.vertices.collect().toSet)
+    assert(expectedSGP.edges.collect().toSet === actualSGP.edges.collect().toSet)
     assert(expectedSGP.getTemporalSequence.collect === actualSGP.getTemporalSequence.collect)
     info("regular cases passed")
 
