@@ -45,5 +45,14 @@ object TempGraphOps extends Serializable {
       .sliding(2)
       .map(x => Interval(x(0), x(1)))
   }
+
+  def combine(lst: List[Interval]): List[Interval] = {
+    implicit val ord = dateOrdering
+    lst.sortBy(x => x.start).foldLeft(List[Interval]()){ (r,c) => r match {
+      case head :: tail =>
+        if (head.intersects(c)) Interval(head.start, TempGraphOps.maxDate(head.end, c.end)) :: tail else c :: head :: tail
+      case Nil => List(c)
+    }}
+  }
   
 }

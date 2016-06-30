@@ -453,6 +453,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
   override def persist(newLevel: StorageLevel = MEMORY_ONLY): TGraphNoSchema[VD, ED] = {
     allVertices.persist(newLevel)
     allEdges.persist(newLevel)
+    intervals.persist(newLevel)
     this
   }
 
@@ -545,6 +546,7 @@ object TGraphNoSchema {
     //TODO: pull this logic into query optimization or use DataFrames so that sql can do it automatically
     if (verts.countApprox(2).getFinalValue.high < 10000000) {
       //coalesce before collect
+      //TODO: use future so that this broadcast only happens if we need edges
       val bverts = ProgramContext.sc.broadcast(verts.aggregateByKey(List[Interval]())(seqOp = (u,v) => v._1 :: u, combOp = (u1,u2) => u1 ++ u2).mapValues(_.sorted.foldLeft(List[Interval]()){ (r,c) => r match {
         case head :: tail =>
           if (head.end == c.start) Interval(head.start, c.end) :: tail
@@ -563,17 +565,44 @@ object TGraphNoSchema {
       }, preservesPartitioning = true)
 
     } else {
-      //TODO: coalesce structure first so that edges are not split up
-        val coalescV = verts.mapValues(_._1)
+      //coalesce structure first so that edges are not split up
+      //val coalescV = TGraphNoSchema.coalesceStructure(verts).partitionBy(new HashPartitioner(edgs.getNumPartitions))
 
-        //get edges that are valid for each of their two vertices
-        edgs.map(e => (e._1._1, e))
-          .join(coalescV) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
-          .filter{case (vid, (e, v)) => e._2._1.intersects(v) } //this keeps only matches of vertices and edges where periods overlap
-          .map{case (vid, (e, v)) => (e._1._2, (e, v))}       //((e._1, e._2._1), (e._2._2, v))}
-          .join(coalescV) //this creates RDD[(VertexId, ((((VertexId, VertexId), (Interval, ED)), Interval), Interval)
-          .filter{ case (vid, (e, v)) => e._1._2._1.intersects(v) && e._2.intersects(v)}
-          .map{ case (vid, (e, v)) => (e._1._1, (Interval(TempGraphOps.maxDate(v.start, e._1._2._1.start, e._2.start), TempGraphOps.minDate(v.end, e._1._2._1.end, e._2.end)), e._1._2._2))}
+      implicit val ord = TempGraphOps.dateOrdering
+      val coalescV: RDD[(VertexId, List[Interval])] = verts.mapValues(_._1)
+        .partitionBy(new HashPartitioner(verts.getNumPartitions))
+        .groupByKey.mapValues{ seq =>
+        seq.toSeq.sortBy(x => x.start)
+          .foldLeft(List[Interval]()){ (r,c) => r match {
+            case head :: tail =>
+              if (head.end == c.start) Interval(head.start, c.end) :: tail
+              else c :: r
+            case Nil => List(c)
+          }
+        }}
+
+      val g = Graph(coalescV, edgs.map(x => Edge(x._1._1, x._1._2, x._2)))
+        .subgraph(vpred = (vid, attr) => attr != null, epred = e => {
+          val l1 = e.srcAttr.filter(ii => e.attr._1.intersects(ii))
+          val l2 = e.dstAttr.filter(ii => e.attr._1.intersects(ii))
+          if (l1.size > 0 && l2.size > 0 && l1.head.intersects(l2.head)) true else false
+        })
+      g.triplets.map{e =>
+        val l1 = e.srcAttr.filter(ii => e.attr._1.intersects(ii))
+        val l2 = e.dstAttr.filter(ii => e.attr._1.intersects(ii))
+        ((e.srcId, e.dstId), (Interval(TempGraphOps.maxDate(e.attr._1.start, l1.head.start, l2.head.start), TempGraphOps.minDate(e.attr._1.end, l1.head.end, l2.head.end)), e.attr._2))
+      }
+
+/*
+      //get edges that are valid for each of their two vertices
+      edgs.map(e => (e._1._1, e))
+        .join(coalescV) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
+        .filter{case (vid, (e, v)) => e._2._1.intersects(v) } //this keeps only matches of vertices and edges where periods overlap
+        .map{case (vid, (e, v)) => (e._1._2, (e, v))}       //((e._1, e._2._1), (e._2._2, v))}
+        .join(coalescV) //this creates RDD[(VertexId, ((((VertexId, VertexId), (Interval, ED)), Interval), Interval)
+        .filter{ case (vid, (e, v)) => e._1._2._1.intersects(v) && e._2.intersects(v)}
+        .map{ case (vid, (e, v)) => (e._1._1, (Interval(TempGraphOps.maxDate(v.start, e._1._2._1.start, e._2.start), TempGraphOps.minDate(v.end, e._1._2._1.end, e._2.end)), e._1._2._2))}
+*/
     }
   }
 

@@ -617,57 +617,57 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
   }
 
   test("aggregateByChange -with structural only") {
-    val users: RDD[(VertexId, (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2017-01-01")), null)),
-      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), null)),
-      (3L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2014-01-01")), null)),
-      (4L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2017-01-01")), null)),
-      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2015-01-01")), null)),
-      (6L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), null)),
-      (7L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2011-01-01")), null)),
-      (8L, (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), null)),
-      (9L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), null))
+    val users: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2017-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), true)),
+      (3L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (4L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2017-01-01")), true)),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2015-01-01")), true)),
+      (6L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), true)),
+      (7L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2011-01-01")), true)),
+      (8L, (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), true)),
+      (9L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), true))
     ))
-    val edges: RDD[((VertexId, VertexId), (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), null)),
-      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), null)),
-      ((1L, 2L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), null)),
-      ((5L, 7L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), null)),
-      ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), null)),
-      ((4L, 9L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), null)),
-      ((4L, 6L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), null))
+    val edges: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), true)),
+      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), true)),
+      ((1L, 2L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), true)),
+      ((5L, 7L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), true)),
+      ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), true)),
+      ((4L, 9L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), true)),
+      ((4L, 6L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), true))
     ))
 
-    val HG = HybridGraph.fromRDDs(users, edges, null, StorageLevel.MEMORY_ONLY_SER)
+    val HG = HybridGraph.fromRDDs(users, edges, true, StorageLevel.MEMORY_ONLY_SER)
     val actualHG = HG.aggregate(new ChangeSpec(1), Exists(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => attr1)()
-    val expectedHG = HybridGraph.fromRDDs(users, edges, null, StorageLevel.MEMORY_ONLY_SER)
+    val expectedHG = HybridGraph.fromRDDs(users, edges, true, StorageLevel.MEMORY_ONLY_SER)
 
     assert(users.collect().toSet === actualHG.vertices.collect().toSet)
     assert(edges.collect().toSet === actualHG.edges.collect().toSet)
     assert(expectedHG.getTemporalSequence.collect === actualHG.getTemporalSequence.collect)
 
     val actualHG2 = HG.aggregate(new ChangeSpec(2), Exists(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => attr1)()
-    val expectedUsers: RDD[(VertexId, (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2017-01-01")), null)),
-      (2L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2018-01-01")), null)),
-      (3L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2015-01-01")), null)),
-      (4L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2017-01-01")), null)),
-      (5L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2015-01-01")), null)),
-      (6L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2015-01-01")), null)),
-      (7L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2011-01-01")), null)),
-      (8L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2017-01-01")), null)),
-      (9L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), null))
+    val expectedUsers: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2017-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2018-01-01")), true)),
+      (3L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2015-01-01")), true)),
+      (4L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2017-01-01")), true)),
+      (5L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2015-01-01")), true)),
+      (6L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2015-01-01")), true)),
+      (7L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2011-01-01")), true)),
+      (8L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2017-01-01")), true)),
+      (9L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), true))
     ))
-    val expectedEdges: RDD[((VertexId, VertexId), (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2015-01-01")), null)),
-      ((3L, 5L), (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2013-01-01")), null)),
-      ((1L, 2L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2017-01-01")), null)),
-      ((5L, 7L), (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2011-01-01")), null)),
-      ((4L, 8L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2017-01-01")), null)),
-      ((4L, 9L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), null)),
-      ((4L, 6L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2015-01-01")), null))
+    val expectedEdges: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 4L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2015-01-01")), true)),
+      ((3L, 5L), (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2013-01-01")), true)),
+      ((1L, 2L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2017-01-01")), true)),
+      ((5L, 7L), (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2011-01-01")), true)),
+      ((4L, 8L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2017-01-01")), true)),
+      ((4L, 9L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), true)),
+      ((4L, 6L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2015-01-01")), true))
     ))
-    val expectedHG2 = HybridGraph.fromRDDs(expectedUsers, expectedEdges, null, StorageLevel.MEMORY_ONLY_SER)
+    val expectedHG2 = HybridGraph.fromRDDs(expectedUsers, expectedEdges, true, StorageLevel.MEMORY_ONLY_SER)
 
     assert(expectedUsers.collect().toSet === actualHG2.vertices.collect().toSet)
     assert(expectedEdges.collect().toSet === actualHG2.edges.collect().toSet)
@@ -675,22 +675,22 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
 
     val actualHG3 = HG.aggregate(new ChangeSpec(2), Always(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => attr1)()
 
-    val expectedUsers3: RDD[(VertexId, (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2017-01-01")), null)),
-      (2L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), null)),
-      (3L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2013-01-01")), null)),
-      (4L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2017-01-01")), null)),
-      (5L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2015-01-01")), null)),
-      (6L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), null)),
-      (7L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2011-01-01")), null))
+    val expectedUsers3: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2017-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), true)),
+      (3L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2013-01-01")), true)),
+      (4L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2017-01-01")), true)),
+      (5L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2015-01-01")), true)),
+      (6L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), true)),
+      (7L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2011-01-01")), true))
     ))
-    val expectedEdges3: RDD[((VertexId, VertexId), (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), null)),
-      ((3L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2013-01-01")), null)),
-      ((1L, 2L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2017-01-01")), null)),
-      ((4L, 6L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), null))
+    val expectedEdges3: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 4L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), true)),
+      ((3L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2013-01-01")), true)),
+      ((1L, 2L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2017-01-01")), true)),
+      ((4L, 6L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), true))
     ))
-    val expectedHG3 = HybridGraph.fromRDDs(expectedUsers3, expectedEdges3, null, StorageLevel.MEMORY_ONLY_SER)
+    val expectedHG3 = HybridGraph.fromRDDs(expectedUsers3, expectedEdges3, true, StorageLevel.MEMORY_ONLY_SER)
 
     assert(expectedUsers3.collect().toSet === actualHG3.vertices.collect().toSet)
     assert(expectedUsers3.collect().toSet === actualHG3.vertices.collect().toSet)
@@ -939,42 +939,42 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     assert(resultHGIntersection.getTemporalSequence.collect === Seq[Interval]())
   }
 
-  test("Union and Intersection - with Null") {
-    val users: RDD[(VertexId, (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null)),
-      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null)),
-      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null)),
-      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null)),
-      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null))
+  test("Union and Intersection - with structure only") {
+    val users: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true))
     ))
 
-    val edges: RDD[((VertexId, VertexId), (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null)),
-      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null)),
-      ((3L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null)),
-      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null)),
-      ((2L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null))
+    val edges: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      ((3L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      ((2L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true))
     ))
 
-    val HG = HybridGraph.fromRDDs(users, edges, null, StorageLevel.MEMORY_ONLY_SER)
+    val HG = HybridGraph.fromRDDs(users, edges, true, StorageLevel.MEMORY_ONLY_SER)
 
-    val users2: RDD[(VertexId, (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), null)),
-      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), null)),
-      (3L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2018-01-01")), null)),
-      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null)),
-      (5L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), null))
+    val users2: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), true)),
+      (3L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2018-01-01")), true)),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (5L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), true))
     ))
 
-    val edges2: RDD[((VertexId, VertexId), (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), null)),
-      ((2L, 3L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), null)),
-      ((3L, 3L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2018-01-01")), null)),
-      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null)),
-      ((5L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), null))
+    val edges2: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), true)),
+      ((2L, 3L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), true)),
+      ((3L, 3L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2018-01-01")), true)),
+      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      ((5L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), true))
     ))
 
-    val HG2 = HybridGraph.fromRDDs(users2, edges2, null, StorageLevel.MEMORY_ONLY_SER)
+    val HG2 = HybridGraph.fromRDDs(users2, edges2, true, StorageLevel.MEMORY_ONLY_SER)
 
     val expectedVerticesUnion: RDD[(VertexId, (Interval, Set[Nothing]))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set())),
@@ -1021,28 +1021,28 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     assert(resultHGIntersection.getTemporalSequence.collect === expectedHGIntersection.getTemporalSequence.collect)
   }
 
-  test("Union and intersection -when there is no overlap between two graphs and has null attributes") {
-    val users: RDD[(VertexId, (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null)),
-      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null))
+  test("Union and intersection -when there is no overlap between two graphs and has no attributes") {
+    val users: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true))
     ))
 
-    val edges: RDD[((VertexId, VertexId), (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null))
+    val edges: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true))
     ))
 
-    val HG = HybridGraph.fromRDDs(users, edges, null, StorageLevel.MEMORY_ONLY_SER)
+    val HG = HybridGraph.fromRDDs(users, edges, true, StorageLevel.MEMORY_ONLY_SER)
 
-    val users2: RDD[(VertexId, (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      (2L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), null)),
-      (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), null))
+    val users2: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (2L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), true)),
+      (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), true))
     ))
 
-    val edges2: RDD[((VertexId, VertexId), (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), null))
+    val edges2: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), true))
     ))
 
-    val HG2 = HybridGraph.fromRDDs(users2, edges2, null, StorageLevel.MEMORY_ONLY_SER)
+    val HG2 = HybridGraph.fromRDDs(users2, edges2, true, StorageLevel.MEMORY_ONLY_SER)
 
     val expectedVerticesUnion: RDD[(VertexId, (Interval, Set[Nothing]))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set())),
@@ -1070,29 +1070,29 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     assert(resultHGIntersection.getTemporalSequence.collect === Seq[Interval]())
   }
 
-  test("Union and intersection -when graph.span.start == graph2.span.end and has null attributes") {
-    val users: RDD[(VertexId, (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null)),
-      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null))
+  test("Union and intersection -when graph.span.start == graph2.span.end and has no attributes") {
+    val users: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true))
     ))
 
-    val edges: RDD[((VertexId, VertexId), (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), null))
+    val edges: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true))
     ))
 
-    val HG = HybridGraph.fromRDDs(users, edges, null, StorageLevel.MEMORY_ONLY_SER)
+    val HG = HybridGraph.fromRDDs(users, edges, true, StorageLevel.MEMORY_ONLY_SER)
 
-    val users2: RDD[(VertexId, (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), null)),
-      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), null)),
-      (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), null))
+    val users2: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), true)),
+      (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), true))
     ))
 
-    val edges2: RDD[((VertexId, VertexId), (Interval, Null))] = ProgramContext.sc.parallelize(Array(
-      ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), null))
+    val edges2: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), true))
     ))
 
-    val HG2 = HybridGraph.fromRDDs(users2, edges2, null, StorageLevel.MEMORY_ONLY_SER)
+    val HG2 = HybridGraph.fromRDDs(users2, edges2, true, StorageLevel.MEMORY_ONLY_SER)
 
     val expectedVerticesUnion: RDD[(VertexId, (Interval, Set[Nothing]))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Set())),

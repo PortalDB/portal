@@ -8,6 +8,11 @@ package object temporalgraph {
     * A time interval identifier, 0-indexed.
     */
   type TimeIndex = Int
+  /**
+    * Attribute of graphs when there are no attributes.
+    * Picked boolean because it is very small in memory
+    */
+  type StructureOnlyAttr = Boolean
 
   trait Quantification extends Serializable {
     def keep(in: Double): Boolean
