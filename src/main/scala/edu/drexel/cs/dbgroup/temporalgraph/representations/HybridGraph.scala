@@ -665,9 +665,11 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
     val combined = (0 to (count-1)).grouped(runWidth).map { intvs =>
       val set = BitSet() ++ intvs
       (intvs.size,
-        Graph(vertsConverted.filter(v => !(set & v._2).isEmpty)
+        Graph(vertsConverted.mapValues(v => set & v)
+	       .filter(v => !v._2.isEmpty)
               .reduceByKey((a,b) => a union b, vreducers),
-          edgesConverted.filter(e => !(set & e._2).isEmpty)
+          edgesConverted.mapValues(e => set & e)
+              .filter(e => !e._2.isEmpty)
               .reduceByKey((a,b) => a union b, ereducers)
               .map(e => Edge(e._1._1, e._1._2, e._2)),
           BitSet(), storLevel, storLevel)
