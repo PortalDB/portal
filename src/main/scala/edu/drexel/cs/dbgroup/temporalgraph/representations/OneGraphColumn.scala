@@ -145,6 +145,73 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       new OneGraphColumn(newIntvs, vs, es, filtered, defaultValue, storageLevel, false)
   }
 
+  override protected def aggregateByTime(c: TimeSpec, vgroupby: (VertexId, VD) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): OneGraphColumn[VD, ED] = {
+    //if we only have the structure, we can do efficient aggregation with the graph
+    //otherwise just use the parent
+    defaultValue match {
+      case a: StructureOnlyAttr if (vgroupby == vgb) => aggregateByTimeStructureOnly(c, vquant, equant)
+      case _ => super.aggregateByTime(c, vgroupby, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[OneGraphColumn[VD,ED]]
+    }
+  }
+
+  private def aggregateByTimeStructureOnly(c: TimeSpec, vquant: Quantification, equant: Quantification): OneGraphColumn[VD, ED] = {
+    val start = span.start
+    if (graphs == null) computeGraph()
+
+    //make a mask which is a mapping of indices to new indices
+    val newIntvs = span.split(c.res, start).map(_._2).reverse
+    //TODO: get rid of collect if possible
+    val indexed = collectedIntervals.zipWithIndex
+
+    //for each index have a range of old indices from smallest to largest, inclusive
+    val countSums = newIntvs.map{ intv =>
+      val tmp = indexed.filter(ii => ii._1.intersects(intv))
+      (tmp.head._2, tmp.last._2)
+    }
+    val empty: Interval = new Interval(LocalDate.MAX, LocalDate.MAX)
+    val newIntvsb = ProgramContext.sc.broadcast(newIntvs)
+    val intvs = ProgramContext.sc.broadcast(collectedIntervals)
+    val countSumsB = ProgramContext.sc.broadcast(countSums)
+
+    val filtered: Graph[BitSet, BitSet] = graphs.mapVertices { (vid, attr) =>
+      BitSet() ++ (0 to countSumsB.value.size-1).flatMap{ case index =>
+        val mask = BitSet((countSumsB.value(index)._1 to countSumsB.value(index)._2): _*)
+        val tt = mask & attr
+        val newintv = newIntvsb.value(index)
+        if (tt.isEmpty)
+          None
+        else if (vquant.keep(tt.toList.map(ii => intvs.value(ii).intersection(newintv).getOrElse(empty).ratio(newintv)).reduce(_ + _)))
+          Some(index)
+        else
+          None
+      }}
+      .subgraph(vpred = (vid, attr) => !attr.isEmpty)
+      .mapEdges{ e =>
+      BitSet() ++ (0 to countSumsB.value.size-1).flatMap{ case index =>
+        val mask = BitSet((countSumsB.value(index)._1 to countSumsB.value(index)._2): _*)
+        val tt = mask & e.attr
+        val newintv = newIntvsb.value(index)
+        if (tt.isEmpty)
+          None
+        else if (equant.keep(tt.toList.map(ii => intvs.value(ii).intersection(newintv).getOrElse(empty).ratio(newintv)).reduce(_ + _)))
+          Some(index)
+        else
+          None
+      }}
+      .mapTriplets(ept => ept.attr & ept.srcAttr & ept.dstAttr)
+      .subgraph(epred = et => !et.attr.isEmpty)
+
+    val tmp: ED = new Array[ED](1)(0)
+    val vs: RDD[(VertexId, (Interval, VD))] = filtered.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), defaultValue)))}
+    val es: RDD[((VertexId, VertexId), (Interval, ED))] = filtered.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp))))
+
+    if (ProgramContext.eagerCoalesce)
+      fromRDDs(vs, es, defaultValue, storageLevel, false)
+    else
+      new OneGraphColumn(ProgramContext.sc.parallelize(newIntvs), vs, es, filtered, defaultValue, storageLevel, false)
+
+  }
+
   override def project[ED2: ClassTag, VD2: ClassTag](emap: Edge[ED] => ED2, vmap: (VertexId, VD) => VD2, defVal: VD2): OneGraphColumn[VD2, ED2] = {
     new OneGraphColumn(intervals, allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vmap(vid, attr)))}, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, emap(Edge(ids._1, ids._2, attr))))}, graphs, defVal, storageLevel, false)
   }
