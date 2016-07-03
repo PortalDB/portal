@@ -157,6 +157,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
         firstERDD = firstERDD.union(graphs(yy).edges)
         numagg = numagg + 1
 
+        if (yy == runsSum.size-1) xx = countsSum.size-1
         //we to go (p)-1 because counts are 1-based but indices are 0-based
         val parts:Seq[(Int,Int,Int)] = (startx to xx).map(p => (countsSum.lift(p-1).getOrElse(0), countsSum(p)-1, p))
         if (numagg > 1) {
@@ -212,7 +213,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
     }
 
     //collect vertices and edges
-    val tmp: ED = new Array[ED](1)(0)
+    val tmp: ED = defaultValue.asInstanceOf[ED]
     val vs = gps.map(g => g.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), defaultValue)))}).reduce(_ union _)
     val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))}).reduce(_ union _)
 
@@ -243,6 +244,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
       val tmp = indexed.filter(ii => ii._1.intersects(intv))
       (tmp.head._2, tmp.last._2)
     }
+
     val runsSum: Seq[Int] = widths.scanLeft(0)(_ + _).tail
     val empty: Interval = new Interval(LocalDate.MAX, LocalDate.MAX)
     val newIntvsb = ProgramContext.sc.broadcast(newIntvs)
@@ -257,13 +259,13 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
     var xx:Int = 0
     var yy:Int = 0
     var runs: Seq[Int] = Seq[Int]()
-
     while (xx < countSums.size && yy < runsSum.size) {
-      if (yy == (runsSum.size - 1) || countSums(xx)._2 == runsSum(yy)) {
+      if (yy == (runsSum.size - 1) || countSums(xx)._2 == runsSum(yy)-1) {
         firstVRDD = firstVRDD.union(graphs(yy).vertices)
         firstERDD = firstERDD.union(graphs(yy).edges)
         numagg = numagg + 1
 
+        if (yy == runsSum.size-1) xx = countSums.size-1
         val parts:Seq[(Int,Int,Int)] = (startx to xx).map(p => (countSums(p)._1, countSums(p)._2, p))
         if (numagg > 1) {
           firstVRDD = firstVRDD.reduceByKey(_ ++ _)
@@ -299,7 +301,6 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
 
         //the number of snapshots in this new aggregate
         runs = runs :+ (xx - startx + 1)
-
         //reset, move on
         firstVRDD = ProgramContext.sc.emptyRDD
         firstERDD = ProgramContext.sc.emptyRDD
@@ -307,7 +308,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
         yy = yy+1
         startx = xx
         numagg = 0
-      } else if (countSums(xx)._2 < runsSum(yy)) {
+      } else if (countSums(xx)._2 < runsSum(yy)-1) {
         xx = xx+1
       } else { //runsSum(y) < countSums(x)
         firstVRDD = firstVRDD.union(graphs(yy).vertices)
@@ -318,7 +319,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
     }
 
     //collect vertices and edges
-    val tmp: ED = new Array[ED](1)(0)
+    val tmp: ED = defaultValue.asInstanceOf[ED]
     val vs = gps.map(g => g.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), defaultValue)))}).reduce(_ union _)
     val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))}).reduce(_ union _)
 
@@ -439,8 +440,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
       }
 
       //collect vertices and edges
-      val newDefVal = Set[VD]()
-      val tmp = Set[ED]()
+      val newDefVal = Set[VD](defaultValue)
+      val tmp = Set[ED](defaultValue.asInstanceOf[ED])
       val vs = gps.map(g => g.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}).reduce(_ union _)
       val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))}).reduce(_ union _)
 
@@ -478,8 +479,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
       }
 
       //collect vertices and edges
-      val newDefVal = Set[VD]()
-      val tmp = Set[ED]()
+      val newDefVal = Set[VD](defaultValue)
+      val tmp = Set[ED](defaultValue.asInstanceOf[ED])
       val vs = gps.map(g => g.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}).reduce(_ union _)
       val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))}).reduce(_ union _)
 
@@ -601,13 +602,13 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
       }
 
       //collect vertices and edges
-      val newDefVal = Set[VD]()
-      val tmp = Set[ED]()
+      val newDefVal = Set[VD](defaultValue)
+      val tmp = Set[ED](defaultValue.asInstanceOf[ED])
       val vs = gps.map(g => g.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}).reduce(_ union _)
       val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))}).reduce(_ union _)
 
-      //intersection of two coalesced structure-only graphs is also coalesced
-      new HybridGraph(newIntvs, vs, es, runs, gps, newDefVal, storageLevel, this.coalesced && grp2.coalesced)
+      //intersection of two coalesced structure-only graphs is not coalesced
+      new HybridGraph(newIntvs, vs, es, runs, gps, newDefVal, storageLevel, false)
 
     } else {
       emptyGraph(Set(defaultValue))

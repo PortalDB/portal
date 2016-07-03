@@ -135,7 +135,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       .mapTriplets(ept => ept.attr & ept.srcAttr & ept.dstAttr)
       .subgraph(epred = et => !et.attr.isEmpty)
 
-    val tmp: ED = new Array[ED](1)(0)
+    val tmp: ED = defaultValue.asInstanceOf[ED]
     val vs: RDD[(VertexId, (Interval, VD))] = filtered.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), defaultValue)))}
     val es: RDD[((VertexId, VertexId), (Interval, ED))] = filtered.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp))))
 
@@ -201,7 +201,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       .mapTriplets(ept => ept.attr & ept.srcAttr & ept.dstAttr)
       .subgraph(epred = et => !et.attr.isEmpty)
 
-    val tmp: ED = new Array[ED](1)(0)
+    val tmp: ED = defaultValue.asInstanceOf[ED]
     val vs: RDD[(VertexId, (Interval, VD))] = filtered.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), defaultValue)))}
     val es: RDD[((VertexId, VertexId), (Interval, ED))] = filtered.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp))))
 
@@ -265,9 +265,9 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       }
 
       val newGraphs: Graph[BitSet,BitSet] = Graph(gp1.vertices.union(gp2.vertices).reduceByKey((a,b) => a ++ b), gp1.edges.union(gp2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey((a,b) => a ++ b).map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storageLevel, storageLevel)
-      val newDefVal = Set[VD]()
+      val newDefVal = Set[VD](defaultValue)
       val vs = newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}
-      val tmp = Set[ED]()
+      val tmp = Set[ED](defaultValue.asInstanceOf[ED])
       val es = newGraphs.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp))))
 
       if (ProgramContext.eagerCoalesce)
@@ -296,9 +296,9 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       } else grp2.graphs
 
       val newGraphs: Graph[BitSet,BitSet] = Graph(gp1.vertices.union(gp2.vertices).reduceByKey((a,b) => a ++ b), gp1.edges.union(gp2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey((a,b) => a ++ b).map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storageLevel, storageLevel)
-      val newDefVal = Set[VD]()
+      val newDefVal = Set[VD](defaultValue)
       val vs = newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}
-      val tmp = Set[ED]()
+      val tmp = Set[ED](defaultValue.asInstanceOf[ED])
       val es = newGraphs.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp))))
 
       //whether the result is coalesced depends on whether the two inputs are coalesced and whether their spans meet
@@ -357,13 +357,13 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       //but it requires the exact same number of partitions and partition strategy
       //see whether repartitioning and innerJoin is better
       val newGraphs = Graph(gp1.vertices.join(gp2.vertices).mapValues{ case (a,b) => a & b}.filter(v => !v._2.isEmpty), gp1.edges.map(e => ((e.srcId, e.dstId), e.attr)).join(gp2.edges.map(e => ((e.srcId, e.dstId), e.attr))).map{ case (k, v) => Edge(k._1, k._2, v._1 & v._2)}.filter(e => !e.attr.isEmpty), BitSet(), storageLevel, storageLevel)
-      val newDefVal = Set[VD]()
+      val newDefVal = Set[VD](defaultValue)
       val vs = newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}
-      val tmp = Set[ED]()
+      val tmp = Set[ED](defaultValue.asInstanceOf[ED])
       val es = newGraphs.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp))))
 
-      //intersection of two coalesced structure-only graphs is also coalesced
-      new OneGraphColumn(newIntvs, vs, es, newGraphs, newDefVal, storageLevel, this.coalesced && grp2.coalesced)
+      //intersection of two coalesced structure-only graphs is not coalesced
+      new OneGraphColumn(newIntvs, vs, es, newGraphs, newDefVal, storageLevel, false)
 
     } else {
       emptyGraph(Set(defaultValue))

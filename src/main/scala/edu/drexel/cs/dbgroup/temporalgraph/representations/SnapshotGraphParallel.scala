@@ -114,10 +114,10 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], ve
 
     //now we can create new graphs
     //to enforce constraint on edges, subgraph vertices that have default attribute value
-    val vp = (vid: VertexId, attr: VD) => attr != null
+    val vp = (vid: VertexId, attr: VD) => { val tt: VD = new Array[VD](1)(0); attr != tt}
     val newGraphs: ParSeq[Graph[VD, ED]] = reduced.map { case (vs, es) =>
-      val g = Graph(vs.mapValues(v => v._1), es.map(e => Edge(e._1._1, e._1._2, e._2._1)), null.asInstanceOf[VD], storageLevel, storageLevel)
-      if (vquant.threshold <= equant.threshold) g else g.subgraph(epred = et => true, vpred = vp)
+      val g = Graph[VD,ED](vs.mapValues(v => v._1), es.map(e => Edge(e._1._1, e._1._2, e._2._1)), null.asInstanceOf[VD], storageLevel, storageLevel)
+      if (vquant.threshold <= equant.threshold) g else g.subgraph(vpred = vp)
     }
 
     val newIntervals: RDD[Interval] = intervals.zipWithIndex.map(x => ((x._2 / size), x._1)).reduceByKey((a,b) => Interval(TempGraphOps.minDate(a.start, b.start), TempGraphOps.maxDate(a.end, b.end))).sortBy(c => c._1, true).map(x => x._2)
@@ -133,8 +133,8 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], ve
     //each graph may map into 1 or more new intervals
     val start = span.start
     if (graphs.size < 1) computeGraphs()
-    val groups: ParSeq[(Interval, ParSeq[(Graph[VD, ED], Interval)])] = graphs.zip(intervalsc).flatMap{ case (g,ii) => ii.split(c.res, start).map(x => (x._2, (g, ii)))}.groupBy(_._1).toList.map(x => (x._1, x._2.map(y => y._2))).par
 
+    val groups: ParSeq[(Interval, List[(Graph[VD, ED], Interval)])] = graphs.zip(intervalsc).flatMap{ case (g,ii) => ii.split(c.res, start).map(x => (x._2, (g, ii)))}.toList.groupBy(_._1).toList.map(x => (x._1, x._2.map(y => y._2))).sortBy(x => x._1).par
     //for each group, reduce into vertices and edges
     //compute new value, filter by quantification
     val reduced: ParSeq[(RDD[(VertexId, (VD, List[Interval]))], RDD[((VertexId, VertexId),(ED, List[Interval]))])] = groups.map{ case (intv, group) => 
@@ -154,7 +154,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], ve
 
     //now we can create new graphs
     //to enforce constraint on edges, subgraph vertices that have default attribute value
-    val vp = (vid: VertexId, attr: VD) => attr != null
+    val vp = (vid: VertexId, attr: VD) => { val tt: VD = new Array[VD](1)(0); attr != tt}
     val newGraphs: ParSeq[Graph[VD, ED]] = reduced.map { case (vs, es) =>
       val g = Graph(vs.mapValues(v => v._1), es.map(e => Edge(e._1._1, e._1._2, e._2._1)), null.asInstanceOf[VD], storageLevel, storageLevel)
       if (vquant.threshold <= equant.threshold) g else g.subgraph(epred = et => true, vpred = vp)
