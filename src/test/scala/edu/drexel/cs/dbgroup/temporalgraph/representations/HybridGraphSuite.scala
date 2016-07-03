@@ -976,26 +976,26 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
 
     val HG2 = HybridGraph.fromRDDs(users2, edges2, true, StorageLevel.MEMORY_ONLY_SER)
 
-    val expectedVerticesUnion: RDD[(VertexId, (Interval, Set[Nothing]))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set())),
-      (1L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set())),
-      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Set())),
-      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Set())),
-      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set())),
-      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set()))
+    val expectedVerticesUnion: RDD[(VertexId, (Interval, Set[StructureOnlyAttr]))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set(true))),
+      (1L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set(true))),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Set(true))),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Set(true))),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set(true))),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set(true)))
     ))
 
-    val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Set[Nothing]))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set())),
-      ((1L, 2L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set())),
-      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Set())),
-      ((3L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Set())),
-      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set())),
-      ((2L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set())),
-      ((5L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), Set()))
+    val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Set[StructureOnlyAttr]))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set(true))),
+      ((1L, 2L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set(true))),
+      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Set(true))),
+      ((3L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Set(true))),
+      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set(true))),
+      ((2L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set(true))),
+      ((5L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), Set(true)))
     ))
 
-    val expectedHGUnion = HybridGraph.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, Set(), StorageLevel.MEMORY_ONLY_SER)
+    val expectedHGUnion = HybridGraph.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, Set[StructureOnlyAttr](), StorageLevel.MEMORY_ONLY_SER)
     val resultHGUnion = HG.union(HG2)
 
     assert(resultHGUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
@@ -1004,17 +1004,17 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
 
     val resultHGIntersection = HG.intersection(HG2)
 
-    val expectedVerticesIntersection: RDD[(VertexId, (Interval, Set[Nothing]))] = ProgramContext.sc.parallelize(Array(
-      (3L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), Set())),
-      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set())),
-      (5L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), Set()))
+    val expectedVerticesIntersection: RDD[(VertexId, (Interval, Set[StructureOnlyAttr]))] = ProgramContext.sc.parallelize(Array(
+      (3L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), Set(true))),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set(true))),
+      (5L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), Set(true)))
     ))
 
-    val expectedEdgesIntersection: RDD[((VertexId, VertexId), (Interval, Set[Nothing]))] = ProgramContext.sc.parallelize(Array(
-      ((3L, 3L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), Set())),
-      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set()))
+    val expectedEdgesIntersection: RDD[((VertexId, VertexId), (Interval, Set[StructureOnlyAttr]))] = ProgramContext.sc.parallelize(Array(
+      ((3L, 3L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), Set(true))),
+      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set(true)))
     ))
-    val expectedHGIntersection = HybridGraph.fromRDDs(expectedVerticesIntersection, expectedEdgesIntersection, Set(), StorageLevel.MEMORY_ONLY_SER)
+    val expectedHGIntersection = HybridGraph.fromRDDs(expectedVerticesIntersection, expectedEdgesIntersection, Set[StructureOnlyAttr](), StorageLevel.MEMORY_ONLY_SER)
 
     assert(resultHGIntersection.vertices.collect.toSet === expectedVerticesIntersection.collect.toSet)
     assert(resultHGIntersection.edges.collect.toSet === expectedEdgesIntersection.collect.toSet)
@@ -1044,20 +1044,20 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
 
     val HG2 = HybridGraph.fromRDDs(users2, edges2, true, StorageLevel.MEMORY_ONLY_SER)
 
-    val expectedVerticesUnion: RDD[(VertexId, (Interval, Set[Nothing]))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set())),
-      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set())),
-      (2L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set())),
-      (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set()))
+    val expectedVerticesUnion: RDD[(VertexId, (Interval, Set[StructureOnlyAttr]))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set(true))),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set(true))),
+      (2L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set(true))),
+      (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set(true)))
     ))
 
-    val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Set[Nothing]))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set())),
-      ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set()))
+    val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Set[StructureOnlyAttr]))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set(true))),
+      ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set(true)))
     ))
 
     val resultHGUnion = HG.union(HG2)
-    val expectedHGUnion = HybridGraph.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, Set(), StorageLevel.MEMORY_ONLY_SER)
+    val expectedHGUnion = HybridGraph.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, Set[StructureOnlyAttr](), StorageLevel.MEMORY_ONLY_SER)
 
     assert(resultHGUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultHGUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
@@ -1094,19 +1094,19 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
 
     val HG2 = HybridGraph.fromRDDs(users2, edges2, true, StorageLevel.MEMORY_ONLY_SER)
 
-    val expectedVerticesUnion: RDD[(VertexId, (Interval, Set[Nothing]))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Set())),
-      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Set())),
-      (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set()))
+    val expectedVerticesUnion: RDD[(VertexId, (Interval, Set[StructureOnlyAttr]))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Set(true))),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), Set(true))),
+      (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set(true)))
     ))
 
-    val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Set[Nothing]))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set())),
-      ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set()))
+    val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Set[StructureOnlyAttr]))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), Set(true))),
+      ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set(true)))
     ))
 
     val resultHGUnion = HG.union(HG2)
-    val expectedHGUnion = HybridGraph.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, Set(), StorageLevel.MEMORY_ONLY_SER)
+    val expectedHGUnion = HybridGraph.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, Set[StructureOnlyAttr](), StorageLevel.MEMORY_ONLY_SER)
 
     assert(resultHGUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultHGUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
