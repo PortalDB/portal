@@ -77,7 +77,7 @@ def collect_args(query, strat, run):
             arg1 = line[i+2]
             arg2 = line[i+3]
             arg3 = line[i+5]
-            arg4 = line[i+8]
+            arg4 = line[i+8].strip('\)') #if in a subquery
             if line[i+10] == "vgroupby":
                 arg5 = line[i+11]
             else:
@@ -90,7 +90,7 @@ def collect_args(query, strat, run):
             if "start" in line[i+1]:
                 opType = "Slice"
                 arg1 = line[i+1][6:]
-                arg2 = line[i+3][4:]
+                arg2 = line[i+3][4:].strip('\)') #if in a subquery remove extra chars
             else:
                 opType = "Subgraph"
                 arg1 = line[i+1]
