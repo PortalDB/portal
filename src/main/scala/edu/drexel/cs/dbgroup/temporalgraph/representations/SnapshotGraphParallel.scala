@@ -58,8 +58,8 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], ve
   /** Query operations */
 
   override def slice(bound: Interval): SnapshotGraphParallel[VD, ED] = {
-    if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
-
+    //VZM: FIXME: this special case is commented out for experimental purposes
+    //if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
     if (!span.intersects(bound)) {
       return SnapshotGraphParallel.emptyGraph[VD,ED](defaultValue)
     }
@@ -465,10 +465,11 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], ve
     //if these graphs are not needed, they aren't actually materialized
     //TODO: get rid of collect if possible
     val intervalsc = intervals.collect
-    val redFactor = intervalsc.size
+    //TODO: the performance strongly depends on the number of partitions
+    //need a good way to compute a good number
     graphs = intervalsc.map( p =>
-      Graph(allVertices.filter(v => v._2._1.intersects(p)).coalesce(math.max(1, allVertices.getNumPartitions/redFactor))(null).map(v => (v._1, v._2._2)),
-        allEdges.filter(e => e._2._1.intersects(p)).coalesce(math.max(1, allEdges.getNumPartitions/redFactor))(null).map(e => Edge(e._1._1, e._1._2, e._2._2)),
+      Graph(allVertices.filter(v => v._2._1.intersects(p)).map(v => (v._1, v._2._2)),
+        allEdges.filter(e => e._2._1.intersects(p)).map(e => Edge(e._1._1, e._1._2, e._2._2)),
         defaultValue, storageLevel, storageLevel)
     ).par
 

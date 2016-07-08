@@ -30,6 +30,9 @@ class DBConnection():
             operation = models.Operation.get((models.Operation.opType == op.opType) &
                                                 (models.Operation.arg1 == op.arg1) & 
                                                 (models.Operation.arg2 == op.arg2) &
+                                                (models.Operation.arg3 == op.arg3) &
+                                                (models.Operation.arg4 == op.arg4) &
+                                                (models.Operation.arg5 == op.arg5) &
                                                 (models.Operation.partitionS == op.partitionS) &
                                                 (models.Operation.runWidth == op.runWidth))
             return operation

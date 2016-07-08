@@ -49,7 +49,8 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
   /** Query operations */
 
   override def slice(bound: Interval): OneGraphColumn[VD, ED] = {
-    if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
+    //VZM: FIXME: this special case is commented out for experimental purposes
+    //if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
     if (span.intersects(bound)) {
       if (graphs == null) computeGraph()
       val startBound = maxDate(span.start, bound.start)
@@ -843,10 +844,10 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       BitSet() ++ zipped.value.flatMap( ii => if (interval.intersects(ii._1)) Some(ii._2) else None)
     }
 
-    //TODO: make this a better estimate based on evolution rate
-    val redFactor:Int = 2
-    graphs = Graph(allVertices.mapValues{ case (intv, attr) => split(intv)}.reduceByKey((a,b) => a union b, math.max(4, allVertices.getNumPartitions/redFactor)),
-      allEdges.mapValues{ case (intv, attr) => split(intv)}.reduceByKey((a,b) => a union b, math.max(4, allEdges.getNumPartitions/redFactor)).map(e => Edge(e._1._1, e._1._2, e._2)),
+    //TODO: the performance strongly depends on the number of partitions
+    //need a good way to compute a good number
+    graphs = Graph(allVertices.mapValues{ case (intv, attr) => split(intv)}.reduceByKey((a,b) => a union b),
+      allEdges.mapValues{ case (intv, attr) => split(intv)}.reduceByKey((a,b) => a union b).map(e => Edge(e._1._1, e._1._2, e._2)),
       BitSet(), storageLevel, storageLevel)
 
     if (partitioning.pst != PartitionStrategyType.None) {

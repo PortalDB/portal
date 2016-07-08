@@ -46,6 +46,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
  */
 
   override def materialize() = {
+    if (graphs.size < 1) computeGraphs()
     allVertices.count
     allEdges.count
     graphs.foreach { x =>
@@ -59,7 +60,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
   /** Query operations */
   
   override def slice(bound: Interval): HybridGraph[VD, ED] = {
-    if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
+    //VZM: FIXME: this special case is commented out for experimental purposes
+    //if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
     
     if (span.intersects(bound)) {
       if (graphs.size < 1) computeGraphs()
@@ -121,7 +123,6 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
   override protected def aggregateByChange(c: ChangeSpec, vgroupby: (VertexId, VD) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): HybridGraph[VD, ED] = {
     //if we only have the structure, we can do efficient aggregation with the graph
     //otherwise just use the parent
-    //FIXME: find a better way to tell there's only structure
     defaultValue match {
       case a: StructureOnlyAttr if (vgroupby == vgb) => aggregateByChangeStructureOnly(c, vquant, equant)
       case _ => super.aggregateByChange(c, vgroupby, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[HybridGraph[VD,ED]]
@@ -763,21 +764,17 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
     }
 
     val count = collectedIntervals.size
-    val redFactor:Int = math.max(1, count/runWidth)
     val vertsConverted = allVertices.mapValues{ case (intv, attr) => split(intv)}.cache()
     val edgesConverted = allEdges.mapValues{ case (intv, attr) => split(intv)}.cache()
-
-    val vreducers = math.max(2, allVertices.getNumPartitions/redFactor)
-    val ereducers = math.max(2, allEdges.getNumPartitions/redFactor)
     val combined = (0 to (count-1)).grouped(runWidth).map { intvs =>
       val set = BitSet() ++ intvs
       (intvs.size,
         Graph(vertsConverted.mapValues(v => set & v)
 	       .filter(v => !v._2.isEmpty)
-              .reduceByKey((a,b) => a union b, vreducers),
+               .reduceByKey((a,b) => a union b),
           edgesConverted.mapValues(e => set & e)
               .filter(e => !e._2.isEmpty)
-              .reduceByKey((a,b) => a union b, ereducers)
+              .reduceByKey((a,b) => a union b)
               .map(e => Edge(e._1._1, e._1._2, e._2)),
           BitSet(), storLevel, storLevel)
       )}.toList
@@ -786,7 +783,6 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
     graphs = combined.map(x => x._2).par
 
     if (partitioning.pst != PartitionStrategyType.None) {
-      val count = intervals.count.toInt
       graphs = graphs.zipWithIndex.map { case (g, index) =>
         val numParts: Int = if (partitioning.parts > 0) partitioning.parts else g.edges.getNumPartitions
         g.partitionBy(PartitionStrategies.makeStrategy(partitioning.pst, index, count, partitioning.runs), numParts)}

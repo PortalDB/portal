@@ -118,7 +118,8 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
   }
 
   override def slice(bound: Interval): TGraphNoSchema[VD, ED] = {
-    if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
+    //VZM: FIXME: this special case is commented out for experimental purposes
+    //if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
     if (!span.intersects(bound)) {
       return emptyGraph[VD,ED](defaultValue)
     }
