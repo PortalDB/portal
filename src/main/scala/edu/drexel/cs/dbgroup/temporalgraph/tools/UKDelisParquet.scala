@@ -1,4 +1,4 @@
-package src.main.scala.edu.drexel.cs.dbgroup.temporalgraph.tools
+package edu.drexel.cs.dbgroup.temporalgraph.tools
 
 import java.sql.Date
 import java.time.LocalDate
