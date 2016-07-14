@@ -117,45 +117,66 @@ def removeCloseValues(alignment, ticks, xmax):
         while (alignment[n+1] - alignment[n] < xmax/16):
             del alignment[n + 1]
             del ticks[n + 1]
+	    if(n == len(alignment) -1):
+                return alignment, ticks
         n = n + 1
     return alignment, ticks
 
-def drawGraph(name, dataframes):
-    styles = ['cs-','mo-','yD-', 'b:', 'r--','g-.']
+def drawGraph(name,dataframes):
+    keys = ['SG', 'SGS', 'OG', 'OGS', 'HG', 'HGS', 'VE', 'VES', 'SG_E2D', 'OG_E2D', 'HG_E2D']
+    lines = ['-', ':', '-', '--', '-', '-.', '-', '-', '-', '-', '-']
+    colors = sns.color_palette("Paired", n_colors=11)
+    markers = ['s', "", 'o', "", 'D', "",  "", "", "", "", ""]
+    linewitdhs = [2, 3, 2, 3, 2, 3, 2, 2, 2, 2, 2]
+    linesDict =  dict(zip(keys, lines))
+    colorsDict = dict(zip(keys, colors))
+    markersDict = dict(zip(keys, markers))
+    linewidthsDict = dict(zip(keys, linewitdhs))
+ 
     items = [value for key, value in dataframes.items() if name in key]
     if not items:
         print "No data found for that dataset"
-	return
+        return
     else:
         items = items[0]
     for i, item in enumerate(items):
-        plot = item[0].plot(figsize=(10, 7.5), style=styles)
-        plot.set_ylabel(item[2])
-        
-#         setting up secondary x=axis if avaliable
+#         pprint.pprint(item[0])
+        labels = list(item[0].columns.values)
+        fig = plt.figure(figsize=(10, 7.5))
+        ax1 = plt.gca()
+        ax1.set_xlabel(item[0].index.name)
+        plt.ylabel(item[2])
+        for label in labels:
+            #plotting a column only if its data are not None
+            if any(item[0][label].tolist()):
+                plt.plot(item[0][label], label=label, linestyle=linesDict[label], color=colorsDict[label], linewidth=linewidthsDict[label], marker=markersDict[label])
+        #setting up secondary x=axis if avaliable
         if item[4] is not None:
-            ax1 = plot.axes
-            xmin, xmax = ax1.get_xlim()
+            xmin, xmax = ax1.get_xlim() 
             ax2 = ax1.twiny()
             ax2.set_xlabel(item[6])
             ax2.grid(False)
             #if the tick labels are too close they overlap, so we remove close values. The function removes values which are closer than 1/16th of the graph
-            new_tick_locations, ticks = removeCloseValues(item[5], item[4], xmax)
+            new_tick_locations, ticks = removeCloseValues(item[5], item[4],xmax)
             ax2.set_xticklabels(ticks)
             ax2.set_xticks(new_tick_locations)
             plt.title(item[1] + " build_num=" + str(item[3]), y=1.12)
         else:
-#             title in the regular position
+            #title in the regular position
             plt.title(item[1] + " build_num=" + str(item[3]))
-	ax1 = plot.axes
-	ax1.set_xlim(xmin=0)
 
         #sorting the legends to match the order of the graph
-        handles, labels = plot.get_legend_handles_labels()
-        legends = zip(*sorted(zip(item[0].tail(1).values[0], labels, handles), key=lambda t: t[0], reverse=True))
+        handles, labels = ax1.get_legend_handles_labels()
+        #filtering out the none values
+        lastValues = filter(None, item[0].tail(1).values[0])
+        legends = zip(*sorted(zip(lastValues, labels, handles), key=lambda t: t[0], reverse=True))
         legends.pop(0)
         labels, handles = legends
-        lgd = plot.legend(handles, labels, bbox_to_anchor=(1.02, 0.60), loc=2, borderaxespad=0.)
+        lgd = plt.legend(handles, labels, bbox_to_anchor=(1.02, 0.60), loc=2, borderaxespad=0.)
+
+        #setting up the maximum of x axis to the maximum value
+        xmax = max(item[0].index.values)
+        ax1.set_xlim(xmin=0, xmax=xmax)
 
 	#figure save logic
 	dirName = "graphs/" + item[1].split(' ')[0]
