@@ -7,6 +7,7 @@ import subprocess;
 import configparser;
 from peewee import *;
 from subprocess import Popen, PIPE;
+import sendMail
 
 #database = None;
 #dbconnect = None;
@@ -305,34 +306,45 @@ def run(configFile):
             #continue
 
             for i in range (1, itr+1):
-                p3 = Popen(sparkCommand, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True);
-                pres = p3.communicate()
-                output = pres[0]
-                time_dict = collect_time(output);
-                rTime = None
-                print output                
-
-                try:
-                    rTime = time_dict[0] #get total runtime
-                except KeyError:
-                    print "ERROR: Query run did not return a final runtime. See result below:"
-                    print pres[1]
-                    print traceback.format_exc()
-                    sys.exit(1)
+                #run the experiment twice if you don't get the runtime
+                errorCount = 0
+                while errorCount < 2:
+                    try:
+                        p3 = Popen(sparkCommand, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True);
+                        pres = p3.communicate()
+                        output = pres[0]
+                        time_dict = collect_time(output);
+                        rTime = None
+                        print output
+                        rTime = time_dict[0] #get total runtime
+                    except KeyError:
+                        errorCount = errorCount + 1;
+                        if errorCount == 1:
+                            print "ERROR: Query run did not return a final runtime. Trying one more time."
+                            continue
+                        else:
+                            print "ERROR: Query run did not return a final runtime in the second try. See result below:"
+                            print pres[1]
+                            print traceback.format_exc()
+                            msg = "ERROR: Query run did not return a final runtime in the second try"
+                            sendMail.sendMail(msg)
+                            sys.exit(1)
 
                 #only run this once for each query
                 if querySaved == False:
-                    qRef = dbconnect.persist_query() #persist to Query table
-                    op_dict = collect_args(query, strat, runw);
+                    op_dict = collect_args(query, strat, runw)
                     id_dict = dbconnect.persist_ops(op_dict) #persist to Operation table
-                    dbconnect.persist_query_ops(qRef, id_dict) #persist tp Query_Op_Map table            
+                    qRef = dbconnect.persist_query() #persist to Query table
+                    dbconnect.persist_query_ops(qRef, id_dict) #persist to Query_Op_Map table
                     querySaved = True        
  
                 bRef = dbconnect.persist_buildRef(buildN, gitRev.strip("\n"))
                 eRef = dbconnect.persist_exec(time_dict, qRef, gType, 0, cConf, rTime, i, bRef, dataset)
                 dbconnect.persist_time_op(eRef, qRef, id_dict, time_dict) 
                 print "[STATUS]: finished running iteration", i, "of current query..\n" 
-    print "***  Done with executions." 
+    print "***  Done with executions."
+    msg = "Experiment complete!"
+    sendMail.sendMail(msg)
 
 if __name__ == "__main__":
     database = driverUtils.models.BaseModel._meta.database
