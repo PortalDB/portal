@@ -176,7 +176,7 @@ def genQueries(line, replaceIndex):
                 
     return queries;
 
-def run(configFile):
+def run(configFile, email):
     global strats;
 
     parser = configparser.ConfigParser()
@@ -232,8 +232,7 @@ def run(configFile):
         line = ln.split(" ");
         qname = line[0]
         query = " ".join(line[1:-1]) + " " + line[-1].strip("\n") + " "
-
-        #get cluster information when running on mesos cluster            
+        #get cluster information when running on mesos cluster
         if env == "mesos":
             #run sbt assembly
             Popen('sbt assembly', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
@@ -327,7 +326,7 @@ def run(configFile):
                             print pres[1]
                             print traceback.format_exc()
                             msg = "ERROR: Query run did not return a final runtime in the second try"
-                            sendMail.sendMail(msg)
+                            sendMail.sendMail(email, msg)
                             sys.exit(1)
 
                 #only run this once for each query
@@ -342,17 +341,51 @@ def run(configFile):
                 eRef = dbconnect.persist_exec(time_dict, qRef, gType, 0, cConf, rTime, i, bRef, dataset)
                 dbconnect.persist_time_op(eRef, qRef, id_dict, time_dict) 
                 print "[STATUS]: finished running iteration", i, "of current query..\n" 
-    print "***  Done with executions."
-    msg = "Experiment complete!"
-    sendMail.sendMail(msg)
+
+    #getting number of workers after the job
+    numWorkers = findNumberOfWorkers(env)
+    print "***  Done with executions. Total number of workers after the experiment=" + str(numWorkers)
+    msg = "Experiment complete! Total number of workers after the experiment=" + str(numWorkers)
+    sendMail.sendMail(email, msg)
+
+def findNumberOfWorkers(env):
+    numWorkers = 0
+    if env == "mesos":
+        p2 = Popen('curl http://master:5050/slaves', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        out = p2.communicate()[0];
+        numWorkers = out.count("\"active\":true")
+    elif env == "standalone":
+        p2 = Popen('curl http://master:8081', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        out = p2.communicate()[0];
+
+        out = out.replace(' ', '')
+        out = out.replace('\s', '')
+        out = out.replace('\t', '')
+        out = out.replace('\r', '')
+        out = out.replace('\n', '')
+
+        r = re.compile('Workers:</strong>(.*?)</li>')
+        m = r.search(out)
+        if m:
+            totalWorkers = int(m.group(1))
+            numDead = out.count('<td>DEAD</td>')
+            numWorkers = totalWorkers - numDead
+    return numWorkers
+
 
 if __name__ == "__main__":
     database = driverUtils.models.BaseModel._meta.database
     dbconnect = driverUtils.connect.DBConnection(database)
-
+    email = ""
+    configFile = ""
     if(not len(sys.argv) > 1):
         print ("ERROR: you must pass in a temporal graph query config file to read from")
         exit();
+    elif(len(sys.argv) < 3):
+        email = "vera.zaychik@gmail.com"
+        print "Email not provided, using " + email
     else:
-       arg1 = sys.argv[1];
-       run(arg1);
+        email = sys.argv[2];
+
+    configFile = sys.argv[1];
+    run(configFile, email)

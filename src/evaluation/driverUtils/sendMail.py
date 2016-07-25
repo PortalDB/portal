@@ -1,8 +1,8 @@
 import smtplib
 
-def sendMail(msg):
+def sendMail(email, msg):
     server = smtplib.SMTP('smtp.gmail.com', 587)
     server.starttls()
     server.login("dbgroupdrexel@gmail.com", "ilovedbilovedb")
-    server.sendmail("dbgroupdrexel@gmail.com", "vera.zaychik@gmail.com", msg)
+    server.sendmail("dbgroupdrexel@gmail.com", email, msg)
     server.quit()
