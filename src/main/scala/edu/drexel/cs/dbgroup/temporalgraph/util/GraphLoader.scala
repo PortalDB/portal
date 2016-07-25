@@ -153,13 +153,13 @@ object GraphLoader {
     //i.e. should change these 'true' to 'false'
     graphType match {
       case "SG" =>
-        SnapshotGraphParallel.fromRDDs(vs, es, true, StorageLevel.MEMORY_ONLY_SER, true).partitionBy(TGraphPartitioning(strategy, runWidth, 0))
+        SnapshotGraphParallel.fromRDDs(vs, es, false, StorageLevel.MEMORY_ONLY_SER, true).partitionBy(TGraphPartitioning(strategy, runWidth, 0))
       case "OG" =>
-        OneGraphColumn.fromRDDs(vs, es, true, StorageLevel.MEMORY_ONLY_SER, true).partitionBy(TGraphPartitioning(strategy, runWidth, 0))
+        OneGraphColumn.fromRDDs(vs, es, false, StorageLevel.MEMORY_ONLY_SER, true).partitionBy(TGraphPartitioning(strategy, runWidth, 0))
       case "HG" =>
-        HybridGraph.fromRDDs(vs, es, true, StorageLevel.MEMORY_ONLY_SER, coalesced = true).partitionBy(TGraphPartitioning(strategy, runWidth, 0))
+        HybridGraph.fromRDDs(vs, es, false, StorageLevel.MEMORY_ONLY_SER, coalesced = true).partitionBy(TGraphPartitioning(strategy, runWidth, 0))
       case "VE" =>
-        VEGraph.fromRDDs(vs, es, true, StorageLevel.MEMORY_ONLY_SER, coalesced = true)
+        VEGraph.fromRDDs(vs, es, false, StorageLevel.MEMORY_ONLY_SER, coalesced = true)
     }
 
   }

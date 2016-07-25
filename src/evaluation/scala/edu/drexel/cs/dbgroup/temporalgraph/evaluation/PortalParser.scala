@@ -255,12 +255,12 @@ object Interpreter {
             res
           }
           case s: SubWhere => {
-            val vp = (vid: Long, attrs: (Interval, Any)) => {
-              s.compute(attrs._2)
+            val vp = (vid: Long, attrs: Any) => {
+              s.compute(attrs)
             }
             val gr = parseGraph(g)
             val opStart = System.currentTimeMillis()
-            val res = gr.select(vpred = vp).partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
+            val res = gr.selectStructural(vpred = vp).partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
             val opEnd = System.currentTimeMillis()
             val total = opEnd - opStart
             println(f"Subgraph Runtime: $total%dms ($argNum%d)")

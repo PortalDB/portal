@@ -60,6 +60,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
   /** Query operations */
   
   override def slice(bound: Interval): HybridGraph[VD, ED] = {
+    if (graphs.size < 1) return super.slice(bound).asInstanceOf[HybridGraph[VD,ED]]
     //VZM: FIXME: this special case is commented out for experimental purposes
     //if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
     
