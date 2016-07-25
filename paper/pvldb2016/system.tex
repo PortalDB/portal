@@ -22,21 +22,26 @@ def union(other: TGraph[VD, ED]): TGraph[Set[VD], Set[ED]]
 We considered four in-memory \tg representations that differ in
 compactness, but also, perhaps more importantly, in the kind of
 locality they prioritize. With {\em structural locality}, neighboring
-vertices of the same snapshot are laid out together, while with {\em
-  temporal locality}, consecutive states of the same vertex are laid
-out together.  VertexEdgeGraph (VE) is a direct translation of the
-vertex-edge relations model and the most compact representation.
-SnapshotGraph (SG), a representation in which each representative
-graph is stored explicitly, naturally preserves structural locality,
-but temporal locality is lost. OneGraph (OG) stores all vertices and
-edges of an evolving graph once, in a single data structure.  This
-representation emphasizes temporal locality, while also preserving
-structural locality.  HybridGraph (HG) trades compactness for better
-structural locality, by aggregating together several consecutive RGs,
-and computing a OneGraph for each graph cluster.  We can convert from
-one representation to any other at small or no cost, so it is useful
-to think of them as access methods in the context of individual
-operations.
+vertices (resp. edges) of the same representative graph are laid out
+together, while with {\em temporal locality}, consecutive states of
+the same vertex (resp. edge) are laid out
+together~\cite{DBLP:journals/tos/MiaoHLWYZPCC15}.  VertexEdgeGraph
+(VE) is a direct translation of the vertex-edge relations model and
+the most compact representation.  While VE is a logical represenation
+and does not necessitate a particular order of tuples on disk, we opt
+for a physical layout in which all tuples corresponding to the same
+vertex (resp. edge) are laid out consecutively, and so VE preserves
+temporal localilty.  SnapshotGraph (SG), a representation in which
+each representative graph is stored explicitly, naturally preserves
+structural locality, but temporal locality is lost. OneGraph (OG)
+stores all vertices and edges of an evolving graph once, in a single
+data structure.  This representation emphasizes temporal locality,
+while also preserving structural locality.  HybridGraph (HG) trades
+compactness for better structural locality, by aggregating together
+several consecutive RGs, and computing a OneGraph for each graph
+cluster.  We can convert from one representation to any other at small
+or no cost, so it is useful to think of them as access methods in the
+context of individual operations.
 
 \begin{table*}[t]
 \centering
