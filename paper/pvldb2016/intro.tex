@@ -40,15 +40,14 @@ usability and ease of dissemination.  {\em In this paper we present
 \ql represents evolution of a graph, including changes in topology and
 in attribute values of vertices and edges, continuously through time
 using the \tg abstraction.  An example of a \tg is given in
-Figures~\ref{fig:tg_ve} and~\ref{fig:tg_rg}, where graph evolution is
-shown using two representations.  Figure~\ref{fig:tg_ve} gives the
-{\em vertex-edge} representation of an evolving graph --- a pair of
-coalesced temporal SQL relations $V$ and $E$ with appropriate
-integrity constraints.  Figure~\ref{fig:tg_rg} gives the {\em
-  representative graphs} representation of a \tg --- a sequence of
+Figures~\ref{fig:tg_rg} and~\ref{fig:tg_ve}, where graph evolution is
+shown using two representations.  Figure~\ref{fig:tg_rg} gives the
+{\em representative graphs} representation of a \tg --- a sequence of
 graphs associated with a sequence of coalesced time periods, and with
 the semantics that no change occurred in a graph for the duration of
-the time period.
+the time period. Figure~\ref{fig:tg_ve} gives the {\em vertex-edge}
+representation of an evolving graph --- a pair of coalesced temporal
+SQL relations $V$ and $E$ with appropriate integrity constraints.
 
 \eat{Quick overview of our model and operations.  Point to a
   figure.  We represent graph evolution through a continuous time
@@ -95,12 +94,12 @@ centrality in a social network may be observable on the scale of
 weeks, but not months (coarser).  On the Web, periodic events may
 change popularity of websites, with observable trends on the scale of
 days, but not hours (finer) or months (coarser).  Furthermore, the
-same network may show different kinds of trends at different time
-scales, e.g., node popularity may be changing at a different rate, and
-thus be observable on a different scale, than over-all network
-density.  Understanding at what temporal scale to consider network
-evolution is an integral part of exploratory analysis, which \ql
-supports with {\em temporal aggregation}.
+same network may exhibit different trends at different time scales,
+e.g., node popularity maychange at a different rate, and thus be
+observable on a different scale, than over-all network density.
+Understanding at what temporal scale to consider network evolution is
+an integral part of exploratory analysis, which \ql supports with {\em
+  temporal aggregation}.
 
 {\em Can information about graph evolution be used to make graph
   analytics more stable, or representative?}  Algorithms that compute
@@ -132,10 +131,10 @@ efficient and usable analysis of evolving graphs.
 \begin{enumerate}[noitemsep,leftmargin=*]
 %\begin{description}[noitemsep]
 
-\item We propose a flexible representation of an evolving graph,
-  called a \tg, which captures evolution of graph topology, and of
-  attributes of vertices and edges, continuously through time.  \eat{
-    Conceptually, a \tg corresponds to a pair of
+\item We propose a representation of an evolving graph, called a \tg,
+  which captures evolution of graph topology, and of attributes of
+  vertices and edges, continuously through time.  \eat{ Conceptually,
+    a \tg corresponds to a pair of
     coalesced~\cite{DBLP:conf/vldb/BohlenSS96} temporal SQL
     relations~\cite{DBLP:journals/sigmod/KulkarniM12} (one describing
     evolution of graph vertices, and the other --- of its edges), with
@@ -144,21 +143,20 @@ efficient and usable analysis of evolving graphs.
 
 \item We define \tg algebra, which includes temporal and structural
   selection, temporal aggregation with novel quantification
-  mechanisms, and \tg intersection and union.  We show the
-  correspondence between \tg algebra operators and temporal SQL when
-  appropriate, and describe semantics of operations that depart from
-  temporal SQL.  \tg algebra is presented in
+  mechanisms, and \tg intersection and union.  \eat{We show the
+    correspondence between \tg algebra operators and temporal SQL when
+    appropriate, and describe semantics of operations that depart from
+    temporal SQL.}\tg algebra is presented in
   Section~\ref{sec:algebra}.
 
-\item To support efficient analysis of evolving graphs, we develop
-  several physical representations of the logical \tg data structure,
-  which represent different trade-offs in temporal and structural
-  locality.  We implement these physical representations and the
-  operations of \tg algebra in scope of Apache Spark, leveraging the
-  GraphX framework~\cite{DBLP:conf/osdi/GonzalezXDCFS14}, and enabling
-  distributed computation. We present the architecture of the \ql
-  system, and the implementation of the \tg model and algebra in
-  Section~\ref{sec:system}.
+\item We develop several physical representations of the logical \tg
+  data structure, which represent different trade-offs in temporal and
+  structural locality.  We implement these physical representations
+  and the operations of \tg algebra in scope of Apache Spark,
+  leveraging the GraphX
+  framework~\cite{DBLP:conf/osdi/GonzalezXDCFS14}, and enabling
+  distributed computation. System architecture and the implementation
+  of the \tg model and algebra are presented in Section~\ref{sec:sys}.
 
 \item An important part of our system is built-in support for
   efficient execution of
@@ -172,9 +170,8 @@ efficient and usable analysis of evolving graphs.
 \item We conduct an extensive experimental evaluation of the \ql
   system with real datasets.  We demonstrate that good performance can
   be achieved with careful engineering, and that \ql is scalable.  We
-  presents results of our evaluation in Section~\ref{sec:experiments},
-  and also briefly discuss the usability of our framework in this
-  section.
+  presents results of our evaluation in Section~\ref{sec:exp}, and
+  also briefly discuss the usability of our framework in this section.
 
 %\end{description}
 \end{enumerate}
