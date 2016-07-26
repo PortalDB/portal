@@ -21,7 +21,7 @@ using Allen's relations~\cite{allen83} \predName{meets},
 \predName{contains} and \predName{overlaps}, with equality.  We will
 use $\pred{p}{contains}{q}$ as a shorthand for $\pred{p}{starts}{q}
 \vee \pred{p}{finishes}{q} \vee \pred{p}{during}{q} \vee
-\pred{p}{equals}{q}$.
+\pred{p}{equal}{q}$.
 
 \begin{figure}
 \centering
@@ -187,7 +187,7 @@ vertices, edges and attribute values, coalescing each relation
 independently of the others.  This makes graph maintenance and
 manipulation more manageable.
 
-{\bf Switching between \rgs and \ve.}  The two \tg representations are
+{\bf Switching between \tg representations.}  The two representations are
 equivalent in terms of the information they contain.
 \textsf{Representative graphs} can be computed from \ve by (1)
 enumerating all time points during which some change occurred in \ve,
