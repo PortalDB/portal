@@ -332,11 +332,10 @@ def run(configFile, email):
                 #only run this once for each query
                 if querySaved == False:
                     op_dict = collect_args(query, strat, runw)
-                    id_dict = dbconnect.persist_ops(op_dict) #persist to Operation table
-                    qRef = dbconnect.persist_query() #persist to Query table
-                    dbconnect.persist_query_ops(qRef, id_dict) #persist to Query_Op_Map table
-                    querySaved = True        
- 
+                    qRef = dbconnect.persist_queryTables(op_dict)
+                    querySaved = True
+
+
                 bRef = dbconnect.persist_buildRef(buildN, gitRev.strip("\n"))
                 eRef = dbconnect.persist_exec(time_dict, qRef, gType, 0, cConf, rTime, i, bRef, dataset)
                 dbconnect.persist_time_op(eRef, qRef, id_dict, time_dict) 

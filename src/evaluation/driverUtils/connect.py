@@ -12,6 +12,49 @@ class DBConnection():
         self.database = db;
 
 
+
+
+    def find_queryid(self, id_dict):
+        try:
+            sqlQuery = "SELECT DISTINCT alias0.query_id FROM"
+            #adding the from clause
+            for num in range (0, len(id_dict)):
+                #In the last value: avoid comma and add the extra WHERE clause
+                if num < len(id_dict) - 1:
+                    sqlQuery = sqlQuery + " query_op_map alias" + str(num) + " ,"
+                else:
+                    sqlQuery = sqlQuery + " query_op_map alias" + str(num) + " WHERE"
+
+
+            #adding the where clause
+            num = 0
+            for seqN, oid in id_dict.iteritems():
+                if num < len(id_dict) - 1:
+                    sqlQuery = sqlQuery + " alias" + str(num) + ".op_id=" + str(oid) + " AND  alias" + str(num) + ".seqNum=" + str(seqN) + " AND"
+                else:
+                    sqlQuery = sqlQuery + " alias" + str(num) + ".op_id=" + str(oid) + " AND  alias" + str(num) + ".seqNum=" + str(seqN) + " "
+                num = num + 1
+
+            #adding the equality for join
+            num = 0
+            for num in range (0, len(id_dict)):
+                if num < len(id_dict) - 1:
+                    sqlQuery = sqlQuery + " AND alias" + str(num) + ".query_id =" + " alias" + str(num+1) + ".query_id"
+
+            #adding ORDER BY clause to find the smallest query_id
+            sqlQuery = sqlQuery +   " ORDER BY alias0.query_id"
+
+            result = self.database.execute_sql(sqlQuery)
+            queryIdList = list(result.fetchall())
+            if queryIdList:
+                return queryIdList[0][0]
+            else:
+                return None
+        except Exception:
+            print "Unknown exception while trying to check \'Query_op_map\' table:"
+            print traceback.format_exc()
+            return None
+
     def persist_query(self):
         try:
             query = models.Query(query_id=None);
@@ -53,15 +96,15 @@ class DBConnection():
                 for seqN, operation in op_dict.iteritems():
                     #check if operation already exists
                     oldOp = self.check_op_exists(operation)
-    
+
                     if oldOp == None:
                         #persist to Operation table and generate a new op_id
                         operation.save()
                     else:
                         #print "Operation", operation, "already exists in the \'Operation\' table"
                         operation.op_id = oldOp.op_id
-                    
-                    id_dict.update({seqN: operation.op_id})                   
+
+                    id_dict.update({seqN: operation.op_id})
             
             return id_dict
         
@@ -139,6 +182,19 @@ class DBConnection():
             sys.exit(1)
     
         return None
+
+    def persist_queryTables(self, op_dict):
+        id_dict = self.persist_ops(op_dict) #persist to Operation table
+        #check if id already exists
+        queryId = self.find_query_id(id_dict)
+        if queryId is None:
+            qRef = self.persist_query() #persist to Query table
+            self.persist_query_ops(qRef, id_dict) #persist to Query_Op_Map table
+            return qRef
+        else:
+            qRef = models.Query.get((models.Query.query_id == queryId))
+            return qRef
+
 
     def persist_time_op(self, eRef, qRef, id_dict, time_dict):
         try:
