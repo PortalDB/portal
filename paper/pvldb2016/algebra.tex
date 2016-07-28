@@ -1,33 +1,251 @@
 \section{Algebra}
 \label{sec:algebra}
 
-All operations in our model take one or two \tgs and return a \tg,
-i.e. the algebra is compositional.  More importantly, all operations
-maintain the integrity of the model by computing the value of $V$,
-followed by the value of $E$, maintaining the foreign key constraint
-from $E$ to $V$ and the maximally coalesced non-overlapping time
-period contraint on both $V$ and $E$.
+In this section we describe the operators of \tg algebra.  The algebra
+is compositional --- all operators take a \tg, or a pair of \tgs, as
+input, and produce a valid \tg as output.  
 
-\begin{definition}[Slice]
-Slice on $TG$ is a selection on periods of $V$ and $E$ such that
-$slice_{[a,b)}(TG) = \{t': t \in TG$, $t(p).overlaps(period(a,b)), t'
-  = fit(t, period(a,b))\}$ and $fit(t, period(a,b))$ shortens the
-  entity period $p$ to be within $[a,b)$.
-\label{def:slice}
-\end{definition}
+\eat{ \tg algebra opertors come in two flavors.  The first are
+  operations defined directly on the \rg representation, namely,
+  analytics and temporal aggregation by change.  The second are
+  operations such as selection and projection, which concern the
+  structure of the elements of each representative graph --- its
+  vertices, edges, and attribute values.  Some operators can be
+  expressed (and computed) on both representations, and for such
+  operators we give both semantics, and show that the result is
+  equivalent.  Some operators, including \tg union, join and
+  difference.... }
 
-In SQL, slice can be expressed as follows for $V$
-(similarly for $E$):
+\subsection{Preliminaries}
+\label{sec:algebra:prelim}
 
-\begin{small}
+B\"ohlen et al.~\cite{DBLP:conf/vldb/BohlenSS96} show that temporal
+selection, Cartesian product and difference all produce a coalesced
+relation as output if the input was coalesced.  They also show that
+temporal union and temporal projection can give rise to an uncoalesced
+output even if the inputs were coalesced.  Intuitively, this is
+because union and projection can give rise to duplicates in
+traditional relational algebra, and lack of coalescing is the temporal
+analogy to a duplicate.
+
+These observations also hold in our scenario at the level of
+individual relations, each containing representative graphs, vertices,
+edges, or vertex/edge attributes.
+
+Our algebra operates on \tgs, and so, in addition to keeping the data
+structure (and its constituent parts) coalesced, we must ensure that
+the result is a valid \tg.\eat{ This objective informed our design of
+  the algebra, e.g., we did not include some flavors of temporal
+  aggregation because the result would be invalid.  Further, this
+  objective informs the rewriting of applicable operations over the
+  \ve representation.}  Importantly, when manipulating the \ve
+representation, we do not require that each intermediate state of the
+data structure correspond to a valid \tg, but rather that the final
+result, which is usually derived after several steps, be valid.  To
+have a useful algebra, we do not reject a change that would lead to a
+violation in referential integrity.  Instead, we compute a consistent
+result by removing the tuples that violate referential integrity.
+
+Consider a unary operation \op and suppose that it is being evaluated
+over the \ve representation \op(\tve).  Algorithm~\ref{alg:op}
+outlines the steps in the evaluation, overloading \opp as appropriate
+when applying the operation to constituent parts of \tve.  Some of the
+steps in Algorithm~\ref{alg:op} may be unnecessary because of the
+properties of the particular operation, as we will see in the
+remainder of this section.  Furthermore, some of the operations may
+produce correct results (up to coalescing) {\em even when computing
+  over uncoalesced inputs}.  We will revisit this point when
+discussing lazy evaluation in Section~\ref{sec:sys}.
+
+\begin{algorithm}[h!]
+\caption{Evaluation of a unary operation on \tve}
+\begin{algorithmic}[1]
+\REQUIRE \tg $\tve (V; E; \tav; \tae)$, operation \insql{op}.\\
+\STATE  $V' = \cl (\opp(V))$\\
+\STATE  $E' = \cl (\opp(E))$\\
+\STATE  $\tav' = \cl (\opp(\tav))$\\
+\STATE  $\tae' = \cl (\opp(\tae))$\\
+\STATE  enforce foreign keys on $E'$ w.r.t. $V'$\\
+\STATE  enforce foreign keys on $\tav'$ w.r.t. $V'$\\
+\STATE  enforce foreign keys on $\tae'$ w.r.t. $E'$\\
+\RETURN new $\tve (V', E', \tav', \tae')$\\
+\end{algorithmic}
+\label{alg:op}
+\end{algorithm}
+
+\subsection{Slice}
+\label{sec:algebra:slice}
+
+The unary {\em slice} operator, denoted $\xi_c (T)$, where $c$ is a
+time period, cuts a temporal slice from $T$.  The resulting \tg will
+contain representative graphs whose period $p$ has a non-empty
+intersection with $c$ (i.e., $p$ is either contained within $c$ or
+overlaps with it, see Section~\ref{sec:model:prelim}).  If $p.start <
+c.start$ or $p.end > c.end$ for some tuple $(g, p)$, then $p$ is
+trimmed to be within the boundaries of $c$: $\xi_c (\trg) = \{ (g, p
+\cap c)~~|~~(g, p) \in \trg \wedge (\pred{c}{overlaps}{p} \vee
+\pred{c}{contains}{p})\}$.
+
+To evaluate $\xi_c (\tve)$, we apply $\xi_c$ to each of the four
+constituent relations of \tve.  For example: $\xi_c (V) = \{ (v, p
+\cap c)~~|~~(v, p) \in \trg \wedge (\pred{c}{overlaps}{p} \vee
+\pred{c}{contains}{p})\}$, and analogously for each $E$, \tav and
+\tae.
+
+\eat{ 
+In SQL, slice can be expressed as follows for $V$ (similarly for other
+relations):}
+
+\eat{\begin{small}
 \begin{verbatim}
 SELECT vid, a1, ..., an, greatest(estart, DATE ':date1'), 
        least(eend, DATE ':date2')
 FROM V
 WHERE eperiod OVERLAPS PERIOD (DATE ':date1', DATE ':date2')
 \end{verbatim}
-\end{small}
+\end{small}}
 
+{\bf Slice does not uncoalesce.} Whether evaluated over \trg or \tve,
+slice is guaranteed to return a coalesced relation when evaluated over
+a coalesced input.  This is because, for any relation \insql{R}, there
+will be at most one tuple from \insql{R} in the result of $\xi_c (R)$,
+with a validity period that is either the same as it was in \insql{R},
+or further restricted (trimmed).  Therefore, there is no need to
+coalesce \trg after slice, or on lines 1-4 of Algorithm~\ref{alg:op}
+when operating over \tve.
+
+{\bf Slice does not require FK enforcement for \tve.}  To see why,
+consider an edge $E(v_1, v_2, p)$ and one of the corresponding
+vertices $V(v_1, p_1)$, such that $\pred{p_1}{contains}{p}$ (per
+Definition~\ref{def:tg} condition~\ref{def:tg:c1}).  Suppose now that
+slice was applied to $V$ and to $E$ with condition $c$.  Is it
+possible that edge $(v_1, v_2, p \cap c)$ is in the result of $\xi_c
+(E)$ (i.e., $p \cap c \neq \emptyset$), while vertex $V(v_1, p_1 \cap
+c)$ is not in the result of $\xi_c (V)$ (i.e., $p_1 \cap c =
+\emptyset$)?  Clearly, the answer is no, since
+$\pred{p_1}{contains}{p}$, and so it must be the case that
+$\pred{p_1}{contains}{(p \cap c)}$.  A similar argument can be made
+for \tav and \tae.
+
+\subsection{Temporal subgraph matching}
+\label{sec:algebra:subgraph}
+
+Temporal subgraph matching is defined analogously to subgraph matching
+in non-temporal graphs: it applies a subgraph function $f$ to every
+representative graph of the input: $\sigma_f (\trg) = \{ (g',
+p)~~|~~(g, p) \in \trg \wedge g' = f(g) \}$.  For example, $f$ may
+select a subset of the vertices or edges of $g$ based on some
+condition that can be computed locally at a vertex or edge, or by a
+path / reachability expression.  Computing arbitrary subgraphs of an
+evolving graph is beyond the scope of this paper, and warrants a
+deeper investigation, which we defer to future work. Here, we focus on
+a useful subset of functions, namely, those that can be expressed as a
+pair of conjunctive queries $CQ_V$, with {\em non-temporal predicates}
+over the vertices of $g$, and $CQ_E$, with {\em non-temporal
+  predicates} over the edges of $g$.
+
+Like other unary operators, {\em temporal subgraph matching}
+$\sigma_{CQ_V, CQ_E} (\tve)$ follows the outline of
+Algorithm~\ref{alg:op}.  Importantly, since $CQ_V$ and $CQ_E$ may
+involve predicates over the attributes, we compute the join of the
+vertext (resp. edge) relation with the corresponding attribute
+relation to evalutate the query, and push selections as appropriate.
+Line 1 of Algorithm~\ref{alg:op} becomes: $V' = \pi_{v,p}
+(\sigma_{CQ_{V1}} (V) \bowtie \sigma_{CQ_{V2}} (\tav))$.  Similarly,
+$E' = \pi_{v_1,v_2,p} (\sigma_{CQ_{E1}} (E) \bowtie \sigma_{CQ_{E2}}
+(\tae))$ (line 2 of Algorithm~\ref{alg:op}).  We compute $\tav' =
+\sigma_{CQ_{V2}} (\tav)$ (line 3) and $\tae' = \sigma_{CQ_{V2}}
+(\tae)$ (line 4).
+
+{\bf Subgraph does not uncoalesce \tve.}% but may uncoalesce \trg.}
+Consider again the computation of $V'$ described above, with a query
+that involves projection, selection and join over temporal SQL
+relations $V$ and \tav.  While selection and join cannot produce an
+uncoalesced output if the input is coalesced, this is generally not
+the case for projection~\cite{DBLP:conf/vldb/BohlenSS96}.
+Interestingly, projection also does not result in an uncoalesced
+output in this case. To see why, suppose that $CQ_V$ is trivial, i.e.,
+that $\sigma_{CQ_{V1}} (V) = V$ and $\sigma_{CQ_{V2}} (\tav) =
+\tav$. Then $V' = \pi_{v,p} (V \bowtie \tav)$, and since $V \bowtie
+\tav$ is a primary key-foreign key join, then $V' = V$.  If $CQ_V$ is
+non-trivial, i.e., $\sigma_{CQ_{V1}} (V) \subset V$ or
+$\sigma_{CQ_{V2}} (\tav) \subset \tav$, then it will be the case that
+$V' \subset V$.  In both cases, if $V$ is coalesced then so is $V'$.
+A similar argument applies to the edges relation $E'$.  Finally, since
+\tav' and \tae' are computed from coalesced input relations using
+selection, these relations are guaranteed to be coalesced.  Thus, it
+is not necessary to coalesce on lines 1-4 of Algorithm~\ref{alg:op}.
+
+{\bf Subgraph does require FK enforcement for \tve.}  Perhaps the most
+natural temporal subgraph query is one that specifies a selection
+condition over the vertices, and computes the vertex induced subgraph.
+In this case we cannot compute $E'$ from $E$ alone, but will also need
+to remove edges for which one or both vertices are not present in the
+graph during the specified time period.  Similarly, we need to remove
+tuples from $\tav'$w and $\tae'$ for which no corresponding tuples
+exist in $V'$ and $E'$, respectively. 
+
+\subsection{Temporal projection}
+\label{sec:algebra:project}
+
+
+\subsection{Temporal aggregation}
+\label{sec:algebra:agg}
+
+\subsection{Temporal union}
+\label{sec:algebra:union}
+
+\subsection{Temporal intersection}
+\label{sec:algebra:union}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\eat{
+The second observation is that it is necessary to enforce referential
+integrity.  Consider a pair of relations $R_i, R_j \in T_{VE}$, such
+that there is a foreign key on $R_j$ referencing $R_i$, and consider
+the couterparts of these relations $R'_i = \sigma_{c_i} R_i$ and $R'_j
+= \sigma_{c_j} R_j$.  If the selection condition on $R_i$ is trivial
+(i.e., $R_i = \sigma_{c_i} R_i$), then referential integrity will hold
+on $R_i, R_j$.  However, if $c_i$ removes some tuples from $R_i$, then
+it becomes necessary to idenfity tuples in $R'_j$ for which there is
+no counterpart in $R'_i$ and delete them.}
+
+\eat{
+Recall that a \tg is a pair of coalesced temporal SQL relations, with
+an integrity constraint that ensures that an edge exists at a time
+when both vertices it connects also exist.  We start by investigating
+the behavior of our model under a standard definition of temporal
+relational algebra operators applied to $V$, $E$ or both in
+Section~\ref{sec:algebra:rel}.  We then present the novel operations
+of \tg algebra (Section~\ref{sec:algebra:graph}).  The main challenge
+in both sub-section is understanding whether and when to coalesce $V$
+and $E$, and how to efficiently enforce the integrity of the data
+structure.}
+
+%\subsection{Relational algebra operators over $V$ and $E$}
+
+\eat{$V$ and $E$ are valid-time temporal relations, and we adopt (and
+adapt) the semantics of period-based temporal
+algebra~\cite{DBLP:conf/vldb/BohlenSS96} to our setting. }
+
+\eat{1) Apply operation to V
+2) Apply operation to E
+3) Coalesce V if necessary
+4) Coalesce E is necessary
+5) Enforce integrity constraint}
+
+\eat{Temporal selection $\sigma_c V = \{ \langle v, p, a_1, \ldots, a_n
+\rangle | c(\langle v, p, a_1, \ldots, a_n \rangle) \}$ returns a
+subset of the tuples in $V$. Note that the selection condition $c$ is
+an arbitrary boolean condition that may also include predicates on
+$p$.  }
+
+\eat{When evaluated over coalesced input relations, temporal selection,
+temporal Cartesian product and temporal negation preserve coalescing.}
+
+\eat{
 \begin{definition}[Selection]
 Temporal and structural selection on $TG$ is a selection on the
 attributes of $V$ and $E$, including entity periods.  $\sigma_{a
@@ -35,9 +253,9 @@ attributes of $V$ and $E$, including entity periods.  $\sigma_{a
 including periods, $\theta$ is a binary operation in the set $\{<,
 \leq, =, \neq, \geq, >\}$, and $c$ is a value constant.
 \label{def:selection}
-\end{definition}
+\end{definition}}
 
-Temporal and structural selection are supported by the same selection
+\eat{Temporal and structural selection are supported by the same selection
 operator and can be used together.  For example, one could select a
 sub-graph in an evolving co-citation network of only authors whose
 names start with letter A, over the past decade.  Because of the
@@ -46,102 +264,55 @@ attributes of $V$, only edges connecting selected vertices are
 retained.  Neither deduplication nor coalescing is required as a
 post-operation.  Note that temporal selection and slice are different
 because temporal selection does not modify entity periods, only
-selects some of them.
+selects some of them.}
 
-In SQL, selection can be expressed as a regular selection on V, followed by a selection on E with integrity constraint enforced.
+\eat{In SQL, selection can be expressed as a regular selection on V,
+followed by a selection on E with integrity constraint enforced.}
 
-\begin{definition}[Projection]
+\eat{\begin{definition}[Projection]
 Projection on $TG$ is projection on attributes of $V$ and $E$ with
 coalescing, i.e. \\$\Pi vid, p, a_1, \ldots, a_n(V); \Pi vid_1, vid_2,
 p, b_1, \ldots, b_m(E)$. 
 \label{def:projection}
-\end{definition}
+\end{definition}}
 
-The primary key is always retained, so deduplication is not necessary.
-However, coalescing is always performed.  Projection and coalescing
-can be expressed in temporal SQL as follows in a structure-only case:
 
-\begin{small}
+\eat{\begin{definition}[Slice]
+The unary operation \op{slice}, denoted $\sigma_{[start, end)}
+  \insql{T}$ is a selection operation that includes...}
+
+\eat{Slice on $TG$ is a selection on periods of $V$ and $E$ such that
+$slice_{[a,b)}(TG) = \{t': t \in TG$, $t(p).overlaps(period(a,b)), t'
+  = fit(t, period(a,b))\}$ and $fit(t, period(a,b))$ shortens the
+  entity period $p$ to be within $[a,b)$.
+\label{def:slice}
+\end{definition}}
+
+\eat{In SQL, slice can be expressed as follows for $V$
+(similarly for $E$):}
+
+\eat{\begin{small}
 \begin{verbatim}
-CREATE VIEW ProjV(vid, estart, eend) AS (
-  SELECT vid, estart, eend FROM V);
-CREATE VIEW ProjE(vid1, vid2, estart, eend) AS (
-  SELECT vid1, vid2, estart, eeend FROM E);
-CREATE VIEW CoalescV(vid, estart, eend) AS (
-  SELECT DISTINCT F.vid, F.estart, L.eend
-  FROM ProjV F, ProjV L
-  WHERE F.estart < L.eend AND F.vid = L.vid
-  AND NOT EXISTS (SELECT * FROM ProjV M
-    WHERE M.vid = F.vid
-    AND F.estart < M.estart AND M.estart <= L.eend
-    AND NOT EXISTS (SELECT * From ProjV M1
-      WHERE M1.vid = F.vid
-      AND M1.estart < M.estart
-      AND V.estart <= M1.eend ) )
-  AND NOT EXISTS (SELECT * from ProjV M2
-    WHERE M2.vid = F.vid
-    AND ( (M2.estart < F.estart AND F.estart <= M2.eend)
-    OR (M2.estart <= L.eend AND L.eend < M2.eend) ) ) );
-CREATE VIEW CoalescE(vid1, vid2, estart, eend) AS (
-  SELECT DISTINCT F.vid1, F.vid2, F.estart, L.eend
-  FROM ProjE F, ProjE L
-  WHERE F.estart < L.eend AND F.vid1 = L.vid1 
-  AND F.vid2 = L.vid2
-  AND NOT EXISTS (SELECT * FROM ProjE M
-    WHERE M.vid1 = F.vid1 AND M.vid2 = F.vid2
-    AND F.estart < M.estart AND M.estart <= L.eend
-    AND NOT EXISTS (SELECT * From ProjE M1
-      WHERE M1.vid1 = F.vid1
-      AND M1.vid2 = F.vid2
-      AND M1.estart < M.estart
-      AND V.estart <= M1.eend ) )
-  AND NOT EXISTS (SELECT * from ProjE M2
-    WHERE M2.vid1 = F.vid1 AND M2.vid2 = F.vid2
-    AND ( (M2.estart < F.estart AND F.estart <= M2.eend)
-    OR (M2.estart <= L.eend AND L.eend < M2.eend) ) ) )
+SELECT vid, a1, ..., an, greatest(estart, DATE ':date1'), 
+       least(eend, DATE ':date2')
+FROM V
+WHERE eperiod OVERLAPS PERIOD (DATE ':date1', DATE ':date2')
 \end{verbatim}
-\end{small}
+\end{small}}
 
-As already mentioned, snapshots represent the state of the graph at a
-particular time instant $t$.  It is often useful to instead analyze
-the graph as an aggregation over some time period $p$.  We call such a
-graph a {\em representative graph}.  For example, a union of all
-vertices/edges over 1 month is representative of that graph during
-that month.  Analysis of representative graphs can lead to deeper
-insight than of a snapshot.  For example, a co-authorship network DBLP
-is very sparse - one can only publish so many papers in any given
-month - on a daily or even monthly level of granularity, but can show
-community formation and affiliation when aggregated over multiples of
-years.  From this perspective, an evolving graph is a sequence of
-representative graphs over consecutive arbitrary-length periods.
+\subsection{Temporal aggregation}
 
-In SQL, the representative graph periods can be computed as follows:
-
-\begin{small}
-\begin{verbatim}
-CREATE VIEW Changes(day) as (
-  SELECT DISTINCT estart FROM V
-  UNION SELECT DISTINCT eend FROM V
-  UNION SELECT DISTINCT estart from E
-  UNION SELECT DISTINCT eend FROM E);
-CREATE VIEW ChangePeriods(estart, eend) as (
-  SELECT P1.day, P2.day
-  FROM Changes P1, Changes P2
-  WHERE P1.day < P2.day AND NOT EXISTS (
-     SELECT * from Changes P3
-     WHERE P1.day < P3.day and P3.day < P2.day ) )
-\end{verbatim}
-\end{small}
-
-\begin{figure}
-\centering
-\includegraphics[width=3.4in]{figs/change_timeline.pdf}
-\caption{The regions of constant value within the whole graph compose
-  representative graphs.}
-\label{fig:changes}
-\end{figure}
-
-An example in Figure~\ref{fig:changes} illustrates this concept.
+It is often useful to instead analyze the graph as an aggregation over
+some time period $p$.  We call such a graph a {\em representative
+  graph}.  For example, a union of all vertices/edges over 1 month is
+representative of that graph during that month.  Analysis of
+representative graphs can lead to deeper insight than of a snapshot.
+For example, a co-authorship network DBLP is very sparse - one can
+only publish so many papers in any given month - on a daily or even
+monthly level of granularity, but can show community formation and
+affiliation when aggregated over multiples of years.  From this
+perspective, an evolving graph is a sequence of representative graphs
+over consecutive arbitrary-length periods.
 
 Here we propose a general way to aggregate evolving graphs over our
 model.  This approach is based on the stream aggregation work by Li,
@@ -184,7 +355,7 @@ with the use of two \insql{NOT EXISTS}.
 Now that we have the window semantics and quantification defined, we
 can define the aggregation operation over an evolving graph $TG$.
 
-\begin{definition}[Evolving Graph Aggregation]
+\begin{definition}[\tg Aggregation]
 An {\em aggregation} operation over $TG$ is a function \\ $G_1, G_2,
 \ldots, G_n, W, Q g f_1(A_1), f_2(A_2), \ldots, f_m(A_m)(TG)$, where
 each $G_i$ is a grouping attribute from $TG$ with the exception of
@@ -251,6 +422,8 @@ It is possible but difficult to express the aggregation operation as
 defined above in temporal SQL because each tuple may belong to
 multiple windows.
 
+\subsection{Union and Intersection of \tgs}
+
 \begin{definition}[Union]
 Union of $TG1\ \cup\ TG2$ = $\{v, e: v \in TG1.V$ or $v \in TG2.V$ or
 $v(vid$, $f_1(a_{11}$, $a_{21})$, \ldots, $f_n(a_{1n}, a_{2n})$,
@@ -277,8 +450,4 @@ with coalescing.  Figure~\ref{fig:union} illustrates this concept.
 Similarly, intersection of two \tgs is an intersection of
 vertices/edges of two graphs, with values for each overlapping
 attribute computed by a specified aggregate function.
-
-\subsection{Attributes}
-
-Attributes --- temporal implementation, schema on load.
 
