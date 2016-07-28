@@ -38,7 +38,9 @@ and $q$: $[\predName{max}(p.start,q.start), \predName{min}(p.end,
 \begin{figure}
 \centering
 \includegraphics[width=3.5in]{figs/T1_rel_tab.pdf}
-\caption{Vertex-edge representation of \tg \insql{T1}.}
+\caption{Vertex-edge representation of \tg
+  \insql{T1}. \reminder{rename V to \tv, E to \te, $A^V$ to \tav and
+    $A^E$ to \tae.}}
 \label{fig:tg_ve}
 \end{figure}
 
@@ -58,22 +60,26 @@ and $q$ using the following Allen's relations~\cite{allen83}.}
 \label{sec:model:rg}
 
 The basic building block of our model is a \tg, which represents a
-graph that evolves continuously over time.\eat{ Our choice to
-  represent continuous graph evolution is in contrast with a
-  less-general discrete snapshot-based representation. } 
+graph that evolves continuously over time, and is defined over a set
+of vertices $V$, a set of edges $E\subseteq V \times V$, a set of
+vertex labels \avv, and a set of edge labels \aee.
 
 \begin{definition}[TGraph]
 A \tg $T(g:graph, p:period) = \{ (g,p) \}$ is a valid-time
 period-based relation in which a tuple associates a state of the graph
 $g$ with a time period $p$ during which the graph is in that state.
+
+Each $g = (V_g, E_g, \avv_g, \aee_g)$, with $V_g \subseteq V$, $E_g
+\subseteq V \times V$, $\avv_g \subseteq \avv$, $\aee_g \subseteq
+\aee$.
+
 $T$ is temporally coalesced:
 \begin{multline}
-\forall T(v,p)~~\nexists T(v,p')~~| \\
+\forall T(g,p)~~\nexists T(g,p')~~| \\
         \pred{p}{meets}{p'}~\lor~\pred{p}{contains}{p'}~\lor~\pred{p}{overlaps}{p'}
 \end{multline}
 We refer to each $g$ that appears in some tuple $(g,p)$ of $T$ as a
 representative graph of $T$ during period $p$.
-
 \label{def:tg_abstract}
 \end{definition}
 
@@ -106,13 +112,10 @@ valid-time temporal SQL relations~\cite{DBLP:conf/vldb/BohlenSS96} to
 represent evolution of graph topology, of its vertex and edge schemas,
 and of values of its vertex and edge attributes.  We term this logical
 representation the {\em \ve \tg}.  An example of a \ve \tg is given in
-Figure~\ref{fig:tg_ve}.\eat{ In its basic form, a \tg is represented
-  by a pair of temporal SQL relations $V$ and $E$ that capture
-  evolution of graph topology.  A \tg may optionally represent
-  evolution of vertex and edge attributes with relations $A^{V}$ and
-  $A^{E}$.}
-
-%$A^{V}_1, \ldots, A^{V}_n$ and $A^{E}_1, \ldots, A^{E}_m$
+Figure~\ref{fig:tg_ve}.  We will refer to the \rgs
+(Definition~\ref{def:tg_abstract}) and \ve (Definition~\ref{def:tg})
+represenations of a \tg jointly as \insql{T}, and will disambiguate
+between the two representations with \trg and \tve when necessary.
 
 \eat{ Following notation in~\ref{DBLP:conf/vldb/BohlenSS96}, we will
   make use of $value\_equivalent(x,y) = (x[A] = y[A])$ --- a Boolean
@@ -120,54 +123,56 @@ Figure~\ref{fig:tg_ve}.\eat{ In its basic form, a \tg is represented
   their explicit (non-temporal) attributes.}
 
 \begin{definition}[Vertex-Edge TGraph]
-A vertex-\\edge representation of \tg is a pair $T=(V; E)$, where $V$ is
-a finite set of vertices with schema $V(\underline{v}, \underline{p})$
-and $E$ is a finite set of edges connecting pairs of vertices from
-$V$, with schema $E(\underline{v_1}, \underline{v_2}, \underline{p})$.
-Attribute $p$ represents time period (as per Def.~\ref{def:period}).
-Both $V$ and $E$ are coalesced:
+A vertex-\\edge representation of \tg is a pair $T=(\tv, \te)$. \tv is
+a valid-time temporal SQL relation with schema $\tv(\underline{v},
+\underline{p})$, in which a tuple associates a vertex with the time
+period during which it was present. \te is a valid-time temporal SQL
+relation with schema $\te(\underline{v_1}, \underline{v_2},
+\underline{p})$, connecting pairs of vertices from \tv.  Attribute $p$
+represents time period (as per Def.~\ref{def:period}).  Both \tv and
+\te are coalesced:
 
 \begin{multline}
-\forall V(v, p)~~\nexists V(v, p')~~| \\
+\forall \tv(v, p)~~\nexists \tv(v, p')~~| \\
                        \pred{p}{meets}{p'}~\lor~\pred{p}{contains}{p'}~\lor~\pred{p}{overlaps}{p'}
 \label{def:tg:c2}
 \end{multline}
 \vspace{-0.5cm}
 \begin{multline}
-\forall E(v_1, v_2, p)~~\nexists E(v_1,v_2, p')~~| \\
+\forall \te(v_1, v_2, p)~~\nexists \te(v_1,v_2, p')~~| \\
                        \pred{p}{meets}{p'}~\lor~\pred{p}{contains}{p'}~\lor~\pred{p}{overlaps}{p'}
 \label{def:tg:c3}
 \end{multline}
 
 An edge connects a pair of vertices that exist at the time when the edge exists:
 \begin{multline}
-\forall E(v_1, v_2, p)~~\exists V(v_1, p_1), V(v_2, p_2)~~| \\
+\forall \te(v_1, v_2, p)~~\exists \tv(v_1, p_1), \tv(v_2, p_2)~~| \\
                        \pred{p_1}{contains}{p}~\wedge~\pred{p_2}{contains}{p}
 \label{def:tg:c1}
 \end{multline}
 \vspace{-0.5cm}
 
-\insql{T} optionally includes vertex attribute relation $A^{V}$ and an
-edge attribute relation $A^{E}$.  $A^{V}$ is coalesced, and associates
+\insql{T} optionally includes vertex attribute relation \tav and an
+edge attribute relation \tae.  \tav is coalesced, and associates
 attribute values with existing vertices.
 \begin{multline}
-\forall A^{V}(v, p, a)~~\nexists A^{V}(v, p', a)~~| \\
+\forall \tav(v, p, a)~~\nexists \tav(v, p', a)~~| \\
                        \pred{p}{meets}{p'}~\lor~\pred{p}{contains}{p'}~\lor~\pred{p}{overlaps}{p'}
 \label{def:tg:c4}
 \end{multline}
 \begin{multline}
-\forall A^{V}(v, p, a)~~\exists V(v,p')~~|~~\pred{p'}{contains}{p}
+\forall \tav(v, p, a)~~\exists \tv(v,p')~~|~~\pred{p'}{contains}{p}
 \label{def:tg:c5}
 \end{multline}
-$A^{E}$ is coalesced, and associates attribute values with existing
+\tae is coalesced, and associates attribute values with existing
 edges.
 \begin{multline}
-\forall A^{E}(v_1, v_2, p, a)~~\nexists A^{E}(v_1, v_2, p', a)~~| \\
+\forall \tae(v_1, v_2, p, a)~~\nexists \tae(v_1, v_2, p', a)~~| \\
                        \pred{p}{meets}{p'}~\lor~\pred{p}{contains}{p'}~\lor~\pred{p}{overlaps}{p'}
 \label{def:tg:c6}
 \end{multline}
 \begin{multline}
-\forall A^{E}(v_1, v_2, p, a)~~\exists E(v_1,v_2,p')~~|~~\pred{p'}{contains}{p}
+\forall \tae(v_1, v_2, p, a)~~\exists \te(v_1,v_2,p')~~|~~\pred{p'}{contains}{p}
 \label{def:tg:c7}
 \end{multline}
 
@@ -179,7 +184,7 @@ a canonical representation of an edge, with $v_1 \leq v_2$ (self-loops
 are allowed).
 
 Conditions~\ref{def:tg:c2} and~\ref{def:tg:c3} in
-Definition~\ref{def:tg} state that $V$ and $E$ are
+Definition~\ref{def:tg} state that \tv and \te are
 coalesced~\cite{DBLP:conf/vldb/BohlenSS96}, i.e., that each vertex and
 edge is represented exactly once for each time period of maximal
 length when it is present.  Conditions~\ref{def:tg:c4}
@@ -187,8 +192,8 @@ and~\ref{def:tg:c6} state that all attribute relations are coalesced,
 i.e., that an attribute is represented exactly once for each time
 period of maximal length in which its value did not change.  Consider
 \insql{T1} in Figure~\ref{fig:tg_ve} and note that there is a single
-tuple corresponding to vertex $v_2$ in $V$, but two tuples
-corresponding to $v_2$ in $A^{V}$, because the value of $a.school$
+tuple corresponding to vertex $v_2$ in \tv, but two tuples
+corresponding to $v_2$ in \tav, because the value of $a.school$
 changed at time $t_2$.
 
 Definitions~\ref{def:tg_abstract} and~\ref{def:tg} give two
@@ -202,7 +207,7 @@ vertices, edges and attribute values, coalescing each relation
 independently of the others.  This makes graph maintenance and
 manipulation more manageable.
 
-The $V$ and $E$ relations of Definition~\ref{def:tg}, although only
+The \tv and \te relations of Definition~\ref{def:tg}, although only
 partially enforcing the constraints, can be implemented as follows (as
 per SQL:2011):
 
@@ -219,31 +224,31 @@ per SQL:2011):
 
 \begin{small}
 \begin{verbatim}
-CREATE TABLE V (
+CREATE TABLE TV (
   v LONG,
   pstart DATE,
   pend DATE,
   PERIOD for p (pstart, pend),
   PRIMARY KEY (v, p WITHOUT OVERLAPS) )
 
-CREATE TABLE E (
+CREATE TABLE TE (
   v1 LONG,
   v2 LONG,
   pstart DATE,
   pend DATE,
   PERIOD for p (pstart, pend),
   PRIMARY KEY (v1, v2, p WITHOUT OVERLAPS),
-  FOREIGN KEY (v1, PERIOD p) REFERENCES V(v, PERIOD p),
-  FOREIGN KEY (v2, PERIOD p) REFERENCES V(v, PERIOD p) )
+  FOREIGN KEY (v1, PERIOD p) REFERENCES TV(v, PERIOD p),
+  FOREIGN KEY (v2, PERIOD p) REFERENCES TV(v, PERIOD p) )
 \end{verbatim}
 \end{small}
 
-Unfortunately, this implementation does not guarantee that $V$ and $E$
+Unfortunately, this implementation does not guarantee that \tv and \te
 will be coalesced.  It does ensure that time periods corresponding to
 a vertex (resp. edge) do not overlap, and that one does not contain
 the other, but it does not prevent the existence of two adjacent time
 periods for a vertex or edge, i.e., periods $p$ and $q$ for which
-$\pred{p}{meets}{q}$.  That is, there may well be two tuples in $V$
+$\pred{p}{meets}{q}$.  That is, there may well be two tuples in \tv
 for $v_1$ in Figure~\ref{fig:tg_ve}, one associated with $[t_0,t_1)$
   and the other with $[t_1,t_4)$.
 
@@ -262,12 +267,10 @@ unnecessary.  We will discuss this when presenting \tg algebra
 (Section~\ref{sec:algebra}) and its implementation in scope of Apache
 Spark / GraphX (Section~\ref{sec:sys}).
 
-%{\bf More about vertex and edge attributes.} 
-
 While our \ve representation is based on temporal SQL, we remark here
 that non-key attributes of vertices and edges are not restricted to be
 of atomic types, and may, e.g., be maps or tuples. This is illustrated
-by relation $A^V$ in Figure~\ref{fig:tg_ve}.  Note that
+by relation \tav in Figure~\ref{fig:tg_ve}.  Note that
 Definition~\ref{def:tg} presents a logical data structure and may be
 implemented, e.g., by a columnar representation of vertex and edge
 attributes.  Such a representation would naturally support schema
@@ -281,22 +284,22 @@ edge attributes.  Such a representation naturally supports {\em schema
 especially when values of different attributes change at different
 rates.  That said, our support of non-atomic types allows to combine
 multiple, or even all, vertex (resp. edge) attributes in a single
-attribute relation, as is the case in $A^V$ Figure~\ref{fig:tg_ve}.}
+attribute relation, as is the case in \tav Figure~\ref{fig:tg_ve}.}
 
 Our choice to use attribute relations is in contrast to representing
-vertex and edge attributes as part of $V$ and $E$.  The main reason
+vertex and edge attributes as part of \tv and \te.  The main reason
 for this is to streamline the enforcement of referential integrity
 constraints of Definition~\ref{def:tg}.  Consider again the example in
 Figure ~\ref{fig:tg_ve}.  If vertex attributes were stored as part of
-$V$, then there would be two tuples for $v_2$ in this relation, one
+\tv, then there would be two tuples for $v_2$ in this relation, one
 for each $[t_1, t_2)$ and $[t_2, t_5)$.  This would in turn require
-    that $e(v_1, v_2)$ be mapped to two tuples in $V$ as part of
+    that $e(v_1, v_2)$ be mapped to two tuples in \tv as part of
     referential integrity checking on $v_2$.  Matching a tuple with a
     set of tuples in the referenced table, while supported by the
     SQL:2011 standard, is potentially inefficient, and we avoid it in
-    our representation.\eat{  We will discuss how integrity of the model is
-    enforced, and how this is implemented, in
-    Sections~\ref{sec:algebra} and~\ref{sec:sys}.}
+    our representation.\eat{ We will discuss how integrity of the
+      model is enforced, and how this is implemented, in
+      Sections~\ref{sec:algebra} and~\ref{sec:sys}.}
 
 \eat{ Non-key attributes of $V$ and $E$ are not restricted to be of
   atomic types, but may, e.g., be maps or tuples.  Because of this,
@@ -337,21 +340,23 @@ where we present \tg algebra.
 
 The representations of Sections~\ref{sec:model:rg}
 and~\ref{sec:model:ve} are equivalent in terms of the information they
-contain.  \trg (G) can be computed from $\tve (V; E; \tav; \tae)$ by
-(1) enumerating all time points during which some change occurred,
+contain.  \trg (G) can be computed from $\tve (\tv, \te, \tav, \tae)$
+by (1) enumerating all time points during which some change occurred,
 i.e., those that appear as either the start or the end of some time
-period in $V$, $E$, \tav, and \tae; (2) computing \rgs periods by
+period in \tv, \te, \tav, and \tae; (2) computing \rgs periods by
 generating pairs of adjacent time points from step 1, and sorting them
 by $start$; (3) constructing a representative $g$ graph for each time
-period $p$ by selecting the entities from $V$, $E$, \tav, and \tae
+period $p$ by selecting the entities from \tv, \te, \tav, and \tae
 that overlap with $p$.
 
-To compute \ve from \rgs, we must compute four relations, $V$, $E$,
-$A^{V}$ and $A^{E}$.  This is done by iterating over the tuples
-$(g:graph,p:period)$, computing $V_g(v,p)$ (similarly for $E_g$,
-$A^{V}_g$, $A^{V}_g$) for each tuple, collecting $V_g \rightarrow V$,
-$E_g \rightarrow E$, $A^{V}_g \rightarrow A^{V}$, $A^{E}_g \rightarrow
-A^{E}$, and finally coalescing each $V$, $E$, $A^{V}$, and $A^{E}$.
+To compute \ve from \rgs, we must compute four relations, \tv, \te,
+\tav, and \tae.  This is done by iterating over the tuples
+$(g:graph,p:period)$, computing $\tv_g(v,p)$ (similarly for $\te_g$,
+$\tav_g$, $\tav_g$) for each tuple, collecting $\tv_g \rightarrow \tv$,
+$\te_g \rightarrow \te$, $\tav_g \rightarrow \tav$, $\tae_g \rightarrow
+\tae$, and finally coalescing each \tv, \te, \tav, and \tae.
+
+\reminder{Write down as algorithms?}
 
 In what follows we will present operators of \tg algebra, stating
 their semantics over the \rgs and \ve data structures

@@ -2,8 +2,8 @@
 \label{sec:algebra}
 
 In this section we describe the operators of \tg algebra.  The algebra
-is compositional --- all operators take a \tg, or a pair of \tgs, as
-input, and produce a valid \tg as output.  
+is compositional --- all operators take a \tg or a pair of \tgs as
+input, and produce a valid \tg as output.
 
 \eat{ \tg algebra opertors come in two flavors.  The first are
   operations defined directly on the \rg representation, namely,
@@ -60,15 +60,15 @@ discussing lazy evaluation in Section~\ref{sec:sys}.
 \begin{algorithm}[h!]
 \caption{Evaluation of a unary operation on \tve}
 \begin{algorithmic}[1]
-\REQUIRE \tg $\tve (V; E; \tav; \tae)$, operation \insql{op}.\\
-\STATE  $V' = \cl (\opp(V))$\\
-\STATE  $E' = \cl (\opp(E))$\\
+\REQUIRE \tg $\tve (\tv; \te; \tav; \tae)$, operation \insql{op}.\\
+\STATE  $\tv' = \cl (\opp(\tv))$\\
+\STATE  $\te' = \cl (\opp(\te))$\\
 \STATE  $\tav' = \cl (\opp(\tav))$\\
 \STATE  $\tae' = \cl (\opp(\tae))$\\
-\STATE  enforce foreign keys on $E'$ w.r.t. $V'$\\
-\STATE  enforce foreign keys on $\tav'$ w.r.t. $V'$\\
-\STATE  enforce foreign keys on $\tae'$ w.r.t. $E'$\\
-\RETURN new $\tve (V', E', \tav', \tae')$\\
+\STATE  enforce foreign keys on $\te'$ w.r.t. $\tv'$\\
+\STATE  enforce foreign keys on $\tav'$ w.r.t. $\tv'$\\
+\STATE  enforce foreign keys on $\tae'$ w.r.t. $\te'$\\
+\RETURN new $\tve (\tv', \te', \tav', \tae')$\\
 \end{algorithmic}
 \label{alg:op}
 \end{algorithm}
@@ -87,10 +87,10 @@ trimmed to be within the boundaries of $c$: $\xi_c (\trg) = \{ (g, p
 \pred{c}{contains}{p})\}$.
 
 To evaluate $\xi_c (\tve)$, we apply $\xi_c$ to each of the four
-constituent relations of \tve.  For example: $\xi_c (V) = \{ (v, p
-\cap c)~~|~~(v, p) \in \trg \wedge (\pred{c}{overlaps}{p} \vee
-\pred{c}{contains}{p})\}$, and analogously for each $E$, \tav and
-\tae.
+constituent relations of \tve.  For example: 
+$\xi_c (\tv) = \{ (v, p
+\cap c)~~|~~(v, p) \in \tv \wedge (\pred{c}{overlaps}{p} \vee \pred{c}{contains}{p}) \}$, 
+and analogously for each \te, \tav and \tae.
 
 \eat{ 
 In SQL, slice can be expressed as follows for $V$ (similarly for other
@@ -115,17 +115,18 @@ coalesce \trg after slice, or on lines 1-4 of Algorithm~\ref{alg:op}
 when operating over \tve.
 
 {\bf Slice does not require FK enforcement for \tve.}  To see why,
-consider an edge $E(v_1, v_2, p)$ and one of the corresponding
-vertices $V(v_1, p_1)$, such that $\pred{p_1}{contains}{p}$ (per
+consider an edge $\te(v_1, v_2, p)$ and one of the corresponding
+vertices $\tv(v_1, p_1)$, such that $\pred{p_1}{contains}{p}$ (per
 Definition~\ref{def:tg} condition~\ref{def:tg:c1}).  Suppose now that
-slice was applied to $V$ and to $E$ with condition $c$.  Is it
+slice was applied to \tv and to \te with condition $c$.  Is it
 possible that edge $(v_1, v_2, p \cap c)$ is in the result of $\xi_c
-(E)$ (i.e., $p \cap c \neq \emptyset$), while vertex $V(v_1, p_1 \cap
-c)$ is not in the result of $\xi_c (V)$ (i.e., $p_1 \cap c =
+(\te)$ (i.e., $p \cap c \neq \emptyset$), while vertex $\tv(v_1, p_1 \cap
+c)$ is not in the result of $\xi_c (\tv)$ (i.e., $p_1 \cap c =
 \emptyset$)?  Clearly, the answer is no, since
 $\pred{p_1}{contains}{p}$, and so it must be the case that
-$\pred{p_1}{contains}{(p \cap c)}$.  A similar argument can be made
-for \tav and \tae.
+$\pred{p_1}{contains}{(p \cap c)}$.  A similar argument justifies that
+FK enforcement is not needed for $\xi_c(\tav)$ (w.r.t. $\xi_c (\tv)$) and
+for $\xi_c(\tae)$ (w.r.t. $\xi_c (\te)$).
 
 \subsection{Temporal subgraph matching}
 \label{sec:algebra:subgraph}
@@ -136,19 +137,21 @@ representative graph of the input: $\sigma_f (\trg) = \{ (g',
 p)~~|~~(g, p) \in \trg \wedge g' = f(g) \}$.  For example, $f$ may
 select a subset of the vertices or edges of $g$ based on some
 condition that can be computed locally at a vertex or edge, or by a
-path / reachability expression.  Computing arbitrary subgraphs of an
-evolving graph is beyond the scope of this paper, and warrants a
-deeper investigation, which we defer to future work. Here, we focus on
-a useful subset of functions, namely, those that can be expressed as a
-pair of conjunctive queries $CQ_V$, with {\em non-temporal predicates}
-over the vertices of $g$, and $CQ_E$, with {\em non-temporal
-  predicates} over the edges of $g$.
+path / reachability expression.  In this paper we restrict our
+attention to conjunctive queries
+
+Computing arbitrary subgraphs of an evolving graph is beyond the scope
+of this paper, and warrants a deeper investigation, which we defer to
+future work. Here, we focus on a useful subset of functions, namely,
+those that can be expressed as a pair of conjunctive queries $CQ_V$,
+with {\em non-temporal predicates} over the vertices of $g$, and
+$CQ_E$, with {\em non-temporal predicates} over the edges of $g$.
 
 Like other unary operators, {\em temporal subgraph matching}
 $\sigma_{CQ_V, CQ_E} (\tve)$ follows the outline of
 Algorithm~\ref{alg:op}.  Importantly, since $CQ_V$ and $CQ_E$ may
 involve predicates over the attributes, we compute the join of the
-vertext (resp. edge) relation with the corresponding attribute
+vertex (resp. edge) relation with the corresponding attribute
 relation to evalutate the query, and push selections as appropriate.
 Line 1 of Algorithm~\ref{alg:op} becomes: $V' = \pi_{v,p}
 (\sigma_{CQ_{V1}} (V) \bowtie \sigma_{CQ_{V2}} (\tav))$.  Similarly,
@@ -178,15 +181,27 @@ is not necessary to coalesce on lines 1-4 of Algorithm~\ref{alg:op}.
 
 {\bf Subgraph does require FK enforcement for \tve.}  Perhaps the most
 natural temporal subgraph query is one that specifies a selection
-condition over the vertices, and computes the vertex induced subgraph.
+condition over the vertices, and computes the vertex-induced subgraph.
 In this case we cannot compute $E'$ from $E$ alone, but will also need
-to remove edges for which one or both vertices are not present in the
-graph during the specified time period.  Similarly, we need to remove
-tuples from $\tav'$w and $\tae'$ for which no corresponding tuples
-exist in $V'$ and $E'$, respectively. 
+to remove edges for which one or both vertices are not present in $V'$
+during the specified time period.  Similarly, we need to remove tuples
+from $\tav'$ and $\tae'$ for which no corresponding tuples exist in
+$V'$ and $E'$, respectively.
+
+{\bf Subgraph may uncoalesce \trg.} \reminder{explain}
 
 \subsection{Temporal projection}
 \label{sec:algebra:project}
+
+\tg algebra supports a limited kind of projection: while the key
+attributes of vertices and edges must be retained, it is possible to
+project out some or all non-key attributes of the vertices and of the
+edges.  Like temporal subgraph matching
+(Section~\ref{sec:algebra:subgraph}), 
+
+{\bf Projection may uncoalesce \tav and \tae in \tve.}
+
+{\bf Project may uncoalesce \trg.}
 
 
 \subsection{Temporal aggregation}
