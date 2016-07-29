@@ -133,32 +133,35 @@ for $\xi_c(\tae)$ (w.r.t. $\xi_c (\te)$).
 
 Temporal subgraph matching is defined analogously to subgraph matching
 in non-temporal graphs: it applies a subgraph function $f$ to every
-representative graph of the input: $\sigma_f (\trg) = \{ (g',
-p)~~|~~(g, p) \in \trg \wedge g' = f(g) \}$.  For example, $f$ may
-select a subset of the vertices or edges of $g$ based on some
-condition that can be computed locally at a vertex or edge, or by a
-path / reachability expression.  In this paper we restrict our
-attention to conjunctive queries
+representative graph of the input.  To ensure that a valid \tg is
+computed as a result of this operation, we restrict our attention to
+functions that compute a single subgraph of a given representative
+graph as a result: $\sigma_f (\trg) = \{ (g', p)~~|~~(g, p) \in \trg
+\wedge g' = f(g) \wedge$\\$V_{g'} \subseteq V_{g} \wedge E_{g'}
+\subseteq E_{g} \}$.
 
-Computing arbitrary subgraphs of an evolving graph is beyond the scope
-of this paper, and warrants a deeper investigation, which we defer to
-future work. Here, we focus on a useful subset of functions, namely,
-those that can be expressed as a pair of conjunctive queries $CQ_V$,
-with {\em non-temporal predicates} over the vertices of $g$, and
-$CQ_E$, with {\em non-temporal predicates} over the edges of $g$.
+\eat{For example, $f$ may select a subset of the vertices or edges of
+  $g$ based on some condition that can be computed locally at a vertex
+  or edge, or by a path / reachability expression.  In this paper we
+  restrict our attention to conjunctive queries.}  Even more
+specifically, we focus on functions those that can be expressed as a
+pair of {\em conjunctive queries} $Q_V$, with {\em non-temporal
+  predicates} over the vertices of $g$, and $Q_E$, with {\em
+  non-temporal predicates} over the edges of $g$. (Computing arbitrary
+subgraphs of an evolving graph is beyond the scope of this paper, and
+warrants a deeper investigation, which we defer to future work.)
 
 Like other unary operators, {\em temporal subgraph matching}
-$\sigma_{CQ_V, CQ_E} (\tve)$ follows the outline of
-Algorithm~\ref{alg:op}.  Importantly, since $CQ_V$ and $CQ_E$ may
+$\sigma_{Q_V, Q_E} (\tve)$ follows the outline of
+Algorithm~\ref{alg:op}.  Importantly, since $Q_V$ and $Q_E$ may
 involve predicates over the attributes, we compute the join of the
-vertex (resp. edge) relation with the corresponding attribute
-relation to evalutate the query, and push selections as appropriate.
-Line 1 of Algorithm~\ref{alg:op} becomes: $V' = \pi_{v,p}
-(\sigma_{CQ_{V1}} (V) \bowtie \sigma_{CQ_{V2}} (\tav))$.  Similarly,
-$E' = \pi_{v_1,v_2,p} (\sigma_{CQ_{E1}} (E) \bowtie \sigma_{CQ_{E2}}
-(\tae))$ (line 2 of Algorithm~\ref{alg:op}).  We compute $\tav' =
-\sigma_{CQ_{V2}} (\tav)$ (line 3) and $\tae' = \sigma_{CQ_{V2}}
-(\tae)$ (line 4).
+vertex (resp. edge) relation with the corresponding attribute relation
+to evalutate the query, and push selections as appropriate.  Line 1 of
+Algorithm~\ref{alg:op} becomes: $V' = \pi_{v,p} (\sigma_{Q_{V1}} (V)
+\bowtie \sigma_{Q_{V2}} (\tav))$.  Similarly, $E' = \pi_{v_1,v_2,p}
+(\sigma_{Q_{E1}} (E) \bowtie \sigma_{Q_{E2}} (\tae))$ (line 2 of
+Algorithm~\ref{alg:op}).  We compute $\tav' = \sigma_{Q_{V2}} (\tav)$
+(line 3) and $\tae' = \sigma_{Q_{V2}} (\tae)$ (line 4).
 
 {\bf Subgraph does not uncoalesce \tve.}% but may uncoalesce \trg.}
 Consider again the computation of $V'$ described above, with a query
@@ -167,12 +170,12 @@ relations $V$ and \tav.  While selection and join cannot produce an
 uncoalesced output if the input is coalesced, this is generally not
 the case for projection~\cite{DBLP:conf/vldb/BohlenSS96}.
 Interestingly, projection also does not result in an uncoalesced
-output in this case. To see why, suppose that $CQ_V$ is trivial, i.e.,
-that $\sigma_{CQ_{V1}} (V) = V$ and $\sigma_{CQ_{V2}} (\tav) =
+output in this case. To see why, suppose that $Q_V$ is trivial, i.e.,
+that $\sigma_{Q_{V1}} (V) = V$ and $\sigma_{Q_{V2}} (\tav) =
 \tav$. Then $V' = \pi_{v,p} (V \bowtie \tav)$, and since $V \bowtie
-\tav$ is a primary key-foreign key join, then $V' = V$.  If $CQ_V$ is
-non-trivial, i.e., $\sigma_{CQ_{V1}} (V) \subset V$ or
-$\sigma_{CQ_{V2}} (\tav) \subset \tav$, then it will be the case that
+\tav$ is a primary key-foreign key join, then $V' = V$.  If $Q_V$ is
+non-trivial, i.e., $\sigma_{Q_{V1}} (V) \subset V$ or
+$\sigma_{Q_{V2}} (\tav) \subset \tav$, then it will be the case that
 $V' \subset V$.  In both cases, if $V$ is coalesced then so is $V'$.
 A similar argument applies to the edges relation $E'$.  Finally, since
 \tav' and \tae' are computed from coalesced input relations using
@@ -188,21 +191,40 @@ during the specified time period.  Similarly, we need to remove tuples
 from $\tav'$ and $\tae'$ for which no corresponding tuples exist in
 $V'$ and $E'$, respectively.
 
-{\bf Subgraph may uncoalesce \trg.} \reminder{explain}
+{\bf Subgraph may uncoalesce \trg.} Consider the result of
+$\sigma_{Q_V:{a.school='Drexel'},Q_E:\top} (\insql{T1})$ when
+applied to the \tg in Figure~\ref{fig:rg}.  This query will keep
+vertices 1 and 3 in every representative graph, and no edges.  Since
+graphs corresponding to time periods $p1$ through $p4$ will be
+identical, the result will be uncoalesced, and will need to be
+coalesced explicitly.  The final result will consist of 2
+representative graphs, with vertices 1 and 3 for $[t_0, t_4)$ and with
+  vertex 3 for $[t_4, t_5)$.
 
 \subsection{Temporal projection}
 \label{sec:algebra:project}
 
 \tg algebra supports a limited kind of projection: while the key
 attributes of vertices and edges must be retained, it is possible to
-project out some or all non-key attributes of the vertices and of the
-edges.  Like temporal subgraph matching
-(Section~\ref{sec:algebra:subgraph}), 
+project out some or all non-key vertex and edge attributes:
+$\pi_{\avv',\aee'} (\trg) = \{ (g', p)~~|~~(g, p) \in \trg \wedge
+V_{g'} = V_{g} \wedge E_{g'} = E_{g} \wedge \avv' \subseteq \avv
+\wedge \aee' \subseteq \aee \}$.  To evaluate projection over \tve, we
+compute $\tav' = \pi_{\avv'} (\tav)$ and $\tae' = \pi_{\aee'} (\tae)$.
 
-{\bf Projection may uncoalesce \tav and \tae in \tve.}
+{\bf Projection may uncoalesce \tav and \tae in \tve.  Projection may
+  uncoalesce \trg.} Consider \insql{T1} in Figure~\ref{fig:ve}, and
+suppose that we are computing $\pi_{a:(name)} (\tav)$.  There will be
+two identical tuples in the result for vertex $v_2$ for $[t_1, t_2)$
+  and $[t_2, t_5)$, which must be coalesced to return a valid \tav.  A
+    similar argument holds for \tae. This operation will also produce
+    two identical representative graphs in \trg in
+    Figure~\ref{fig:rg}, for the same time periods.
 
-{\bf Project may uncoalesce \trg.}
-
+{\bf Projection does not require FK enforcement for \tve.}  This is
+because the only relations that are affected by this operation are
+\tav and \tae, while the contents of \tv and \te remain as in the
+input.
 
 \subsection{Temporal aggregation}
 \label{sec:algebra:agg}
