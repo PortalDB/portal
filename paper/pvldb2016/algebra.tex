@@ -230,10 +230,15 @@ input.
 \label{sec:algebra:agg}
 
 We argued in the introduction that it is interesting and insightful to
-analyze an evolving graph at coarser levels of granularity,
-aggregating multiple consecutive representative graphs into a single
-representative graph.  Our approach is based on stream aggregation
-work by Li, et al.~\cite{Li2005}, with the addition of quantifiers. 
+analyze an evolving graph at different levels of granularity.  For
+example, the user may want to aggregate multiple consecutive
+representative graphs into a single representative graph, coarsening
+the granularity, or to pre-define temporal resolution and look at the
+graph at that scale, irrespective of whether this resolution happens
+to be finer or coarse than the natural evolution rate of the graph.
+For this, we will use temporal aggregation.  Our approach is inspired
+by stream aggregation work by Li, et al.~\cite{Li2005}, adopted to
+graphs, and by generalized quantifiers of~\cite{Hsu1995}.
 
 The {\em temporal aggregation} operator is denoted $\gamma_{w,q}
 (\trg)$, where $w$ is the window specification and $q$ is the
@@ -246,8 +251,15 @@ of time, e.g., a 10-minute window or, more generally any multiple of
 the usual time units (minutes, hours, days, weeks, months, years).
 Window specification of the form $n~changes$ defines the window in
 terms of change, e.g., aggregate sequences of 3 representative graphs
-into 1.  This is similar to slide-by-row window specification in
-stream aggregation~\cite{Li2005}.  
+into 1.
+
+Our window specificaiton is similar to slide-by-row window in stream
+aggregation~\cite{Li2005}.  Note that, because \tg algebra is
+compositional, we do not support temporal aggregation with overlapping
+windows. Also unlike~\cite{Li2005} we do not currently support
+aggregation simultaneously by time and by non-temporal attributes
+(e.g., vertex attributes). Incorporating this into \tg algebra and
+system implementation is in our immediate plans.
 
 {\em Aggregation quantifiers} are of the form \{at\ least\ one | all |
 most | at least $n$ \}, where $n$ is a decimal representing a ratio.
@@ -255,20 +267,20 @@ most | at least $n$ \}, where $n$ is a decimal representing a ratio.
       graphs.  For example, to produce representative graphs with only
       strong connections over a volatile evolving graph, we may want
       to only include edges that span the entire aggregtion window, or
-      a large portion of the window.  Our aggregation quantifiers are
-      inspired by generalized quantifiers of~\cite{Hsu1995} with
-      n-place delimiters.
+      a large portion of the window.  
 
 Consider for example 
 
-\eat{ $Q(R)$ as a Boolean-valued function of a
-  relation''~\cite{Hsu1995}.  A quantifier contains an n-place
-  determiner, e.g., ``at least one vertex in each window for each
-  group'' is a 2-place determiner quantifier.  \tg algebra supports
-  determiners from the set $\{at\ least\ one, all, most,
-  at\ least\ n\}$, where $n$ is an integer representing a ratio.
-  $all$ is a usual universal quantifier that in standard SQL can be
-  achieved with the use of two \insql{NOT EXISTS}.}
+\eat{ Our aggregation quantifiers are inspired by generalized
+  quantifiers of~\cite{Hsu1995} with n-place delimiters.  $Q(R)$ as a
+  Boolean-valued function of a relation''~\cite{Hsu1995}.  A
+  quantifier contains an n-place determiner, e.g., ``at least one
+  vertex in each window for each group'' is a 2-place determiner
+  quantifier.  \tg algebra supports determiners from the set
+  $\{at\ least\ one, all, most, at\ least\ n\}$, where $n$ is an
+  integer representing a ratio.  $all$ is a usual universal quantifier
+  that in standard SQL can be achieved with the use of two \insql{NOT
+    EXISTS}.}
 
 \eat{Aggregation in relational algebra produces results for each grouping
 irrespective of how many results there are, unless a \insql{HAVING}
