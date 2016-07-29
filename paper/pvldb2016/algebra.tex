@@ -218,8 +218,8 @@ suppose that we are computing $\pi_{a:(name)} (\tav)$.  There will be
 two identical tuples in the result for vertex $v_2$ for $[t_1, t_2)$
   and $[t_2, t_5)$, which must be coalesced to return a valid \tav.  A
     similar argument holds for \tae. This operation will also produce
-    two identical representative graphs in \trg in
-    Figure~\ref{fig:rg}, for the same time periods.
+    two identical representative graphs in \trg in Figure~\ref{fig:rg}
+    for $[t_1, t_2)$ and $[t_2, t_5)$.
 
 {\bf Projection does not require FK enforcement for \tve.}  This is
 because the only relations that are affected by this operation are
@@ -228,6 +228,57 @@ input.
 
 \subsection{Temporal aggregation}
 \label{sec:algebra:agg}
+
+We argued in the introduction that it is interesting and insightful to
+analyze an evolving graph at coarser levels of granularity,
+aggregating multiple consecutive representative graphs into a single
+representative graph.  Our approach is based on stream aggregation
+work by Li, et al.~\cite{Li2005}, with the addition of quantifiers. 
+
+The {\em temporal aggregation} operator is denoted $\gamma_{w,q}
+(\trg)$, where $w$ is the window specification and $q$ is the
+aggregation quantifier.
+
+{\em Window specification} is of the form $n~{unit|changes}$, where
+$n$ is an integer, and $unit$ is a time unit, e.g., ``minutes'' or
+``days''.  Specifying, e.g., $10~minutes$ defines the window in terms
+of time, e.g., a 10-minute window or, more generally any multiple of
+the usual time units (minutes, hours, days, weeks, months, years).
+Window specification of the form $n~changes$ defines the window in
+terms of change, e.g., aggregate sequences of 3 representative graphs
+into 1.  This is similar to slide-by-row window specification in
+stream aggregation~\cite{Li2005}.  
+
+{\em Aggregation quantifiers} are of the form \{at\ least\ one | all |
+most | at least $n$ \}, where $n$ is a decimal representing a ratio.
+      These are useful for producing different kinds of representative
+      graphs.  For example, to produce representative graphs with only
+      strong connections over a volatile evolving graph, we may want
+      to only include edges that span the entire aggregtion window, or
+      a large portion of the window.  Our aggregation quantifiers are
+      inspired by generalized quantifiers of~\cite{Hsu1995} with
+      n-place delimiters.
+
+Consider for example 
+
+\eat{ $Q(R)$ as a Boolean-valued function of a
+  relation''~\cite{Hsu1995}.  A quantifier contains an n-place
+  determiner, e.g., ``at least one vertex in each window for each
+  group'' is a 2-place determiner quantifier.  \tg algebra supports
+  determiners from the set $\{at\ least\ one, all, most,
+  at\ least\ n\}$, where $n$ is an integer representing a ratio.
+  $all$ is a usual universal quantifier that in standard SQL can be
+  achieved with the use of two \insql{NOT EXISTS}.}
+
+\eat{Aggregation in relational algebra produces results for each grouping
+irrespective of how many results there are, unless a \insql{HAVING}
+restriction is applied.  The quantification over the aggregation
+results in evolving graphs is useful for producing different kinds of
+representative graphs.  For example, to produce a representative graph
+with only strong connections over a volatile evolving graph, we want
+to restrict results to those edges that span the entire window or a
+large subset of that window.  For this purpose we introduce
+quantifiers.}
 
 \subsection{Temporal union}
 \label{sec:algebra:union}
@@ -313,7 +364,6 @@ p, b_1, \ldots, b_m(E)$.
 \label{def:projection}
 \end{definition}}
 
-
 \eat{\begin{definition}[Slice]
 The unary operation \op{slice}, denoted $\sigma_{[start, end)}
   \insql{T}$ is a selection operation that includes...}
@@ -337,60 +387,21 @@ WHERE eperiod OVERLAPS PERIOD (DATE ':date1', DATE ':date2')
 \end{verbatim}
 \end{small}}
 
-\subsection{Temporal aggregation}
+%\subsection{Temporal aggregation}
 
-It is often useful to instead analyze the graph as an aggregation over
-some time period $p$.  We call such a graph a {\em representative
-  graph}.  For example, a union of all vertices/edges over 1 month is
-representative of that graph during that month.  Analysis of
-representative graphs can lead to deeper insight than of a snapshot.
-For example, a co-authorship network DBLP is very sparse - one can
-only publish so many papers in any given month - on a daily or even
-monthly level of granularity, but can show community formation and
-affiliation when aggregated over multiples of years.  From this
-perspective, an evolving graph is a sequence of representative graphs
-over consecutive arbitrary-length periods.
+\eat{Now that we have the window semantics and quantification defined, we
+can define the aggregation operation over an evolving graph $TG$.}
 
-Here we propose a general way to aggregate evolving graphs over our
-model.  This approach is based on the stream aggregation work by Li,
-et al.~\cite{Li2005} with addition of quantifiers.  Aggregation is
-performed through specification of time windows.  Windows can be
-defined in terms of {\em time} or {\em change}.  The time window is
-semantic and can be any multiples of $\{minutes, hours, days, weeks,
-\\ months, years\}$, i.e. the usual time units.  Window specification
-of 1 year would produce windows for each calendar year occurring in
-the data.  The {\em change} type is equivalent to the time period of
-one representative graph, i.e. period during which all the graph
-values are constant (this is similar to the slide-by-row type in
-stream aggregation).
-
-\vera{I realized that we still need to define the window direction for
-  cases like 2 years or 3 months.}
-
-Aggregation in relational algebra produces results for each grouping
-irrespective of how many results there are, unless a \insql{HAVING}
-restriction is applied.  The quantification over the aggregation
-results in evolving graphs is useful for producing different kinds of
-representative graphs.  For example, to produce a representative graph
-with only strong connections over a volatile evolving graph, we want
-to restrict results to those edges that span the entire window or a
-large subset of that window.  For this purpose we introduce
-quantifiers.
-
-Hsu and Parker define a ``{\em generalized quantifier} $Q(R)$ as a
-Boolean-valued function of a relation'' ~\cite{Hsu1995}.  A quantifier
-contains an {\em n-place determiner}.
-
-For example, ``at least one vertex in each window for each group'' is
-a 2-place determiner quantifier which has the existential semantics.
-Many kinds of quantifiers are possible.  In our work we restrict the
-determiners to be from the set $\{at\ least\ one, all, most,
-at\ least\ n\}$, where $n$ is an integer representing a ratio.  $all$
-is a usual universal quantifier that in standard SQL can be achieved
-with the use of two \insql{NOT EXISTS}.
-
-Now that we have the window semantics and quantification defined, we
-can define the aggregation operation over an evolving graph $TG$.
+\eat{It is often useful to analyze aggregate behavior of an evolving graph
+over some coarser time period.  For example, a union of all
+vertices/edges over 1 month is representative of that graph during
+that month.  Analysis of aggregate behavior can lead to deeper insight
+than of a snapshot.  For example, a co-authorship network DBLP is very
+sparse --- one can only publish so many papers in any given month ---
+on a daily or even monthly level of granularity, but can show
+community formation and affiliation when aggregated over multiples of
+years.  From this perspective, an evolving graph is a sequence of
+representative graphs over consecutive arbitrary-length periods.}
 
 \begin{definition}[\tg Aggregation]
 An {\em aggregation} operation over $TG$ is a function \\ $G_1, G_2,
