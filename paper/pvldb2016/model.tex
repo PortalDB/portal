@@ -39,8 +39,7 @@ and $q$: $[\predName{max}(p.start,q.start), \predName{min}(p.end,
 \centering
 \includegraphics[width=3.5in]{figs/T1_rel_tab.pdf}
 \caption{Vertex-edge representation of \tg
-  \insql{T1}. \reminder{rename V to \tv, E to \te, $A^V$ to \tav and
-    $A^E$ to \tae.}}
+  \insql{T1}.}
 \label{fig:tg_ve}
 \end{figure}
 
@@ -65,7 +64,7 @@ of vertices $V$, a set of edges $E\subseteq V \times V$, a set of
 vertex labels \avv, and a set of edge labels \aee.
 
 \begin{definition}[TGraph]
-A \tg $T(g:graph, p:period) = \{ (g,p) \}$ is a valid-time
+A \tg $\tgg(g:graph, p:period) = \{ (g,p) \}$ is a valid-time
 period-based relation in which a tuple associates a state of the graph
 $g$ with a time period $p$ during which the graph is in that state.
 
@@ -338,16 +337,15 @@ where we present \tg algebra.
 \subsection{Switching between representations}  
 \label{sec:model:switch}
 
-The representations of Sections~\ref{sec:model:rg}
-and~\ref{sec:model:ve} are equivalent in terms of the information they
-contain.  \trg (G) can be computed from $\tve (\tv, \te, \tav, \tae)$
-by (1) enumerating all time points during which some change occurred,
-i.e., those that appear as either the start or the end of some time
-period in \tv, \te, \tav, and \tae; (2) computing \rgs periods by
-generating pairs of adjacent time points from step 1, and sorting them
-by $start$; (3) constructing a representative $g$ graph for each time
-period $p$ by selecting the entities from \tv, \te, \tav, and \tae
-that overlap with $p$.
+The \trg and \tve representations are equivalent in terms of the
+information they contain.  \trg (G) can be computed from $\tve (\tv,
+\te, \tav, \tae)$ by (1) enumerating all time points during which some
+change occurred, i.e., those that appear as either the start or the
+end of some time period in \tv, \te, \tav, and \tae; (2) computing
+\rgs periods by generating pairs of adjacent time points from step 1,
+and sorting them by $start$; (3) constructing a representative $g$
+graph for each time period $p$ by selecting the entities from \tv,
+\te, \tav, and \tae that overlap with $p$.
 
 To compute \ve from \rgs, we must compute four relations, \tv, \te,
 \tav, and \tae.  This is done by iterating over the tuples
@@ -356,7 +354,7 @@ $\tav_g$, $\tav_g$) for each tuple, collecting $\tv_g \rightarrow \tv$,
 $\te_g \rightarrow \te$, $\tav_g \rightarrow \tav$, $\tae_g \rightarrow
 \tae$, and finally coalescing each \tv, \te, \tav, and \tae.
 
-\reminder{Write down as algorithms?}
+%\reminder{Write down as algorithms?}
 
 In what follows we will present operators of \tg algebra, stating
 their semantics over the \rgs and \ve data structures
