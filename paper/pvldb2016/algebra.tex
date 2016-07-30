@@ -201,9 +201,13 @@ coalesced explicitly.  The final result will consist of 2
 representative graphs, with vertices 1 and 3 for $[t_0, t_4)$ and with
   vertex 3 for $[t_4, t_5)$.
 
-\subsection{Temporal projection}
-\label{sec:algebra:project}
+%\subsection{Temporal selection}
+%\label{sec:algebra:sel}
 
+\subsection{Temporal vertex-map, edge-map}
+\label{sec:algebra:map}
+
+\reminder{Generalize this, call it map?}
 \tg algebra supports a limited kind of projection: while the key
 attributes of vertices and edges must be retained, it is possible to
 project out some or all non-key vertex and edge attributes:
@@ -242,7 +246,7 @@ graphs, and by generalized quantifiers of~\cite{Hsu1995}.
 
 The {\em temporal aggregation} operator is denoted $\gamma_{w,q}
 (\trg)$, where $w$ is the window specification and $q$ is the
-aggregation quantifier.
+aggregation quantifier.  
 
 {\em Window specification} is of the form $n~{unit|changes}$, where
 $n$ is an integer, and $unit$ is a time unit, e.g., ``minutes'' or
@@ -251,7 +255,8 @@ of time, e.g., a 10-minute window or, more generally any multiple of
 the usual time units (minutes, hours, days, weeks, months, years).
 Window specification of the form $n~changes$ defines the window in
 terms of change, e.g., aggregate sequences of 3 representative graphs
-into 1.
+into 1.  Window boundaries are computed left-to-right, starting at the
+start of the least recent represenatative graph.
 
 Our window specificaiton is similar to slide-by-row window in stream
 aggregation~\cite{Li2005}.  Note that, because \tg algebra is
@@ -269,7 +274,9 @@ most | at least $n$ \}, where $n$ is a decimal representing a ratio.
       to only include edges that span the entire aggregtion window, or
       a large portion of the window.  
 
-Consider for example 
+Note that a particular entity (representative graph, vertex or edge)
+may be mapped to one or multiple aggregation windows.  Consider for
+example
 
 \eat{ Our aggregation quantifiers are inspired by generalized
   quantifiers of~\cite{Hsu1995} with n-place delimiters.  $Q(R)$ as a
