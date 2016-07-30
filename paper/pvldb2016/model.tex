@@ -64,9 +64,9 @@ of vertices $V$, a set of edges $E\subseteq V \times V$, a set of
 vertex labels \avv, and a set of edge labels \aee.
 
 \begin{definition}[TGraph]
-A \tg $\tgg(g:graph, p:period) = \{ (g,p) \}$ is a valid-time
-period-based relation in which a tuple associates a state of the graph
-$g$ with a time period $p$ during which the graph is in that state.
+A \tg $\tgg(g, p)$ is a valid-time period-based relation in which a
+tuple associates a state of the graph $g$ with a time period $p$
+during which the graph is in that state.
 %
 Each $g = (V_g, E_g, \avv_g, \aee_g)$, with $V_g \subseteq V$, $E_g
 \subseteq E$, $\avv_g \subseteq \avv$, $\aee_g \subseteq \aee$.
@@ -94,12 +94,12 @@ consecutive time periods $p_1=[t_0,t_1), \ldots, p_5=[t_4,t_5)$.  Note
     during period $p$ has a collection of properties defined by a map
     from property name to value.
 
-As is typically the case in interval-based models, we assume that each
-representative graph exists continuously, and remains unchanged,
-during the associated period.  By this we mean that graph topology
-(identies of its vertices and edges), and properties of each vertex
-and edge remain unchanged.  
-
+As is typically the case in interval-based models, each representative
+graph is assumed to exists continuously, and remains unchanged, during
+the associated period.  By this we mean that graph topology (identies
+of its vertices and edges), and properties of each vertex and edge
+remain unchanged.
+%
 The statement that \tgg is temporally coalesced means that each fact
 (which in our case corresponds to unchanging state of the graph) is
 represented exactly once for each time period of maximal length when
@@ -115,10 +115,10 @@ Fig. 2 and its description).
 
 We now give an alternative representation of a \tg that uses
 valid-time temporal SQL relations~\cite{DBLP:conf/vldb/BohlenSS96},
-with nesting, to represent evolution of graph topology, of its vertex
-and edge schemas, and of values of its vertex and edge attributes.  We
-term this logical representation the {\em \ve \tg}.  An example of a
-\ve \tg is given in Figure~\ref{fig:tg_ve}.  We will refer to the \rgs
+with nesting, to represent evolution of graph topology and of its
+vertex and edge attributes (both schemas and values).  We term this
+logical representation the {\em \ve \tg}.  An example of a \ve \tg is
+given in Figure~\ref{fig:tg_ve}.  We will refer to the \rgs
 (Definition~\ref{def:tg_abstract}) and \ve (Definition~\ref{def:tg})
 represenations of a \tg jointly as \insql{T}, and will disambiguate
 between the two representations with \trg and \tve when necessary.
@@ -129,14 +129,14 @@ between the two representations with \trg and \tve when necessary.
   their explicit (non-temporal) attributes.}
 
 \begin{definition}[Vertex-Edge TGraph]
-A vertex-\\edge representation of \tg is a pair $\tve=(\tv, \te)$. \tv is
-a valid-time temporal SQL relation with schema $\tv(\underline{v},
+A vertex-\\edge representation of \tg is a pair $\tve=(\tv, \te)$. \tv
+is a valid-time temporal SQL relation with schema $\tv(\underline{v},
 \underline{p})$, in which a tuple associates a vertex with the time
 period during which it was present. \te is a valid-time temporal SQL
 relation with schema $\te(\underline{v_1}, \underline{v_2},
 \underline{p})$, connecting pairs of vertices from \tv.  Attribute $p$
-represents time period (as per Def.~\ref{def:period}).  Both \tv and
-\te are coalesced:
+represents time period (as per Definition~\ref{def:period}).  Both \tv
+and \te are coalesced:
 
 \begin{multline}
 \forall \tv(v, p)~~\nexists \tv(v, p')~~| \\
@@ -158,7 +158,7 @@ An edge connects a pair of vertices that exist at the time when the edge exists:
 \end{multline}
 \vspace{-0.5cm}
 
-\insql{T} optionally includes vertex attribute relation \tav and an
+\insql{T} optionally includes a vertex attribute relation \tav and an
 edge attribute relation \tae.  \tav is coalesced, and associates
 attribute values (properties) with existing vertices.
 \begin{multline}
