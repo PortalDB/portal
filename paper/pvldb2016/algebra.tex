@@ -193,7 +193,7 @@ $V'$ and $E'$, respectively.
 
 {\bf Subgraph may uncoalesce \trg.} Consider the result of
 $\sigma_{Q_V:{a.school='Drexel'},Q_E:\top} (\insql{T1})$ when
-applied to the \tg in Figure~\ref{fig:rg}.  This query will keep
+applied to the \tg in Figure~\ref{fig:rg}.  This query keeps
 vertices 1 and 3 in every representative graph, and no edges.  Since
 graphs corresponding to time periods $p1$ through $p4$ will be
 identical, the result will be uncoalesced, and will need to be
@@ -201,32 +201,40 @@ coalesced explicitly.  The final result will consist of 2
 representative graphs, with vertices 1 and 3 for $[t_0, t_4)$ and with
   vertex 3 for $[t_4, t_5)$.
 
-%\subsection{Temporal selection}
-%\label{sec:algebra:sel}
+\subsection{Temporal projection}%; vertex- and edge-map}
+\label{sec:algebra:project}
 
-\subsection{Temporal vertex-map, edge-map}
-\label{sec:algebra:map}
-
-\reminder{Generalize this, call it map?}
 \tg algebra supports a limited kind of projection: while the key
 attributes of vertices and edges must be retained, it is possible to
-project out some or all non-key vertex and edge attributes:
+project out some or all non-key vertex and edge attributes.
 $\pi_{\avv',\aee'} (\trg) = \{ (g', p)~~|~~(g, p) \in \trg \wedge
 V_{g'} = V_{g} \wedge E_{g'} = E_{g} \wedge \avv' \subseteq \avv
 \wedge \aee' \subseteq \aee \}$.  To evaluate projection over \tve, we
 compute $\tav' = \pi_{\avv'} (\tav)$ and $\tae' = \pi_{\aee'} (\tae)$.
 
-{\bf Projection may uncoalesce \tav and \tae in \tve.  Projection may
-  uncoalesce \trg.} Consider \insql{T1} in Figure~\ref{fig:ve}, and
-suppose that we are computing $\pi_{a:(name)} (\tav)$.  There will be
-two identical tuples in the result for vertex $v_2$ for $[t_1, t_2)$
-  and $[t_2, t_5)$, which must be coalesced to return a valid \tav.  A
-    similar argument holds for \tae. This operation will also produce
-    two identical representative graphs in \trg in Figure~\ref{fig:rg}
-    for $[t_1, t_2)$ and $[t_2, t_5)$.
+Because \avv and \aee are nested relations, projection of the kind
+defined here can be taken more broadly to mean {\em map}.  The user
+may specify an arbitrary map function that is applied to each tuple in
+\avv (resp. \aee), and transforms the properties of vertex $(v,p)$
+(resp. of edge $(v_1,v_2,p)$).  In addition to removing properties, it
+will often be useful to, e.g., flatten nested collections or 
+reconcile multiple values of the same property, e.g., compute a sum or
+an average when map is invoked following temporal aggregation
+(Section~\ref{sec:algebra:agg}), or temporal intersection or union
+(Section~\ref{sec:algebra:join}).
 
-{\bf Projection does not require FK enforcement for \tve.}  This is
-because the only relations that are affected by this operation are
+{\bf Projection / map may uncoalesce \tav, \tae and \trg.}  Consider
+\insql{T1} in Figure~\ref{fig:ve}, and suppose that we are computing
+$\pi_{a:(name)} (\tav)$.  There will be two identical tuples in the
+result for vertex $v_2$ for $[t_1, t_2)$ and $[t_2, t_5)$, which must
+    be coalesced to return a valid \tav.  A similar argument holds for
+    \tae. This operation will also produce two identical
+    representative graphs in \trg in Figure~\ref{fig:rg} for $[t_1,
+      t_2)$ and $[t_2, t_5)$, which will have to be coalesced
+        explicitly.
+
+{\bf Projection and map do not require FK enforcement for \tve.}  This
+is because the only relations that are affected by this operation are
 \tav and \tae, while the contents of \tv and \te remain as in the
 input.
 
@@ -248,15 +256,16 @@ The {\em temporal aggregation} operator is denoted $\gamma_{w,q}
 (\trg)$, where $w$ is the window specification and $q$ is the
 aggregation quantifier.  
 
-{\em Window specification} is of the form $n~{unit|changes}$, where
-$n$ is an integer, and $unit$ is a time unit, e.g., ``minutes'' or
-``days''.  Specifying, e.g., $10~minutes$ defines the window in terms
-of time, e.g., a 10-minute window or, more generally any multiple of
-the usual time units (minutes, hours, days, weeks, months, years).
-Window specification of the form $n~changes$ defines the window in
-terms of change, e.g., aggregate sequences of 3 representative graphs
-into 1.  Window boundaries are computed left-to-right, starting at the
-start of the least recent represenatative graph.
+{\em Window specification} is of the form
+$n~\{unit|\insql{changes}\}$, where $n$ is an integer, and $unit$ is a
+time unit, e.g., ``minutes'' or ``days''.  Specifying, e.g.,
+$10~minutes$ defines the window in terms of time, e.g., a 10-minute
+window or, more generally any multiple of the usual time units
+(minutes, hours, days, weeks, months, years).  Window specification of
+the form $n~\insql{changes}$ defines the window in terms of change,
+e.g., aggregate sequences of 3 representative graphs into 1.  Window
+boundaries are computed left-to-right, starting at the start of the
+least recent represenatative graph.
 
 Our window specificaiton is similar to slide-by-row window in stream
 aggregation~\cite{Li2005}.  Note that, because \tg algebra is
@@ -298,13 +307,6 @@ with only strong connections over a volatile evolving graph, we want
 to restrict results to those edges that span the entire window or a
 large subset of that window.  For this purpose we introduce
 quantifiers.}
-
-\subsection{Temporal union}
-\label{sec:algebra:union}
-
-\subsection{Temporal intersection}
-\label{sec:algebra:union}
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -422,6 +424,7 @@ community formation and affiliation when aggregated over multiples of
 years.  From this perspective, an evolving graph is a sequence of
 representative graphs over consecutive arbitrary-length periods.}
 
+\eat{
 \begin{definition}[\tg Aggregation]
 An {\em aggregation} operation over $TG$ is a function \\ $G_1, G_2,
 \ldots, G_n, W, Q g f_1(A_1), f_2(A_2), \ldots, f_m(A_m)(TG)$, where
@@ -431,7 +434,7 @@ specification for vertices and edges on the coverage of the window;
 each $F_i$ is an aggregation function; and each $A_i$ is an attribute
 name from $TG$.
 \label{def:agg}
-\end{definition}
+\end{definition}}
 
 This definition is similar to the regular relational algebra
 aggregation definition, with the addition of the window specification
@@ -489,7 +492,8 @@ It is possible but difficult to express the aggregation operation as
 defined above in temporal SQL because each tuple may belong to
 multiple windows.
 
-\subsection{Union and Intersection of \tgs}
+\subsection{Temporal union and intersection}
+\label{sec:algebra:join}
 
 \begin{definition}[Union]
 Union of $TG1\ \cup\ TG2$ = $\{v, e: v \in TG1.V$ or $v \in TG2.V$ or

@@ -16,38 +16,36 @@ def aggregate(window: WindowSpecification, vquant: Quantification, equant: Quant
 def union(other: TGraph[VD, ED]): TGraph[Set[VD], Set[ED]]
 \end{lstlisting}}
 
-\subsection{Physical Represenatations}
+\subsection{Physical Representations}
 \label{sec:sys:datastructs}
 
-We considered four in-memory \tg representations that differ in
-compactness, but also, perhaps more importantly, in the kind of
-locality they prioritize. With {\em structural locality}, neighboring
-vertices (resp. edges) of the same representative graph are laid out
-together, while with {\em temporal locality}, consecutive states of
-the same vertex (resp. edge) are laid out
-together~\cite{DBLP:journals/tos/MiaoHLWYZPCC15}.  VertexEdge
-(VE) is a direct translation of the \ve model of Definition~\ref{def:tg_ve} and
-the most compact representation.  While VE
-does not necessitate a particular order of tuples on disk, we opt
-for a physical layout in which all tuples corresponding to the same
-vertex (resp. edge) are laid out consecutively, and so VE preserves
-temporal localilty.  RepresentativeGraphs (RG)  directly implements the data structure of
-Definition~\ref{def:tg_abstract}, storing each representative graph
-explicitly, and so naturally preserves structural locality, but
-temporal locality is lost.
-OneGraph (OG)
-stores all vertices and edges of an evolving graph once, in a single
-data structure.  This representation emphasizes temporal locality,
-while also preserving structural locality.  HybridGraph (HG) trades
-compactness for better structural locality, by aggregating together
-several consecutive RGs, and computing a OneGraph for each RG group.
-Details of our implementation of the four representations
-are given below.
+We considered four in-memory \tg representations that differ both in
+compactness and in the kind of locality they prioritize. With {\em
+  structural locality}, neighboring vertices (resp. edges) of the same
+representative graph are laid out together, while with {\em temporal
+  locality}, consecutive states of the same vertex (resp. edge) are
+laid out together~\cite{DBLP:journals/tos/MiaoHLWYZPCC15}.  We now
+describe each representation.\eat{ VertexEdge (VE) is a direct
+  translation of the \ve model of Definition~\ref{def:tg_ve} and the
+  most compact representation.  While VE does not necessitate a
+  particular order of tuples on disk, we opt for a physical layout in
+  which all tuples corresponding to the same vertex (resp. edge) are
+  laid out consecutively, and so VE preserves temporal localilty.
+  RepresentativeGraphs (RG) directly implements the data structure of
+  Definition~\ref{def:tg_abstract}, storing each representative graph
+  explicitly, and so naturally preserves structural locality, but
+  temporal locality is lost.  OneGraph (OG) stores all vertices and
+  edges of an evolving graph once, in a single data structure.  This
+  representation emphasizes temporal locality, while also preserving
+  structural locality.  HybridGraph (HG) trades compactness for better
+  structural locality, by aggregating together several consecutive
+  RGs, and computing a OneGraph for each RG group.  Details of our
+  implementation of the four representations are given below.}
 
-\reminder{Support experimentally or remove / rephrase: We can convert
+\eat{\reminder{Support experimentally or remove / rephrase: We can convert
   from one representation to any other at small or no cost, so it is
   useful to think of them as access methods in the context of
-  individual operations.}
+  individual operations.}}
 
 \eat{
 \begin{table*}[t]
@@ -71,96 +69,103 @@ analytics (pagerank, shortest paths, etc.) & N/A & compute for each RG & compute
 \end{table*}
 }
 
-{\bf VertexEdge (VE).} VE is a direct translation of \tve: one RDD
-contains all the vertices and another all the edges.  The attributes
-are treated as single nested attributes for vertices and edges each,
-consistent with the GraphX API. \eat{ The main advantage of this
-  schema-less attribute representation is that it can easily deal with
-  schema evolution and leaves the details of attribute processing to
-  the user. } The VE representation supports all \tg algebra
-operations but cannot support analytics.  This is because an analytic
-is defined on a representative graph, which VE does not materialize.
-As we will show in Section~\ref{sec:experiments}, due to compactness
-this physical representation is the most efficient for many
-operations.
-
-{\bf RepresentativeGraphs (RG).} This is a direct translation of our
-\rg data model, in which each representative graph is stored
-individually.  An example of an \rg is depicted in
-Figure~\ref{fig:tg_rg}.  \rg is a collection (parallel sequence) of
-GraphX graphs, where vertices and edges store the attribute values for
-the specific time interval.  This representation supports all the
-operations defined for \tgs, with the exception of
-\insql{select}. \insql{select} is only supported in cases without a
-predicate on the time period.  This is by definition of the select
-operation.  To construct \rg from V and E we iteratively select from V
-and E for each RG period.
+{\bf RepresentativeGraphs (RG)} is a direct implementation of \trg of
+Definition~\ref{def:tg_abstract}.  RG is a collection (parallel
+sequence) of GraphX graphs, where vertices and edges store the
+attribute values for the specific time interval.  This representation
+supports all operations of \tg algebra.
 
 While the \rg representation is simple, it is not compact, considering
 that in many real-world evolving graphs there is a 80\% or larger
 similarity between consecutive
 snapshots~\cite{DBLP:journals/tos/MiaoHLWYZPCC15}.  In a distributed
 architecture, however, this data structure provides some benefits as
-operations on it can be easily parallelized, by assigning different
+operations on it can be easily parallelized by assigning different
 \rgs to different workers, or by partitioning an \rg across workers.
 
 \rg is the most immediate way to implement evolving graphs using Graph
-X. Without \ql a user wishing to analyze evolving graphs could
-implenment and use the \rg approach.  However, as we will show in
+X. Without \ql a user wishing to analyze evolving graphs might
+implement and use the \rg approach.  However, as we will show in
 Section~\ref{sec:exp}, this would lead to poor performance for most
 operations.
 
 \begin{figure}[t!]
 \includegraphics[width=3in]{figs/ogc.pdf}
-\caption{\og representation of T1 from~\ref{fig:tg_ve}.}
+\caption{\og representation of \insql{T1}.}
 \label{fig:ogc}
 \end{figure}
 
-{\bf OneGraph (OG).}  The most topologically compact representation is
-to store each vertex {\em and} each edge only once for the whole
-evolving graph, and store information about time validity together
-with each vertex and edge.  The OneGraph data structure, or \og for
-short, depicted in Figure~\ref{fig:ogc}, uses this representation in
-our system.  \og preserves both temporal and structural locality but
-leads to a much denser graph than \rg.  This, in trun, makes
-parallelizing computation challenging.  
+{\bf VertexEdge (VE)} is a direct implementation of the \tve model of
+Definition~\ref{def:tg}, and is the most compact: one RDD contains
+all vertices and another all edges.  Consistently with the GraphX API,
+all vertex properties are stored together as a single nested
+attribute, as are all edge properties.  While VE does not necessitate
+a particular order of tuples on disk, we opt for a physical layout in
+which all tuples corresponding to the same vertex (resp. edge) are
+laid out consecutively, and so VE preserves temporal localilty.
+
+\eat{ The main advantage of this schema-less attribute representation
+  is that it can easily deal with schema evolution and leaves the
+  details of attribute processing to the user. } 
+
+The VE representation supports all \tg algebra operations but cannot
+support analytics.  This is because an analytic is defined on a
+representative graph, which VE does not materialize.  As we will show
+in Section~\ref{sec:experiments}, due to compactness this physical
+representation is the most efficient for many operations.
+
+{\bf OneGraph (OG)} is the most topologically compact representation,
+which stores all vertices {\em and} edges of an evolving graph once,
+in a single data structure.  Information about time validity is stored
+together with each vertex and edge.  Figure~\ref{fig:ogc} shows the OG
+for \tg \insql{T1} from Figure~\ref{fig:tg_rg}.  OG emphasizes
+temporal locality, while also preserving structural locality, but
+leads to a much denser graph than RG.  This, in trun, makes
+parallelizing computation challenging.
+
+An OG is implemented as a single GraphX graph.  To construct an \og
+from VE, vertices and edges of \tv and \te relations each are grouped
+by key and mapped to bitsets, which in turn encode the presence of a
+vertex or edge in each time period associated with some representative
+graph of a \tg.  Because \og stored information only about graph
+topology, far fewer periods need be represented and computed for \og
+than for \rg.  The actual reduction depends on the rate and nature of
+graph evolution.
 
 As we will see experimentally in Section~\ref{sec:exp}, \og is often
 the best-performing data structure for aggregation, and also has
 competitive performance for analytics.  Because of this focus, \og
 supports operations only on topology: analytics and
-aggregation/union/intersection for graphs with no attributes or when
-attributes are not relevant for analysis.  
+aggregation/union/intersection for graphs with no vertex or edge
+attributes.  For completeness, all other operations are supported
+through inheritance from an abstract parent, and are carried out on
+the VE data structure.
 
-To construct \og vertices and edges from V and E relations each are
-grouped by key and mapped to bitsets to represent presence/absence in
-each time period of \tg in a single GraphX graph.  In general, because
-\og represents topology only, many fewer periods need be represented
-and computed than for \rg.  The reduction depends on the rate and
-nature of graph evolution.  For completeness, \og supports all other
-operations through inheritance from abstract parent, which are carried
-out on V and E relations.
+{\bf HybridGraph (HG)} trades compactness of OG for getter structural
+locality of RG, by aggregating together several consecutive RGs,
+computing a single OG for each RG group, and storing these as a
+parallel sequence.  In our current implementation each OG in the
+sequence corresponds to the same number of temporally adjacent RGs.
 
-{\bf HybridGraph (HG).} As an intermediate representation between SG
-and OG, we implement the HybridGraph (HG) data structure.  HG is a
-parallel sequence of OGs, with each OG representing some number of
-temporally adjacent RGs.  In our current implementation each OG in the
-sequence corresponds to the same number of temporally adjacent graphs.
-This is the simplest grouping method, yet, as we will see in
-Section~\ref{sec:exp}, it already improves performance compared to OG.
-However, we also observed that placing the same number of graphs into
-each group often results in unbalanced group sizes.  This is because
-evolving graphs commonly exhibit strong temporal skew, with later RGs
-being significantly larger than earlier ones.  Consequently, we are
-currently working on more sophisticated grouping approaches that would
-lead to better balance, and ultimately to better performance.  Like
-OG, this representation only supports topology-based analyses, need
-not represent every RG but only structure-based changes, and supports
-all other operations through inheritance from VE.
+This is the simplest grouping method, and we observed that placing the
+same number of RGs into each group often results in unbalanced group
+sizes.  This is because evolving graphs commonly exhibit strong
+temporal skew, with later RGs being significantly larger than earlier
+ones.  We are currently working on more sophisticated grouping
+approaches that would lead to better balance, and ultimately to better
+performance.  However as we will see experimentally in
+Section~\ref{sec:exp}, the current HG implementation already improves
+performance compared to OG, in some cases significantly.
+
+Like OG, the HG representation focuses on topology-based analysis, and
+so does not represent vertex and edge attributes, only implements
+analytics and aggregation/union/intersection, and supports all other
+algebraic operations through inheritance from VE.
 
 \subsection{Maintenance Operations}
 \label{sec:sys:maint}
 
+\eat{
 \begin{table}
 \small
 \begin{tabular}{ l | p{4cm} | c }
@@ -178,62 +183,74 @@ analytics & no & yes \\
 \caption{Coalesce analysis.}
 \label{tab:coalesce}
 \end{table}
+}
 
-{\bf Coalescing.}  The TGraph logical data model is temporally
-coalesced.  Portal supports both eager and lazy coalescing, with lazy
-being the default behavior.  The final output is always coalesced.
-For most operations, correctness of the operation does not depend on
-whether the data is or is not coalesced in advance.  For example,
-\insql{slice} operation is agnostic to whether a TGraph is coalesced
-and does not change the coalesce state.  \insql{select} operation, on
-the other hand, is only correct if the data is coalesced when the
-selection predicate references the time period.  We analyzed all
-operations for their coalescing requirements and whether the operation
-causes uncoalescing (Table~\ref{tab:coalesce}).  Additionally, when
-the operations are performed on multiple graphs (such as in SG and
-HG), the result must also be coalesced to be correct, regardless of
-the operation.
+{\bf Coalescing.}  All algebraic operations, and all sequences of
+operations, must output a valid temporally coalesced \tg.  The \ql
+system supports both eager and lazy coalescing, with lazy being the
+default behavior for multi-operator queries.  Interestingly,
+correctness of \tg algebra operations, when these are evaluated over
+VE or OG, does not depend on whether the input was coalesced, and so
+coalescing can be deferred.  However, when the operations are
+performed on multiple graphs, as is the case with RG and HG, the input
+must be coalesced for the result to be correct, regardless of the
+operation. 
 
-There are several different implementations possible for
-implementation of the coalesce operation
-(see~\cite{DBLP:conf/vldb/BohlenSS96} for detailed analysis in the
-non-graph domain).  We use a partitioning method, where the relation
-(V or E) is grouped by key, and within each group the tuples are
-sorted and folded to produce the longest valid periods.  This approach
-involves shuffling between partitions, one of the most computationally
-expensive aspects of distributed systems, and thus lazy coalescing is
-preferred.\eat{  As with duplicate elimintation, if the
-coalesced output is expected to be significantly reduced in size, such
-as after a project operation on a high volatility attribute,
-performing coalesce eagerly before a time-consuming operation,
-especially analytics, can be advantageous.}
+\reminder{I don't understand how this is true.  Let's think this
+  through precisely for all operations and write down a proof sketch.
+  If we are not sure about this, or don't have time to finish the
+  proof, I prefer to remove the lazy coalescing passage and leave this
+  for the query optimization paper.  If removed - remember to remove
+  the forward pointer at the end of 3.1.}
 
-{\bf Foreign key constraint.}  The vertex-edge data model includes a
-foreign key constraint from edges to vertices.  This constraint is
-naturally maintained by most operations while performing operations on
-V and E independently.  For \insql{select} and \insql{aggregate}
-additional steps are required to insure correctness.  We modify E
-tuples to enforce the foreign key constraint by joining on V, using
-either a broadcast or hash join depending on the size of V.  Each edge
-period is then modified to be the overlap of the periods of source and
-destination vertices and the original edge period.  Because this step
-is computationally expensive, it is only taken when necessary: when
-\insql{select} has a predicate on V and when \insql{aggregate} has a
-higher level of quantification for V than for E.  GraphX graphs
-maintain foreign key constraint during subgraph operation and we make
-use of this for all representations besides VE.
+\eat{For example, \insql{slice} operation is agnostic to whether a TGraph
+is coalesced and does not change the coalesce state.  \insql{select}
+operation, on the other hand, is only correct if the data is coalesced
+when the selection predicate references the time period.  We analyzed
+all operations for their coalescing requirements and whether the
+operation causes uncoalescing (Table~\ref{tab:coalesce}).}
+
+There are several different implementations possible for the coalesce
+operation over temporal SQL relations,
+see~\cite{DBLP:conf/vldb/BohlenSS96} for detailed analysis.  We use a
+partitioning method, where the relation (e.g., \tv, \te, \trg) is
+grouped by key, and within each group the tuples are sorted and folded
+to produce the corresponding time periods of maximum length.  This
+approach involves shuffling between partitions, one of the most
+computationally expensive aspects of distributed systems, and thus
+lazy coalescing is preferred.\eat{ As with duplicate elimintation, if
+  the coalesced output is expected to be significantly reduced in
+  size, such as after a project operation on a high volatility
+  attribute, performing coalesce eagerly before a time-consuming
+  operation, especially analytics, can be advantageous.}
+
+{\bf Foreign key constraint.} \reminder{Yet to read/revise this part.}
+The vertex-edge data model includes a foreign key constraint from
+edges to vertices.  This constraint is naturally maintained by most
+operations while performing operations on V and E independently.  For
+\insql{select} and \insql{aggregate} additional steps are required to
+insure correctness.  We modify E tuples to enforce the foreign key
+constraint by joining on V, using either a broadcast or hash join
+depending on the size of V.  Each edge period is then modified to be
+the overlap of the periods of source and destination vertices and the
+original edge period.  Because this step is computationally expensive,
+it is only taken when necessary: when \insql{select} has a predicate
+on V and when \insql{aggregate} has a higher level of quantification
+for V than for E.  GraphX graphs maintain foreign key constraint
+during subgraph operation and we make use of this for all
+representations besides VE.
 
 {\bf Partitioning.}  Graph partitioning can have a tremendous impact
 on system performance.  A good partitioning strategy needs to (1) be
 balanced, assigning an approximately equal number of units to each
 partition, and (2) limit the number of cuts across partitions, to
 reduce cross-partition communication.  In our experiments we compare
-performance of SG, OG and HG with (1) no repartitioning after load,
-and (2) with repartitioning using the 2D edge partitioning strategy
-(E2D).  This strategy is available in GraphX and was used without
-modification.  In E2D, a sparse edge adjacency matrix is partitioned
-in two dimensions, guaranteeing a $2 \sqrt{n}$ bound on vertex
-replication, where $n$ is the number of partitions. As has been shown
+performance with (1) no repartitioning after load, and (2) with
+repartitioning using the 2D edge partitioning strategy (E2D).  This
+strategy is available in GraphX and was used without modification.  In
+E2D, a sparse edge adjacency matrix is partitioned in two dimensions,
+guaranteeing a $2 \sqrt{n}$ bound on vertex replication, where $n$ is
+the number of partitions. As has been shown
 previously~\cite{DBLP:conf/osdi/GonzalezXDCFS14,MoffittTempWeb16}, E2D
 provides good performance for Pregel-style analytics.
 
