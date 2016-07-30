@@ -120,7 +120,7 @@ in a single data structure.  Information about time validity is stored
 together with each vertex and edge.  Figure~\ref{fig:ogc} shows the OG
 for \tg \insql{T1} from Figure~\ref{fig:tg_rg}.  OG emphasizes
 temporal locality, while also preserving structural locality, but
-leads to a much denser graph than RG.  This, in trun, makes
+leads to a much denser graph than RG.  This, in turn, makes
 parallelizing computation challenging.
 
 An OG is implemented as a single GraphX graph.  To construct an \og
@@ -189,26 +189,20 @@ analytics & no & yes \\
 operations, must output a valid temporally coalesced \tg.  The \ql
 system supports both eager and lazy coalescing, with lazy being the
 default behavior for multi-operator queries.  Interestingly,
-correctness of \tg algebra operations, when these are evaluated over
-VE or OG, does not depend on whether the input was coalesced, and so
-coalescing can be deferred.  However, when the operations are
-performed on multiple graphs, as is the case with RG and HG, the input
-must be coalesced for the result to be correct, regardless of the
-operation. 
-
-\reminder{I don't understand how this is true.  Let's think this
-  through precisely for all operations and write down a proof sketch.
-  If we are not sure about this, or don't have time to finish the
-  proof, I prefer to remove the lazy coalescing passage and leave this
-  for the query optimization paper.  If removed - remember to remove
-  the forward pointer at the end of 3.1.}
-
-\eat{For example, \insql{slice} operation is agnostic to whether a TGraph
-is coalesced and does not change the coalesce state.  \insql{select}
-operation, on the other hand, is only correct if the data is coalesced
-when the selection predicate references the time period.  We analyzed
-all operations for their coalescing requirements and whether the
-operation causes uncoalescing (Table~\ref{tab:coalesce}).}
+correctness of \tg algebra operations does not depend on whether the
+input was coalesced, and so coalescing can be deferred.  To see why
+this is so, consider a \insql{slice} operation.  \insql{slice} can be
+evaluated on a graph-by-graph or vertex/edge basis.  Let us assume
+that there are two consecutive graphs that are the same, i.e. that \sg
+is uncoalesced, and that the slice period overlaps with one of these
+two graph periods. We can slice the interval of that graph and
+coalesce and the result would be the same as if we coalesced first.
+\insql{select} operation is orthogonal to time and is applied to each
+entity in each time interval.  There is one exception to this rule:
+aggregation by change.  When aggregating by change, the input must be
+coalesced to compute correct aggregation windows.  If the input is not
+coalesced, then there may be two or more consecutive intervals which
+should be treated as one but would count separately.
 
 There are several different implementations possible for the coalesce
 operation over temporal SQL relations,
