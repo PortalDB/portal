@@ -15,15 +15,16 @@ for each measure is at or below 5\% of the mean except in cases of
 very small running times.
 
 \begin{table}
+\caption{Experimental datasets.}
 \small
 \begin{tabular}{l | c | c | c | c }
-\multicolumn{1}{l|}{\bfseries Dataset} & \multicolumn{1}{c|}{\bfseries |V|} & \multicolumn{1}{c|}{\bfseries |E|} & \multicolumn{1}{c}{\bfseries Time Span} & \multicolumn{1}{c}{\bfseries Evolution Rate} \\ \hline
-wikitalk-en & 2.9M & 10.7M & 2002--2015 & ? \\ \hline
+\hline
+\multicolumn{1}{l|}{\bfseries Dataset} & \multicolumn{1}{c|}{\bfseries |V|} & \multicolumn{1}{c|}{\bfseries |E|} & \multicolumn{1}{c|}{\bfseries Time Span} & \multicolumn{1}{c}{\bfseries Evol. Rate} \\ \hline
+wikitalk-en & 2.9M & 10.7M & 2002--2015 & 14.4 \\ \hline
 nGrams & 29.3M & 2.5B & 1520--2008 & ? \\ \hline
-DELIS & 128M & ? & 2006--2007 & ? \\ \hline
-twitter & ? & ? & 2006--2012 & ? \\ \hline
+DELIS & 128M & 40.5B & 2006--2007 & ? \\ \hline
+twitter & 505.4M & 23B & 2006--2012 & ? \\ \hline
 \end{tabular}
-\caption{Characteristics of the experimental datasets.}
 \label{tab:datasets}
 \end{table}
 
@@ -62,30 +63,42 @@ interpreted in that context.
 
 \begin{figure*}
 \centering
-\begin{minipage}{3.3in}
+\begin{minipage}{2.2in}
 \centering
-\includegraphics[width=2.8in]{figs/slice_ngrams_vertices_build11.png}
-\caption{Slice of the nGrams dataset, return vertices.}
+\includegraphics[width=2.2in]{figs/slice_ngrams_vertices_build11_trimmed.png}
+\vspace{-0.1in}
+\caption{Slice on nGrams dataset, return vertices.}
 \label{fig:sliceverts}
+\vspace{-0.1in}
 \end{minipage}
-\begin{minipage}{3.3in}
+\begin{minipage}{2.2in}
 \centering
-\includegraphics[width=2.8in]{figs/slice_wikitalk_edges_build11.png}
-\caption{Slice of the wikitalk dataset, return edges.}
+\includegraphics[width=2.2in]{figs/slice_wikitalk_edges_build11_trimmed.png}
+\vspace{-0.1in}
+\caption{Slice on wikitalk dataset, return edges.}
 \label{fig:sliceedges}
+\vspace{-0.1in}
+\end{minipage}
+\begin{minipage}{2.2in}
+\centering
+\includegraphics[width=2.6in]{figs/project_wikitalk_vertices_build12.png}
+\vspace{-0.1in}
+\caption{Project on wikitalk dataset vertices.}
+\label{fig:project}
+\vspace{-0.1in}
 \end{minipage}
 \end{figure*}
 
 {\bf Slice.}  \insql{slice} performance was evaluated by varying the
 slice time window and materializing vertices or edges.  Recollect that
-in VE \insql{slice} is a simple select on the vertex and edge
+in \ve \insql{slice} is a simple select on the vertex and edge
 relations and is the fastest access method when data on disk is
 coalesced.  \sg, in contrast, does multiple passes of select over the
 same data to compute each RG, and then coalesce the output to return a
-valid result.  Thus, as expected, VE behavior is directly dependent on
+valid result.  Thus, as expected, \ve behavior is directly dependent on
 the size of input data regardless of the slice size for file formats
-where select condition cannot be pushed into file reading (such as
-Parquet in Spark) or if the data does not have temporal locality
+and systems without filter pushdown, as is the case here, or if the
+data does not have temporal locality
 (Figures~\ref{fig:sliceverts},~\ref{fig:sliceedges}).  \sg behavior is
 linear in the slice size.  We observed the same linear trend
 previously when the data is stored as individual
@@ -98,78 +111,91 @@ needed in that case.
 \centering
 \includegraphics[width=2.8in]{figs/select_wikitalk_vertices_build12.png}
 \caption{Select on the wikitalk dataset, return vertices.}
+\vspace{-0.1in}
 \label{fig:selectv}
+\vspace{-0.1in}
 \end{minipage}
 \begin{minipage}{3.3in}
 \centering
 \includegraphics[width=2.8in]{figs/select_ngrams_edges_build12.png}
+\vspace{-0.1in}
 \caption{Select on the nGrams dataset, return edges.}
+\vspace{-0.1in}
 \label{fig:selecte}
 \end{minipage}
 \end{figure*}
 
-{\bf Select.}  \insql{select} with a predicate on the time interval is
-only supported by VE.  When the predicate is only on vertex or edge
-attributes without a time interval, both VE and \sg support it.
-\insql{select} performance was evaluated by varying selectivity over
-length of the vertex attribute.  When materializing vertices,
-regardless of the evolution rate VE provides better performance than
-\sg and linear to selectivity.  Performance of \sg is a purely a
-function of the number of intervals and is insensitive to the
-selectivity.  The behavior of VE for edges (Figure~\ref{fig:selecte})
-is dominated by the foreign key constraint enforcement: with small
-selectivity broadcast join affords performance linear to the number of
-edges.  For large number of vertices broadcast join is not feasible
-and a hash-join is used instead, which is substantially slower.  Even
-then VE provides an order of magnitude better performance than \sg.
+{\bf Subgraph.}  \insql{subgraph} performance was evaluated by varying
+selectivity over length of the vertex attribute.  When materializing
+vertices, regardless of the evolution rate \ve provides better
+performance than \sg and linear to selectivity.  Performance of \sg is
+a function of the number of intervals and is insensitive to
+the selectivity.  The behavior of \ve for edges
+(Figure~\ref{fig:selecte}) is dominated by the foreign key constraint
+enforcement: with small selectivity broadcast join affords performance
+linear to the number of edges.  For large number of vertices broadcast
+join is not feasible and a hash-join is used instead, which is
+substantially slower.  Even then \ve provides an order of magnitude
+better performance than \sg.
 
+\eat{
 \begin{figure}
 \centering
 \includegraphics[width=2.8in]{figs/project_wikitalk_vertices_build12.png}
 \caption{Project vertex attribute into its length on the wikitalk dataset.}
 \label{fig:project}
 \end{figure}
-
+}
 {\bf Project.}  We evaluate \insql{project} performance by varying the
 data size through the slice operation.  Similar to \insql{slice},
-\insql{project} exhibits flat runtime for VE and linear increase in
-runtime with the number of RGs for \sg.  However, performance for VE
+\insql{project} exhibits flat runtime for \ve and linear increase in
+runtime with the number of RGs for \sg.  However, performance for \ve
 is worse than performance on \insql{slice} because \insql{project}
 requires a coalescing operation as the last step, while \insql{slice}
 does not.
 
-\begin{figure*}
+\begin{figure*}[h]
+\begin{minipage}{2in}
 \centering
-\begin{minipage}{3.3in}
-\centering
-\includegraphics[width=2.8in]{figs/agg_allall_wikitalk_vertices_build11.png}
+\includegraphics[height=1.7in]{figs/agg_allall_wikitalk_vertices_build11_trimmed.png}
 \caption{Aggregate by time, all/all quantification on the wikitalk dataset.}
 \label{fig:agg1}
 \end{minipage}
-\begin{minipage}{3.3in}
+\begin{minipage}{2in}
 \centering
-\includegraphics[width=2.8in]{figs/agg_allall_ngrams_edges_build11.png}
+\includegraphics[height=1.7in]{figs/agg_allall_ngrams_edges_build11_trimmed.png}
 \caption{Aggregate by time, all/all quantification on the nGrams dataset.}
 \label{fig:agg2}
 \end{minipage}
-\end{figure*}
-
-\begin{figure*}
+\begin{minipage}{2.6in}
 \centering
-\begin{minipage}{3.3in}
-\centering
-\includegraphics[width=2.8in]{figs/agg_allexists_ngrams_vertices_build11.png}
-\caption{Aggregate by time, all/exists quantification on the nGrams dataset.}
-\label{fig:agg3}
-\end{minipage}
-\begin{minipage}{3.3in}
-\centering
-\includegraphics[width=2.8in]{figs/agg_allexists_wikitalk_edges_build11.png}
+\includegraphics[height=1.7in]{figs/agg_allexists_wikitalk_edges_build11.png}
 \caption{Aggregate by time, all/exists quantification on the wikitalk dataset.}
 \label{fig:agg4}
 \end{minipage}
 \end{figure*}
 
+\eat{
+\begin{figure*}
+\centering
+\begin{minipage}{3.2in}
+\centering
+\includegraphics[width=3in]{figs/agg_allexists_ngrams_vertices_build11.png}
+\vspace{-0.1in}
+\caption{Aggregate by time, all/exists quantification on the nGrams dataset.}
+\label{fig:agg3}
+\vspace{-0.1in}
+\end{minipage}
+\begin{minipage}{3.2in}
+\centering
+\includegraphics[width=3in]{figs/agg_allexists_wikitalk_edges_build11.png}
+\vspace{-0.1in}
+\caption{Aggregate by time, all/exists quantification on the wikitalk dataset.}
+\label{fig:agg4}
+\vspace{-0.1in}
+\end{minipage}
+\end{figure*}
+}
 {\bf Aggregate.}  We evaluate the performance of structure-only
 aggregation on all 4 representations by varying the aggregation
 window.  \insql{aggregate} performance, whether by time or change,
@@ -180,16 +206,16 @@ aggregation window size, e.g. Figure~\ref{fig:agg1}.  However, in
 datasets with a large number of RGs (such as nGrams which has over 400
 periods), \og exhibits slow performance, an order of magnitude worse
 than VE, except when materializing edges on small aggregation windows
-(Figure~\ref{fig:agg2}).  VE outperforms \og when the V and E
+(Figure~\ref{fig:agg2}).  \ve outperforms \og when the V and E
 quantification levels match (Figure~\ref{fig:agg2}), but is worse than
 \og when the foreign key constraint is manually enforced, which
 happens with different levels of quantification for V and E
-(Figures~\ref{fig:agg3},~\ref{fig:agg4}).  VE also underperforms \og
+(Figure~\ref{fig:agg4}).  \ve also underperforms \og
 when the evolution rate and the aggregation window are both small,
 such as with the wikitalk dataset - Figure~\ref{fig:agg1}.  \sg and
 \hg do not provide the best performance on any of our datasets.
 
-\begin{figure*}
+\begin{figure*}[h]
 \centering
 \begin{minipage}{3.3in}
 \centering
@@ -208,13 +234,13 @@ such as with the wikitalk dataset - Figure~\ref{fig:agg1}.  \sg and
 {\bf Union and Intersection.}  \insql{union} and \insql{intersection}
 by structure was evaluated by loading two time slices of the same
 dataset with varying overlap.  The performance of the four conditions
-depends on the size of the overlap and the evolution rate.  VE
+depends on the size of the overlap and the evolution rate.  \ve
 produces the best performance when the overlap is small
 (Figure~\ref{fig:union1}) and when the evolution rate is high
 (Figure~\ref{fig:union2}), regardless of the size of the overlap.
 \vera{MORE HERE}
 
-\begin{figure*}
+\begin{figure*}[h]
 \centering
 \begin{minipage}{3.3in}
 \centering
@@ -224,9 +250,9 @@ produces the best performance when the overlap is small
 \end{minipage}
 \begin{minipage}{3.3in}
 \centering
-\includegraphics[width=2.8in]{figs/cc_ngrams_build12.png}
-\caption{Connected components on the nGrams dataset.}
-\label{fig:ccngrams}
+\includegraphics[width=2.8in]{figs/prank_twitter_build12.png}
+\caption{Pagerank on the twitter dataset.}
+\label{fig:pranktwitter}
 \end{minipage}
 \end{figure*}
 
@@ -244,8 +270,71 @@ The performance was evaluated on time slices of varying size.  For a
 very small number of RGs (1-2), \sg provides good performance.
 However, \sg performance slows down linearly with the number of RGs.
 \hg provides the best performance on analytics under most conditions,
-with a linear increase but a better trend. \vera{MORE HERE}
+with a linear increase with a significantly slower rate of growth.
+The tradeoff between \og and \hg depends on graph evolution
+characteristics.  If the graph is a growth-only evolution (such as in
+our twitter dataset), \og is not denser than \hg and computes
+everything in a single batch mode, which leads to the fastest
+performance, as can be seen in Figure~\ref{fig:pranktwitter}.  If the
+edge evolution represents more ephemeral connections that can come and
+go, then \hg is less dense and scales better
+(Figure~\ref{fig:ccwiki}).
 
-{\bf Cluster Size.}  \vera{description of experiment on cluster size
-  here, including results in table.}
+talk about how here for all 3 the graphs were RGs, not structure RGs. further gains can be head where structure evolution is slower than attrib. evolution
 
+{\bf Cluster Size.}  We next examine how the system implementation
+scales with the the size of the cluster.  We evaluate the performance
+of two queries.
+
+\begin{small}
+\begin{verbatim}
+Q1. wikitalk
+
+   slice(2005-2015)
+   aggregate(1 year, exists, exists)
+   connected components
+   materialize vertices
+\end{verbatim}
+\end{small}
+
+This query, executed on the wikitalk dataset, computes connected
+components over the past 10 years on the yearly scale.
+
+\begin{small}
+\begin{verbatim}
+Q2. UKDELIS
+
+   aggregate(3 months, exists, always)
+   pagerank(20 iterations)
+   project pagerank score
+   aggregate(12 months, exists, exists, trend)
+   get top 10
+\end{verbatim}
+\end{small}
+
+This query, executed on DELIS dataset, computes stable links between
+websites, i.e. links that persist for 3 months, and uses them to
+compute pagerank for each.  The score is projected and its trend
+computed in an aggregation over the whole dataset time period (1
+year).  The top 10 websites with the highest increase in pagerank are
+returned.
+
+For each operation, the best performing representation was selected
+based on our experimental results.  Slice, project, and aggregate were
+performed with VE, analytics with \hg.  The results are in
+Table~\ref{tab:clustersize}.
+
+\begin{table}
+\caption{Effect of cluster size.}
+\small
+\begin{tabular}{| l | c | r |}
+\hline
+\multicolumn{1}{|l|}{\bfseries Cluster Size} & \multicolumn{1}{c|}{\bfseries Q1} & \multicolumn{1}{r}{\bfseries Q2} \\ \hline
+2 & ? & ? \\ \hline
+4 & ? & ? \\ \hline
+8 & ? & ? \\ \hline
+12 & ? & ? \\ \hline
+16 & ? & ? \\ \hline
+\end{tabular}
+\label{tab:clustersize}
+\end{table}
