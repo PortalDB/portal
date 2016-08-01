@@ -70,7 +70,7 @@ during which the graph is in that state.
 %
 Each $g = (V_g, E_g, \avv_g, \aee_g)$, with $V_g \subseteq V$, $E_g
 \subseteq E$, $\avv_g \subseteq \avv$, $\aee_g \subseteq \aee$.
-
+%
 \tgg is temporally coalesced:
 \begin{multline}
 \forall \tgg(g,p)~~\nexists \tgg(g,p')~~| \\
@@ -83,14 +83,14 @@ representative graph of \tgg during period $p$.
 
 An example of a \tg is given in Figure~\ref{fig:tg_rg}, where 5
 representative graphs (states) of \insql{T1} are associated with 5
-consecutive time periods $p_1=[t_0,t_1), \ldots, p_5=[t_4,t_5)$.  Note
-    that it is not required that time periods of a \tg be consecutive
-    and with no gaps.
+consecutive time periods $p_1=[1/15, 2/15), \ldots, p_5=[7/15, 10/15)$.
+    Note that it is not required that time periods of a \tg be
+    consecutive and with no gaps.
 
     Vertices and edges of a \tg are not required to be homogeneous in
     terms of their schemas.  In line with, e.g., Neo4j and GraphX,
     representative graphs use the property graph data
-    model~\ref{GraphDB}.  That is, each vertex (resp. edge) of $g$
+    model~\cite{GraphDB}.  That is, each vertex (resp. edge) of $g$
     during period $p$ has a collection of properties defined by a map
     from property name to value.
 
@@ -255,8 +255,8 @@ a vertex (resp. edge) do not overlap, and that one does not contain
 the other, but it does not prevent the existence of two adjacent time
 periods for a vertex or edge, i.e., periods $p$ and $q$ for which
 $\pred{p}{meets}{q}$.  That is, there may well be two tuples in \tv
-for $v_1$ in Figure~\ref{fig:tg_ve}, one associated with $[t_0,t_1)$
-  and the other with $[t_1,t_4)$.
+for $v_1$ in Figure~\ref{fig:tg_ve}, one associated with $[1/15,
+  2/15)$ and the other with $[2/15, 7/15)$.
 
 Temporal SQL, as per the SQL:2011 standard, (1) does not provide a way
 to specify that a relation be coalesced, and (2) does not enable
@@ -299,10 +299,10 @@ for this is to streamline the enforcement of referential integrity
 constraints of Definition~\ref{def:tg}.  Consider again the example in
 Figure ~\ref{fig:tg_ve}.  If vertex attributes were stored as part of
 \tv, then there would be two tuples for $v_2$ in this relation, one
-for each $[t_1, t_2)$ and $[t_2, t_5)$.  This would in turn require
-    that $e(v_1, v_2)$ be mapped to two tuples in \tv as part of
-    referential integrity checking on $v_2$.  Matching a tuple with a
-    set of tuples in the referenced table, while supported by the
+for each $[2/15, 5/15)$ and $[5/15, 10/15)$.  This would in turn
+    require that $e(v_1, v_2)$ be mapped to two tuples in \tv as part
+    of referential integrity checking on $v_2$.  Matching a tuple with
+    a set of tuples in the referenced table, while supported by the
     SQL:2011 standard, is potentially inefficient, and we avoid it in
     our representation.\eat{ We will discuss how integrity of the
       model is enforced, and how this is implemented, in
@@ -352,19 +352,19 @@ those that appear as either the start or the end of some time period
 in \tv, \te, \tav, and \tae; (2) computing \rgs periods by generating
 pairs of adjacent time points from step 1, and sorting them by
 $start$; (3) constructing a representative $g$ graph for each time
-period $p$ by selecting the entities from \tv, \te, \tav, and \tae
+period $p$ by selecting the entities from \tv, \te, \tav, and \tae~
 that overlap with $p$.
 
 To compute \ve from \rgs, we must compute four relations, \tv, \te,
 \tav, and \tae.  This is done by iterating over the tuples $\trg
-(g:graph,p:period)$, computing $\tv_g(v,p)$ (similarly for $\te_g$,
-$\tav_g$, $\tav_g$) for each tuple, collecting $\tv_g \rightarrow
-\tv$, $\te_g \rightarrow \te$, $\tav_g \rightarrow \tav$, $\tae_g
-\rightarrow \tae$, and finally coalescing each \tv, \te, \tav, \tae.
+(g,p)$, computing $\tv_g(v,p)$ (similarly for $\te_g$, $\tav_g$,
+$\tav_g$) for each tuple, collecting $\tv_g \rightarrow \tv$, $\te_g
+\rightarrow \te$, $\tav_g \rightarrow \tav$, $\tae_g \rightarrow
+\tae$, and finally coalescing each \tv, \te, \tav, \tae.
 
-We will present operators of \tg algebra, stating their semantics over
-the \rgs and \ve data structures (Section~\ref{sec:algebra}).  We will
-then discuss how each operator is implemented over several possible
-physical representatis of these logical data structures
-(Section~\ref{sec:sys}).
+Next, we will present operators of \tg algebra, stating their
+semantics over the \rgs and \ve data structures
+(Section~\ref{sec:algebra}).  We will then discuss how each operator
+is implemented over several possible physical representatis of these
+logical data structures (Section~\ref{sec:sys}).
 
