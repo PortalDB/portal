@@ -42,6 +42,10 @@ object twitterToParquet {
     val textFormat = new SimpleDateFormat("MMMyy");
     val finalFormat = new SimpleDateFormat("yyyy-MM-dd");
     val nodes = sc.textFile("hdfs://master:9000/data/twitter/account_creation_dates.csv").map(_.split(",")).map(x => (x(0), finalFormat.format(textFormat.parse(x(1)))))
+    val df1 = nodes.map(x => Nodes(x._1.toLong,  Date.valueOf(x._2), Date.valueOf("2013-01-01"))).toDF()
+    df1.printSchema()
+    df1.show()
+    df1.write.parquet("hdfs://master:9000/data/twitter/nodes.parquet")
     //val df1 = nodes.map(x => Nodes(x._1.toLong,  Date.valueOf(x._2), Date.valueOf("2013-01-01"))).toDF()
     //df1.printSchema()
     //df1.show()
