@@ -22,11 +22,13 @@ object HistogramFromParquet{
 
 
   def main(args: Array[String]): Unit ={
-    makeHistogram("./arxivParquet", LocalDate.parse("1989-01-01"),  LocalDate.parse("2016-01-01"), 5, "years", "./arxivHistogram")
-    makeHistogram("hdfs://master:9000/data/dblp", LocalDate.parse("1936-01-01"),  LocalDate.parse("2015-01-01"), 1, "years", "./dblpHistogram")
-    makeHistogram("hdfs://master:9000/data/nGrams", LocalDate.parse("1520-01-01"),  LocalDate.parse("2008-01-01"), 10, "years", "./ngramsHistogram")
-    makeHistogram("hdfs://master:9000/data/ukdelis", LocalDate.parse("2006-05-01"),  LocalDate.parse("2007-04-01"), 1, "months", "./ukdelisHistogram")
-    makeHistogramNGramsEDGES("hdfs://master:9000/data/nGrams", createDatesArrayByYear(LocalDate.parse("1520-01-01"),  LocalDate.parse("2008-01-01"), 1), "./ngramsHistogram/edges.txt")
+    //makeHistogram("./arxivParquet", LocalDate.parse("1989-01-01"),  LocalDate.parse("2016-01-01"), 5, "years", "./arxivHistogram")
+    //makeHistogram("hdfs://master:9000/data/dblp", LocalDate.parse("1936-01-01"),  LocalDate.parse("2015-01-01"), 1, "years", "./dblpHistogram")
+    //makeHistogram("hdfs://master:9000/data/nGrams", LocalDate.parse("1520-01-01"),  LocalDate.parse("2008-01-01"), 10, "years", "./ngramsHistogram")
+    //makeHistogram("hdfs://master:9000/data/ukdelis", LocalDate.parse("2006-05-01"),  LocalDate.parse("2007-04-01"), 1, "months", "./ukdelisHistogram")
+    //makeHistogramNGramsEDGES("hdfs://master:9000/data/nGrams", createDatesArrayByYear(LocalDate.parse("1520-01-01"),  LocalDate.parse("2008-01-01"), 1), "./ngramsHistogram/edges.txt")
+    //makeHistogram("hdfs://master:9000/data/wikitalk", LocalDate.parse("2001-01-01"),  LocalDate.parse("2016-01-01"), 1, "years", "./wikitalksHistogram")
+    makeHistogram("hdfs://master:9000/data/twitter", LocalDate.parse("2006-01-01"),  LocalDate.parse("2013-01-01"), 1, "years", "./twitterHistogram")
   }
 
 

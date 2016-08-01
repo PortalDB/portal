@@ -72,10 +72,10 @@ class Time_Per_Op(BaseModel):
         primary_key = CompositeKey('exec_id', 'query_id','op_id','seqNum')
         db_table = 'time_per_op'
 
-def setupDatabase(clearDatabase):
-    if clearDatabase:
-        drop_model_tables([Operation, Query, Query_Op_Map, Build, Execution, Time_Per_Op])
+def clearDatabase():
+	drop_model_tables([Operation, Query, Query_Op_Map, Build, Execution, Time_Per_Op])
 
+def setupDatabase():
     if not Operation.table_exists():
         Operation.create_table()
     if not Query.table_exists():
@@ -90,7 +90,7 @@ def setupDatabase(clearDatabase):
         Time_Per_Op.create_table()
 
 if __name__ == "__main__":
-    setupDatabase(True)
+    setupDatabase()
     database.connect()
     exit()
 

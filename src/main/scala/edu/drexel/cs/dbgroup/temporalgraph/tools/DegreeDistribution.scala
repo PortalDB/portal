@@ -10,8 +10,6 @@ import org.apache.spark.graphx.VertexId
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.{SparkContext, SparkConf}
-import edu.drexel.cs.dbgroup.temporalgraph.tools.HistogramFromParquet.createDatesArrayByMonth
-import edu.drexel.cs.dbgroup.temporalgraph.tools.HistogramFromParquet.createDatesArrayByYear
 
 /**
   * Created by shishir on 6/6/2016.
@@ -27,12 +25,15 @@ object DegreeDistribution {
 
 
   def main(args: Array[String]): Unit ={
-    createDegreeDistribution("./dblp", "test.txt")
-//    createDegreeDistribution("hdfs://master:9000/data/arxiv/", "DatasetStatistics/Degrees/Data/arxiv.txt")
-//    createDegreeDistribution("hdfs://master:9000/data/nGrams/", "DatasetStatistics/Degrees/Data/nGrams.txt")
+//    createDegreeDistribution("./dblp", "test.txt")
+    //createDegreeDistribution("hdfs://master:9000/data/arxiv/", "DatasetStatistics/Degrees/Data/arxiv.txt")	
+    //createDegreeDistribution("hdfs://master:9000/data/nGrams/", "DatasetStatistics/Degrees/Data/nGrams.txt")
+    createDegreeDistribution("hdfs://master:9000/data/ukdelis/", "DatasetStatistics/Degrees/Data/ukdelis.txt")
   }
 
   def createDegreeDistribution(source:String, directoryName:String): Unit ={
+    val fw = new FileWriter(directoryName, true)
+    GraphLoader.setGraphType("HG")
     val SGP = GraphLoader.loadDataParquet(source)
     val degrees = SGP.degree()
 
@@ -45,7 +46,6 @@ object DegreeDistribution {
     //, LocalDate.parse((x+1).toString + "-01-01")))).map(x => (x._2._2, 1)).reduceByKey(_+_).map(_.toString()).saveAsTextFile(x.toString))
 
     val degreeDistribution = degrees.map(x => (x._2._2, 1)).reduceByKey(_+_).sortByKey().collect()
-    val fw = new FileWriter(directoryName, true)
     for ( x <- degreeDistribution ) {
       fw.write(x._1.toString() + " " + x._2.toString + "\n")
     }

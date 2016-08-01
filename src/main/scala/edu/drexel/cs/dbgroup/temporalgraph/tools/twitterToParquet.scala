@@ -46,14 +46,19 @@ object twitterToParquet {
     df1.printSchema()
     df1.show()
     df1.write.parquet("hdfs://master:9000/data/twitter/nodes.parquet")
+    //val df1 = nodes.map(x => Nodes(x._1.toLong,  Date.valueOf(x._2), Date.valueOf("2013-01-01"))).toDF()
+    //df1.printSchema()
+    //df1.show()
+    //df1.write.parquet("hdfs://master:9000/data/twitter/nodes.parquet")
 
     //Getting the edges using nodes
     val edgesLines = sc.textFile("hdfs://master:9000/data/twitter/followers_all.adj").map(line => (line.substring(0, line.indexOf(' ')), line.substring(line.indexOf(' ')+2).trim.split(" ")))
     val edgesWithoutDates = edgesLines.flatMap(x => (x._2.map(y => (x._1, y))))
-    val edges = edgesWithoutDates.leftOuterJoin(nodes).map(x => ((x._2._1, ( x._1, x._2._2.getOrElse("2006-03-01"))))).leftOuterJoin(nodes).map{x =>
+    println("initial edges before join: " + edgesWithoutDates.count)
+    val edges = edgesWithoutDates.join(nodes).map(x => ((x._2._1, ( x._1, x._2._2)))).join(nodes).map{x =>
       val firstDate = Date.valueOf(x._2._1._2)
-      val secondDate = Date.valueOf(x._2._2.getOrElse("2006-03-01"))
-      if (firstDate.before(secondDate)){
+      val secondDate = Date.valueOf(x._2._2)
+      if (firstDate.after(secondDate)){
         ((x._2._1._1, x._1, firstDate, Date.valueOf("2013-01-01")))
       }
       else
@@ -64,7 +69,8 @@ object twitterToParquet {
     df.printSchema()
     df.show()
     df.write.parquet("hdfs://master:9000/data/twitter/edges.parquet")
-
+    println("after join: " + df.count)
+    println("DONE!")
   }
 
 
