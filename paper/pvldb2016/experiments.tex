@@ -22,7 +22,7 @@ very small running times.
 \multicolumn{1}{l|}{\bfseries Dataset} & \multicolumn{1}{c|}{\bfseries |V|} & \multicolumn{1}{c|}{\bfseries |E|} & \multicolumn{1}{c|}{\bfseries Time Span} & \multicolumn{1}{c}{\bfseries Evol. Rate} \\ \hline
 wikitalk-en & 2.9M & 10.7M & 2002--2015 & 14.4 \\ \hline
 nGrams & 29.3M & 2.5B & 1520--2008 & ? \\ \hline
-DELIS & 128M & 40.5B & 2006--2007 & ? \\ \hline
+%%DELIS & 128M & 40.5B & 2006--2007 & ? \\ \hline
 twitter & 505.4M & 23B & 2006--2012 & ? \\ \hline
 \end{tabular}
 \label{tab:datasets}
@@ -38,9 +38,9 @@ contains word co-occurrence information from 1520 through 2008, with
 edges.  twitter~\cite{twitter} contains over 23 billion directed
 follower relationships between 0.5 billion twitter users collected in
 2012, sampled at 1-month resolution based on account creation
-information from April of 2006.  DELIS contains monthly snapshots of a
+information from April of 2006. \eat{DELIS contains monthly snapshots of a
 portion of the Web graph focusing on the .uk domains from 05/2006
-through 05/2007~\cite{BSVLTAG}.  The datasets differ not only in size,
+through 05/2007~\cite{BSVLTAG}. } The datasets differ not only in size,
 but also in the number and type of attributes and the rate of
 evolution.  The change rate was calculated as the average graph edit
 similarity~\cite{Ren2011}.  \eat{the evolutionary properties:
@@ -95,13 +95,15 @@ in \ve \insql{slice} is a simple select on the vertex and edge
 relations and is the fastest access method when data on disk is
 coalesced.  \sg, in contrast, does multiple passes of select over the
 same data to compute each RG, and then coalesce the output to return a
-valid result.  Thus, as expected, \ve behavior is directly dependent on
-the size of input data regardless of the slice size for file formats
-and systems without filter pushdown, as is the case here, or if the
-data does not have temporal locality
-(Figures~\ref{fig:sliceverts},~\ref{fig:sliceedges}).  \sg behavior is
-linear in the slice size.  We observed the same linear trend
-previously when the data is stored as individual
+valid result.  Thus, as expected, \ve behavior is directly dependent
+on the size of input data regardless of the slice size for file
+formats and systems without filter pushdown, as is the case here, or
+if the data does not have temporal locality
+(Figure~\ref{fig:sliceverts} - about 28 seconds for \ve,
+Figure~\ref{fig:sliceedges}).  \sg behavior is linear in the slice
+size.  This experiment essentially measures the cost of materializing
+\sg from \ve.  However, we observed the same linear trend previously
+when the data is stored as individual
 snapshots~\cite{PortalarXiv2016}, although less redundant work is
 needed in that case.
 
@@ -205,7 +207,7 @@ thus in most cases provides good performance insensitive to the
 aggregation window size, e.g. Figure~\ref{fig:agg1}.  However, in
 datasets with a large number of RGs (such as nGrams which has over 400
 periods), \og exhibits slow performance, an order of magnitude worse
-than VE, except when materializing edges on small aggregation windows
+than \ve, except when materializing edges on small aggregation windows
 (Figure~\ref{fig:agg2}).  \ve outperforms \og when the V and E
 quantification levels match (Figure~\ref{fig:agg2}), but is worse than
 \og when the foreign key constraint is manually enforced, which
@@ -216,29 +218,47 @@ such as with the wikitalk dataset - Figure~\ref{fig:agg1}.  \sg and
 \hg do not provide the best performance on any of our datasets.
 
 \begin{figure*}[h]
+\begin{minipage}{2.2in}
 \centering
-\begin{minipage}{3.3in}
-\centering
-\includegraphics[width=2.8in]{figs/union_wikitalk_vertices_build12.png}
+\includegraphics[width=2in]{figs/union_wikitalk_vertices_build12.png}
 \caption{Union on the wikitalk dataset, return vertices.}
 \label{fig:union1}
 \end{minipage}
-\begin{minipage}{3.3in}
+\begin{minipage}{2.2in}
 \centering
-\includegraphics[width=2.8in]{figs/union_wikitalk_edges_build12.png}
+\includegraphics[width=2in]{figs/union_wikitalk_edges_build12.png}
 \caption{Union on the wikitalk dataset, return edges.}
 \label{fig:union2}
+\end{minipage}
+\begin{minipage}{2.2in}
+\centering
+\includegraphics[width=2in]{figs/intersect_ngrams_edges_build12.png}
+\caption{Intersection on the nGrams dataset, return edges.}
+\label{fig:intersect}
 \end{minipage}
 \end{figure*}
 
 {\bf Union and Intersection.}  \insql{union} and \insql{intersection}
 by structure was evaluated by loading two time slices of the same
 dataset with varying overlap.  The performance of the four conditions
-depends on the size of the overlap and the evolution rate.  \ve
-produces the best performance when the overlap is small
-(Figure~\ref{fig:union1}) and when the evolution rate is high
-(Figure~\ref{fig:union2}), regardless of the size of the overlap.
-\vera{MORE HERE}
+depends on the size of the overlap (in the number of representative
+graphs) and the evolution rate.  \ve produces the best performance
+when the overlap is small (Figure~\ref{fig:union1}) and when the
+evolution rate is high (Figure~\ref{fig:union2}), regardless of the
+size of the overlap.  \og always produces good performance, flat
+w.r.t. the overlap.  This makes sense, considering that in \og
+\insql{union} and \insql{intersection} are implemented as joins (outer
+or inner) on the vertices and edges of the two operands.  \ve, on the
+other hand, splits the coalesced vertices/edges of each of the two
+operands into intervals first, takes a union, and then reduces by key.
+When the evolution rate is low and duration of an entity is high, such
+as the case in the wikitalk dataset for vertices, the split produces a
+lot of tuples to then reduce, and the performance suffers
+(Figure~\ref{fig:union1}). \sg only produces good performance on
+\insql{intersection} when few representative graphs overlap, and never
+on \insql{union}. \hg performance is generally worse than \og, by a
+constant amount in \insql{union}, and diverges in
+\insql{intersection}.
 
 \begin{figure*}[h]
 \centering
@@ -264,7 +284,7 @@ until convergence with no limit on the number of iterations.
 Performance of Pregel-based algorithms depends heavily on the
 partition strategy, with best results achieved where cross-partition
 communication is small.  For this reason, we evaluated only with the
-E2D strategy.
+E2D strategy.  
 
 The performance was evaluated on time slices of varying size.  For a
 very small number of RGs (1-2), \sg provides good performance.
@@ -278,19 +298,17 @@ everything in a single batch mode, which leads to the fastest
 performance, as can be seen in Figure~\ref{fig:pranktwitter}.  If the
 edge evolution represents more ephemeral connections that can come and
 go, then \hg is less dense and scales better
-(Figure~\ref{fig:ccwiki}).
-
-talk about how here for all 3 the graphs were RGs, not structure RGs. further gains can be head where structure evolution is slower than attrib. evolution
+(Figure~\ref{fig:ccwiki}).  Note that \og and \hg performance could be
+further improved by computing them over coalesced structure-only V and
+E, ignoring attributes.
 
 {\bf Cluster Size.}  We next examine how the system implementation
 scales with the the size of the cluster.  We evaluate the performance
-of two queries.
+of the following query:
 
 \begin{small}
 \begin{verbatim}
-Q1. wikitalk
-
-   slice(2005-2015)
+   slice
    aggregate(1 year, exists, exists)
    connected components
    materialize vertices
@@ -298,38 +316,42 @@ Q1. wikitalk
 \end{small}
 
 This query, executed on the wikitalk dataset, computes connected
-components over the past 10 years on the yearly scale.
+components over the past 10 years on the yearly scale.  Over the
+twitter dataset the slice size is 5 years.
 
-\begin{small}
-\begin{verbatim}
-Q2. UKDELIS
-
-   aggregate(3 months, exists, always)
-   pagerank(20 iterations)
-   project pagerank score
-   aggregate(12 months, exists, exists, trend)
-   get top 10
-\end{verbatim}
-\end{small}
-
+%%\begin{small}
+%%\begin{verbatim}
+%%Q2. UKDELIS
+%%
+%%   aggregate(3 months, exists, always)
+%%   pagerank(20 iterations)
+%%   project pagerank score
+%%   aggregate(12 months, exists, exists, trend)
+%%   get top 10
+%%\end{verbatim}
+%%\end{small}
+\eat{
 This query, executed on DELIS dataset, computes stable links between
 websites, i.e. links that persist for 3 months, and uses them to
 compute pagerank for each.  The score is projected and its trend
 computed in an aggregation over the whole dataset time period (1
 year).  The top 10 websites with the highest increase in pagerank are
 returned.
+}
 
 For each operation, the best performing representation was selected
 based on our experimental results.  Slice, project, and aggregate were
-performed with VE, analytics with \hg.  The results are in
-Table~\ref{tab:clustersize}.
+performed with \ve, analytics with \hg.  The results are in
+Table~\ref{tab:clustersize}.  With the small wikitalk dataset,
+performance improves initially with larger cluster sizes but levels
+off at the largest size.  With the large twitter dataset, ...
 
 \begin{table}
 \caption{Effect of cluster size.}
 \small
-\begin{tabular}{| l | c | r |}
+\begin{tabular}{| c | c | r |}
 \hline
-\multicolumn{1}{|l|}{\bfseries Cluster Size} & \multicolumn{1}{c|}{\bfseries Q1 (min)} & \multicolumn{1}{r}{\bfseries Q2} \\ \hline
+\multicolumn{1}{|c|}{\bfseries Cluster Size} & \multicolumn{1}{c|}{\bfseries wikitalk (min)} & \multicolumn{1}{r|}{\bfseries twitter} \\ \hline
 2 & 15.21 & ? \\ \hline
 4 & 9.35 & ? \\ \hline
 8 & 6.55 & ? \\ \hline
