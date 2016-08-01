@@ -192,7 +192,7 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
     ))
     val expectedSGP = SnapshotGraphParallel.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
-    var actualSGP = SGP.select(epred = (ids, attrs) => ids._1 > 2 && attrs._2 == 42)
+    var actualSGP = SGP.select(epred = (ids: (VertexId,VertexId), attrs: (Interval, Int)) => ids._1 > 2 && attrs._2 == 42)
 
     assert(expectedSGP.vertices.collect() === actualSGP.vertices.collect())
     assert(expectedSGP.edges.collect() === actualSGP.edges.collect())
@@ -233,7 +233,7 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
     ))
     val expectedSGP = SnapshotGraphParallel.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
-    var actualSGP = SGP.select(vpred = (id, attrs) => id > 3 && attrs._2 != "Ke")
+    var actualSGP = SGP.select(vpred = (id: VertexId, attrs: (Interval, String)) => id > 3 && attrs._2 != "Ke")
 
     assert(expectedSGP.vertices.collect() === actualSGP.vertices.collect())
     assert(expectedSGP.edges.collect() === actualSGP.edges.collect())
@@ -273,7 +273,7 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
     ))
     val expectedSGP = SnapshotGraphParallel.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
-    var actualSGP = SGP.select(vpred = (id, attrs) => id > 3 && attrs._2 != "Ke", epred = (ids, attrs) => ids._1 > 2 && attrs._2 == 42)
+    var actualSGP = SGP.select(vpred = (id: VertexId, attrs: (Interval, String)) => id > 3 && attrs._2 != "Ke", epred = (ids: (VertexId,VertexId), attrs: (Interval,Int)) => ids._1 > 2 && attrs._2 == 42)
 
     assert(expectedSGP.vertices.collect() === actualSGP.vertices.collect())
     assert(expectedSGP.edges.collect() === actualSGP.edges.collect())

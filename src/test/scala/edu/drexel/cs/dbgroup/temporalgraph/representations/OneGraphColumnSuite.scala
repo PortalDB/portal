@@ -187,7 +187,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
       ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
     ))
     val expectedOGC = OneGraphColumn.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
-    var actualOGC = OGC.select(epred = (ids, attrs) => ids._1 > 2 && attrs._2 == 42)
+    var actualOGC = OGC.select(epred = (ids: (VertexId,VertexId), attrs: (Interval, Int)) => ids._1 > 2 && attrs._2 == 42)
 
     assert(expectedOGC.vertices.collect() === actualOGC.vertices.collect())
     assert(expectedOGC.edges.collect() === actualOGC.edges.collect())
@@ -228,7 +228,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
       ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
     ))
     val expectedOGC = OneGraphColumn.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
-    var actualOGC = OGC.select(vpred = (id, attrs) => id > 3 && attrs._2 != "Ke")
+    var actualOGC = OGC.select(vpred = (id: VertexId, attrs: (Interval, String)) => id > 3 && attrs._2 != "Ke")
 
     assert(expectedOGC.vertices.collect() === actualOGC.vertices.collect())
     assert(expectedOGC.edges.collect() === actualOGC.edges.collect())
@@ -268,7 +268,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
       ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
     ))
     val expectedOGC = OneGraphColumn.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
-    var actualOGC = OGC.select(vpred = (id, attrs) => id > 3 && attrs._2 != "Ke", epred = (ids, attrs) => ids._1 > 2 && attrs._2 == 42)
+    var actualOGC = OGC.select(vpred = (id: VertexId, attrs: (Interval, String)) => id > 3 && attrs._2 != "Ke", epred = (ids: (VertexId, VertexId), attrs: (Interval, Int)) => ids._1 > 2 && attrs._2 == 42)
 
     assert(expectedOGC.vertices.collect() === actualOGC.vertices.collect())
     assert(expectedOGC.edges.collect() === actualOGC.edges.collect())

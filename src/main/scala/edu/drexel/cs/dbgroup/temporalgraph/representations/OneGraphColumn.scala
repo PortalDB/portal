@@ -49,6 +49,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
   /** Query operations */
 
   override def slice(bound: Interval): OneGraphColumn[VD, ED] = {
+    if (graphs == null) super.slice(bound).asInstanceOf[OneGraphColumn[VD,ED]]
     //VZM: FIXME: this special case is commented out for experimental purposes
     //if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
     if (span.intersects(bound)) {

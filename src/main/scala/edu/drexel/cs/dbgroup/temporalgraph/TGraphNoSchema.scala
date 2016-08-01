@@ -130,6 +130,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
 
     //slice is correct on coalesced and uncoalesced data
     //and maintains the coalesced/uncoalesced state
+    val redFactor = span.ratio(selectBound)
     fromRDDs(allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}
                   .mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), 
              allEdges.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}
@@ -180,6 +181,16 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], 
 
     fromRDDs(newVerts, newEdges, defaultValue, storageLevel, true)
 
+  }
+
+  protected val defvp2 = (vid: VertexId, attrs: VD) => true
+  protected val defep2 = (ids: (VertexId, VertexId), attrs: ED) => true
+  def selectStructural(epred: ((VertexId, VertexId), ED) => Boolean = defep2, vpred: (VertexId, VD) => Boolean = defvp2): TGraphNoSchema[VD,ED] = {
+    val newVerts: RDD[(VertexId, (Interval, VD))] = if (vpred == defvp2) allVertices else allVertices.filter{ case (vid, attrs) => vpred(vid, attrs._2)}
+    val constrained = if (vpred == defvp2) allEdges else TGraphNoSchema.constrainEdges(newVerts, allEdges)
+    val newEdges = if (epred == defep2) constrained else constrained.filter{ case (ids, attrs) => epred(ids, attrs._2)}
+
+    fromRDDs(newVerts, newEdges, defaultValue, storageLevel, coalesced)
   }
 
   protected val vgb = (vid: VertexId, attr: Any) => vid
