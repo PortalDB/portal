@@ -7,7 +7,7 @@ import subprocess;
 import configparser;
 from peewee import *;
 from subprocess import Popen, PIPE;
-import sendMail
+import driverUtils.sendMail
 
 #database = None;
 #dbconnect = None;
@@ -307,7 +307,8 @@ def run(configFile, email):
             for i in range (1, itr+1):
                 #run the experiment twice if you don't get the runtime
                 errorCount = 0
-                while errorCount < 2:
+		success = False
+                while ((not success) & (errorCount < 2)):
                     try:
                         p3 = Popen(sparkCommand, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True);
                         pres = p3.communicate()
@@ -316,6 +317,7 @@ def run(configFile, email):
                         rTime = None
                         print output
                         rTime = time_dict[0] #get total runtime
+			success = True
                     except KeyError:
                         errorCount = errorCount + 1;
                         if errorCount == 1:
@@ -325,7 +327,7 @@ def run(configFile, email):
                             print "ERROR: Query run did not return a final runtime in the second try. See result below:"
                             print pres[1]
                             print traceback.format_exc()
-                            msg = "ERROR: Query run did not return a final runtime in the second try"
+                            msg = "Subject: Job Failed \nERROR! Query run did not return a final runtime in the second try"
                             sendMail.sendMail(email, msg)
                             sys.exit(1)
 
@@ -344,7 +346,7 @@ def run(configFile, email):
     #getting number of workers after the job
     numWorkers = findNumberOfWorkers(env)
     print "***  Done with executions. Total number of workers after the experiment=" + str(numWorkers)
-    msg = "Experiment complete! Total number of workers after the experiment=" + str(numWorkers)
+    msg = "Subject: Job Complete \nTotal number of workers after the experiment=" + str(numWorkers)
     sendMail.sendMail(email, msg)
 
 def findNumberOfWorkers(env):
@@ -373,8 +375,6 @@ def findNumberOfWorkers(env):
 
 
 if __name__ == "__main__":
-    database = driverUtils.models.BaseModel._meta.database
-    dbconnect = driverUtils.connect.DBConnection(database)
     email = ""
     configFile = ""
     if(not len(sys.argv) > 1):
@@ -387,4 +387,15 @@ if __name__ == "__main__":
         email = sys.argv[2];
 
     configFile = sys.argv[1];
-    run(configFile, email)
+    try:
+        database = driverUtils.models.BaseModel._meta.database
+        dbconnect = driverUtils.connect.DBConnection(database)
+    	run(configFile, email)
+    except SystemExit:
+	msg = "ERROR! sys.exit() was called. Look for the output of the program to see what caused the exception"
+	sendMail.sendMail(email, msg)
+    except Exception:
+	msg = "ERROR! Unknown exception occured. Look for the output of the program to see what cause the exception"
+	sendMail.sendMail(email, msg)
+	
+	

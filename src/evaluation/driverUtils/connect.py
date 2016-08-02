@@ -14,7 +14,7 @@ class DBConnection():
 
 
 
-    def find_queryid(self, id_dict):
+    def find_query_id(self, id_dict):
         try:
             sqlQuery = "SELECT DISTINCT alias0.query_id FROM"
             #adding the from clause
@@ -53,7 +53,7 @@ class DBConnection():
         except Exception:
             print "Unknown exception while trying to check \'Query_op_map\' table:"
             print traceback.format_exc()
-            return None
+            sys.exit(1)
 
     def persist_query(self):
         try:
@@ -187,6 +187,7 @@ class DBConnection():
         id_dict = self.persist_ops(op_dict) #persist to Operation table
         #check if id already exists
         queryId = self.find_query_id(id_dict)
+	print queryId
         if queryId is None:
             qRef = self.persist_query() #persist to Query table
             self.persist_query_ops(qRef, id_dict) #persist to Query_Op_Map table
