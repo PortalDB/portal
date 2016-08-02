@@ -23,6 +23,7 @@ object GES {
   Logger.getLogger("org").setLevel(Level.OFF)
   Logger.getLogger("akka").setLevel(Level.OFF)
   var conf = new SparkConf().setAppName("TemporalGraph Project").setSparkHome(System.getenv("SPARK_HOME"))
+  conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
   val sc = new SparkContext(conf)
   ProgramContext.setContext(sc)
   val sqlContext = new SQLContext(sc)
@@ -32,16 +33,24 @@ object GES {
 
 
   def main(args: Array[String]): Unit ={
-    calculateGES("./sampleData", "sampleData")
+    calculateGES("./sampleData", "sampleData.txt")
   }
 
   def calculateGES(source:String, destinationFileName:String): Unit ={
-    val SGP = GraphLoader.loadDataParquet(source)
-    val intervals = SGP.intervals.collect
-    val edges = intervals.map(x => SGP.getSnapshot(x.start).edges)
-    val edgesCount = intervals.map(x => SGP.getSnapshot(x.start).edges.count())
+    GraphLoader.setGraphType("VE")
+    val VE = GraphLoader.loadDataParquet(source)
+    val intervals = VE.intervals.collect
+    val edges = intervals.map(x => VE.getSnapshot(x.start).edges)
+    val edgesCount = edges.map(x => x.count())
     val edgesAndCounts = edges.zip(edgesCount)
-    val ges = edgesAndCounts.sliding(2).map(x => 2 * x(0)._1.intersection(x(1)._1).count.toFloat / (x(0)._2 + x(1)._2)).toList
+    val ges = edgesAndCounts.sliding(2).map(x =>
+      if (x(0)._2 + x(1)._2 == 0){
+        0
+      }
+      else{
+        2 * x(0)._1.intersection(x(1)._1).count.toFloat / (x(0)._2 + x(1)._2)
+      }
+    ).toList
 
     //writing the results
     var f = new File("ges");
