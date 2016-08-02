@@ -7,7 +7,7 @@ import subprocess;
 import configparser;
 from peewee import *;
 from subprocess import Popen, PIPE;
-import sendMail
+import driverUtils.sendMail
 
 #database = None;
 #dbconnect = None;
