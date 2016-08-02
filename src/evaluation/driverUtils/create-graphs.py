@@ -13,6 +13,7 @@ matplotlib.use('Agg') #force matplotlib to not use any Xwindows backend
 import re;
 import matplotlib.pyplot as plt;
 from peewee import *;
+import pprint
 
 colorList = ["#E6E600", "#01DF01", "#FF4000", "#5882FA", "#8A0886", "#FAAC58", "#A9D0F5", "#81F781", "#FA5858", "#FA5882", "#F5BCA9", "#01DFA5", "#F4FA58",
             "#A9F5A9", "#81DAF5", "#82FA58"] #add more html colors to this if not enough     
@@ -34,11 +35,12 @@ def gen_line_graphs(saveDir):
         xlabel = chartDesc["xlabel"]
         ylabel = chartDesc["ylabel"]
         query = chartDesc["sql"]
-
+	print query, "\n"
         query = re.sub(r"%([^\(])", r"%%\1", query)
 
+	print query
         res = db.execute_sql(query)
-        
+        #pprint.pprint(res)
         if res.rowcount == 0:
             print "Empty result set for ", chartName
             continue
