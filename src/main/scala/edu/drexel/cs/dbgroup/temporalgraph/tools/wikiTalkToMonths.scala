@@ -54,7 +54,7 @@ object wikiTalkToMonths {
   }
 
   def convertNodesToMonths(): Unit ={
-    var wikitalkNodes = sqlContext.read.parquet("wikitalk/nodes.parquet")
+    var wikitalkNodes = sqlContext.read.parquet("hdfs://master:9000/data/wikitalk/nodesByDay.parquet")
     val nodes = wikitalkNodes.rdd.map{x =>
       val initialStart = x(1).asInstanceOf[Date].toLocalDate
       val startDate = initialStart.withDayOfMonth(1)
@@ -64,7 +64,7 @@ object wikiTalkToMonths {
     val df = nodes.map(x => Nodes(x._1,  Date.valueOf(x._2), Date.valueOf(x._3), x._4.asInstanceOf[String], x._5.asInstanceOf[Int], x._6.asInstanceOf[mutable.WrappedArray[String]])).toDF()
     df.printSchema()
     df.show()
-    df.write.parquet("wikitalk/newnodes.parquet")
+    df.write.parquet("hdfs://master:9000/data/wikitalk/nodes.parquet")
   }
 
   def coalesce[K: ClassTag, V: ClassTag](rdd: RDD[(K, (Interval, V))]): RDD[(K, (Interval, V))] = {
