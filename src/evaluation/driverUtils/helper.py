@@ -14,9 +14,9 @@ import matplotlib.pyplot as plt;
 import os;
 from peewee import *;
 import seaborn as sns
+import smallPlot
 sns.set_context('notebook', font_scale=1.4)
 sns.set_style('whitegrid')
-
 
 colorList = ["#E6E600", "#01DF01", "#FF4000", "#5882FA", "#8A0886", "#FAAC58", "#A9D0F5", "#81F781"]   
 db = None
@@ -123,7 +123,9 @@ def removeCloseValues(alignment, ticks, xmax):
     return alignment, ticks
 
 def drawGraph(name,dataframes):
-    keys = ['SG', 'SGS', 'OG', 'OGS', 'HG', 'HGS', 'VE', 'VES', 'SG_E2D', 'OG_E2D', 'HG_E2D']
+    sns.set_context('notebook', font_scale=1.4)
+    sns.set_style('whitegrid')
+    keys = ['RG', 'RGS', 'OG', 'OGS', 'HG', 'HGS', 'VE', 'VES', 'RG_E2D', 'OG_E2D', 'HG_E2D']
     lines = ['-', ':', '-', '--', '-', '-.', '-', '-', '-', '-', '-']
     colors = sns.color_palette("Paired", n_colors=11)
     markers = ['s', "", 'o', "", 'D', "",  "", "", "", "", ""]
@@ -177,10 +179,5 @@ def drawGraph(name,dataframes):
         #setting up the maximum of x axis to the maximum value
         xmax = max(item[0].index.values)
         ax1.set_xlim(xmin=0, xmax=xmax)
+	plt.show()
 
-	#figure save logic
-	dirName = "graphs/" + item[1].split(' ')[0]
-	fileName = item[1].split(' ', 1)[1] + " build_num=" + str(item[3])
-	if not os.path.exists(dirName):
-   		os.makedirs(dirName)
-	plt.savefig(dirName + "/" + fileName, bbox_extra_artists=(lgd,), bbox_inches='tight')
