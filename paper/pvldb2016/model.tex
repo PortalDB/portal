@@ -8,7 +8,9 @@ Following the SQL:2011
 standard~\cite{DBLP:journals/sigmod/KulkarniM12}, we adopt the {\em
   closed-open} period model, where a period (or interval) represents a
 continuous set of time instances, starting from and including the
-start time, continuing to but excluding the end time.
+start time, continuing to but excluding the end time.  Time instances,
+or chronons, have limited precision and the time domain has total
+order.
 
 \begin{definition}[Time period]
 A {\em time period} \\$p = [start, end)$ is an interval of the
@@ -93,6 +95,10 @@ consecutive time periods $p_1=[1/15, 2/15), \ldots, p_5=[7/15, 10/15)$.
     model~\cite{GraphDB}.  That is, each vertex (resp. edge) of $g$
     during period $p$ has a collection of properties defined by a map
     from property name to value.
+
+\vera{GraphX does not use the property graph model. It uses generics
+  and says that at compile time the type of attribute has to be known,
+  but otherwise it can be anything.}
 
 As is typically the case in interval-based models, each representative
 graph is assumed to exists continuously, and remains unchanged, during
@@ -184,6 +190,10 @@ existing edges.
 
 \label{def:tg}
 \end{definition}
+
+\vera{It may be worth noting that we are using what's called a
+  timestamp tuples approach rather than timestamp attributes in our
+  logical model. }
 
 Graphs may be directed or undirected.  For undirected graphs we choose
 a canonical representation of an edge, with $v_1 \leq v_2$ (self-loops

@@ -46,6 +46,11 @@ have a useful algebra, we do not reject a change that would lead to a
 violation in referential integrity.  Instead, we compute a consistent
 result by removing the tuples that violate referential integrity.
 
+We use the principle of snapshot
+reducibility~\cite{DBLP:reference/db/Bohlen092} for all operations in
+our algebra.  This principle states that the operation yields the same
+result as the query applied to each snapshot of the data.
+
 Consider a unary operation \op and suppose that it is being evaluated
 over the \ve representation \op(\tve).  Algorithm~\ref{alg:op}
 outlines the steps in the evaluation, overloading \opp as appropriate
@@ -204,29 +209,32 @@ The final result will consist of 2 representative graphs, with
 vertices 1 and 3 for $[1/15, 7/15)$ and with vertex 3 for $[7/15,
     10/15)$.
 
-\subsection{Temporal projection}%; vertex- and edge-map}
+\subsection{Temporal map}%; vertex- and edge-map}
 \label{sec:algebra:project}
 
-\tg algebra supports a limited kind of projection: while key
+\eat{\tg algebra supports a limited kind of projection: while key
 attributes of vertices and edges must be retained, it is possible to
-project out some or all non-key vertex and edge attributes.
-$\pi_{\avv',\aee'} (\trg) = \{ (g', p)~~|~~(g, p) \in \trg \wedge
-V_{g'} = V_{g} \wedge E_{g'} = E_{g} \wedge \avv' \subseteq \avv
-\wedge \aee' \subseteq \aee \}$.  To evaluate projection over \tve, we
-compute $\tav' = \pi_{\avv'} (\tav)$ and $\tae' = \pi_{\aee'} (\tae)$.
+project out some or all non-key vertex and edge attributes.}
 
-Because \avv and \aee are nested relations, it is natural to interpret
-projection more broadly to mean {\em map}.  The user may specify an
+\tg algebra supports a map operation.  The user may specify an
 arbitrary map function that is applied to each tuple in \avv
 (resp. \aee), and transforms the properties of vertex $(v,p)$
-(resp. of edge $(v_1,v_2,p)$).  In addition to removing properties, it
-will often be useful to, e.g., flatten nested collections or reconcile
-multiple values of the same property, e.g., compute a sum or an
-average when map is invoked following temporal aggregation
-(Section~\ref{sec:algebra:agg}), or temporal intersection or union
-(Section~\ref{sec:algebra:join}).
+(resp. of edge $(v_1,v_2,p)$).  $\pi_{\avv',\aee'} (\trg) = \{ (g',
+p)~~|~~(g, p) \in \trg \wedge V_{g'} = V_{g} \wedge E_{g'} = E_{g}
+\wedge \avv' \subseteq \avv \wedge \aee' \subseteq \aee \}$.  To
+evaluate map over \tve, we compute $\tav' = \pi_{\avv'} (\tav)$ and
+$\tae' = \pi_{\aee'} (\tae)$.
 
-{\bf Projection / map may uncoalesce \tav, \tae and \trg.}  Consider
+\eat{Because \avv and \aee are nested relations, it is natural to interpret
+projection more broadly to mean {\em map}.}
+
+In addition to removing properties, it will often be useful to, e.g.,
+flatten nested collections or reconcile multiple values of the same
+property, e.g., compute a sum or an average when map is invoked
+following temporal aggregation (Section~\ref{sec:algebra:agg}), or
+temporal intersection or union (Section~\ref{sec:algebra:join}).
+
+{\bf Map may uncoalesce \tav, \tae and \trg.}  Consider
 \insql{T1} in Figure~\ref{fig:ve}, and suppose that we are computing
 $\pi_{a:(name)} (\tav)$.  There will be two identical tuples in the
 result for vertex $v_2$ for $[2/15, 5/15)$ and $[5/15, 10/15)$, which
@@ -236,9 +244,9 @@ result for vertex $v_2$ for $[2/15, 5/15)$ and $[5/15, 10/15)$, which
       5/15)$ and $[5/15, 10/15)$, which will have to be coalesced
         explicitly.
 
-{\bf Projection and map do not require FK enforcement for \tve.}  This
-is because, by definition of this operation, only \tav and \tae are
-affected, while the contents of \tv and \te remain as in the input.
+{\bf Map does not require FK enforcement for \tve.}  This is because,
+by definition of this operation, only \tav and \tae are affected,
+while the contents of \tv and \te remain as in the input.
 
 \subsection{Temporal aggregation}
 \label{sec:algebra:agg}
@@ -253,6 +261,8 @@ to be finer or coarse than the natural evolution rate of the graph.
 For this, we will use temporal aggregation.  Our approach is inspired
 by stream aggregation work of Li, et al.~\cite{Li2005}, adopted to
 graphs, and by generalized quantifiers of~\cite{Hsu1995}.
+
+\vera{add span temporal aggregation discussion/ref}
 
 The {\em temporal aggregation} operator is denoted $\gamma_{W,Q_V,Q_E}
 (\trg)$, where $W$ is the window specification and $Q_V$ and $Q_E$ are
@@ -349,6 +359,13 @@ Temporal aggregation over \trg is computed by first calculating time
 periods from $W$ and \trg, and then processing the representative
 graphs directly.  Recall also that \trg can be computed from \tve (and
 vice versa) as per Section~\ref{sec:model:switch}.
+
+\vera{the reason we do not apply an aggregation function but
+  accumulate values instead of that not all attribute can be
+  aggregatable or disaggregatable~\cite{Clifford85}.  The distinction
+  is domain-specific and the user should decide how to aggregate
+  nested attributes.  For example, quantities are not always
+  disaggregatable.}
 
 
 {\bf Temporal aggregation may uncoalesce \tve and \trg.} Consider a
@@ -576,8 +593,47 @@ with group by id.}
 \subsection{Temporal union and intersection}
 \label{sec:algebra:join}
 
-\tg algebra supports two binary operations, temporal union and
-intersection.
+\tg algebra supports two binary operations, temporal graph union and
+intersection.  Temporal graph intersection $\trg_1 \cap \trg_2 = \{
+(g_1 \cap g_2, p_1 \cap p_2) | (g_1, p_1) \in \trg_1 \wedge $\\ $(g_2,
+p_2) \in \trg_2 \wedge p_1 \cap p_2 \neq \emptyset \}$ The computation
+over \trg is essentially an inner theta-join of $\trg_1$ and $\trg_2$
+with a $p_1 \cap p_2$ predicate.  We use the standard graph
+intersection definition based on set theory, which intersects the
+vertex and edge sets from the two operands~\cite{GraphTheory}.  To
+evaluate over \tve, we compute temporal natural inner joins over
+corresponding \tv, \te, \tav, \tae.  This is shown in
+Algorithm~\ref{alg:inter}:
+
+\begin{algorithm}
+\caption{Temporal graph intersection in \tve.}
+\begin{algorithmic}[1]
+\REQUIRE $\tve_1 (\tv_1, \te_1, \tav_1, \tae_1), \tve_2 (\tv_2, \te_2, \tav_2, \tae_2)$.\\
+\STATE $\tv = \tv_1 \Join^T \tv_2$\\
+\STATE $\te = \te_1 \Join^T \te_2$\\
+\STATE $\tav = \tav_1 \Join^T \tav_2$\\
+\STATE $\tae = \tae_1 \Join^T \tae_2$\\
+\RETURN new $\tve (\tv, \te, \tav, tae)$\\
+\end{algorithmic}
+\label{alg:inter}
+\end{algorithm}
+
+\vera{here discussion about what happens with attributes.}
+
+{\bf Intersection does not uncoalesce.}  Whether evaluated over \trg
+or \tve, intersection returns a coalesced relation when evaluated over
+coalesced input.  This is because temporal join over coalesced
+temporal relations does not uncoalesce, as shown
+in~\cite{DBLP:conf/vldb/BohlenSS96}.
+
+{\bf Intersection does not require FK enforcement for \tve.}  The
+proof for this is similar to the one for \insql{slice}.  Consider an
+edge $\te(v_1, v_2, p^e)$ and one of the corresponding vertices
+$\tv(v_1, p^v)$ obtained through temporal joins above.  To violate the
+FK constraint, there has to exist at least one time instant $t \in p^e
+\wedge t \not\in p^v$.  But that is not possible, since by definition
+of temporal join $p^e$ exists both in $\te_1$ and $\te_2$ and $\tve_1$
+and $\tve_2$ are valid \tgs.
 
 \eat{\begin{definition}[Union] Union of $TG1\ \cup\ TG2$ = $\{v, e: v
     \in TG1.V$ or $v \in TG2.V$ or $v(vid$, $f_1(a_{11}$, $a_{21})$,
