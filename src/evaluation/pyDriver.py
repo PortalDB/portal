@@ -267,9 +267,13 @@ def run(configFile, email):
             out = out.replace('\n', '') 
 
             totalWorkers = numWorkers = totalCores = numCores = 0;
-            ram = 16; #fixme: get actual ram 
-            cConf = None
+            ram = 16; #default ram
+            #getting the ram from the config file
+            ramTemp = envConf.split("--executor-memory",1)
+            if (len(ramTemp) >1):
+                ram = int(ramTemp[1].split(" ")[1].replace("g", ''))
 
+            cConf = None
             #collect slave info
             r = re.compile('Workers:</strong>(.*?)</li>')
             m = r.search(out)
@@ -280,7 +284,7 @@ def run(configFile, email):
                 numWorkers = totalWorkers - numDead
 
             #collect cores info
-            r = re.compile('Cores:</strong>(.*?)Total')
+            r = re.compile('Coresinuse:</strong>(.*?)Total')
             m = r.search(out)
 
             if m:  
