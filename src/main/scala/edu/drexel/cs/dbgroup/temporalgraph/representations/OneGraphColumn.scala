@@ -793,7 +793,135 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       else
         new OneGraphColumn[(VD, Map[VertexId,Int]), ED](intervals, newverts, allEdges, graphs, (defaultValue, emptym), storageLevel)
     } else {
-      throw new UnsupportedOperationException("directed version of shortestPath not yet implemented")
+      //TODO: change this to a val function
+      def makeMap(x: (VertexId, Int)*): Long2IntOpenHashMap = {
+        //we have to make a new map instead of modifying the input
+        //because that has unintended consequences
+        val itr = x.iterator;
+        var tmpMap = new Long2IntOpenHashMap()
+
+        while (itr.hasNext) {
+          val k = itr.next()
+          tmpMap.put(k._1, k._2)
+        }
+        tmpMap
+      }
+
+      val incrementMap = (spmap: Long2IntOpenHashMap) => {
+        //we have to make a new map instead of modifying the input
+        //because that has unintended consequences
+        val itr = spmap.iterator
+        var tmpMap = new Long2IntOpenHashMap()
+
+        while (itr.hasNext) {
+          val (k, v) = itr.next()
+          tmpMap.put(k: Long, v + 1)
+        }
+        tmpMap
+      }
+
+      val addMaps = (spmap1: Long2IntOpenHashMap, spmap2: Long2IntOpenHashMap) => {
+        //we have to make a new map instead of modifying one of the two inputs
+        //because that has unintended consequences
+        val itr = (spmap1.keys ++ spmap2.keys).iterator
+        var tmpMap = new Long2IntOpenHashMap()
+
+        while (itr.hasNext) {
+          val k = itr.next()
+
+          tmpMap.put(k: Long, math.min(spmap1.getOrDefault(k, Int.MaxValue), spmap2.getOrDefault(k, Int.MaxValue)))
+        }
+        tmpMap
+      }
+
+      val spGraph: Graph[Int2ObjectOpenHashMap[Long2IntOpenHashMap], BitSet] = graphs
+        // Set the vertex attributes to vertex id for each interval
+        .mapVertices { (vid, attr) =>
+        if (landmarks.contains(vid)) {
+          val tmp = new Int2ObjectOpenHashMap[Long2IntOpenHashMap]();
+          attr.foreach(x => tmp.put(x, makeMap(vid -> 0)));
+          tmp
+        }
+        else {
+          val tmp = new Int2ObjectOpenHashMap[Long2IntOpenHashMap]();
+          attr.foreach(x => tmp.put(x, makeMap()));
+          tmp
+        }
+      }
+
+      val initialMessage: Int2ObjectOpenHashMap[Long2IntOpenHashMap] = {
+        var tmpMap = new Int2ObjectOpenHashMap[Long2IntOpenHashMap]()
+
+        for (i <- 0 to collectedIntervals.size - 1) {
+          tmpMap.put(i, makeMap())
+        }
+        tmpMap
+      }
+
+      val addMapsCombined = (a: Int2ObjectOpenHashMap[Long2IntOpenHashMap], b: Int2ObjectOpenHashMap[Long2IntOpenHashMap]) => {
+        val itr = a.iterator
+
+        while (itr.hasNext) {
+          val (index, mp) = itr.next()
+
+          b.put(index, addMaps(mp, b.getOrElse(index, makeMap())))
+        }
+        b
+      }
+
+      val vertexProgram = (id: VertexId, attr: Int2ObjectOpenHashMap[Long2IntOpenHashMap], msg: Int2ObjectOpenHashMap[Long2IntOpenHashMap]) => {
+        //need to compute new shortestPaths to landmark for each interval
+        //each edge carries a message for one interval,
+        //which are combined by the combiner into a hash
+        //for each interval in the msg hash, update
+        var vals = attr.clone
+        msg.foreach { x =>
+          val (k, v) = x
+          if (attr.contains(k)) {
+            var newMap = addMaps(attr(k), v)
+            vals.update(k, newMap)
+          }
+        }
+        vals
+      }
+
+      val sendMessage = (edge: EdgeTriplet[Int2ObjectOpenHashMap[Long2IntOpenHashMap], BitSet]) => {
+        //This is a hack because of a bug in GraphX that
+        //does not fetch edge triplet attributes otherwise
+        edge.srcAttr
+        edge.dstAttr
+
+        //each vertex attribute is supposed to be a map of int->spmap for each index
+        edge.attr.toList.flatMap { k =>
+          val srcSpMap = edge.srcAttr(k)
+          val dstSpMap = edge.dstAttr(k)
+          val newAttr = incrementMap(dstSpMap)
+          val newAttr2 = incrementMap(srcSpMap)
+
+          if (srcSpMap != addMaps(newAttr, srcSpMap))
+            Some((edge.srcId, new Int2ObjectOpenHashMap[Long2IntOpenHashMap](Array(k), Array(newAttr))))
+          else
+            None
+        }
+          .iterator
+      }
+
+      val resultGraph: Graph[Map[TimeIndex, Map[VertexId, Int]], BitSet] = Pregel(spGraph, initialMessage)(vertexProgram, sendMessage, addMapsCombined)
+        .asInstanceOf[Graph[Map[TimeIndex, Map[VertexId, Int]], BitSet]]
+
+      //TODO: make this work without collect
+      val intvs = ProgramContext.sc.broadcast(collectedIntervals)
+      val vattrs: RDD[(VertexId, (Interval, Map[VertexId, Int]))] = resultGraph.vertices.flatMap { case (vid, vattr) => vattr.toSeq.map { case (k, v) => (vid, (intvs.value(k), v)) } }
+      //now need to join with the previous value
+      val emptym = new Long2IntOpenHashMap().asInstanceOf[Map[VertexId, Int]]
+      val newverts = allVertices.leftOuterJoin(vattrs)
+        .filter { case (k, (v, u)) => u.isEmpty || v._1.intersects(u.get._1) }
+        .mapValues { case (v, u) => if (u.isEmpty) (v._1, (v._2, emptym)) else (v._1.intersection(u.get._1).get, (v._2, u.get._2)) }
+
+      if (ProgramContext.eagerCoalesce)
+        fromRDDs(newverts, allEdges, (defaultValue, emptym), storageLevel, false)
+      else
+        new OneGraphColumn[(VD, Map[VertexId, Int]), ED](intervals, newverts, allEdges, graphs, (defaultValue, emptym), storageLevel)
     }
   }
 
