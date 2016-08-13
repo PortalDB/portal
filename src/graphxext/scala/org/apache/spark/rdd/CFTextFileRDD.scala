@@ -7,6 +7,7 @@ import org.apache.hadoop.io.Writable
 import org.apache.hadoop.mapreduce.InputSplit
 import org.apache.hadoop.conf.{Configuration, Configurable}
 import org.apache.spark.input.CFInputFormat
+import org.apache.hadoop.mapreduce.task.JobContextImpl
 
 class CFTextFileRDD(
     sc : SparkContext,
@@ -24,7 +25,7 @@ class CFTextFileRDD(
         configurable.setConf(conf)
       case _ =>
     }
-    val jobContext = newJobContext(conf, jobId)
+    val jobContext = new JobContextImpl(conf, jobId)
     inputFormat.setMinPartitions(jobContext, minPartitions)
     val rawSplits = inputFormat.getSplits(jobContext).toArray
     val result = new Array[Partition](rawSplits.size)
