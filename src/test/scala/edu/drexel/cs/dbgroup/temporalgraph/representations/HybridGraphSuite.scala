@@ -81,15 +81,15 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     //When interval is completely outside the graph
     val sliceInterval2 = (Interval(LocalDate.parse("2001-01-01"), LocalDate.parse("2003-01-01")))
     val actualHG2 = HG.slice(sliceInterval2)
-    assert(actualHG2.vertices.collect() === HybridGraph.emptyGraph().vertices.collect())
-    assert(actualHG2.edges.collect() === HybridGraph.emptyGraph().edges.collect())
+    assert(actualHG2.vertices.collect() === HybridGraph.emptyGraph("").vertices.collect())
+    assert(actualHG2.edges.collect() === HybridGraph.emptyGraph("").edges.collect())
     assert(actualHG2.getTemporalSequence.collect === Seq[Interval]())
     info("interval completely outside the graph passed")
 
     //When the graph is empty
-    val actualHG3 = HybridGraph.emptyGraph().slice(sliceInterval2)
-    assert(actualHG3.vertices.collect() === HybridGraph.emptyGraph().vertices.collect())
-    assert(actualHG3.edges.collect() === HybridGraph.emptyGraph().edges.collect())
+    val actualHG3 = HybridGraph.emptyGraph("").slice(sliceInterval2)
+    assert(actualHG3.vertices.collect() === HybridGraph.emptyGraph("").vertices.collect())
+    assert(actualHG3.edges.collect() === HybridGraph.emptyGraph("").edges.collect())
     assert(actualHG3.getTemporalSequence.collect === Seq[Interval]())
     info("empty graph passed")
   }
@@ -135,15 +135,15 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     //When interval is completely outside the graph
     selectFunction = (x: Interval) => x.equals(Interval(LocalDate.parse("2001-01-01"), LocalDate.parse("2003-01-01")))
     val actualHG2 = HG.select(selectFunction, selectFunction)
-    assert(actualHG2.vertices.collect() === HybridGraph.emptyGraph().vertices.collect())
-    assert(actualHG2.edges.collect() === HybridGraph.emptyGraph().edges.collect())
+    assert(actualHG2.vertices.collect() === HybridGraph.emptyGraph("").vertices.collect())
+    assert(actualHG2.edges.collect() === HybridGraph.emptyGraph("").edges.collect())
     assert(actualHG2.getTemporalSequence.collect === Seq[Interval]())
     info("interval completely outside the graph passed")
 
     //When the graph is empty
-    val actualHG3 = HybridGraph.emptyGraph().select(selectFunction, selectFunction)
-    assert(actualHG3.vertices.collect() === HybridGraph.emptyGraph().vertices.collect())
-    assert(actualHG3.edges.collect() === HybridGraph.emptyGraph().edges.collect())
+    val actualHG3 = HybridGraph.emptyGraph("").select(selectFunction, selectFunction)
+    assert(actualHG3.vertices.collect() === HybridGraph.emptyGraph("").vertices.collect())
+    assert(actualHG3.edges.collect() === HybridGraph.emptyGraph("").edges.collect())
     assert(actualHG3.getTemporalSequence.collect === Seq[Interval]())
     info("empty graph passed")
   }
@@ -958,8 +958,8 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
 
     val resultHGIntersection = HG.intersection(HG2)
 
-    assert(resultHGIntersection.vertices.collect.toSet === HybridGraph.emptyGraph().vertices.collect.toSet)
-    assert(resultHGIntersection.edges.collect.toSet === HybridGraph.emptyGraph().edges.collect.toSet)
+    assert(resultHGIntersection.vertices.collect.toSet === HybridGraph.emptyGraph("").vertices.collect.toSet)
+    assert(resultHGIntersection.edges.collect.toSet === HybridGraph.emptyGraph("").edges.collect.toSet)
     assert(resultHGIntersection.getTemporalSequence.collect === Seq[Interval]())
   }
 
@@ -1003,8 +1003,8 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
 
     val resultHGIntersection = HG.intersection(HG2)
 
-    assert(resultHGIntersection.vertices.collect.toSet === HybridGraph.emptyGraph().vertices.collect.toSet)
-    assert(resultHGIntersection.edges.collect.toSet === HybridGraph.emptyGraph().edges.collect.toSet)
+    assert(resultHGIntersection.vertices.collect.toSet === HybridGraph.emptyGraph("").vertices.collect.toSet)
+    assert(resultHGIntersection.edges.collect.toSet === HybridGraph.emptyGraph("").edges.collect.toSet)
     assert(resultHGIntersection.getTemporalSequence.collect === Seq[Interval]())
   }
 
@@ -1134,8 +1134,8 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
 
     val resultHGIntersection = HG.intersection(HG2)
 
-    assert(resultHGIntersection.vertices.collect.toSet === HybridGraph.emptyGraph().vertices.collect.toSet)
-    assert(resultHGIntersection.edges.collect.toSet === HybridGraph.emptyGraph().edges.collect.toSet)
+    assert(resultHGIntersection.vertices.collect.toSet === HybridGraph.emptyGraph("").vertices.collect.toSet)
+    assert(resultHGIntersection.edges.collect.toSet === HybridGraph.emptyGraph("").edges.collect.toSet)
     assert(resultHGIntersection.getTemporalSequence.collect === Seq[Interval]())
   }
 
@@ -1183,8 +1183,8 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
 
     val resultHGIntersection = HG.intersection(HG2)
 
-    assert(resultHGIntersection.vertices.collect.toSet === HybridGraph.emptyGraph().vertices.collect.toSet)
-    assert(resultHGIntersection.edges.collect.toSet === HybridGraph.emptyGraph().edges.collect.toSet)
+    assert(resultHGIntersection.vertices.collect.toSet === HybridGraph.emptyGraph("").vertices.collect.toSet)
+    assert(resultHGIntersection.edges.collect.toSet === HybridGraph.emptyGraph("").edges.collect.toSet)
     assert(resultHGIntersection.getTemporalSequence.collect === Seq[Interval]())
   }
 

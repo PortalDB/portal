@@ -1,7 +1,7 @@
 package edu.drexel.cs.dbgroup
 
 import org.apache.spark.SparkContext
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.SparkSession
 
 package object temporalgraph {
   /**
@@ -37,13 +37,12 @@ package object temporalgraph {
 
   object ProgramContext {
     @transient var sc:SparkContext = _
-    @transient private var sqlc:SQLContext = _
+    @transient private var session: SparkSession = _
 
     def setContext(c: SparkContext):Unit = sc = c
-    def getSqlContext:SQLContext = {
-      //hive context is usually recommended to be used instead of plain sqlcontext
-      if (sqlc == null) sqlc = new org.apache.spark.sql.SQLContext(sc)
-      sqlc
+    def getSession: SparkSession = {
+      if (session == null) session = SparkSession.builder().getOrCreate()
+      session
     }
     lazy val eagerCoalesce: Boolean = if (sc.getConf.get("portal.coalesce", "lazy") == "eager") true else false
   }

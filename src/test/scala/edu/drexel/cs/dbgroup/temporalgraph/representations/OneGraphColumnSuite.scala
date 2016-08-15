@@ -81,15 +81,15 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     //When interval is completely outside the graph
     val sliceInterval2 = (Interval(LocalDate.parse("2001-01-01"), LocalDate.parse("2003-01-01")))
     val actualOGC2 = OGC.slice(sliceInterval2)
-    assert(actualOGC2.vertices.collect() === OneGraphColumn.emptyGraph().vertices.collect())
-    assert(actualOGC2.edges.collect() === OneGraphColumn.emptyGraph().edges.collect())
+    assert(actualOGC2.vertices.collect() === OneGraphColumn.emptyGraph("").vertices.collect())
+    assert(actualOGC2.edges.collect() === OneGraphColumn.emptyGraph("").edges.collect())
     assert(actualOGC2.getTemporalSequence.collect === Seq[Interval]())
     info("interval completely outside the graph passed")
 
     //When the graph is empty
-    val actualOGC3 = OneGraphColumn.emptyGraph().slice(sliceInterval2)
-    assert(actualOGC3.vertices.collect() === OneGraphColumn.emptyGraph().vertices.collect())
-    assert(actualOGC3.edges.collect() === OneGraphColumn.emptyGraph().edges.collect())
+    val actualOGC3 = OneGraphColumn.emptyGraph("").slice(sliceInterval2)
+    assert(actualOGC3.vertices.collect() === OneGraphColumn.emptyGraph("").vertices.collect())
+    assert(actualOGC3.edges.collect() === OneGraphColumn.emptyGraph("").edges.collect())
     assert(actualOGC3.getTemporalSequence.collect === Seq[Interval]())
     info("empty graph passed")
   }
@@ -135,15 +135,15 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     //When interval is completely outside the graph
     selectFunction = (x: Interval) => x.equals(Interval(LocalDate.parse("2001-01-01"), LocalDate.parse("2003-01-01")))
     val actualOGC2 = OGC.select(selectFunction, selectFunction)
-    assert(actualOGC2.vertices.collect() === OneGraphColumn.emptyGraph().vertices.collect())
-    assert(actualOGC2.edges.collect() === OneGraphColumn.emptyGraph().edges.collect())
+    assert(actualOGC2.vertices.collect() === OneGraphColumn.emptyGraph("").vertices.collect())
+    assert(actualOGC2.edges.collect() === OneGraphColumn.emptyGraph("").edges.collect())
     assert(actualOGC2.getTemporalSequence.collect === Seq[Interval]())
     info("interval completely outside the graph passed")
 
     //When the graph is empty
-    val actualOGC3 = OneGraphColumn.emptyGraph().select(selectFunction, selectFunction)
-    assert(actualOGC3.vertices.collect() === OneGraphColumn.emptyGraph().vertices.collect())
-    assert(actualOGC3.edges.collect() === OneGraphColumn.emptyGraph().edges.collect())
+    val actualOGC3 = OneGraphColumn.emptyGraph("").select(selectFunction, selectFunction)
+    assert(actualOGC3.vertices.collect() === OneGraphColumn.emptyGraph("").vertices.collect())
+    assert(actualOGC3.edges.collect() === OneGraphColumn.emptyGraph("").edges.collect())
     assert(actualOGC3.getTemporalSequence.collect === Seq[Interval]())
     info("empty graph passed")
   }
@@ -958,8 +958,8 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
 
     val resultOGCIntersection = OGC.intersection(OGC2)
 
-    assert(resultOGCIntersection.vertices.collect.toSet === OneGraphColumn.emptyGraph().vertices.collect.toSet)
-    assert(resultOGCIntersection.edges.collect.toSet === OneGraphColumn.emptyGraph().edges.collect.toSet)
+    assert(resultOGCIntersection.vertices.collect.toSet === OneGraphColumn.emptyGraph("").vertices.collect.toSet)
+    assert(resultOGCIntersection.edges.collect.toSet === OneGraphColumn.emptyGraph("").edges.collect.toSet)
     assert(resultOGCIntersection.getTemporalSequence.collect === Seq[Interval]())
   }
 
@@ -1003,8 +1003,8 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
 
     val resultOGCIntersection = OGC.intersection(OGC2)
 
-    assert(resultOGCIntersection.vertices.collect.toSet === OneGraphColumn.emptyGraph().vertices.collect.toSet)
-    assert(resultOGCIntersection.edges.collect.toSet === OneGraphColumn.emptyGraph().edges.collect.toSet)
+    assert(resultOGCIntersection.vertices.collect.toSet === OneGraphColumn.emptyGraph("").vertices.collect.toSet)
+    assert(resultOGCIntersection.edges.collect.toSet === OneGraphColumn.emptyGraph("").edges.collect.toSet)
     assert(resultOGCIntersection.getTemporalSequence.collect === Seq[Interval]())
   }
 
@@ -1134,8 +1134,8 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
 
     val resultOGCIntersection = OGC.intersection(OGC2)
 
-    assert(resultOGCIntersection.vertices.collect.toSet === OneGraphColumn.emptyGraph().vertices.collect.toSet)
-    assert(resultOGCIntersection.edges.collect.toSet === OneGraphColumn.emptyGraph().edges.collect.toSet)
+    assert(resultOGCIntersection.vertices.collect.toSet === OneGraphColumn.emptyGraph("").vertices.collect.toSet)
+    assert(resultOGCIntersection.edges.collect.toSet === OneGraphColumn.emptyGraph("").edges.collect.toSet)
     assert(resultOGCIntersection.getTemporalSequence.collect === Seq[Interval]())
   }
 
@@ -1183,8 +1183,8 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
 
     val resultOGCIntersection = OGC.intersection(OGC2)
 
-    assert(resultOGCIntersection.vertices.collect.toSet === OneGraphColumn.emptyGraph().vertices.collect.toSet)
-    assert(resultOGCIntersection.edges.collect.toSet === OneGraphColumn.emptyGraph().edges.collect.toSet)
+    assert(resultOGCIntersection.vertices.collect.toSet === OneGraphColumn.emptyGraph("").vertices.collect.toSet)
+    assert(resultOGCIntersection.edges.collect.toSet === OneGraphColumn.emptyGraph("").edges.collect.toSet)
     assert(resultOGCIntersection.getTemporalSequence.collect === Seq[Interval]())
   }
   

@@ -86,15 +86,15 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
     //When interval is completely outside the graph
     val sliceInterval2 = (Interval(LocalDate.parse("2001-01-01"), LocalDate.parse("2003-01-01")))
     val actualSGP2 = SGP.slice(sliceInterval2)
-    assert(actualSGP2.vertices.collect() === SnapshotGraphParallel.emptyGraph().vertices.collect())
-    assert(actualSGP2.edges.collect() === SnapshotGraphParallel.emptyGraph().edges.collect())
+    assert(actualSGP2.vertices.collect() === SnapshotGraphParallel.emptyGraph("").vertices.collect())
+    assert(actualSGP2.edges.collect() === SnapshotGraphParallel.emptyGraph("").edges.collect())
     assert(actualSGP2.getTemporalSequence.collect === Seq[Interval]())
     info("interval completely outside the graph passed")
 
     //When the graph is empty
-    val actualSGP3 = SnapshotGraphParallel.emptyGraph().slice(sliceInterval2)
-    assert(actualSGP3.vertices.collect() === SnapshotGraphParallel.emptyGraph().vertices.collect())
-    assert(actualSGP3.edges.collect() === SnapshotGraphParallel.emptyGraph().edges.collect())
+    val actualSGP3 = SnapshotGraphParallel.emptyGraph("").slice(sliceInterval2)
+    assert(actualSGP3.vertices.collect() === SnapshotGraphParallel.emptyGraph("").vertices.collect())
+    assert(actualSGP3.edges.collect() === SnapshotGraphParallel.emptyGraph("").edges.collect())
     assert(actualSGP3.getTemporalSequence.collect === Seq[Interval]())
     info("empty graph passed")
   }
@@ -140,15 +140,15 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
     //When interval is completely outside the graph
     selectFunction = (x: Interval) => x.equals(Interval(LocalDate.parse("2001-01-01"), LocalDate.parse("2003-01-01")))
     val actualSGP2 = SGP.select(selectFunction, selectFunction)
-    assert(actualSGP2.vertices.collect() === SnapshotGraphParallel.emptyGraph().vertices.collect())
-    assert(actualSGP2.edges.collect() === SnapshotGraphParallel.emptyGraph().edges.collect())
+    assert(actualSGP2.vertices.collect() === SnapshotGraphParallel.emptyGraph("").vertices.collect())
+    assert(actualSGP2.edges.collect() === SnapshotGraphParallel.emptyGraph("").edges.collect())
     assert(actualSGP2.getTemporalSequence.collect === Seq[Interval]())
     info("interval completely outside the graph passed")
 
     //When the graph is empty
-    val actualSGP3 = SnapshotGraphParallel.emptyGraph().select(selectFunction, selectFunction)
-    assert(actualSGP3.vertices.collect() === SnapshotGraphParallel.emptyGraph().vertices.collect())
-    assert(actualSGP3.edges.collect() === SnapshotGraphParallel.emptyGraph().edges.collect())
+    val actualSGP3 = SnapshotGraphParallel.emptyGraph("").select(selectFunction, selectFunction)
+    assert(actualSGP3.vertices.collect() === SnapshotGraphParallel.emptyGraph("").vertices.collect())
+    assert(actualSGP3.edges.collect() === SnapshotGraphParallel.emptyGraph("").edges.collect())
     assert(actualSGP3.getTemporalSequence.collect === Seq[Interval]())
     info("empty graph passed")
   }
@@ -966,8 +966,8 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
 
     val resultSGPIntersection = SGP.intersection(SGP2)
 
-    assert(resultSGPIntersection.vertices.collect.toSet === SnapshotGraphParallel.emptyGraph().vertices.collect.toSet)
-    assert(resultSGPIntersection.edges.collect.toSet === SnapshotGraphParallel.emptyGraph().edges.collect.toSet)
+    assert(resultSGPIntersection.vertices.collect.toSet === SnapshotGraphParallel.emptyGraph("").vertices.collect.toSet)
+    assert(resultSGPIntersection.edges.collect.toSet === SnapshotGraphParallel.emptyGraph("").edges.collect.toSet)
     assert(resultSGPIntersection.getTemporalSequence.collect === Seq[Interval]())
   }
 
@@ -1012,8 +1012,8 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
 
     val resultSGPIntersection = SGP.intersection(SGP2)
 
-    assert(resultSGPIntersection.vertices.collect.toSet === SnapshotGraphParallel.emptyGraph().vertices.collect.toSet)
-    assert(resultSGPIntersection.edges.collect.toSet === SnapshotGraphParallel.emptyGraph().edges.collect.toSet)
+    assert(resultSGPIntersection.vertices.collect.toSet === SnapshotGraphParallel.emptyGraph("").vertices.collect.toSet)
+    assert(resultSGPIntersection.edges.collect.toSet === SnapshotGraphParallel.emptyGraph("").edges.collect.toSet)
     assert(resultSGPIntersection.getTemporalSequence.collect === Seq[Interval]())
   }
 

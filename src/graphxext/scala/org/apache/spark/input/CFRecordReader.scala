@@ -33,8 +33,8 @@ class CFRecordReader(
   private[this] var pos: Long = startOffset
 
   private[this] val path = split.getPath(index)
-  private[this] val fs = path.getFileSystem(
-    SparkHadoopUtil.get.getConfigurationFromJobContext(context))
+  private[this] val fs = path.getFileSystem(context.getConfiguration)
+    //SparkHadoopUtil.get.getConfigurationFromJobContext(context))
 
   private[this] val key = path.toString
   private[this] var value: String = ""

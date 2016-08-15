@@ -4,6 +4,7 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.types.{StructType,Metadata,StructField}
 import org.apache.spark.sql.catalyst.expressions.{Attribute,AttributeReference}
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.{Dataset,Row}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.graphx.VertexId
@@ -108,15 +109,12 @@ object GraphLoader {
   }
 
   def loadDataParquet(url: String): TGraphNoSchema[Any, Any] = {
-    val sqlContext = ProgramContext.getSqlContext
-    import sqlContext.implicits._
-
-    val users = sqlContext.read.parquet(url + "/nodes.parquet")
-    val links = sqlContext.read.parquet(url + "/edges.parquet")
+    val users = ProgramContext.getSession.read.parquet(url + "/nodes.parquet")
+    val links = ProgramContext.getSession.read.parquet(url + "/edges.parquet")
 
     //this will work even if the graph doesn't have any attributes because null is returned and null is an Any
-    val vs: RDD[(VertexId, (Interval, Any))] = users.map(row => (row.getLong(0), (Interval(row.getDate(1).toLocalDate(), row.getDate(2).toLocalDate()), row.get(3))))
-    val es: RDD[((VertexId, VertexId), (Interval, Any))] = if (links.schema.fields.size > 4) links.map(row => ((row.getLong(0), row.getLong(1)), (Interval(row.getDate(2).toLocalDate(), row.getDate(3).toLocalDate()), row.get(4)))) else links.map(row => ((row.getLong(0), row.getLong(1)), (Interval(row.getDate(2).toLocalDate(), row.getDate(3).toLocalDate()), null)))
+    val vs: RDD[(VertexId, (Interval, Any))] = users.rdd.map(row => (row.getLong(0), (Interval(row.getDate(1).toLocalDate(), row.getDate(2).toLocalDate()), row.get(3))))
+    val es: RDD[((VertexId, VertexId), (Interval, Any))] = if (links.schema.fields.size > 4) links.rdd.map(row => ((row.getLong(0), row.getLong(1)), (Interval(row.getDate(2).toLocalDate(), row.getDate(3).toLocalDate()), row.get(4)))) else links.rdd.map(row => ((row.getLong(0), row.getLong(1)), (Interval(row.getDate(2).toLocalDate(), row.getDate(3).toLocalDate()), null)))
 
     val deflt: Any = users.schema.fields(3).dataType match {
       case StringType => ""
@@ -139,15 +137,15 @@ object GraphLoader {
   }
 
   def loadStructureOnlyParquet(url: String): TGraphNoSchema[StructureOnlyAttr, StructureOnlyAttr] = {
-    val sqlContext = ProgramContext.getSqlContext
+    val sqlContext = ProgramContext.getSession
     import sqlContext.implicits._
 
     val users = sqlContext.read.parquet(url + "/nodes.parquet").select($"vid", $"estart", $"eend")
     val links = sqlContext.read.parquet(url + "/edges.parquet").select($"vid1", $"vid2", $"estart", $"eend")
 
     //map to rdds
-    val vs: RDD[(VertexId, (Interval, StructureOnlyAttr))] = users.map(row => (row.getLong(0), (Interval(row.getDate(1).toLocalDate(), row.getDate(2).toLocalDate()), true)))
-    val es: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = links.map(row => ((row.getLong(0), row.getLong(1)), (Interval(row.getDate(2).toLocalDate(), row.getDate(3).toLocalDate()), true)))
+    val vs: RDD[(VertexId, (Interval, StructureOnlyAttr))] = users.rdd.map(row => (row.getLong(0), (Interval(row.getDate(1).toLocalDate(), row.getDate(2).toLocalDate()), true)))
+    val es: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = links.rdd.map(row => ((row.getLong(0), row.getLong(1)), (Interval(row.getDate(2).toLocalDate(), row.getDate(3).toLocalDate()), true)))
 
     //FIXME: we should be coalescing, but for current datasets it is unnecessary and very expensive
     //i.e. should change these 'true' to 'false'
@@ -163,33 +161,6 @@ object GraphLoader {
     }
 
   }
-
-  def loadDataWithSchema(url: String, schema: GraphSpec): TGraphWithSchema = {
-    //TODO: make the data type not string
-
-    val sqlContext = ProgramContext.getSqlContext
-    val cov = schema.getVertexSchema.map(f => f.name)
-    val coe = schema.getEdgeSchema.map(f => f.name)
-    //TODO: we are ignoring the data types passed in the schema
-    //and relying on the names being correct
-    //add handling to match up fields and give them desired names and types
-    val users = sqlContext.read.parquet(url + "/nodes.parquet").select(cov.head, cov.tail: _*)
-    val links = sqlContext.read.parquet(url + "/edges.parquet").select(coe.head, coe.tail: _*)
-
-    //if we are not loading all the columns, we need to coalesce
-    //FIXME: lazy coalescing needed here
-    val vs = if (schema.getVertexSchema.length == users.columns.length) users else TGraphWithSchema.coalesceV(users)
-    val es = if (schema.getEdgeSchema.length == links.columns.length) links else TGraphWithSchema.coalesceE(links)
-
-    graphType match {
-      case "SG" =>
-        SnapshotGraphWithSchema.fromDataFrames(vs, es, StorageLevel.MEMORY_ONLY_SER)
-      case "OG" =>
-        OneGraphWithSchema.fromDataFrames(vs, es, StorageLevel.MEMORY_ONLY_SER)
-      case _ => throw new IllegalArgumentException("Unknown data structure type " + graphType)
-    }
-  }
-
 
   def loadGraphSpan(url: String): Interval = {
     var source: scala.io.Source = null
@@ -210,37 +181,4 @@ object GraphLoader {
     Interval(minin,maxin)
   }
 
-/*
-  def loadGraphDescription(url: String): GraphSpec = {
-    //there should be a special file called graph.info
-    //which contains the number of attributes and their name/type
-
-    val pt: Path = new Path(url + "/graph.info")
-    val conf: Configuration = new Configuration()    
-    if (System.getenv("HADOOP_CONF_DIR") != "") {
-      conf.addResource(new Path(System.getenv("HADOOP_CONF_DIR") + "/core-site.xml"))
-    }
-    val fs:FileSystem = FileSystem.get(conf)
-    val source:scala.io.Source = scala.io.Source.fromInputStream(fs.open(pt))
-
-    val lines = source.getLines
-    val numVAttrs: Int = lines.next.toInt
-    val vertexAttrs: Seq[StructField] = (0 until numVAttrs).map { index =>
-      val nextAttr = lines.next.split(':')
-      //the format is name:type
-      StructField(nextAttr.head, TypeParser.parseType(nextAttr.last))
-    }
-
-    val numEAttrs: Int = lines.next.toInt
-    val edgeAttrs: Seq[StructField] = (0 until numEAttrs).map { index =>
-      val nextAttr = lines.next.split(':')
-      //the format is name:type
-      StructField(nextAttr.head, TypeParser.parseType(nextAttr.last))
-    }
-
-    source.close()          
-
-    new GraphSpec(vertexAttrs, edgeAttrs)
-  }
- */
 }
