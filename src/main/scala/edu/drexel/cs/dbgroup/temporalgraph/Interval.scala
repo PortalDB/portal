@@ -1,6 +1,5 @@
 package edu.drexel.cs.dbgroup.temporalgraph
 
-import scala.math.Ordered.orderingToOrdered
 import scala.math.Ordering._
 import java.time.LocalDate
 import java.sql.Date
@@ -12,7 +11,7 @@ import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
   * Time period with a closed-open model, i.e. [start, end)
   * A time period where start=end is null/empty.
   */
-class Interval(st: LocalDate, en: LocalDate) extends Ordered[Interval] with Serializable {
+class Interval(st: LocalDate, en: LocalDate) extends Serializable {
   val start:LocalDate = st
   val end:LocalDate = en
 
@@ -119,6 +118,10 @@ class Interval(st: LocalDate, en: LocalDate) extends Ordered[Interval] with Seri
 }
 
 object Interval {
+  implicit def ordering: Ordering[Interval] = new Ordering[Interval] {
+    override def compare(a: Interval, b: Interval): Int = { a compare b }
+  }
+
   def apply(mn: LocalDate, mx: LocalDate) =
    if(mn.isAfter(mx))
      throw new IllegalArgumentException("StartDate cannot be after end date")

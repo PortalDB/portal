@@ -58,7 +58,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], ve
   /** Query operations */
 
   override def slice(bound: Interval): SnapshotGraphParallel[VD, ED] = {
-    if (graphs.size < 1) super.slice(bound).asInstanceOf[SnapshotGraphParallel[VD,ED]]
+    if (graphs.size < 1) return super.slice(bound).asInstanceOf[SnapshotGraphParallel[VD,ED]]
     //VZM: FIXME: this special case is commented out for experimental purposes
     //if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
     if (!span.intersects(bound)) {
@@ -80,6 +80,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], ve
   }
 
   override def selectStructural(epred: ((VertexId, VertexId), ED) => Boolean = defep2, vpred: (VertexId, VD) => Boolean = defvp2): TGraphNoSchema[VD,ED] = {
+    if (graphs.size < 1) computeGraphs()
     SnapshotGraphParallel.fromGraphs(intervals, graphs.map(g => g.subgraph(epred = et => epred((et.srcId, et.dstId), et.attr), vpred)), defaultValue, storageLevel)
   }
 

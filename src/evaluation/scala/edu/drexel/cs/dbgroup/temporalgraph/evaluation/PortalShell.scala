@@ -68,12 +68,12 @@ object PortalShell {
     var conf = new SparkConf().setAppName("TemporalGraph Project").setSparkHome(System.getenv("SPARK_HOME"))
     conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
     conf.set("spark.network.timeout", "240")   
-    //This is a workaround for spark memory leak JIRA SPARK-14560
-    conf.set("spark.shuffle.spill.numElementsForceSpillThreshold", "500000")
  
     val sc = new SparkContext(conf)
     ProgramContext.setContext(sc)
-    val sqlContext = ProgramContext.getSqlContext
+    val sqlContext = ProgramContext.getSession
+    //TODO: remove hard-coding of this parameter. currently it is 1024x1024x16, i.e. 16mb
+    sqlContext.conf.set("spark.sql.files.maxPartitionBytes", "16777216")
 
     GraphLoader.setGraphType(graphType)
     GraphLoader.setStrategy(partitionType)
