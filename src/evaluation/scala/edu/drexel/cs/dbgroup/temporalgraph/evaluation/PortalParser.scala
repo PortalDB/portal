@@ -260,7 +260,7 @@ object Interpreter {
             }
             val gr = parseGraph(g)
             val opStart = System.currentTimeMillis()
-            val res = gr.selectStructural(vpred = vp).partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
+            val res = gr.subgraph(vpred = vp).partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
             val opEnd = System.currentTimeMillis()
             val total = opEnd - opStart
             println(f"Subgraph Runtime: $total%dms ($argNum%d)")
@@ -429,9 +429,9 @@ object Interpreter {
               }
               case _ => throw new IllegalArgumentException("project not supported for this attribute type")
             }
-            gr.project(emap = e => e.attr, vmap = vm, dfv)
+            gr.map(emap = e => e.attr, vmap = vm, dfv)
           }
-          case ed: Edges => gr.project(emap = em, vmap = (vid, attr) => attr, gr.defaultValue)
+          case ed: Edges => gr.map(emap = em, vmap = (vid, attr) => attr, gr.defaultValue)
         }
         val opEnd = System.currentTimeMillis()
         val total = opEnd - opStart

@@ -25,7 +25,7 @@ import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
 
 import java.time.LocalDate
 
-class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], runs: Seq[Int], gps: ParSeq[Graph[BitSet, BitSet]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraphNoSchema[VD, ED](intvs, verts, edgs, defValue, storLevel, coal) with Serializable {
+class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], runs: Seq[Int], gps: ParSeq[Graph[BitSet, BitSet]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends VEGraph[VD, ED](verts, edgs, defValue, storLevel, coal) with Serializable {
 
   var graphs: ParSeq[Graph[BitSet, BitSet]] = gps
   //this is how many consecutive intervals are in each aggregated graph
@@ -44,18 +44,6 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
     }
   }
  */
-
-  override def materialize() = {
-    if (graphs.size < 1) computeGraphs()
-    allVertices.count
-    allEdges.count
-    graphs.foreach { x =>
-      if (!x.edges.isEmpty)
-        x.numEdges
-      if (!x.vertices.isEmpty)
-        x.numVertices
-    }
-  }
 
   /** Query operations */
   
@@ -77,8 +65,6 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
       val zipped = intervals.zipWithIndex.filter(intv => intv._1.intersects(selectBound))
       val selectStart:Int = zipped.min._2.toInt
       val selectStop:Int = zipped.max._2.toInt
-      val newIntvs: RDD[Interval] = zipped.map(x => x._1)
-
       //compute indices of the aggregates that should be included
       //both inclusive
       val partialSum: Seq[Int] = widths.scanLeft(0)(_ + _).tail
@@ -114,7 +100,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
       val vattrs = allVertices.filter{ case (k,v) => v._1.intersects(selectBound)}.mapValues( v => (Interval(maxDate(v._1.start, startBound), minDate(v._1.end, endBound)), v._2))
       val eattrs = allEdges.filter{ case (k,v) => v._1.intersects(selectBound)}.mapValues( v => (Interval(maxDate(v._1.start, startBound), minDate(v._1.end, endBound)), v._2))
 
-      new HybridGraph[VD, ED](newIntvs, vattrs, eattrs, runs, subg, defaultValue, storageLevel, coalesced)
+      new HybridGraph[VD, ED](vattrs, eattrs, runs, subg, defaultValue, storageLevel, coalesced)
 
     } else
       HybridGraph.emptyGraph[VD,ED](defaultValue)
@@ -219,7 +205,10 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
     val vs = gps.map(g => g.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), defaultValue)))}).reduce(_ union _)
     val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))}).reduce(_ union _)
 
-    new HybridGraph(newIntvs, vs, es, runs, gps, defaultValue, storageLevel, false)
+    if (ProgramContext.eagerCoalesce)
+      fromRDDs(vs, es, defaultValue, storageLevel, false)
+    else
+      new HybridGraph(vs, es, runs, gps, defaultValue, storageLevel, false)
 
   }
 
@@ -325,20 +314,36 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
     val vs = gps.map(g => g.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), defaultValue)))}).reduce(_ union _)
     val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))}).reduce(_ union _)
 
-    new HybridGraph(ProgramContext.sc.parallelize(newIntvs), vs, es, runs, gps, defaultValue, storageLevel, false)
+    if (ProgramContext.eagerCoalesce)
+      fromRDDs(vs, es, defaultValue, storageLevel, false)
+    else
+      new HybridGraph(vs, es, runs, gps, defaultValue, storageLevel, false)
 
   }
 
-  override def project[ED2: ClassTag, VD2: ClassTag](emap: Edge[ED] => ED2, vmap: (VertexId, VD) => VD2, defVal: VD2): HybridGraph[VD2, ED2] = {
-    new HybridGraph(intervals, allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vmap(vid, attr)))}, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, emap(Edge(ids._1, ids._2, attr))))}, widths, graphs, defVal, storageLevel, false)
+  override def map[ED2: ClassTag, VD2: ClassTag](emap: Edge[ED] => ED2, vmap: (VertexId, VD) => VD2, defVal: VD2): HybridGraph[VD2, ED2] = {
+    val vs = allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vmap(vid, attr)))}
+    val es = allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, emap(Edge(ids._1, ids._2, attr))))}
+    if (ProgramContext.eagerCoalesce)
+      fromRDDs(vs, es, defVal, storageLevel, false)
+    else
+      new HybridGraph(vs, es, widths, graphs, defVal, storageLevel, false)
   }
 
   override def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): HybridGraph[VD2, ED] = {
-    new HybridGraph(intervals, allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, intv, attr)))}, allEdges, widths, graphs, defaultValue, storageLevel, false)
+    val vs = allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, intv, attr)))}
+    if (ProgramContext.eagerCoalesce)
+      fromRDDs(vs, allEdges, defVal, storageLevel, false)
+    else
+      new HybridGraph(vs, allEdges, widths, graphs, defVal, storageLevel, false)
   }
 
   override def mapEdges[ED2: ClassTag](map: (Interval, Edge[ED]) => ED2): HybridGraph[VD, ED2] = {
-    new HybridGraph(intervals, allVertices, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(intv, Edge(ids._1, ids._2, attr))))}, widths, graphs, defaultValue, storageLevel, false)
+    val es = allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(intv, Edge(ids._1, ids._2, attr))))}
+    if (ProgramContext.eagerCoalesce)
+      fromRDDs(allVertices, es, defaultValue, storageLevel, false)
+    else
+      new HybridGraph(allVertices, es, widths, graphs, defaultValue, storageLevel, false)
   }
 
   override def union(other: TGraph[VD, ED]): HybridGraph[Set[VD],Set[ED]] = {
@@ -450,7 +455,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
       if (ProgramContext.eagerCoalesce)
         fromRDDs(vs, es, newDefVal, storageLevel, false)
       else
-        new HybridGraph(newIntvs, vs, es, runs, gps, newDefVal, storageLevel, false)
+        new HybridGraph(vs, es, runs, gps, newDefVal, storageLevel, false)
 
     } else {
       //like above, but no intervals are split, so reindexing is simpler
@@ -491,7 +496,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
       if (ProgramContext.eagerCoalesce && !col)
         fromRDDs(vs, es, newDefVal, storageLevel, false)
       else
-        new HybridGraph(newIntvs, vs, es, runs, gps, newDefVal, storageLevel, col)
+        new HybridGraph(vs, es, runs, gps, newDefVal, storageLevel, col)
 
     }
   }
@@ -610,7 +615,10 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
       val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))}).reduce(_ union _)
 
       //intersection of two coalesced structure-only graphs is not coalesced
-      new HybridGraph(newIntvs, vs, es, runs, gps, newDefVal, storageLevel, false)
+      if (ProgramContext.eagerCoalesce)
+        fromRDDs(vs, es, newDefVal, storageLevel, false)
+      else
+        new HybridGraph(vs, es, runs, gps, newDefVal, storageLevel, false)
 
     } else {
       emptyGraph(Set(defaultValue))
@@ -678,7 +686,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
       if (ProgramContext.eagerCoalesce)
         fromRDDs(newverts, allEdges, (defaultValue, 0.0), storageLevel, false)
       else
-        new HybridGraph(intervals, newverts, allEdges, widths, graphs, (defaultValue, 0.0), storageLevel, false)
+        new HybridGraph(newverts, allEdges, widths, graphs, (defaultValue, 0.0), storageLevel, false)
 
     } else
       throw new UnsupportedOperationException("directed version of pagerank not yet implemented")
@@ -710,7 +718,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
     if (ProgramContext.eagerCoalesce)
       fromRDDs(newverts, allEdges, (defaultValue, -1L), storageLevel, false)
     else
-      new HybridGraph(intervals, newverts, allEdges, widths, graphs, (defaultValue, -1L), storageLevel, false)
+      new HybridGraph(newverts, allEdges, widths, graphs, (defaultValue, -1L), storageLevel, false)
   }
 
   override def shortestPaths(uni: Boolean, landmarks: Seq[VertexId]): HybridGraph[(VD, Map[VertexId, Int]), ED] = {
@@ -744,7 +752,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
 
       if (graphs.size > 0) {
         val count = intervals.count.toInt
-        new HybridGraph(intervals, allVertices, allEdges, widths, graphs.zipWithIndex.map { case (g,index) =>
+        new HybridGraph(allVertices, allEdges, widths, graphs.zipWithIndex.map { case (g,index) =>
           val numParts: Int = if (tgp.parts > 0) tgp.parts else g.edges.getNumPartitions
           g.partitionBy(PartitionStrategies.makeStrategy(tgp.pst, index, count, tgp.runs), numParts)}, defaultValue, storageLevel, coalesced)
       } else this
@@ -793,16 +801,14 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(
 }
 
 object HybridGraph extends Serializable {
-  def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): HybridGraph[V, E] = new HybridGraph(ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD, Seq[Int](), ParSeq[Graph[BitSet,BitSet]](), defVal, coal = true)
+  def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): HybridGraph[V, E] = new HybridGraph(ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD, Seq[Int](), ParSeq[Graph[BitSet,BitSet]](), defVal, coal = true)
 
   def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): HybridGraph[V, E] = {
     val cverts = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(verts) else verts
     val cedges = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(edgs) else edgs
     val coal = coalesced | ProgramContext.eagerCoalesce
 
-    val intervals = TGraphNoSchema.computeIntervals(cverts, cedges)
-
     //because we use "lazy" evaluation, we don't compute the graphs until we need them
-    new HybridGraph(intervals, cverts, cedges, Seq[Int](), ParSeq[Graph[BitSet,BitSet]](), defVal, storLevel, coal)
+    new HybridGraph(cverts, cedges, Seq[Int](), ParSeq[Graph[BitSet,BitSet]](), defVal, storLevel, coal)
   }
 }
