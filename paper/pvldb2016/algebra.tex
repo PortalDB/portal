@@ -590,7 +590,7 @@ aggregation by 1 month on that graph with $at\ least\ one$ quantifier,
 with group by id.}
 
 
-\subsection{Temporal union and intersection}
+\subsection{Temporal graph intersection}
 \label{sec:algebra:join}
 
 \tg algebra supports two binary operations, temporal graph union and
@@ -634,6 +634,19 @@ FK constraint, there has to exist at least one time instant $t \in p^e
 \wedge t \not\in p^v$.  But that is not possible, since by definition
 of temporal join $p^e$ exists both in $\te_1$ and $\te_2$ and $\tve_1$
 and $\tve_2$ are valid \tgs.
+
+\subsection{Temporal graph union}
+\label{sec:algebra:outerjoin}
+
+Temporal union $\trg_1 \cup \trg_2 = \{ (g, p) | \}$.  Similar to
+temporal intersection, temporal union is essentially an outer
+theta-join of $\trg_1$ and $\trg_2$ with a $p_1 \cap p_2$ predicate.
+We use the standard graph union definition based on set theory, which
+computes unions of the vertex and edge sets from the two
+operands~\cite{GraphTheory}.  To evaluate over \tve, we compute
+temporal natural outer joins over corresponding \tv, \te, \tav, \tae.
+
+{\bf Union does not uncoalesce.}  This depends on how we handle attributes...
 
 \eat{\begin{definition}[Union] Union of $TG1\ \cup\ TG2$ = $\{v, e: v
     \in TG1.V$ or $v \in TG2.V$ or $v(vid$, $f_1(a_{11}$, $a_{21})$,
