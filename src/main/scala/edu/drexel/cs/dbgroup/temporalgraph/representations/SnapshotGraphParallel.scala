@@ -35,7 +35,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
   //or throw an exception upon construction
 
   override def size(): Interval = span
-  lazy val span: Interval = Interval(collectedIntervals.head.start, collectedIntervals.last.end)
+  lazy val span: Interval = if (collectedIntervals.size > 0) Interval(collectedIntervals.head.start, collectedIntervals.last.end) else Interval(LocalDate.now, LocalDate.now)
 
   override def materialize() = {
     graphs.foreach { x =>
@@ -49,13 +49,19 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
   override def vertices: RDD[(VertexId, (Interval, VD))] = coalescedVertices
 
   private lazy val coalescedVertices = {
-    TGraphNoSchema.coalesce(graphs.zip(collectedIntervals).map{ case (g,i) => g.vertices.map{ case (vid, attr) => (vid, (i, attr))}}.reduce((a, b) => a union b))
+    if (graphs.size > 0)
+      TGraphNoSchema.coalesce(graphs.zip(collectedIntervals).map{ case (g,i) => g.vertices.map{ case (vid, attr) => (vid, (i, attr))}}.reduce((a, b) => a union b))
+    else
+      ProgramContext.sc.emptyRDD[(VertexId, (Interval, VD))]
   }
 
   override def edges: RDD[((VertexId,VertexId),(Interval,ED))] = coalescedEdges
 
   private lazy val coalescedEdges = {
-    TGraphNoSchema.coalesce(graphs.zip(collectedIntervals).map{ case (g,i) => g.edges.map(e => ((e.srcId, e.dstId), (i, e.attr)))}.reduce((a, b) => a union b))
+    if (graphs.size > 0)
+      TGraphNoSchema.coalesce(graphs.zip(collectedIntervals).map{ case (g,i) => g.edges.map(e => ((e.srcId, e.dstId), (i, e.attr)))}.reduce((a, b) => a union b))
+    else
+      ProgramContext.sc.emptyRDD[((VertexId,VertexId),(Interval,ED))]
   }
 
   override def getTemporalSequence: RDD[Interval] = coalescedIntervals
@@ -81,15 +87,22 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
     else {
       //this is a very expensive operation; use sparingly
       val res = graphs.zip(collectedIntervals).foldLeft(List[(Graph[VD,ED],Interval)]()) { (r,c) => r match {
-        case head :: tail =>
+        case head :: tail => {
+          //VZM: there is a bug in graphx which allows to compile
+          //subract operation on the graph edges but dies runtime
+          val e1 = head._1.edges.map(e => ((e.srcId, e.dstId), e.attr))
+          val e2 = c._1.edges.map(e => ((e.srcId, e.dstId), e.attr))
           if (head._1.vertices.subtract(c._1.vertices).isEmpty &&
             c._1.vertices.subtract(head._1.vertices).isEmpty &&
-            head._1.edges.subtract(c._1.edges).isEmpty &&
-            c._1.edges.subtract(head._1.edges).isEmpty) //the two graphs are the same
+            e1.subtract(e2).isEmpty &&
+            e2.subtract(e1).isEmpty) //the two graphs are the same
             (head._1, Interval(head._2.start, c._2.end)) :: tail
           else c :: r
-        case Nil => List(c)
-      }}.reverse
+        }
+        case Nil => 
+          if (c._1.vertices.isEmpty) List() else List(c)
+      }}.dropWhile(intv => intv._1.vertices.isEmpty)
+        .reverse
 
       new SnapshotGraphParallel(ProgramContext.sc.parallelize(res.map(_._2)), res.map(_._1).par, defaultValue, storageLevel, true)
     }
