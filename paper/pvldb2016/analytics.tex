@@ -1,2 +1,35 @@
 \section{Analytics}
 \label{sec:analytics}
+
+For many types of evolving graph analyses, it is necessary to compute
+some property, such as PageRank or Shortest Path, for each
+representative graph.  This data can then be used to study how the
+graph evolves over time.  \ql supports this type of operation through
+user-defined functions called {\em analytics}.  \ql supports a variety
+of \rg analytics --- functions whose values are computed w.r.t. each
+representative graph of a \tg --- including degree, shortest paths,
+and connected components.  We provide an API that allows developers to
+implement custom analytics that can either be computed locally at a
+vertex, like degree, or be expressed in the popular Pregel
+API~\cite{DBLP:conf/sigmod/MalewiczABDHLC10}.
+
+Logically, an analytic is computed on each representative graph, and
+the computed value is appended as a new property to each vertex.  We
+will show in Section~\ref{sec:exp} that more efficient methods that
+use batching are possible.
+
+$udf(\trg) = \{ (g', p) | g' = udf(g) \cup g\}$
+
+Analytics cannot be computed directly on \ve representation because
+they are, by definition, defined over representative graphs.
+
+{\bf Analytics do not uncoalesce.} Analytics add a new property to
+each g.  With bag semantics, if the input was coalesced, then for any
+pair of consecutive $a_1, a_2$, $a_1 \neq a_2 \wedge a_1' \neq a_2'$.
+
+\vera{
+2 options:
+1) replace - compute the new values (vertex usually), return new graph with only that property. the user can then union back with the original graph to get old and new (this is how GraphX does it). this can uncoalesce.
+2) append - compute the new values, add a new property to the bag with that value. this does not uncoalesce. option 2 described above.
+}
+
