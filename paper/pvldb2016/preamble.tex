@@ -70,6 +70,11 @@
 \newcommand*{\pred}[3]{#1~\predName{#2}~#3}
 
 \newcommand*{\op}[1]{\ensuremath{\mathsf{#1}}}
+\def\ojoin{\setbox0=\hbox{$\Join$}%
+\rule[0.2ex]{.25em}{.4pt}\llap{\rule[1.5ex]{.25em}{.4pt}}}
+\def\leftouterjoin{\mathbin{\ojoin\mkern-5.8mu\Join}}
+\def\rightouterjoin{\mathbin{\Join\mkern-5.8mu\ojoin}}
+\def\fullouterjoin{\mathbin{\ojoin\mkern-5.8mu\Join\mkern-6mu\ojoin}} 
 
 %\lstset{frame=tb,
 %  language=scala,

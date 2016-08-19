@@ -84,19 +84,19 @@ evaluation in Section~\ref{sec:sys}.
 \subsection{Slice}
 \label{sec:algebra:slice}
 
-The unary {\em slice} operator, denoted $\xi_c (T)$, where $c$ is a
+The unary {\em slice} operator, denoted $\tau_c (T)$, where $c$ is a
 time period, cuts a temporal slice from $T$.  The resulting \tg will
 contain representative graphs whose period $p$ has a non-empty
 intersection with $c$ (i.e., $p$ is either contained within $c$ or
 overlaps with it, see Section~\ref{sec:model:prelim}).  If $p.start <
 c.start$ or $p.end > c.end$ for some tuple $(g, p)$, then $p$ is
-trimmed to be within the boundaries of $c$: $\xi_c (\trg) = \{ (g, p
+trimmed to be within the boundaries of $c$: $\tau_c (\trg) = \{ (g, p
 \cap c)~~|~~(g, p) \in \trg \wedge (\pred{c}{overlaps}{p} \vee
 \pred{c}{contains}{p})\}$.
 
-To evaluate $\xi_c (\tve)$, we apply $\xi_c$ to each of the four
+To evaluate $\tau_c (\tve)$, we apply $\tau_c$ to each of the four
 constituent relations of \tve.  For example: 
-$\xi_c (\tv) = \{ (v, p
+$\tau_c (\tv) = \{ (v, p
 \cap c)~~|~~(v, p) \in \tv \wedge (\pred{c}{overlaps}{p} \vee \pred{c}{contains}{p}) \}$, 
 and analogously for each \te, \tav and \tae.
 
@@ -116,7 +116,7 @@ WHERE eperiod OVERLAPS PERIOD (DATE ':date1', DATE ':date2')
 {\bf Slice does not uncoalesce.} Whether evaluated over \trg or \tve,
 slice is guaranteed to return a coalesced relation when evaluated over
 a coalesced input.  This is because, for any relation \insql{R}, there
-will be at most one tuple from \insql{R} in the result of $\xi_c (R)$,
+will be at most one tuple from \insql{R} in the result of $\tau_c (R)$,
 with a validity period that is either the same as it was in \insql{R},
 or further restricted (trimmed).  Therefore, there is no need to
 coalesce \trg after slice, or on lines 1-4 of Algorithm~\ref{alg:op}
@@ -127,14 +127,14 @@ consider an edge $\te(v_1, v_2, p)$ and one of the corresponding
 vertices $\tv(v_1, p_1)$, such that $\pred{p_1}{contains}{p}$ (per
 Definition~\ref{def:tg} condition~\ref{def:tg:c1}).  Suppose now that
 slice was applied to \tv and to \te with condition $c$.  Is it
-possible that edge $(v_1, v_2, p \cap c)$ is in the result of $\xi_c
+possible that edge $(v_1, v_2, p \cap c)$ is in the result of $\tau_c
 (\te)$ (i.e., $p \cap c \neq \emptyset$), while vertex $\tv(v_1, p_1 \cap
-c)$ is not in the result of $\xi_c (\tv)$ (i.e., $p_1 \cap c =
+c)$ is not in the result of $\tau_c (\tv)$ (i.e., $p_1 \cap c =
 \emptyset$)?  Clearly, the answer is no, since
 $\pred{p_1}{contains}{p}$, and so it must be the case that
 $\pred{p_1}{contains}{(p \cap c)}$.  A similar argument justifies that
-FK enforcement is not needed for $\xi_c(\tav)$ (w.r.t. $\xi_c (\tv)$) and
-for $\xi_c(\tae)$ (w.r.t. $\xi_c (\te)$).
+FK enforcement is not needed for $\tau_c(\tav)$ (w.r.t. $\tau_c (\tv)$) and
+for $\tau_c(\tae)$ (w.r.t. $\tau_c (\te)$).
 
 \subsection{Temporal subgraph matching}
 \label{sec:algebra:subgraph}
@@ -185,10 +185,10 @@ key-foreign key join, then $\tv' = \tv$.  If $Q_V$ is non-trivial,
 i.e., $\sigma_{Q_{V1}} (\tv) \subset \tv$ or $\sigma_{Q_{V2}} (\tav)
 \subset \tav$, then it will be the case that $V' \subset V$.  In both
 cases, if $\tv$ is coalesced then so is $\tv'$.  A similar argument
-applies to the edges relation $\te'$.  Finally, since \tav' and \tae'
-are computed from coalesced input relations using selection, these
-relations are guaranteed to be coalesced.  Thus, it is not necessary
-to coalesce on lines 1-4 of Algorithm~\ref{alg:op}.
+applies to the edges relation $\te'$.  Finally, since $\tav'$ and
+$\tae'$ are computed from coalesced input relations using selection,
+these relations are guaranteed to be coalesced.  Thus, it is not
+necessary to coalesce on lines 1-4 of Algorithm~\ref{alg:op}.
 
 {\bf Subgraph does require FK enforcement for \tve.}  Perhaps the most
 natural temporal subgraph query is one that specifies a selection
@@ -201,8 +201,8 @@ exist in $\tv'$ and $\te'$, respectively.
 
 {\bf Subgraph may uncoalesce \trg.} Consider the result of
 $\sigma_{Q_V:{a.school='Drexel'},Q_E:\top} (\insql{T1})$ when applied
-to the \tg in Figure~\ref{fig:rg}.  This query keeps vertices 1 and 3
-in every representative graph, and no edges.  Since graphs
+to the \tg in Figure~\ref{fig:tg_rg}.  This query keeps vertices 1 and
+3 in every representative graph, and no edges.  Since graphs
 corresponding to time periods $p1$ through $p4$ will be identical, the
 result will be uncoalesced, and will need to be coalesced explicitly.
 The final result will consist of 2 representative graphs, with
@@ -231,16 +231,16 @@ projection more broadly to mean {\em map}.}
 In addition to removing properties, it will often be useful to, e.g.,
 flatten nested collections or reconcile multiple values of the same
 property, e.g., compute a sum or an average when map is invoked
-following temporal aggregation (Section~\ref{sec:algebra:agg}), or
-temporal intersection or union (Section~\ref{sec:algebra:join}).
+following temporal intersection or union
+(Section~\ref{sec:algebra:join}).
 
-{\bf Map may uncoalesce \tav, \tae and \trg.}  Consider
-\insql{T1} in Figure~\ref{fig:ve}, and suppose that we are computing
+{\bf Map may uncoalesce \tav, \tae and \trg.}  Consider \insql{T1} in
+Figure~\ref{fig:tg_ve}, and suppose that we are computing
 $\pi_{a:(name)} (\tav)$.  There will be two identical tuples in the
 result for vertex $v_2$ for $[2/15, 5/15)$ and $[5/15, 10/15)$, which
     must be coalesced to return a valid \tav.  A similar argument
     holds for \tae. This operation will also produce two identical
-    representative graphs in \trg in Figure~\ref{fig:rg} for $[2/15,
+    representative graphs in \trg in Figure~\ref{fig:tg_rg} for $[2/15,
       5/15)$ and $[5/15, 10/15)$, which will have to be coalesced
         explicitly.
 
@@ -258,15 +258,16 @@ representative graphs into a single representative graph, coarsening
 the granularity, or to pre-define temporal resolution and look at the
 graph at that scale, irrespective of whether this resolution happens
 to be finer or coarse than the natural evolution rate of the graph.
-For this, we will use temporal aggregation.  Our approach is inspired
-by stream aggregation work of Li, et al.~\cite{Li2005}, adopted to
-graphs, and by generalized quantifiers of~\cite{Hsu1995}.
+For this, we will use {\em moving window temporal aggregation}.  Our
+approach is inspired by stream aggregation work of Li, et
+al.~\cite{Li2005}, adopted to graphs, and by generalized quantifiers
+of~\cite{Hsu1995}.
 
-\vera{add span temporal aggregation discussion/ref}
-
-The {\em temporal aggregation} operator is denoted $\gamma_{W,Q_V,Q_E}
-(\trg)$, where $W$ is the window specification and $Q_V$ and $Q_E$ are
-vertex and edge aggregation quantifiers.  
+The {\em temporal aggregation}, denoted $\gamma_{W,Q_V,Q_E,f_V,f_E}
+(\trg)$, where $W$ is the window specification, $Q_V$ and $Q_E$ are
+vertex and edge aggregation quantifiers, and $f_V$ and $f_E$ are
+aggregate functions, produces a consolidated evolving graph with
+specific temporal granularity.
 
 {\em Window specification} $W$ is of the form
 $n~\{unit|\insql{changes}\}$, where $n$ is an integer, and $unit$ is a
@@ -281,13 +282,13 @@ left-to-right, starting with the least recent represenatative graph.
 The right-most window may correspond to fewer than $n$ representative
 graphs from the input.
 %
-Our window specification is similar to slide-by-row window in stream
-aggregation~\cite{Li2005}.  Note that, because \tg algebra is
-compositional, we do not support temporal aggregation with overlapping
-windows. Also unlike~\cite{Li2005} we do not currently support
-aggregation simultaneously by time and by non-temporal attributes
-(e.g., vertex attributes). Incorporating this into \tg algebra and \ql
-system is in our immediate plans.
+Our window specification by change is similar to slide-by-row window
+in stream aggregation~\cite{Li2005}.  Note that, because \tg algebra
+is compositional, we do not support temporal aggregation with
+overlapping windows. Also unlike~\cite{Li2005} we do not currently
+support aggregation simultaneously by time and by non-temporal
+attributes (e.g., vertex attributes). Incorporating this into \tg
+algebra and \ql system is in our immediate plans.
 
 {\em Aggregation quantifiers} $Q_V$ and $Q_E$ are of the form
 \{exists | all | most | at least $n$ \}, where $n$ is a
@@ -297,6 +298,16 @@ representative graphs with only strong connections over a volatile
 evolving graph, we may want to only include edges that span the entire
 aggregtion window, or a large portion of the window.
 
+The aggregation functions over the selected graph properties are used
+to compute the new value for each property representative of the whole
+window.  We support the standard set \{count | min | max | sum |
+average\}, as well as \{any | first | last | trend | list\}.  $first$
+and $last$ refer to first/last non-null value in the window and are
+possible because the aggregating tuples have the time dimension, and
+the ties are decided arbitrarily.  $count$ is the count of the number
+of values over the aggregation window.  Different aggregates for
+different properties may be specified, with $any$ as the default.
+
 Algorithm~\ref{alg:agg_ve} implements temporal aggregation over \tve.
 We compute aggregation periods based on window specification in line
 1.  Then, in lines 2-5 we assign a tuple from each \tv, \te, \tav and
@@ -305,23 +316,24 @@ $\gamma_{P,Q_V}(\tv)$ computation, we group vertices by $v$ and
 evaluate $Q_V$ on each group.  Only groups for which $Q_V$ evaluates
 to true are retained.  Edges are processed similarly by
 $\gamma_{P,Q_E}(\te)$ on line 3.  Lines 4 and 5 compute
-$\gamma_{P}(\tav)$ and $\gamma_{P}(\tae)$, respectively, by computing
-a group for each vertex or edge within the period, and accumulating
-all attribute values that correspond to a vertex or edge in a nested
-collection.  It is possible but inconvenient to express the
-aggregation operations on lines 2-5 in temporal SQL because each
-vertex, edge or attribute tuple in the result of $\gamma_{P}$ may
-belong to multiple periods.
+$\gamma_{P,f_V}(\tav)$ and $\gamma_{P,f_E}(\tae)$, respectively, by
+computing a group for each vertex or edge within the period, and
+applying the aggregate functions over each group.  It is possible but
+inconvenient to express the aggregation operations on lines 2-5 in
+temporal SQL because each vertex, edge or attribute tuple in the
+result of $\gamma_{P}$ may belong to multiple periods.
 
 \begin{algorithm}[h!]
 \caption{Temporal aggregation in \tve.}
 \begin{algorithmic}[1]
-\REQUIRE \tve (\tv, \te, \tav, \tae), window specification $W$, vertex quantifier $Q_V$, edge quantifier $Q_E$.\\
+\REQUIRE \tve (\tv, \te, \tav, \tae), window specification $W$, vertex
+quantifier $Q_V$, edge quantifier $Q_E$, vertex aggregate function
+$f_V$, vertex aggregate function $f_E$.\\
 \STATE $P = \ensuremath{computePeriods}(W, \tv, \te, \tav, \tae)$\\
 \STATE  $\tv' = \cl (\gamma_{P,Q_V}(\tv))$\\
 \STATE  $\te' = \cl (\gamma_{P,Q_E}(\te))$\\
-\STATE  $\tav' = \cl (\gamma_{P}(\tav))$\\
-\STATE  $\tae' = \cl (\gamma_{P}(\tae))$\\
+\STATE  $\tav' = \cl (\gamma_{P,f_V}(\tav))$\\
+\STATE  $\tae' = \cl (\gamma_{P,f_E}(\tae))$\\
 \STATE  enforce foreign keys on $\te'$ w.r.t. $\tv'$\\
 \STATE  enforce foreign keys on $\tav'$ w.r.t. $\tv'$\\
 \STATE  enforce foreign keys on $\tae'$ w.r.t. $\te'$\\
@@ -331,7 +343,7 @@ belong to multiple periods.
 \end{algorithm}
 
 \begin{figure*}
-\includegraphics[width=5in]{figs/agg.pdf}
+\includegraphics[width=5in]{figs/agg.png}
 \caption{Temporal aggregation over \insql{T1} (Figure~\ref{fig:tg_ve}).}
 \label{fig:tg_agg}
 \end{figure*}
@@ -340,13 +352,13 @@ Figure~\ref{fig:tg_agg} illustrates Algorithm~\ref{alg:agg_ve} with
 two examples, both applied to \insql{T1} of Figure~\ref{fig:tg_ve}.
 The queries differ on their window specification (``3 months'' vs. ``2
 changes'') but list the same aggregation quantifiers (``all'' for
-vertices and ``exists'' for edges).  Note that$(v_2, [4/15, 7/15)$ is
-  present in the result of $\gamma_1$ because $v_2$ exists for the
-  entire period in the input \insql{T1}.  Further, because vertex
-  properties took on values $(Bob, Penn)$ and $(Bob, CMU)$ during this
-  period, both values are collected into the vertex attribute.  This
-  is in contrast to only $(Bob, CMU)$ being associated with $v_2,
-  [7/15, 10/15)$.
+vertices and ``exists'' for edges) and the same aggregate functions
+(``first'' for all).  Note that$(v_2, [4/15, 7/15)$ is present in the
+  result of $\gamma_1$ because $v_2$ exists for the entire period in
+  the input \insql{T1}.  Further, because vertex properties took on
+  values $(Bob, Penn)$ and $(Bob, CMU)$ during this period, but $(Bob,
+  Penn)$ was temporally ealier, it is used.  This is in contrast to
+  only $(Bob, CMU)$ being associated with $v_2, [7/15, 10/15)$.
 
 Next, consider the result of $\gamma_2$, and note that, while $v_2$
 was present for part of $[1/15, 5/15)$, it was not there during the
@@ -359,14 +371,6 @@ Temporal aggregation over \trg is computed by first calculating time
 periods from $W$ and \trg, and then processing the representative
 graphs directly.  Recall also that \trg can be computed from \tve (and
 vice versa) as per Section~\ref{sec:model:switch}.
-
-\vera{the reason we do not apply an aggregation function but
-  accumulate values instead of that not all attribute can be
-  aggregatable or disaggregatable~\cite{Clifford85}.  The distinction
-  is domain-specific and the user should decide how to aggregate
-  nested attributes.  For example, quantities are not always
-  disaggregatable.}
-
 
 {\bf Temporal aggregation may uncoalesce \tve and \trg.} Consider a
 \tg \insql{T} that consists of only 1 vertex $v_1$ and no edges, and
@@ -596,35 +600,40 @@ with group by id.}
 \tg algebra supports two binary operations, temporal graph union and
 intersection.  Temporal graph intersection $\trg_1 \cap \trg_2 = \{
 (g_1 \cap g_2, p_1 \cap p_2) | (g_1, p_1) \in \trg_1 \wedge $\\ $(g_2,
-p_2) \in \trg_2 \wedge p_1 \cap p_2 \neq \emptyset \}$ The computation
-over \trg is essentially an inner theta-join of $\trg_1$ and $\trg_2$
-with a $p_1 \cap p_2$ predicate.  We use the standard graph
-intersection definition based on set theory, which intersects the
-vertex and edge sets from the two operands~\cite{GraphTheory}.  To
+p_2) \in \trg_2 \wedge p_1 \cap p_2 \neq \emptyset \}$. The
+computation over \trg is essentially a temporal inner theta-join of
+$\trg_1$ and $\trg_2$ with a $p_1 \cap p_2$ predicate, followed by
+projection of $p_1, p_2$ into $p_1 \cap p_2$.  We use the standard
+graph intersection definition based on set theory, which intersects
+the vertex and edge sets from the two operands~\cite{GraphTheory}.  To
 evaluate over \tve, we compute temporal natural inner joins over
-corresponding \tv, \te, \tav, \tae.  This is shown in
-Algorithm~\ref{alg:inter}:
+corresponding \tv, \te, \tav, \tae, followed by projection over \tav
+and \tae to intersect $a_1$ with $a_2$.  The attributes are
+intersected for both vertices and edges according to the standard bag
+semantics.  This is shown in Algorithm~\ref{alg:inter}.
 
 \begin{algorithm}
 \caption{Temporal graph intersection in \tve.}
 \begin{algorithmic}[1]
 \REQUIRE $\tve_1 (\tv_1, \te_1, \tav_1, \tae_1), \tve_2 (\tv_2, \te_2, \tav_2, \tae_2)$.\\
-\STATE $\tv = \tv_1 \Join^T \tv_2$\\
-\STATE $\te = \te_1 \Join^T \te_2$\\
-\STATE $\tav = \tav_1 \Join^T \tav_2$\\
-\STATE $\tae = \tae_1 \Join^T \tae_2$\\
-\RETURN new $\tve (\tv, \te, \tav, tae)$\\
+\STATE $\tv' = \tv_1 \Join^T \tv_2$\\
+\STATE $\te' = \te_1 \Join^T \te_2$\\
+\STATE $\tav' = \pi_{a_1 \cap a_2}(\tav_1 \Join^T \tav_2)$\\
+\STATE $\tae' = \pi_{a_1 \cap a_2}(\tae_1 \Join^T \tae_2)$\\
+\RETURN new $\tve (\tv', \te', \tav', \tae')$\\
 \end{algorithmic}
 \label{alg:inter}
 \end{algorithm}
 
-\vera{here discussion about what happens with attributes.}
-
-{\bf Intersection does not uncoalesce.}  Whether evaluated over \trg
-or \tve, intersection returns a coalesced relation when evaluated over
-coalesced input.  This is because temporal join over coalesced
-temporal relations does not uncoalesce, as shown
-in~\cite{DBLP:conf/vldb/BohlenSS96}.
+{\bf Intersection may uncoalesce \tve and \trg.}  While temporal join over
+coalesced temporal relations does not uncoalesce, as shown
+in~\cite{DBLP:conf/vldb/BohlenSS96}, it is followed by a projection,
+which does uncoalesce.  For example, consider a simple \tg $T_2$
+that consists of only 1 vertex $v_1$ with attribute $(name:Alice)$ and
+no edges and exists for the period $[1/15, 5/15)$.  The
+  intersection of $T_2$ with \insql{T} in Figure~\ref{fig:tg_rg}
+  produces the same graph with vertex $v_1$ for each period of
+  intersection $[1/15, 2/15), [2/15, 5/15)$, which must be coalesced.
 
 {\bf Intersection does not require FK enforcement for \tve.}  The
 proof for this is similar to the one for \insql{slice}.  Consider an
@@ -638,15 +647,48 @@ and $\tve_2$ are valid \tgs.
 \subsection{Temporal graph union}
 \label{sec:algebra:outerjoin}
 
-Temporal union $\trg_1 \cup \trg_2 = \{ (g, p) | \}$.  Similar to
-temporal intersection, temporal union is essentially an outer
-theta-join of $\trg_1$ and $\trg_2$ with a $p_1 \cap p_2$ predicate.
-We use the standard graph union definition based on set theory, which
-computes unions of the vertex and edge sets from the two
+Temporal union $\trg_1 \cup \trg_2 = \{ (g, p) | (g_1, p_1) \in \trg_1
+\wedge (g_2, p_2) \in \trg_2 \wedge ((g = g_1 \cup g_2 \wedge p = p_1
+\cap p_2 \wedge p_1 \cap p_2 \neq \emptyset) \vee (g = g_1 \wedge p =
+p_1 - p_2 \wedge \nexists p \in \trg_2 = p_1 - p_2) \vee (g = g_2
+\wedge p = p_2 - p_1 \wedge \nexists p \in \trg_1 = p_2 - p_1))\}$.
+Similar to temporal intersection, temporal union is essentially an
+outer theta-join of $\trg_1$ and $\trg_2$ with a $p_1 \cap p_2$
+predicate.  We use the standard graph union definition based on set
+theory, which computes unions of the vertex and edge sets from the two
 operands~\cite{GraphTheory}.  To evaluate over \tve, we compute
-temporal natural outer joins over corresponding \tv, \te, \tav, \tae.
+temporal natural outer joins over corresponding \tv, \te, \tav, \tae,
+followed by projection over \tav and \tae to union $a_1$ and $a_2$.
+The union of attributes for both vertices and edges is done according
+to the standard bag semantics.  This is shown in
+Algorithm~\ref{alg:union}.
 
-{\bf Union does not uncoalesce.}  This depends on how we handle attributes...
+\begin{algorithm}
+\caption{Temporal graph union in \tve.}
+\begin{algorithmic}[1]
+\REQUIRE $\tve_1 (\tv_1, \te_1, \tav_1, \tae_1), \tve_2 (\tv_2, \te_2, \tav_2, \tae_2)$.\\
+\STATE $\tv' = \tv_1 \fullouterjoin^T \tv_2$\\
+\STATE $\te' = \te_1 \fullouterjoin^T \te_2$\\
+\STATE $\tav' = \pi_{a_1 \cup a_2}(\tav_1 \fullouterjoin^T \tav_2)$\\
+\STATE $\tae' = \pi_{a_1 \cup a_2}(\tae_1 \fullouterjoin^T \tae_2)$\\
+\RETURN new $\tve (\tv', \te', \tav', \tae')$\\
+\end{algorithmic}
+\label{alg:union}
+\end{algorithm}
+
+{\bf Union may uncoalesce \tve and \trg.}  The logic here is similar
+to the case with temporal intersection.  Because we produce a single
+graph for each time period by computing a union of $g_1$ and $g_2$, a
+form of projection, the result may be uncoalesced.  For example,
+consider a simple \tg $T_2$ that consists of a single graph equal to
+the first representative graph of \insql{T} in Figure~\ref{fig:tg_rg}
+valid for a period of $[12/14, 5/15)$.  The same representative graph
+  will be produced for period $[12/14, 1/15)$ and $[1/15, 2/15)$ and
+      must be coalesced.
+
+{\bf Union does not require FK enforcement for \tve.}  A full outer
+join does not remove any vertices from either $\trg_1$ or $\trg_2$, so
+the validity of all resulting edges remains intact.
 
 \eat{\begin{definition}[Union] Union of $TG1\ \cup\ TG2$ = $\{v, e: v
     \in TG1.V$ or $v \in TG2.V$ or $v(vid$, $f_1(a_{11}$, $a_{21})$,
@@ -675,3 +717,11 @@ with coalescing.  Figure~\ref{fig:union} illustrates this concept.}
 vertices/edges of two graphs, with values for each overlapping
 attribute computed by a specified aggregate function.}
 
+So far we have defined the operations in our temporal graph algebra.
+Next we define another class of non-algebraic operations on evolving
+graphs that are nevertheless very useful: analytics.
+
+\vera{What I think we are leaving out: difference, structural
+  aggregation (new entity creation), graph joins and products (maybe?
+  graph joins are weird), more general select (with time in predicate
+  and/or path predicates), reverse/transpose.}
