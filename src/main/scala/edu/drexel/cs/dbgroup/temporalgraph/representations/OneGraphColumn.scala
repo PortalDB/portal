@@ -928,7 +928,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       if (ProgramContext.eagerCoalesce)
         fromRDDs(newverts, allEdges, (defaultValue, emptym), storageLevel, false)
       else
-        new OneGraphColumn[(VD, Map[VertexId, Int]), ED](intervals, newverts, allEdges, graphs, (defaultValue, emptym), storageLevel)
+        new OneGraphColumn[(VD, Map[VertexId, Int]), ED](newverts, allEdges, graphs, (defaultValue, emptym), storageLevel)
     }
   }
 
