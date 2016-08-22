@@ -94,6 +94,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     info("empty graph passed")
   }
 
+/*
   test("temporal select function") {
     //Regular cases
     val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
@@ -147,6 +148,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     assert(actualOGC3.getTemporalSequence.collect === Seq[Interval]())
     info("empty graph passed")
   }
+ */
 
   test("structural select function - epred") {
     //Regular cases
@@ -187,7 +189,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
       ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
     ))
     val expectedOGC = OneGraphColumn.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
-    var actualOGC = OGC.select(epred = (ids: (VertexId,VertexId), attrs: (Interval, Int)) => ids._1 > 2 && attrs._2 == 42)
+    var actualOGC = OGC.subgraph(epred = (ids: (VertexId,VertexId), attrs: Int) => ids._1 > 2 && attrs == 42)
 
     assert(expectedOGC.vertices.collect() === actualOGC.vertices.collect())
     assert(expectedOGC.edges.collect() === actualOGC.edges.collect())
@@ -228,7 +230,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
       ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
     ))
     val expectedOGC = OneGraphColumn.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
-    var actualOGC = OGC.select(vpred = (id: VertexId, attrs: (Interval, String)) => id > 3 && attrs._2 != "Ke")
+    var actualOGC = OGC.subgraph(vpred = (id: VertexId, attrs: String) => id > 3 && attrs != "Ke")
 
     assert(expectedOGC.vertices.collect() === actualOGC.vertices.collect())
     assert(expectedOGC.edges.collect() === actualOGC.edges.collect())
@@ -268,7 +270,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
       ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
     ))
     val expectedOGC = OneGraphColumn.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
-    var actualOGC = OGC.select(vpred = (id: VertexId, attrs: (Interval, String)) => id > 3 && attrs._2 != "Ke", epred = (ids: (VertexId, VertexId), attrs: (Interval, Int)) => ids._1 > 2 && attrs._2 == 42)
+    var actualOGC = OGC.subgraph(vpred = (id: VertexId, attrs: String) => id > 3 && attrs != "Ke", epred = (ids: (VertexId, VertexId), attrs: Int) => ids._1 > 2 && attrs == 42)
 
     assert(expectedOGC.vertices.collect() === actualOGC.vertices.collect())
     assert(expectedOGC.edges.collect() === actualOGC.edges.collect())
@@ -1203,7 +1205,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     ))
     val OGC = OneGraphColumn.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
-    val actualOGC = OGC.project(edge => (edge.attr * edge.attr), (vertex, name) => name.toUpperCase, "Default")
+    val actualOGC = OGC.map(edge => (edge.attr * edge.attr), (vertex, name) => name.toUpperCase, "Default")
 
     val expectedVertices: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2016-01-01")), "B")),

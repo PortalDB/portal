@@ -84,11 +84,6 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
 
   /**
     * Select a temporal subset of the graph. T-Select.
-    * This is different than calling 
-    * select(vtpred = period => period.start >= bound.start && period.end < bound.end) 
-    * because here entities that partially overlap the period are retained
-    * with the unneeded time cut off, whereas in select with predicates
-    * those entities are eliminated.
     * @param bound Time period to extract. 
     * @return temporalgraph with the temporal intersection or empty graph if 
     * the requested interval is wholely outside of the graph bounds.
@@ -96,16 +91,12 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
   def slice(bound: Interval): TGraph[VD, ED]
 
   /**
-    * Select a temporal subset of the graph based on a temporal predicate.
-    * @param vtpred Time predicate to evalute for each time period for the vertex.
-    * @param etpred Time predicate to evaluate for each time period for the edges.
-    * The periods are not of representative graphs, but of individual vertices/edges.
-    * @return temporalgraph where all entities meet the time predicates. 
-    * Due to integrity constraint on edges, selection on vertices also limits edges.
-    * The result is coalesced which may cause different representative intervals.
-    * The structural schema of the graph is not affected.
+    * Select a subgraph based on the vertex and/or edge attributes.
+    * @param epred Edge predicate.
+    * @param vpred Vertex predicate.
+    * Foreign key constraint is enforced.
     */
-  def select(vtpred: Interval => Boolean, etpred: Interval => Boolean): TGraph[VD, ED]
+  def subgraph(epred: ((VertexId, VertexId), ED) => Boolean, vpred: (VertexId, VD) => Boolean): TGraph[VD,ED]
 
   /**
     * Aggregate into representative graphs over time windows.
@@ -127,15 +118,17 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
   /**
     * Produce a union of two temporal graphs. 
     * @param other The other TGraph
-    * @return new TGraph with the union of entities from both graphs
+    * @return new TGraph with the union of entities from both graphs within each chronon.
     */
+  //TODO: change from set to have bag semantics
   def union(other: TGraph[VD, ED]): TGraph[Set[VD], Set[ED]]
 
   /**
     * Produce the intersection of two temporal graphs.
     * @param other The other TGraph
-    * @return new TemporaGraph with the intersection of entities from both graphs
+    * @return new TemporaGraph with the intersection of entities from both graphs within each chronon.
     */
+  //TODO: change from set to have bag semantics
   def intersection(other: TGraph[VD, ED]): TGraph[Set[VD], Set[ED]]
 
   /**

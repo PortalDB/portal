@@ -32,19 +32,11 @@ import java.util.HashSet
 import it.unimi.dsi.fastutil.ints._
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap
 
-class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], grs: Graph[BitSet, BitSet], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraphNoSchema[VD, ED](intvs, verts, edgs, defValue, storLevel, coal) {
+class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], grs: Graph[BitSet, BitSet], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends VEGraph[VD, ED](verts, edgs, defValue, storLevel, coal) {
 
   private var graphs: Graph[BitSet, BitSet] = grs
   private lazy val collectedIntervals: Array[Interval] = intervals.collect
   protected var partitioning = TGraphPartitioning(PartitionStrategyType.None, 1, 0)
-
-  override def materialize() = {
-    allVertices.count
-    allEdges.count
-    if (graphs == null) computeGraph()
-    graphs.numVertices
-    graphs.numEdges
-  }
 
   /** Query operations */
 
@@ -62,7 +54,6 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       val zipped = intervals.zipWithIndex.filter(intv => intv._1.intersects(selectBound))
       val selectStart:Int = zipped.min._2.toInt
       val selectStop:Int = zipped.max._2.toInt
-      val newIntvs: RDD[Interval] = zipped.map(x => x._1)
 
       //make a bitset that represents the selected years only
       val mask:BitSet = BitSet((selectStart to (selectStop)): _*)
@@ -81,7 +72,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       val eattrs = allEdges.filter{ case (k,v) => v._1.intersects(selectBound)}
                            .mapValues( v => (Interval(maxDate(v._1.start, startBound), minDate(v._1.end, endBound)), v._2))
 
-      new OneGraphColumn[VD, ED](newIntvs, vattrs, eattrs, resg, defaultValue, storageLevel, coalesced)
+      new OneGraphColumn[VD, ED](vattrs, eattrs, resg, defaultValue, storageLevel, coalesced)
 
     } else
       OneGraphColumn.emptyGraph[VD,ED](defaultValue)
@@ -144,7 +135,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
     if (ProgramContext.eagerCoalesce)
       fromRDDs(vs, es, defaultValue, storageLevel, false)
     else
-      new OneGraphColumn(newIntvs, vs, es, filtered, defaultValue, storageLevel, false)
+      new OneGraphColumn(vs, es, filtered, defaultValue, storageLevel, false)
   }
 
   override protected def aggregateByTime(c: TimeSpec, vgroupby: (VertexId, VD) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): OneGraphColumn[VD, ED] = {
@@ -210,20 +201,33 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
     if (ProgramContext.eagerCoalesce)
       fromRDDs(vs, es, defaultValue, storageLevel, false)
     else
-      new OneGraphColumn(ProgramContext.sc.parallelize(newIntvs), vs, es, filtered, defaultValue, storageLevel, false)
+      new OneGraphColumn(vs, es, filtered, defaultValue, storageLevel, false)
 
   }
 
-  override def project[ED2: ClassTag, VD2: ClassTag](emap: Edge[ED] => ED2, vmap: (VertexId, VD) => VD2, defVal: VD2): OneGraphColumn[VD2, ED2] = {
-    new OneGraphColumn(intervals, allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vmap(vid, attr)))}, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, emap(Edge(ids._1, ids._2, attr))))}, graphs, defVal, storageLevel, false)
+  override def map[ED2: ClassTag, VD2: ClassTag](emap: Edge[ED] => ED2, vmap: (VertexId, VD) => VD2, defVal: VD2): OneGraphColumn[VD2, ED2] = {
+    val vs = allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vmap(vid, attr)))}
+    val es = allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, emap(Edge(ids._1, ids._2, attr))))}
+    if (ProgramContext.eagerCoalesce)
+      fromRDDs(vs, es, defVal, storageLevel, false)
+    else
+      new OneGraphColumn(vs, es, graphs, defVal, storageLevel, false)
   }
 
   override def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): OneGraphColumn[VD2, ED] = {
-    new OneGraphColumn(intervals, allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, intv, attr)))}, allEdges, graphs, defaultValue, storageLevel, false)
+    val vs = allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, intv, attr)))}
+    if (ProgramContext.eagerCoalesce)
+      fromRDDs(vs, allEdges, defVal, storageLevel, false)
+    else
+      new OneGraphColumn(vs, allEdges, graphs, defVal, storageLevel, false)
   }
 
   override def mapEdges[ED2: ClassTag](map: (Interval, Edge[ED]) => ED2): OneGraphColumn[VD, ED2] = {
-    new OneGraphColumn(intervals, allVertices, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(intv, Edge(ids._1, ids._2, attr))))}, graphs, defaultValue, storageLevel, false)
+    val es = allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(intv, Edge(ids._1, ids._2, attr))))}
+    if (ProgramContext.eagerCoalesce)
+      fromRDDs(allVertices, es, defaultValue, storageLevel, false)
+    else
+      new OneGraphColumn(allVertices, es, graphs, defaultValue, storageLevel, false)
   }
 
   override def union(other: TGraph[VD, ED]): OneGraphColumn[Set[VD],Set[ED]] = {
@@ -275,7 +279,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       if (ProgramContext.eagerCoalesce)
         fromRDDs(vs, es, newDefVal, storageLevel, false)
       else
-        new OneGraphColumn(newIntvs, vs, es, newGraphs, newDefVal, storageLevel, false)
+        new OneGraphColumn(vs, es, newGraphs, newDefVal, storageLevel, false)
 
     } else {
       //like above, but no intervals are split, so reindexing is simpler
@@ -308,7 +312,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       if (ProgramContext.eagerCoalesce && !col)
         fromRDDs(vs, es, newDefVal, storageLevel, false)
       else
-        new OneGraphColumn(newIntvs, vs, es, newGraphs, newDefVal, storageLevel, col)
+        new OneGraphColumn(vs, es, newGraphs, newDefVal, storageLevel, col)
 
     }
   }
@@ -365,7 +369,10 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       val es = newGraphs.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp))))
 
       //intersection of two coalesced structure-only graphs is not coalesced
-      new OneGraphColumn(newIntvs, vs, es, newGraphs, newDefVal, storageLevel, false)
+      if (ProgramContext.eagerCoalesce)
+        fromRDDs(vs, es, newDefVal, storageLevel, false)
+      else
+        new OneGraphColumn(vs, es, newGraphs, newDefVal, storageLevel, false)
 
     } else {
       emptyGraph(Set(defaultValue))
@@ -450,7 +457,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
     if (ProgramContext.eagerCoalesce)
       fromRDDs(newvattrs, neweattrs, defaultValue, storageLevel, false)
     else
-      new OneGraphColumn[VD, ED](intervals, newvattrs, neweattrs, graphs, defaultValue, storageLevel, false)
+      new OneGraphColumn[VD, ED](newvattrs, neweattrs, graphs, defaultValue, storageLevel, false)
   }
 
   override def degree: RDD[(VertexId, (Interval, Int))] = {
@@ -577,7 +584,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       if (ProgramContext.eagerCoalesce)
         fromRDDs(newverts, allEdges, (defaultValue, 0.0), storageLevel, false)
       else
-        new OneGraphColumn[(VD, Double), ED](intervals, newverts, allEdges, graphs, (defaultValue, 0.0), storageLevel, false)
+        new OneGraphColumn[(VD, Double), ED](newverts, allEdges, graphs, (defaultValue, 0.0), storageLevel, false)
 
     } else {
       //TODO: implement this using pregel
@@ -653,7 +660,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
     if (ProgramContext.eagerCoalesce)
       fromRDDs(newverts, allEdges, (defaultValue, -1L), storageLevel, false)
     else
-      new OneGraphColumn[(VD, VertexId), ED](intervals, newverts, allEdges, graphs, (defaultValue, -1L), storageLevel, false)
+      new OneGraphColumn[(VD, VertexId), ED](newverts, allEdges, graphs, (defaultValue, -1L), storageLevel, false)
   }
   
   //run shortestPaths on each interval
@@ -791,7 +798,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       if (ProgramContext.eagerCoalesce)
         fromRDDs(newverts, allEdges, (defaultValue, emptym), storageLevel, false)
       else
-        new OneGraphColumn[(VD, Map[VertexId,Int]), ED](intervals, newverts, allEdges, graphs, (defaultValue, emptym), storageLevel)
+        new OneGraphColumn[(VD, Map[VertexId,Int]), ED](newverts, allEdges, graphs, (defaultValue, emptym), storageLevel)
     } else {
       //TODO: change this to a val function
       def makeMap(x: (VertexId, Int)*): Long2IntOpenHashMap = {
@@ -954,7 +961,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
       if (graphs != null) {
         var numParts = if (tgp.parts > 0) tgp.parts else graphs.edges.getNumPartitions
         //not changing the intervals
-        new OneGraphColumn[VD, ED](intervals, allVertices, allEdges, graphs.partitionByExt(PartitionStrategies.makeStrategy(tgp.pst, 0, intervals.count.toInt, tgp.runs), numParts), defaultValue, storageLevel, coalesced)
+        new OneGraphColumn[VD, ED](allVertices, allEdges, graphs.partitionByExt(PartitionStrategies.makeStrategy(tgp.pst, 0, intervals.count.toInt, tgp.runs), numParts), defaultValue, storageLevel, coalesced)
       } else this //will apply partitioning when graphs are computed later
     } else
       this
@@ -988,16 +995,14 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], verts: RD
 }
 
 object OneGraphColumn {
-  def emptyGraph[V: ClassTag, E: ClassTag](defVal: V):OneGraphColumn[V, E] = new OneGraphColumn(ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD, Graph[BitSet,BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD), defVal, coal = true)
+  def emptyGraph[V: ClassTag, E: ClassTag](defVal: V):OneGraphColumn[V, E] = new OneGraphColumn(ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD, Graph[BitSet,BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD), defVal, coal = true)
 
   def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): OneGraphColumn[V, E] = {
     val cverts = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(verts) else verts
     val cedges = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(edgs) else edgs
     val coal = coalesced | ProgramContext.eagerCoalesce
 
-    val intervals = TGraphNoSchema.computeIntervals(cverts, cedges)
-
-    new OneGraphColumn(intervals, cverts, cedges, null, defVal, storLevel, coal)
+    new OneGraphColumn(cverts, cedges, null, defVal, storLevel, coal)
 
   }
 

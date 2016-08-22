@@ -39,7 +39,7 @@ object GES {
   def calculateGES(source:String, destinationFileName:String): Unit ={
     GraphLoader.setGraphType("VE")
     val VE = GraphLoader.loadDataParquet(source)
-    val intervals = VE.intervals.collect
+    val intervals = VE.getTemporalSequence.collect
     val edges = intervals.map(x => VE.getSnapshot(x.start).edges)
     val edgesCount = edges.map(x => x.count())
     val edgesAndCounts = edges.zip(edgesCount)
