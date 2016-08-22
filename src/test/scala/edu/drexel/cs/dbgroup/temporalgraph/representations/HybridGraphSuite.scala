@@ -1334,21 +1334,14 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
 
     val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
       ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01")), 42)),
-      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), 42)),
       ((1L, 2L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22)),
-      ((5L, 7L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), 22)),
       ((1L, 4L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2015-01-01")), 56)),
-      ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42)),
-      ((1L, 4L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 12)),
-      ((3L, 5L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01")), 42))
+      ((1L, 4L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 12))
     ))
 
     val expectedEdges: RDD[((VertexId, VertexId), Map[Interval, Int])] = ProgramContext.sc.parallelize(Array(
       ((1L, 4L), new Object2IntOpenHashMap[Interval](Array(Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01")), Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2015-01-01"))), Array(42, 12, 56)).asInstanceOf[Map[Interval,Int]]),
-      ((3L, 5L), new Object2IntOpenHashMap[Interval](Array(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01"))), Array(42, 42)).asInstanceOf[Map[Interval,Int]]),
-      ((1L, 2L), new Object2IntOpenHashMap[Interval](Array(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01"))), Array(22)).asInstanceOf[Map[Interval,Int]]),
-      ((5L, 7L), new Object2IntOpenHashMap[Interval](Array(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01"))), Array(22)).asInstanceOf[Map[Interval,Int]]),
-      ((4L, 8L), new Object2IntOpenHashMap[Interval](Array(Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01"))), Array(42)).asInstanceOf[Map[Interval,Int]])
+      ((1L, 2L), new Object2IntOpenHashMap[Interval](Array(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01"))), Array(22)).asInstanceOf[Map[Interval,Int]])
     ))
 
     val actualHG = HybridGraph.fromRDDs(vertices, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
