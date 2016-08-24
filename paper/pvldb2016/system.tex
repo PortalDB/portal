@@ -74,7 +74,7 @@ Definition~\ref{def:tg_abstract}.  RG is a collection (parallel
 sequence) of GraphX graphs, where vertices and edges store the
 attribute values for the specific time interval, thus using structural
 locality.  This representation supports all operations of \tg algebra.
-
+%
 While the \rg representation is simple, it is not compact, considering
 that in many real-world evolving graphs there is a 80\% or larger
 similarity between consecutive
@@ -100,7 +100,7 @@ Definition~\ref{def:tg}, and is the most compact: one RDD contains all
 vertices and another all edges.  Consistently with the GraphX API, all
 vertex properties are stored together as a single nested attribute, as
 are all edge properties.  We currently do not store the \tv and \te
-relations separately but rather together with \tav and \tae
+relations separately but rather together with \tav and \tae,
 respectively.  While VE does not necessitate a particular order of
 tuples on disk, we opt for a physical layout in which all tuples
 corresponding to the same vertex (resp. edge) are laid out
@@ -117,31 +117,30 @@ in Section~\ref{sec:exp}, due to compactness this physical
 representation is the most efficient for many operations.
 
 {\bf OneGraph (OG)} is the most topologically compact representation,
-which stores all vertices from \tav {\em and} edges from \tae of an
-evolving graph once, in a single data structure.  Information about
-time validity is stored together with each vertex and edge.
-Figure~\ref{fig:ogc} shows the OG for \tg \insql{T1} from
-Figure~\ref{fig:tg_rg}.  OG emphasizes temporal locality, while also
-preserving structural locality, but leads to a much denser graph than
-RG.  This, in turn, makes parallelizing computation challenging.
+which stores all vertices from \tav {\em and} edges from \tae\xspace
+once, in a single data structure.  Information about time validity is
+stored together with each vertex and edge.  Figure~\ref{fig:ogc} shows
+the OG for \insql{T1} from Figure~\ref{fig:tg_rg}.  OG emphasizes
+temporal locality, while also preserving structural locality, but
+leads to a much denser graph than RG.  This, in turn, makes
+parallelizing computation challenging.
 
 An OG is implemented as a single GraphX graph.  To construct an \og
-from VE, vertices and edges of \tv and \te relations each are grouped
-by key and mapped to bitsets, which in turn encode the presence of a
-vertex or edge in each time period associated with some representative
-graph of a \tg.  Because \og stored information only about graph
-topology, far fewer periods need be represented and computed for \og
-than for \rg.  The actual reduction depends on the rate and nature of
-graph evolution.
+from \tve, vertices and edges of \tv and \te relations each are
+grouped by key and mapped to bitsets, which in turn encode the
+presence of a vertex or edge in each time period associated with some
+representative graph of a \tg.  Because \og stores information only
+about graph topology, far fewer periods must be represented and
+computed for \og than for \rg.  The actual reduction depends on the
+rate and nature of graph evolution.
 
 As we will see experimentally in Section~\ref{sec:exp}, \og is often
 the best-performing data structure for aggregation, and also has
 competitive performance for analytics.  Because of this focus, \og
-supports operations only on topology: analytics and
-aggregation/union/intersection for graphs with no vertex or edge
-attributes.  For completeness, all other operations are supported
-through inheritance from an abstract parent, and are carried out on
-the VE data structure.
+supports operations only on topology: analytics, aggregation. union,
+and intersection for graphs with no vertex or edge attributes.  For
+completeness, all other operations are supported through inheritance
+from an abstract parent, and are carried out on the VE data structure.
 
 {\bf HybridGraph (HG)} trades compactness of \og for getter structural
 locality of \rg, by aggregating together several consecutive
@@ -149,7 +148,7 @@ representative graphs, computing a single \og for each graph group,
 and storing these as a parallel sequence.  In our current
 implementation each \og in the sequence corresponds to the same number
 of temporally adjacent graphs.
-
+%
 This is the simplest grouping method, and we observed that placing the
 same number of graphs into each group often results in unbalanced
 group sizes.  This is because evolving graphs commonly exhibit strong
@@ -160,190 +159,12 @@ performance.  However as we will see experimentally in
 Section~\ref{sec:exp}, the current \hg implementation already improves
 performance compared to \og, in some cases significantly.
 
-Like \og, the \hg representation focuses on topology-based analysis, and
-so does not represent vertex and edge attributes. It only implements
-analytics and aggregation/union/intersection, and supports all other
-algebraic operations through inheritance from VE.
+Like \og, the \hg representation focuses on topology-based analysis,
+and so does not represent vertex and edge attributes. OG implements
+analytics, aggregation, union, and intersection, and supports all
+other operations through inheritance from VE.
 
-\subsection{Coalescing}
-\label{sec:sys:coal}
-
-\eat{
-\begin{table}
-\small
-\begin{tabular}{ l | p{4cm} | c }
-\hline
-\multicolumn{1}{l|}{\bfseries Operation} & \multicolumn{1}{c|}{\bfseries Requires Coalesced Input} & \multicolumn{1}{c}{\bfseries Uncoalesces} \\ \hline
-slice & no & no \\ \hline
-select & only if predicate incl. interval & no \\ \hline
-project & no & yes \\ \hline
-aggregate & only if structural group by is used and includes interval & yes \\ \hline
-union & no & yes \\ \hline
-intersection & no & yes \\ \hline
-analytics & no & yes \\
-\hline
-\end{tabular}
-\caption{Coalesce analysis.}
-\label{tab:coalesce}
-\end{table}
-}
-
-All operations and all sequences of operations must output a valid
-temporally coalesced \tg.  The \ql system supports both eager and lazy
-coalescing, with lazy being the default behavior for multi-operator
-queries.  Interestingly, correctness of most \tg algebra operations
-does not depend on whether the input was coalesced, and so coalescing
-can be deferred.  The following are unconditional coalescing rules,
-assuming $T, \tve, \trg$ are uncoalesced.
-
-The first rule eliminates successive coalescing:
-
-\begin{equation}
-coal(coal(T)) \equiv coal(T)
-\label{rul:coalr0}
-\end{equation}
-
-Rules in ~\cref{rul:coalr1,rul:coalr2,rul:coalr3} exploit the
-fact that some operations preserve coalescing, as shown in
-Section~\ref{sec:algebra}:
-
-\begin{equation}
-coal(\tau_c(coal(T))) \equiv \tau_c(coal(T))
-\label{rul:coalr1}
-\end{equation}
-\begin{equation}
-coal(\sigma_f(coal(\tve))) \equiv \sigma_f(coal(\tve))
-\label{rul:coalr2}
-\end{equation}
-\begin{equation}
-coal(udf(coal(T))) \equiv udf(coal(T))
-\label{rul:coalr3}
-\end{equation}
-
-Rules in
-~\cref{rul:coalr4,rul:coalr5,rul:coalr6,rul:coalr7,rul:coalr8,rul:coalr9}
-cover operations which are invariant with respect to time and so
-coalescing can be postponed until after the operation:
-
-\begin{equation}
-\tau_c(coal(T)) \equiv coal(\tau_c(T))
-\label{rul:coalr4}
-\end{equation}
-
-Recall that slice selects each entity with an interval that intersects
-with $c$ and modifies only the selected tuple periods to $p \cap c$.
-According to the rule~\ref{rul:coalr1}, slice does not uncoalesce.  If
-the input relation is uncoalesced, it contains some value-equivalent
-tuples with adjacent or overlapping periods.  According to the
-definitions of $intersect$ and $coalesce$, an intersect with interval
-$p$ is the same as the coalesce of intersects of intervals composing
-$p$.  I.e., $p \cap c = (p1 \cap c) \cup (p2 \cap c$) where $p = p1
-\cup p2$.  Thus coalescing can be performed before or after slice.
-
-\begin{equation}
-coal(\sigma_f(coal(T))) \equiv coal(\sigma_f(T))
-\label{rul:coalr5}
-\end{equation}
-
-As shown in~\cite{DBLP:conf/vldb/BohlenSS96}, coalescing can be
-deferred until after the selection if the selection condition is
-independent of the valid time of the input. Since subgraph is a
-time-invariant form of select, coalesce is not required prior to
-subgraph.  For both this rule and the slice rule above, deferring
-coalescing can be quite effective if the selectivity of the predicate
-is high.
-
-\begin{equation}
-coal(\mu(coal(T))) \equiv coal(\mu(T))
-\label{rul:coalr6}
-\end{equation}
-
-The map operation processes each tuple without modifying the
-corresponding intervals and independently of the valid time of the
-input.  Thus, as above, coalesce can be deferred.
-
-\begin{equation}
-coal(coal(T_1) \cap coal(T_2)) \equiv coal(T_1 \cap T_2)
-\label{rul:coalr7}
-\end{equation}
-
-\begin{equation}
-coal(coal(T_1) \cup coal(T_2)) \equiv coal(T_1 \cup T_2)
-\label{rul:coalr8}
-\end{equation}
-
-For \trg, temporal graph intersection is a inner theta-join followed
-by projection.  As shown in~\cite{DBLP:conf/vldb/BohlenSS96},
-coalescing can be deferred until after a join and after a projection
-if that projection is independent of the valid time interval of the
-tuple, which is the case here.  Thus we can defer coalescing until
-after the temporal graph intersection.  Temporal graph union is also a
-join, albeit an outer one, so the same argument applies.
-
-\begin{equation}
-coal(udf(coal(T))) \equiv coal(udf(T))
-\label{rul:coalr9}
-\end{equation}
-
-If the \tg is not coalesced, it contains one or more value-equivalent
-representative graphs with consecutive or overlapping periods.
-Analytics are time-invariant functions applied to each representative
-graph.  Thus when applied to value-equivalent graphs, they will
-produce equivalent results.  Because analytics tend to be
-computationally expensive operations, it may be beneficial to eagerly
-coalesce before them so that they are executed on a smaller number of
-graphs.
-
-When aggregating by change, the input must be coalesced to compute
-correct aggregation windows.  If the input is not coalesced, then
-there may be two or more consecutive intervals which should be treated
-as one but would count separately. For aggregate by time, some
-aggregate functions also require coalesced input.  For example, count
-aggregate will produce different result if several consecutive or
-overlapping value-equivalent tuples fall within the same window.  Thus
-we add the following conditional coalescing rules:
-
-\begin{multline}
-coal(\gamma_{W,Q_V,Q_E,f_V,f_E}(coal(T))) \equiv coal(\gamma_{W,Q_V,Q_E,f_V,f_E}(T)) \\
-iff~~f_V \in \{any | first | last | min | max\}~~\wedge \\
-f_E \in \{any | first | last | min | max\}
-\label{rul:coalr10}
-\end{multline}
-
-$any$ aggregate returns one of the entity values in the aggregation
-window, with no guarantees as to which one.  It is clear that it is
-invariant to time or the number of grouped tuples.  $first$ and $last$
-aggregates pick temporally earliest, resp. latest, value in each
-group.  If $T$ is uncoalesced, they is at least one pair of
-value-equivalent tuples with overlapping or consecutive periods.
-Selecting between equivalent values will generate the same result
-regardless of the number of those values.  The same argument applies
-to $min$ and $max$.
-
-Finally, a rule that eliminates coalescing of coalesced \tgs:
-
-\begin{equation}
-coal(T) \equiv T~~iff~~is\_coalesced(T)
-\label{rul:coalr11}
-\end{equation}
-
-This last rule is very useful if the data on disk is known to be
-coalesced.
-
-There are several different implementations possible for the coalesce
-operation over temporal SQL relations,
-see~\cite{DBLP:conf/vldb/BohlenSS96} for detailed analysis.  We use a
-partitioning method, where the relation (e.g., \tv, \te, \trg) is
-grouped by key, and within each group the tuples are sorted and folded
-to produce the corresponding time periods of maximum length.  This
-approach involves shuffling between partitions, one of the most
-computationally expensive aspects of distributed systems, and thus
-lazy coalescing is preferred in most cases.\eat{ As with duplicate
-  elimination, if the coalesced output is expected to be significantly
-  reduced in size, such as after a project operation on a high
-  volatility attribute, performing coalesce eagerly before a
-  time-consuming operation, especially analytics, can be
-  advantageous.}
+\input{coal}
 
 \subsection{Implementation}
 \label{sec:sys:maint}
@@ -396,9 +217,9 @@ write their own custom graph loading code to load vertices and edges
 and then use \insql{fromRDDs} method to initialize any of the 4
 representations.
 
-We have shown how our logical data model and semantics can be
-implemented in a distributed context.  While the details of the
-implementation are out of the scope of this paper, the \ql code is
-freely available online.  In the next section we show how different
-physical representations behave on each operation.
+\eat{ We have shown how our logical data model and semantics can be
+  implemented in a distributed context. } While further implementation
+details are out of the scope of this paper, the \ql code is freely
+available online.  In the next section we show how different physical
+representations behave on each operation.
 
