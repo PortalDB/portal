@@ -91,7 +91,7 @@ consecutive periods $p_1=[1/15, 2/15), \ldots, p_5=[7/15, 10/15)$.
     consecutive and with no gaps.
 
     Vertices and edges of a \tg are not required to be homogeneous in
-    terms of their schemas.  In line with several popualr graph
+    terms of their schemas.  In line with several popular graph
     databases, we use the property graph data model~\cite{GraphDB} to
     represent vertex and edge attributes.  Each vertex and edge of $g$
     during period $p$ is associated with a (possibly empty) {\em bag}
@@ -101,7 +101,7 @@ consecutive periods $p_1=[1/15, 2/15), \ldots, p_5=[7/15, 10/15)$.
 
 As is typical in interval-based models, each representative graph is
 assumed to exists continuously, and remains unchanged, during the
-associated period.  By this we mean that graph topology (identies of
+associated period.  By this we mean that graph topology (identities of
 its vertices and edges), and properties of each vertex and edge remain
 unchanged.
 %
@@ -125,7 +125,7 @@ vertex and edge attributes.  We term this logical representation the
 {\em \ve \tg}.  An example of a \ve \tg is given in
 Figure~\ref{fig:tg_ve}.  We will refer to the \rgs
 (Definition~\ref{def:tg_abstract}) and \ve (Definition~\ref{def:tg})
-represenations of a \tg jointly as \insql{T}, and will disambiguate
+representations of a \tg jointly as \insql{T}, and will disambiguate
 between the two representations with \trg and \tve when necessary.
 
 \eat{ Following notation in~\ref{DBLP:conf/vldb/BohlenSS96}, we will
@@ -370,6 +370,6 @@ $\tav_g$) for each tuple, collecting $\tv_g \rightarrow \tv$, $\te_g
 Next, we will present operators of \tg algebra, stating their
 semantics over the \rgs and \ve data structures
 (Section~\ref{sec:algebra}).  We will then discuss how each operator
-is implemented over several possible physical representatis of these
+is implemented over several possible physical representations of these
 logical data structures (Section~\ref{sec:sys}).
 
