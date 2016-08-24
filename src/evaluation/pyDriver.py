@@ -185,10 +185,7 @@ def run(configFile, email):
     #load configurations from file
     mainc = parser['configs']['main']
     env = parser['configs']['env']
-    mesosConf = parser['configs']['mesosConfig']
     localConf = parser['configs']['localConfig']
-    ec2Conf = parser['configs']['ec2Config']
-    standConf = parser['configs']['standaloneConfig']
     cConf = parser['configs']['clusterConfig']
     buildN = int(parser['configs']['buildNum'])
     sType = int(parser['configs']['warm'])
@@ -213,10 +210,13 @@ def run(configFile, email):
     envConf = localConf #set to local environment by default
 
     if env == "ec2":
+        ec2Conf = parser['configs']['ec2Config']
         envConf = ec2Conf
     elif env == 'mesos':
-        envConf = mesosConf    
+        mesosConf = parser['configs']['mesosConfig']
+        envConf = mesosConf
     elif env == 'standalone':
+        standConf = parser['configs']['standaloneConfig']
         envConf = standConf
 
     #run with warm start
