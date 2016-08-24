@@ -20,7 +20,7 @@ very small running times.
 \begin{tabular}{l | c | c | c | c }
 \hline
 \multicolumn{1}{l|}{\bfseries Dataset} & \multicolumn{1}{c|}{\bfseries |V|} & \multicolumn{1}{c|}{\bfseries |E|} & \multicolumn{1}{c|}{\bfseries Time Span} & \multicolumn{1}{c}{\bfseries Evol. Rate} \\ \hline
-wikitalk-en & 2.9M & 10.7M & 2002--2015 & 14.4 \\ \hline
+wiki-talk-en & 2.9M & 10.7M & 2002--2015 & 14.4 \\ \hline
 nGrams & 29.3M & 2.5B & 1520--2008 & 16.67 \\ \hline
 %%DELIS & 128M & 40.5B & 2006--2007 & ? \\ \hline
 twitter & 505.4M & 23B & 2006--2012 & ? \\ \hline
@@ -29,73 +29,72 @@ twitter & 505.4M & 23B & 2006--2012 & ? \\ \hline
 \end{table}
 
 {\bf Data.}  We evaluate performance of our framework on three real
-open-source datasets: wikitalk, nGrams, and Twitter
-(Table~\ref{tab:datasets}).  wikitalk~\cite{wikitalk} contains over 10
-million messaging events among 3 million wiki-en users from 2002
+open-source datasets: wiki-talk, nGrams, and Twitter
+(Table~\ref{tab:datasets}).  wiki-talk~\cite{wikitalk} contains over
+10 million messaging events among 3 million wiki-en users from 2002
 through 2015, aggregated at 1 month resolution.  nGrams~\cite{nGrams}
 contains word co-occurrence information from 1520 through 2008, with
 30 million word nodes and over 2.5 billion undirected co-occurrence
-edges.  twitter~\cite{twitter} contains over 23 billion directed
-follower relationships between 0.5 billion twitter users collected in
-2012, sampled at 1-month resolution based on account creation
-information from April of 2006. \eat{DELIS contains monthly snapshots
-  of a portion of the Web graph focusing on the .uk domains from
-  05/2006 through 05/2007~\cite{BSVLTAG}. } The datasets differ not
-only in size, but also in the number and type of attributes and the
-rate of evolution.  The change rate was calculated as the average
-graph edit similarity~\cite{Ren2011}.  \eat{the evolutionary
-  properties: co-authorship network nodes and edges have limited
-  lifespan, while the nGrams network grows over time, with nodes and
-  edges persisting for long duration.  All figures in the body of this
-  section are on the larger nGrams dataset.  Refer to the Appendix for
-  the DBLP figures, which show similar trends as nGrams.}
+edges.  Twitter social graph~\cite{Gabielkov:2014:SSN:2591971.2591985}
+contains over 23 billion directed follower relationships between 0.5
+billion twitter users collected in 2012, sampled at 1-month resolution
+based on account creation information from April of 2006. \eat{DELIS
+  contains monthly snapshots of a portion of the Web graph focusing on
+  the .uk domains from 05/2006 through 05/2007~\cite{BSVLTAG}. } The
+datasets differ not only in size, but also in the number and type of
+attributes and the rate of evolution.  The change rate was calculated
+as the average graph edit similarity~\cite{Ren2011}.  \eat{the
+  evolutionary properties: co-authorship network nodes and edges have
+  limited lifespan, while the nGrams network grows over time, with
+  nodes and edges persisting for long duration.  All figures in the
+  body of this section are on the larger nGrams dataset.  Refer to the
+  Appendix for the DBLP figures, which show similar trends as nGrams.}
 
 The behavior of the four physical representations reported below is
 dependent on the underlying data format on disk, described in the
-previous section. and should be interpreted in that context.
+previous section, and should be interpreted in that context.
 
 \begin{figure*}
 \centering
 \begin{minipage}{2.2in}
 \centering
-\includegraphics[width=2.2in]{figs/slice_ngrams_vertices_build11_trimmed.png}
+\includegraphics[width=2.2in]{figs/slice_wikitalk_build13.png}
 \vspace{-0.1in}
-\caption{Slice on nGrams dataset, return vertices.}
-\label{fig:sliceverts}
-\vspace{-0.1in}
-\end{minipage}
-\begin{minipage}{2.2in}
-\centering
-\includegraphics[width=2.2in]{figs/slice_wikitalk_edges_build11_trimmed.png}
-\vspace{-0.1in}
-\caption{Slice on wikitalk dataset, return edges.}
-\label{fig:sliceedges}
+\caption{Slice on wiki-talk dataset.}
+\label{fig:slicewiki}
 \vspace{-0.1in}
 \end{minipage}
 \begin{minipage}{2.2in}
 \centering
-\includegraphics[width=2.6in]{figs/project_wikitalk_vertices_build12.png}
+\includegraphics[width=2.2in]{figs/slice_ngrams_build13.png}
 \vspace{-0.1in}
-\caption{Map on wikitalk dataset vertices.}
+\caption{Slice on nGrams dataset.}
+\label{fig:slicengrams}
+\vspace{-0.1in}
+\end{minipage}
+\begin{minipage}{2.2in}
+\centering
+\includegraphics[width=2.6in]{figs/project_wikitalk_build13.png}
+\vspace{-0.1in}
+\caption{Map on wiki-talk dataset vertices.}
 \label{fig:project}
 \vspace{-0.1in}
 \end{minipage}
 \end{figure*}
 
 {\bf Slice.}  \insql{slice} performance was evaluated by varying the
-slice time window and materializing vertices or edges.  Recollect that
-in \ve \insql{slice} is a simple select on the vertex and edge
-relations and is the fastest access method when data on disk is
-coalesced.  \sg, in contrast, does multiple passes of select over the
-same data to compute each RG, and then coalesce the output to return a
-valid result.  Thus, as expected, \ve behavior is directly dependent
-on the size of input data regardless of the slice size for file
-formats and systems without filter pushdown, as is the case here, or
-if the data does not have temporal locality
-(Figure~\ref{fig:sliceverts} - about 28 seconds for \ve,
-Figure~\ref{fig:sliceedges}).  \sg behavior is linear in the slice
-size.  This experiment essentially measures the cost of materializing
-\sg from \ve.  However, we observed the same linear trend previously
+slice time window and materializing the \tg.  Recollect that in VE
+\insql{slice} is a simple select on the vertex and edge relations and
+is the fastest access method when data on disk is coalesced.  \sg, in
+contrast, does multiple passes of select over the same data to compute
+each RG.  Thus, as expected, VE behavior is directly dependent on the
+size of input data regardless of the slice size for file formats and
+systems without filter pushdown, as is the case here, or if the data
+does not have temporal locality (Figure~\ref{fig:slicewiki},
+Figure~\ref{fig:slicengrams} -- about 1.5 minutes for VE).  \sg
+behavior is linear in the slice size.  This experiment essentially
+measures the cost of materializing \sg from \ve on-disk
+representation.  However, we observed the same linear trend previously
 when the data is stored as individual
 snapshots~\cite{PortalarXiv2016}, although less redundant work is
 needed in that case.
@@ -105,7 +104,7 @@ needed in that case.
 \begin{minipage}{3.3in}
 \centering
 \includegraphics[width=2.8in]{figs/select_wikitalk_vertices_build12.png}
-\caption{Select on the wikitalk dataset, return vertices.}
+\caption{Select on the wiki-talk dataset, return vertices.}
 \vspace{-0.1in}
 \label{fig:selectv}
 \vspace{-0.1in}
@@ -119,6 +118,14 @@ needed in that case.
 \label{fig:selecte}
 \end{minipage}
 \end{figure*}
+
+{\bf Map.}  We evaluate \insql{map} performance by varying the data
+size through the \insql{slice} operation.  Similar to \insql{slice},
+\insql{map} exhibits flat runtime for VE and linear increase in
+runtime with the number of RGs for \sg.  However, performance for both
+VE and \sg is almost 2X worse than performance on \insql{slice}
+because \insql{map} requires a coalescing operation as the last step,
+while \insql{slice} does not.
 
 {\bf Subgraph.}  \insql{subgraph} performance was evaluated by varying
 selectivity over length of the vertex attribute.  When materializing
@@ -137,23 +144,16 @@ better performance than \sg.
 \begin{figure}
 \centering
 \includegraphics[width=2.8in]{figs/project_wikitalk_vertices_build12.png}
-\caption{Map vertex attribute into its length on the wikitalk dataset.}
+\caption{Map vertex attribute into its length on the wiki-talk dataset.}
 \label{fig:project}
 \end{figure}
 }
-{\bf Map.}  We evaluate \insql{map} performance by varying the
-data size through the slice operation.  Similar to \insql{slice},
-\insql{map} exhibits flat runtime for \ve and linear increase in
-runtime with the number of RGs for \sg.  However, performance for \ve
-is worse than performance on \insql{slice} because \insql{map}
-requires a coalescing operation as the last step, while \insql{slice}
-does not.
 
 \begin{figure*}[h]
 \begin{minipage}{2in}
 \centering
 \includegraphics[height=1.7in]{figs/agg_allall_wikitalk_vertices_build11_trimmed.png}
-\caption{Aggregate by time, all/all quantification on the wikitalk dataset.}
+\caption{Aggregate by time, all/all quantification on the wiki-talk dataset.}
 \label{fig:agg1}
 \end{minipage}
 \begin{minipage}{2in}
@@ -165,7 +165,7 @@ does not.
 \begin{minipage}{2.6in}
 \centering
 \includegraphics[height=1.7in]{figs/agg_allexists_wikitalk_edges_build11.png}
-\caption{Aggregate by time, all/exists quantification on the wikitalk dataset.}
+\caption{Aggregate by time, all/exists quantification on the wiki-talk dataset.}
 \label{fig:agg4}
 \end{minipage}
 \end{figure*}
@@ -185,7 +185,7 @@ does not.
 \centering
 \includegraphics[width=3in]{figs/agg_allexists_wikitalk_edges_build11.png}
 \vspace{-0.1in}
-\caption{Aggregate by time, all/exists quantification on the wikitalk dataset.}
+\caption{Aggregate by time, all/exists quantification on the wiki-talk dataset.}
 \label{fig:agg4}
 \vspace{-0.1in}
 \end{minipage}
@@ -207,20 +207,20 @@ quantification levels match (Figure~\ref{fig:agg2}), but is worse than
 happens with different levels of quantification for V and E
 (Figure~\ref{fig:agg4}).  \ve also underperforms \og
 when the evolution rate and the aggregation window are both small,
-such as with the wikitalk dataset - Figure~\ref{fig:agg1}.  \sg and
+such as with the wiki-talk dataset - Figure~\ref{fig:agg1}.  \sg and
 \hg do not provide the best performance on any of our datasets.
 
 \begin{figure*}[h]
 \begin{minipage}{2.2in}
 \centering
 \includegraphics[width=2in]{figs/union_wikitalk_vertices_build12.png}
-\caption{Union on the wikitalk dataset, return vertices.}
+\caption{Union on the wiki-talk dataset, return vertices.}
 \label{fig:union1}
 \end{minipage}
 \begin{minipage}{2.2in}
 \centering
 \includegraphics[width=2in]{figs/union_wikitalk_edges_build12.png}
-\caption{Union on the wikitalk dataset, return edges.}
+\caption{Union on the wiki-talk dataset, return edges.}
 \label{fig:union2}
 \end{minipage}
 \begin{minipage}{2.2in}
@@ -245,7 +245,7 @@ or inner) on the vertices and edges of the two operands.  \ve, on the
 other hand, splits the coalesced vertices/edges of each of the two
 operands into intervals first, takes a union, and then reduces by key.
 When the evolution rate is low and duration of an entity is high, such
-as the case in the wikitalk dataset for vertices, the split produces a
+as the case in the wiki-talk dataset for vertices, the split produces a
 lot of tuples to then reduce, and the performance suffers
 (Figure~\ref{fig:union1}). \sg only produces good performance on
 \insql{intersection} when few representative graphs overlap, and never
@@ -258,7 +258,7 @@ constant amount in \insql{union}, and diverges in
 \begin{minipage}{3.3in}
 \centering
 \includegraphics[width=2.8in]{figs/cc_wikitalk_build12.png}
-\caption{Connected components on the wikitalk dataset.}
+\caption{Connected components on the wiki-talk dataset.}
 \label{fig:ccwiki}
 \end{minipage}
 \begin{minipage}{3.3in}
@@ -308,7 +308,7 @@ of the following query:
 \end{verbatim}
 \end{small}
 
-This query, executed on the wikitalk dataset, computes connected
+This query, executed on the wiki-talk dataset, computes connected
 components over the past 10 years on the yearly scale.  Over the
 twitter dataset the slice size is 5 years.
 
@@ -335,7 +335,7 @@ returned.
 For each operation, the best performing representation was selected
 based on our experimental results.  Slice, project, and aggregate were
 performed with \ve, analytics with \hg.  The results are in
-Table~\ref{tab:clustersize}.  With the small wikitalk dataset,
+Table~\ref{tab:clustersize}.  With the small wiki-talk dataset,
 performance improves initially with larger cluster sizes but levels
 off at the largest size.  With the large twitter dataset, ...
 
@@ -344,7 +344,7 @@ off at the largest size.  With the large twitter dataset, ...
 \small
 \begin{tabular}{| c | c | r |}
 \hline
-\multicolumn{1}{|c|}{\bfseries Cluster Size} & \multicolumn{1}{c|}{\bfseries wikitalk (min)} & \multicolumn{1}{r|}{\bfseries twitter} \\ \hline
+\multicolumn{1}{|c|}{\bfseries Cluster Size} & \multicolumn{1}{c|}{\bfseries wiki-talk (min)} & \multicolumn{1}{r|}{\bfseries twitter} \\ \hline
 2 & 15.21 & ? \\ \hline
 4 & 9.35 & ? \\ \hline
 8 & 6.55 & ? \\ \hline
