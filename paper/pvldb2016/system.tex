@@ -30,7 +30,7 @@ describe each representation.\eat{ VertexEdge (VE) is a direct
   most compact representation.  While VE does not necessitate a
   particular order of tuples on disk, we opt for a physical layout in
   which all tuples corresponding to the same vertex (resp. edge) are
-  laid out consecutively, and so VE preserves temporal localilty.
+  laid out consecutively, and so VE preserves temporal locality.
   RepresentativeGraphs (RG) directly implements the data structure of
   Definition~\ref{def:tg_abstract}, storing each representative graph
   explicitly, and so naturally preserves structural locality, but
@@ -117,13 +117,13 @@ in Section~\ref{sec:exp}, due to compactness this physical
 representation is the most efficient for many operations.
 
 {\bf OneGraph (OG)} is the most topologically compact representation,
-which stores all vertices from \tav {\em and} edges from \tae\xspace
-once, in a single data structure.  Information about time validity is
-stored together with each vertex and edge.  Figure~\ref{fig:ogc} shows
-the OG for \insql{T1} from Figure~\ref{fig:tg_rg}.  OG emphasizes
-temporal locality, while also preserving structural locality, but
-leads to a much denser graph than RG.  This, in turn, makes
-parallelizing computation challenging.
+which stores all vertices from \tav {\em and} edges from \tae once, in
+a single data structure.  Information about time validity is stored
+together with each vertex and edge.  Figure~\ref{fig:ogc} shows the OG
+for \insql{T1} from Figure~\ref{fig:tg_rg}.  OG emphasizes temporal
+locality, while also preserving structural locality, but leads to a
+much denser graph than RG.  This, in turn, makes parallelizing
+computation challenging.
 
 An OG is implemented as a single GraphX graph.  To construct an \og
 from \tve, vertices and edges of \tv and \te relations each are
@@ -169,21 +169,45 @@ other operations through inheritance from VE.
 \subsection{Implementation}
 \label{sec:sys:maint}
 
-{\bf Foreign key constraint.}  The \ve data model includes a foreign
-key constraint from edges to vertices.  This constraint is naturally
-maintained by most operations while performing operations on V and E
-independently, as shown in Section~\ref{sec:algebra}.  For
-\insql{subgraph} and \insql{aggregate} additional steps are required
-to insure correctness.  We modify E tuples to enforce the foreign key
-constraint by joining on V, using either a broadcast or hash join
-depending on the size of V.  Each edge period is then modified to be
-the overlap of the periods of source and destination vertices and the
-original edge period.  Because this step is computationally expensive,
-it is only taken when necessary: when \insql{subgraph} has a predicate
-on V and when \insql{aggregate} has a higher level of quantification
-for V than for E.  GraphX graphs maintain foreign key constraint
-during subgraph operation and we make use of this for all
-representations besides VE.
+{\bf Enforcing referrential integrity.}  The \tve representation of a
+\tg (Definition~\ref{def:tg}) requires that referrential integrity be
+maintained by algebraic operations, and this is done on lines 6---8 of
+Algorithm~\ref{alg:op}.  In Section~\ref{sec:algebra} we discussed
+that temporal subgraph~\ref{sec:algebra:subgraph} and
+aggregation~\ref{sec:algebra:agg} both require that tuples be removed
+from \te, or that their periods of validity be modified to be included
+within the periods of validity of the corresponding vertices
+(Condition~\ref{def:tg:c1} of Definition~\ref{def:tg}), due to changes
+in \tv.  We do this by executing a join of \te with \tv on vertex ids
+--- either a broadcast join if \tv is small, or a hash join --- and
+then adjusting time periods as necessary.  This is an expensive
+operation and is only performed when necessary: when temporal subgraph
+has a non-trivial predicate on $C_V$, and when temporal aggregation
+has a more restrictive vertex aggregation quantifier $Q_V$ than edge
+quantifier $Q_E$ (see the end of Section~\ref{sec:algebra:agg} for a
+discussion).
+
+\julia{Vera: is this still relevant?  What does this mean? ``GraphX
+  graphs maintain foreign key constraint during subgraph operation and
+  we make use of this for all physical representations besides VE.''}
+
+  \eat{
+    {\bf Foreign key constraint.}  The \ve data model includes a
+    foreign key constraint from edges to vertices.  This constraint is
+    naturally maintained by most operations while performing
+    operations on V and E independently, as shown in
+    Section~\ref{sec:algebra}.  For \insql{subgraph} and
+    \insql{aggregate} additional steps are required to insure
+    correctness.  We modify E tuples to enforce the foreign key
+    constraint by joining on V, using either a broadcast or hash join
+    depending on the size of V.  Each edge period is then modified to
+    be the overlap of the periods of source and destination vertices
+    and the original edge period.  Because this step is
+    computationally expensive, it is only taken when necessary: when
+    \insql{subgraph} has a predicate on V and when \insql{aggregate}
+    has a higher level of quantification for V than for E.  GraphX
+    graphs maintain foreign key constraint during subgraph operation
+    and we make use of this for all representations besides VE.}
 
 {\bf Partitioning.}  Graph partitioning can have a tremendous impact
 on system performance.  A good partitioning strategy needs to (1) be
