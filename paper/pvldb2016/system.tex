@@ -104,7 +104,7 @@ relations separately but rather together with \tav and \tae,
 respectively.  While VE does not necessitate a particular order of
 tuples on disk, we opt for a physical layout in which all tuples
 corresponding to the same vertex (resp. edge) are laid out
-consecutively, and so VE preserves temporal localilty.
+consecutively, and so VE preserves temporal locality.
 
 \eat{ The main advantage of this schema-less attribute representation
   is that it can easily deal with schema evolution and leaves the
@@ -142,7 +142,7 @@ and intersection for graphs with no vertex or edge attributes.  For
 completeness, all other operations are supported through inheritance
 from an abstract parent, and are carried out on the VE data structure.
 
-{\bf HybridGraph (HG)} trades compactness of \og for getter structural
+{\bf HybridGraph (HG)} trades compactness of \og for better structural
 locality of \rg, by aggregating together several consecutive
 representative graphs, computing a single \og for each graph group,
 and storing these as a parallel sequence.  In our current
@@ -169,8 +169,8 @@ other operations through inheritance from VE.
 \subsection{Implementation}
 \label{sec:sys:maint}
 
-{\bf Enforcing referrential integrity.}  The \tve representation of a
-\tg (Definition~\ref{def:tg}) requires that referrential integrity be
+{\bf Enforcing referential integrity.}  The \tve representation of a
+\tg (Definition~\ref{def:tg}) requires that referential integrity be
 maintained by algebraic operations, and this is done on lines 6---8 of
 Algorithm~\ref{alg:op}.  In Section~\ref{sec:algebra} we discussed
 that temporal subgraph~\ref{sec:algebra:subgraph} and
@@ -223,27 +223,26 @@ the number of partitions. As has been shown
 previously~\cite{DBLP:conf/osdi/GonzalezXDCFS14,MoffittTempWeb16}, E2D
 provides good performance for Pregel-style analytics.
 
-{\bf Graph loading.}  We use the Apache Parquet for storing our data
-on disk, one archive for vertices and another for edges, temporally
-coalesced.  This is a direct physical translation of the vertex-edge
-\tg logical data model where the attributes are stored with the
-topology.  In cases where there is 0 or 1 attribute per node/edge,
-such as in our datasets, this is also the most compact representation.
-If the input data is in uncoalesced snapshots, then it occupies space
-as a function of the graph evolution rate.
+{\bf Graph loading.}  We use the Apache Parquet format for on-disk
+storage, with one archive for vertices and another for edges,
+temporally coalesced.  This format corresponds to the VE physical
+representation~\ref{sec:sys:datastructs}.  In cases where there is no
+more than 1 attribute per vertex and edge, this representation is also
+the most compact.  \eat{If the input data is in uncoalesced snapshots,
+  then it occupies space as a function of the graph evolution rate.}
 
 For ease of use, we provide a GraphLoader utility that can initialize
-any of the 4 physical representations of the \tg from Apache Parquet
-files on HDFS or on local disk, provided they follow the correct
-schema, using function call
-\insql{GraphLoader.loadDataParquet(\$path)}.  The \ql user can also
-write their own custom graph loading code to load vertices and edges
-and then use \insql{fromRDDs} method to initialize any of the 4
+any of the four physical representations of the \tg from Apache
+Parquet files on HDFS or on local disk\eat{, provided that they follow
+  the correct schema, using function call
+  \insql{GraphLoader.loadDataParquet(\$path)}}.  The \ql user can also
+implement custom graph loading methods to load vertices and edges, and
+then use the \insql{fromRDDs} to initialize any of the four physical
 representations.
 
 \eat{ We have shown how our logical data model and semantics can be
   implemented in a distributed context. } While further implementation
-details are out of the scope of this paper, the \ql code is freely
+details are out of the scope of this paper, \ql code is freely
 available online.  In the next section we show how different physical
-representations behave on each operation.
+representations behave on each operation of \tg algebra.
 
