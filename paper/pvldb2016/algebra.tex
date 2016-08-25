@@ -248,9 +248,8 @@ the granularity, or to pre-define temporal resolution and look at the
 graph at that scale, irrespective of whether this resolution happens
 to be finer or coarse than the natural evolution rate of the graph.
 For this, we will use {\em moving window temporal aggregation}.  Our
-approach is inspired by stream aggregation work of Li, et
-al.~\cite{Li2005}, adopted to graphs, and by generalized quantifiers
-of~\cite{Hsu1995}.
+approach is inspired by stream aggregation work of~\cite{Li2005},
+adopted to graphs, and by generalized quantifiers of~\cite{Hsu1995}.
 
  {\em Temporal aggregation} is denoted $\gamma_{W,Q_V,Q_E,A_V,A_E}
  (\trg)$, where $W$ is the window specification, $Q_V$ and $Q_E$ are
@@ -280,13 +279,15 @@ properties). Incorporating this into \tg algebra is in our immediate
 plans.
 
 {\em Aggregation quantifiers} $Q_V$ and $Q_E$ are of the form \{
-\insql{exists} | \insql{all} | \insql{most} | \insql{at least} $n$ \},
-where $n$ is a decimal representing a ratio.  These are useful for
-producing different kinds of representative graphs.  For example, to
-produce representative graphs with only strong connections over a
-volatile evolving graph, we may want to only include vertices that
-span the entire aggregation window ($Q_V=\insql{all}$), and edges that
-span a large portion of the window ($Q_E=\insql{most}$).
+\insql{all} | \insql{most} | \insql{at least} $n$ | \insql{exists} \},
+where $n$ is a decimal representing the percentage of the time during
+which an entity (vertex or edge) existed, relative to the duration of
+the aggregation window. These are useful for producing different kinds
+of representative graphs.  For example, to produce representative
+graphs with only strong connections over a volatile evolving graph, we
+may want to only include vertices that span the entire aggregation
+window ($Q_V=\insql{all}$), and edges that span a large portion of the
+window ($Q_E=\insql{most}$).
  
 The optional {\em aggregation functions} $A_V$ and $A_E$ compute new
 values for vertex and edge properties that are representative of the
@@ -367,7 +368,7 @@ $f_V$, vertex aggregate function $f_E$.\\
 
 \begin{figure*}
 \includegraphics[width=5in]{figs/agg.png}
-\caption{Temporal aggregation over \insql{T1} (Figure~\ref{fig:tg_ve}).}
+\caption{Temporal aggregation over \insql{T1} (Figure~\ref{fig:tg_ve}). \julia{update}}
 \label{fig:tg_agg}
 \end{figure*}
 
@@ -387,9 +388,37 @@ suppose that $v_1$ exists during the odd months of the year.  That is,
 illustrated in Figure~\ref{fig:tg_agg}, $(v_1,v_2,[1/15,5/15))$ is
   removed from $\te'$ not because it did not exist at some point
   during $[1/15,5/15)$ but because $(v_2,[1/15,5/15))$ is absent from
-      $\tv'$.  We now give a more detailed analysis of the cases when
-      FK enforcement is required, by considering the relationship
-      between vertex and edge aggregation quantifiers $Q_V$ and $Q_E$.
+      $\tv'$.  
+
+We now give an analysis of whether FK enforcement is required, by
+considering the relationship between vertex and edge aggregation
+quantifiers $Q_V$ and $Q_E$.  Recall that we support quantifiers
+\insql{all}, \insql{most}, \insql{at least} $n$, and \insql{exists},
+and observe that they can be translated to a threshold $t$ on the
+percentage of the time during which an entity (vertex or edge)
+existed, relative to the duration of the aggregation window: $t = 1$
+for \insql{all}, $t > 0.5$ for \insql{most}, $t > 0$ for
+\insql{exists} and $t > n$ for \insql{at least} $n$.  Let us refer to
+the resulting vertex threshold as $t_V$, and to the edge threshold as
+$t_E$.  If an entity's existence meets the threshold, it will be
+retained in the result of aggregation.
+
+FK enforcement is only required if $t_V$ is stricter than $t_E$.  To
+see why this is so, consider 2 cases.  (1) Suppose that $t_V \leq
+t_E$.  To violate FK constraint, we must produce an edge $(v_1, v_2,
+p) \in \te'$ and not produce vertex $(v_1, p) \in \tv'$.  This edge
+$(v_1, v_2)$ must have been valid during at least $t_E$ portion of p
+in \te.  If our input is valid, then there must exist both $v_1$ and
+$v_2$ in \tv during at least $t_E$ portion of p to pass the FK
+constraint.  Since $t_E$ is at least as large as $t_V$, we will
+produce both $(v_1, p)$ and $(v_2, p)$.  (2) $t_V > t_E$.  The proof
+here is similar to above.  If we produce edge $(v_1, v_2, p) \in
+\te'$, then there must be both $v_1$ and $v_2$ in \tv that exist
+during at least $t_V$ portion of p.  However, since $t_V$ is larger
+than $t_E$, we may not produce a vertex in \tv' that meets $t_E$ but
+does not meet the greater $t_V$.  In that case the edge is violating
+the FK constraint.
+
 
 \eat{ Our aggregation quantifiers are inspired by generalized
   quantifiers of~\cite{Hsu1995} with n-place delimiters.  $Q(R)$ as a
@@ -592,29 +621,38 @@ defined by the user.}
 aggregation by 1 month on that graph with $at\ least\ one$ quantifier,
 with group by id.}
 
-
 \subsection{Temporal graph intersection}
 \label{sec:algebra:join}
 
-\tg algebra supports two binary operations, temporal graph union and
-intersection.  Temporal graph intersection $\trg_1 \cap \trg_2 = \{
-(g_1 \cap g_2, p_1 \cap p_2) | (g_1, p_1) \in \trg_1 \wedge $\\ $(g_2,
-p_2) \in \trg_2 \wedge p_1 \cap p_2 \neq \emptyset \}$. The
-computation over \trg is essentially a temporal inner theta-join of
-$\trg_1$ and $\trg_2$ with a $p_1 \cap p_2$ predicate, followed by
-projection of $p_1, p_2$ into $p_1 \cap p_2$.  We use the standard
-graph intersection definition based on set theory, which intersects
-the vertex and edge sets from the two operands~\cite{GraphTheory}.  To
-evaluate over \tve, we compute temporal natural inner joins over
-corresponding \tv, \te, \tav, \tae, followed by projection over \tav
-and \tae to intersect $a_1$ with $a_2$.  The attributes are
-intersected for both vertices and edges according to the standard bag
-semantics.  This is shown in Algorithm~\ref{alg:inter}.
+The binary temporal graph intesection operation $\trga \cap \trgb$
+computes a temporal inner $\theta$-join~\cite{Gao2005} of \trga and
+\trgb, producing a tuple for each pair of representative graphs for
+which time periods intersect: $\trga \cap \trgb = \{(g_1 \cap g_2, p_1
+\cap p_2)~|~((g_1, p_1) \in \trga \wedge (g_2, p_2) \in \trgb \wedge
+p_1 \cap p_2 \neq \emptyset \}$.  The result of $g_1 \cap g_2$ is
+computed by intersecting the sets of vertices and of edges of the
+graphs~\cite{GraphTheory}.  For each vertex and edge in the result, we
+compute a union of their bags of properties. \julia{Figure with
+  example.}
+
+\eat{The computation over \trg is essentially a temporal inner
+  theta-join of $\trg_1$ and $\trg_2$ with a $p_1 \cap p_2$ predicate,
+  followed by projection of $p_1, p_2$ into $p_1 \cap p_2$.  We use
+the standard graph intersection definition based on set theory, which
+intersects the vertex and edge sets from the two
+operands~\cite{GraphTheory}.}
+
+Algorithm~\ref{alg:inter} presents the evaluation of $\tvea \cap
+\tveb$.  We compute temporal inner joins over the corresponding \tv
+and \te relations (lines 1, 2).  We then compute \tav' and \tae' by
+performing temporal outer joins of the corresponding relations (lines
+3, 4).  grouping the results .  Finally, we enforce foreign key
+constraints on \te', \tav' and \tae' (lines 5---7).
 
 \begin{algorithm}
 \caption{Temporal graph intersection in \tve.}
 \begin{algorithmic}[1]
-\REQUIRE $\tve_1 (\tv_1, \te_1, \tav_1, \tae_1), \tve_2 (\tv_2, \te_2, \tav_2, \tae_2)$.\\
+\REQUIRE $\tvea (\tv_1, \te_1, \tav_1, \tae_1), \tveb (\tv_2, \te_2, \tav_2, \tae_2)$.\\
 \STATE $\tv' = \tv_1 \Join^T \tv_2$\\
 \STATE $\te' = \te_1 \Join^T \te_2$\\
 \STATE $\tav' = \pi_{a_1 \cap a_2}(\tav_1 \Join^T \tav_2)$\\

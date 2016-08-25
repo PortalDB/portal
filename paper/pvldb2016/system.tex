@@ -169,11 +169,13 @@ other operations through inheritance from VE.
 \subsection{Implementation}
 \label{sec:sys:maint}
 
-{\bf Enforcing referential integrity.}  The \tve representation of a
-\tg (Definition~\ref{def:tg}) requires that referential integrity be
-maintained by algebraic operations, and this is done on lines 6---8 of
-Algorithm~\ref{alg:op}.  In Section~\ref{sec:algebra} we discussed
-that temporal subgraph~\ref{sec:algebra:subgraph} and
+{\bf Enforcing referential integrity.}  The \tve logical
+representation of a \tg (Definition~\ref{def:tg}), and the
+corresponding VE physical representation
+(Section~\ref{sec:sys:datastructs}), require that referential
+integrity be maintained by algebraic operations, and this is done on
+lines 6---8 of Algorithm~\ref{alg:op}.  In Section~\ref{sec:algebra}
+we discussed that temporal subgraph~\ref{sec:algebra:subgraph} and
 aggregation~\ref{sec:algebra:agg} both require that tuples be removed
 from \te, or that their periods of validity be modified to be included
 within the periods of validity of the corresponding vertices
@@ -187,9 +189,10 @@ has a more restrictive vertex aggregation quantifier $Q_V$ than edge
 quantifier $Q_E$ (see the end of Section~\ref{sec:algebra:agg} for a
 discussion).
 
-\julia{Vera: is this still relevant?  What does this mean? ``GraphX
-  graphs maintain foreign key constraint during subgraph operation and
-  we make use of this for all physical representations besides VE.''}
+For the \trg logical representation, and for the physical
+representations RG, OG and HG, we rely on GraphX to maintain valid
+representative graphs, and so do not maintain referential integrity
+explicitly.
 
   \eat{
     {\bf Foreign key constraint.}  The \ve data model includes a
