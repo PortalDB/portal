@@ -66,7 +66,7 @@ evaluation in Section~\ref{sec:sys:coal}.
 \STATE  enforce foreign keys on $\te'$ w.r.t. $\tv'$\\
 \STATE  enforce foreign keys on $\tav'$ w.r.t. $\tv'$\\
 \STATE  enforce foreign keys on $\tae'$ w.r.t. $\te'$\\
-\RETURN new $\tve (\tv', \te', \tav', \tae')$\\
+\RETURN new $\tve (\tv';\te';\tav';\tae')$\\
 \end{algorithmic}
 \label{alg:op}
 \end{algorithm}
@@ -350,10 +350,10 @@ graphs directly.
 \begin{algorithm}[h!]
 \caption{Temporal aggregation in \tve.}
 \begin{algorithmic}[1]
-\REQUIRE \tve (\tv, \te, \tav, \tae), window specification $W$, vertex
+\REQUIRE \tve (\tv;\te;\tav;\tae), window specification $W$, vertex
 quantifier $Q_V$, edge quantifier $Q_E$, vertex aggregate function
 $f_V$, vertex aggregate function $f_E$.\\
-\STATE $P = \ensuremath{computePeriods}(W, \tv, \te, \tav, \tae)$\\
+\STATE $P = \textsf{computePeriods}(W, \tv, \te, \tav, \tae)$\\
 \STATE  $\tv' = \cl (\gamma_{P,Q_V}(\tv))$\\
 \STATE  $\te' = \cl (\gamma_{P,Q_E}(\te))$\\
 \STATE  $\tav' = \cl (\gamma_{P,f_V}(\tav))$\\
@@ -361,7 +361,7 @@ $f_V$, vertex aggregate function $f_E$.\\
 \STATE  enforce foreign keys on $\te'$ w.r.t. $\tv'$\\
 \STATE  enforce foreign keys on $\tav'$ w.r.t. $\tv'$\\
 \STATE  enforce foreign keys on $\tae'$ w.r.t. $\te'$\\
-\RETURN new $\tve (\tv', \te', \tav', \tae')$\\
+\RETURN new $\tve (\tv';\te';\tav';\tae')$\\
 \end{algorithmic}
 \label{alg:agg_ve}
 \end{algorithm}
@@ -394,19 +394,19 @@ We now give an analysis of whether FK enforcement is required, by
 considering the relationship between vertex and edge aggregation
 quantifiers $Q_V$ and $Q_E$.  Recall that we support quantifiers
 \insql{all}, \insql{most}, \insql{at least} $n$, and \insql{exists},
-and observe that they can be translated to a threshold $t$ on the
+and observe that they can be translated to a threshold on the
 percentage of the time during which an entity (vertex or edge)
 existed, relative to the duration of the aggregation window: $t = 1$
 for \insql{all}, $t > 0.5$ for \insql{most}, $t > 0$ for
 \insql{exists} and $t > n$ for \insql{at least} $n$.  Let us refer to
-the resulting vertex threshold as $t_V$, and to the edge threshold as
-$t_E$.  If an entity's existence meets the threshold, it will be
-retained in the result of aggregation.
+the vertex threshold as $t_V$, and to the edge threshold as $t_E$.  If
+an entity's existence meets the threshold, it will be retained in the
+result of aggregation.
 
-FK enforcement is only required if $t_V$ is stricter than $t_E$.  To
-see why this is so, consider 2 cases.  (1) Suppose that $t_V \leq
-t_E$.  To violate FK constraint, we must produce an edge $(v_1, v_2,
-p) \in \te'$ and not produce vertex $(v_1, p) \in \tv'$.  This edge
+\julia{rewrite} FK enforcement is only required if $t_V$ is stricter
+than $t_E$.  To see why, consider 2 cases.  (1) Suppose that $t_V \leq
+t_E$.  To violate FK constraint, we must produce edge $(v_1, v_2, p)
+\in \te'$ and not produce vertex $(v_1, p) \in \tv'$.  This edge
 $(v_1, v_2)$ must have been valid during at least $t_E$ portion of p
 in \te.  If our input is valid, then there must exist both $v_1$ and
 $v_2$ in \tv during at least $t_E$ portion of p to pass the FK
@@ -418,7 +418,6 @@ during at least $t_V$ portion of p.  However, since $t_V$ is larger
 than $t_E$, we may not produce a vertex in \tv' that meets $t_E$ but
 does not meet the greater $t_V$.  In that case the edge is violating
 the FK constraint.
-
 
 \eat{ Our aggregation quantifiers are inspired by generalized
   quantifiers of~\cite{Hsu1995} with n-place delimiters.  $Q(R)$ as a
@@ -624,16 +623,16 @@ with group by id.}
 \subsection{Temporal graph intersection}
 \label{sec:algebra:join}
 
-The binary temporal graph intesection operation $\trga \cap \trgb$
-computes a temporal inner $\theta$-join~\cite{Gao2005} of \trga and
-\trgb, producing a tuple for each pair of representative graphs for
-which time periods intersect: $\trga \cap \trgb = \{(g_1 \cap g_2, p_1
-\cap p_2)~|~((g_1, p_1) \in \trga \wedge (g_2, p_2) \in \trgb \wedge
-p_1 \cap p_2 \neq \emptyset \}$.  The result of $g_1 \cap g_2$ is
-computed by intersecting the sets of vertices and of edges of the
-graphs~\cite{GraphTheory}.  For each vertex and edge in the result, we
-compute a union of their bags of properties. \julia{Figure with
-  example.}
+The binary temporal graph intersection operation $\trga \cap \trgb$
+computes a temporal join~\cite{Gao2005} of \trga and \trgb with the
+predicate $\trga.p \cap \trgb.p \neq \emptyset$, producing a tuple for
+each pair of representative graphs for which time periods intersect:
+$\trga \cap \trgb = \{(g_1 \cap g_2, p_1 \cap p_2)~|~((g_1, p_1) \in
+\trga \wedge (g_2, p_2) \in \trgb \wedge p_1 \cap p_2 \neq \emptyset
+\}$.  The result of $g_1 \cap g_2$ is computed by intersecting the
+sets of vertices and of edges of the graphs~\cite{GraphTheory}.  For
+each vertex and edge in the result, we compute a {\em union} of their
+bags of properties. \julia{Figure with example.}
 
 \eat{The computation over \trg is essentially a temporal inner
   theta-join of $\trg_1$ and $\trg_2$ with a $p_1 \cap p_2$ predicate,
@@ -643,21 +642,25 @@ intersects the vertex and edge sets from the two
 operands~\cite{GraphTheory}.}
 
 Algorithm~\ref{alg:inter} presents the evaluation of $\tvea \cap
-\tveb$.  We compute temporal inner joins over the corresponding \tv
-and \te relations (lines 1, 2).  We then compute \tav' and \tae' by
-performing temporal outer joins of the corresponding relations (lines
-3, 4).  grouping the results .  Finally, we enforce foreign key
-constraints on \te', \tav' and \tae' (lines 5---7).
+\tveb$.  We compute temporal joins over the corresponding \tv and \te
+relations (lines 1, 2).  We then compute \tav' and \tae' by performing
+temporal outer joins of the corresponding relations (lines 3, 4).
+Finally, we enforce foreign key constraints on \te', \tav' and \tae'
+(lines 5, 6).
 
 \begin{algorithm}
 \caption{Temporal graph intersection in \tve.}
 \begin{algorithmic}[1]
-\REQUIRE $\tvea (\tv_1, \te_1, \tav_1, \tae_1), \tveb (\tv_2, \te_2, \tav_2, \tae_2)$.\\
-\STATE $\tv' = \tv_1 \Join^T \tv_2$\\
-\STATE $\te' = \te_1 \Join^T \te_2$\\
-\STATE $\tav' = \pi_{a_1 \cap a_2}(\tav_1 \Join^T \tav_2)$\\
-\STATE $\tae' = \pi_{a_1 \cap a_2}(\tae_1 \Join^T \tae_2)$\\
-\RETURN new $\tve (\tv', \te', \tav', \tae')$\\
+%\REQUIRE $\tvea (\tv_1;\te_1;\tav_1;\tae_1), \tveb (\tv_2;\te_2;\tav_2;\tae_2)$.\\
+\REQUIRE $\tvea, \tveb$.\\
+\STATE $\tv' = \cl (\tv_1 \Join^T_v \tv_2)$\\
+\STATE $\te' = \cl (\te_1 \Join^T_{v_1,v_2} \te_2)$\\
+\STATE $\tav' = \pi_{v,p,\tav_1.a \cup \tav_2.a}\tav_1 \fullouterjoin^T_v \tav_2$\\
+\STATE $\tae' = \pi_{v_1,v_2,p,\tae_1.a \cup \tae_2.a}\tae_1 \fullouterjoin^T_{v_1,v_2} \tae_2$\\
+%\STATE $\tae' = \pi_{a_1 \cap a_2}(\tae_1 \Join^T \tae_2)$\\
+\STATE  enforce foreign keys on $\tav'$ w.r.t. $\tv'$\\
+\STATE  enforce foreign keys on $\tae'$ w.r.t. $\te'$\\
+\RETURN new $\tve (\tv';\te';\tav';\tae')$\\
 \end{algorithmic}
 \label{alg:inter}
 \end{algorithm}
@@ -672,35 +675,60 @@ no edges and exists for the period $[1/15, 5/15)$.  The
   produces the same graph with vertex $v_1$ for each period of
   intersection $[1/15, 2/15), [2/15, 5/15)$, which must be coalesced.
 
-{\bf Intersection does not require FK enforcement for \tve.}  The
-proof for this is similar to the one for \insql{slice}.  Consider an
-edge $\te(v_1, v_2, p^e)$ and one of the corresponding vertices
-$\tv(v_1, p^v)$ obtained through temporal joins above.  To violate the
-FK constraint, there has to exist at least one time instant $t \in p^e
-\wedge t \not\in p^v$.  But that is not possible, since by definition
-of temporal join $p^e$ exists both in $\te_1$ and $\te_2$ and $\tve_1$
-and $\tve_2$ are valid \tgs.
+{\bf Intersection requires FK enforcement for \tav and \tae but not
+  for \te.}  \julia{revise} The proof for this is similar to the one
+for \insql{slice}.  Consider an edge $\te(v_1, v_2, p^e)$ and one of
+the corresponding vertices $\tv(v_1, p^v)$ obtained through temporal
+joins above.  To violate the FK constraint, there has to exist at
+least one time instant $t \in p^e \wedge t \not\in p^v$.  But that is
+not possible, since by definition of temporal join $p^e$ exists both
+in $\te_1$ and $\te_2$ and $\tve_1$ and $\tve_2$ are valid \tgs.
 
 \subsection{Temporal graph union}
 \label{sec:algebra:outerjoin}
 
-Temporal union $\trg_1 \cup \trg_2 = \{ (g, p) | (g_1, p_1) \in \trg_1
-\wedge (g_2, p_2) \in \trg_2 \wedge ((g = g_1 \cup g_2 \wedge p = p_1
-\cap p_2 \wedge p_1 \cap p_2 \neq \emptyset) \vee (g = g_1 \wedge p =
-p_1 - p_2 \wedge \nexists p \in \trg_2 = p_1 - p_2) \vee (g = g_2
-\wedge p = p_2 - p_1 \wedge \nexists p \in \trg_1 = p_2 - p_1))\}$.
-Similar to temporal intersection, temporal union is essentially an
-outer theta-join of $\trg_1$ and $\trg_2$ with a $p_1 \cap p_2$
-predicate.  We use the standard graph union definition based on set
-theory, which computes unions of the vertex and edge sets from the two
-operands~\cite{GraphTheory}.  To evaluate over \tve, we compute
-temporal natural outer joins over corresponding \tv, \te, \tav, \tae,
-followed by projection over \tav and \tae to union $a_1$ and $a_2$.
-The union of attributes for both vertices and edges is done according
-to the standard bag semantics.  This is shown in
-Algorithm~\ref{alg:union}.
+The binary temporal graph union operation $\trga \cup \trgb$ computes
+a temporal full outer join~\cite{Gao2005} of \trga and \trgb on the
+predicate $\trga.p \cap \trgb.p $. For tuples $(g_1, p_1) \in \trga$
+and $(g_2, p_2) \in \trgb$ for which $p_1 \cap p_2 \neq \emptyset$, we
+compute $(g_1 \cup g_2, p_1 \cap p_2)$.  The result of $g_1 \cup g_2$
+is computed by taking a {\em union} of the sets of vertices and of
+edges of the graphs~\cite{GraphTheory}.  For each vertex and edge in
+the result, we compute a {\em union} of their bags of properties.
+Tuples from \trga (resp. \trgb)for which there does not exist a tuple
+in \trgb (resp. \trga) for part or all of the validity period are
+included in the result of the full outer join.  \julia{Figure with
+  example.}
+
+\eat{
+ $\trg_1 \cup \trg_2 = \{ (g, p) | (g_1, p_1) \in \trg_1 \wedge (g_2,
+p_2) \in \trg_2 \wedge ((g = g_1 \cup g_2 \wedge p = p_1 \cap p_2
+\wedge p_1 \cap p_2 \neq \emptyset) \vee (g = g_1 \wedge p = p_1 - p_2
+\wedge \nexists p \in \trg_2 = p_1 - p_2) \vee (g = g_2 \wedge p = p_2
+- p_1 \wedge \nexists p \in \trg_1 = p_2 - p_1))\}$.  Similar to
+temporal intersection, temporal union is essentially an outer
+theta-join of $\trg_1$ and $\trg_2$ with a $p_1 \cap p_2$ predicate.
+We use the standard graph union definition based on set theory, which
+computes unions of the vertex and edge sets from the two
+operands~\cite{GraphTheory}.}
+
+Algorithm~\ref{alg:union} presents the evaluation of $\tvea \cup
+\tveb$.  We compute temporal joins over the corresponding \tv and \te.
 
 \begin{algorithm}
+\caption{Temporal graph union in \tve.}
+\begin{algorithmic}[1]
+\REQUIRE $\tvea, \tveb$.\\
+\STATE $\tv' = \cl (\tv_1 \fullouterjoin^T_v \tv_2)$\\
+\STATE $\te' = \cl (\te_1 \fullouterjoin^T_{v1,v2} \te_2)$\\
+\STATE $\tav' = \pi_{v,p,\tav_1.a \cup \tav_2.a}\tav_1 \fullouterjoin^T_v \tav_2$\\
+\STATE $\tae' = \pi_{v_1,v_2,p,\tae_1.a \cup \tae_2.a}\tae_1 \fullouterjoin^T_{v1,v2} \tae_2$\\
+\RETURN new $\tve (\tv';\te';\tav';\tae')$\\
+\end{algorithmic}
+\label{alg:union}
+\end{algorithm}
+
+\eat{\begin{algorithm}
 \caption{Temporal graph union in \tve.}
 \begin{algorithmic}[1]
 \REQUIRE $\tve_1 (\tv_1, \te_1, \tav_1, \tae_1), \tve_2 (\tv_2, \te_2, \tav_2, \tae_2)$.\\
@@ -712,6 +740,7 @@ Algorithm~\ref{alg:union}.
 \end{algorithmic}
 \label{alg:union}
 \end{algorithm}
+}
 
 {\bf Union may uncoalesce \tve and \trg.}  The logic here is similar
 to the case with temporal intersection.  Because we produce a single
@@ -721,11 +750,15 @@ consider a simple \tg $T_2$ that consists of a single graph equal to
 the first representative graph of \insql{T} in Figure~\ref{fig:tg_rg}
 valid for a period of $[12/14, 5/15)$.  The same representative graph
   will be produced for period $[12/14, 1/15)$ and $[1/15, 2/15)$ and
-      must be coalesced.
+      must be coalesced.  \julia{can this operation uncoalesce \tav
+        and \tae or only \tv and \te?  Explain, modify lines 3, 4 of
+        algorithm if yes.}
 
-{\bf Union does not require FK enforcement for \tve.}  A full outer
-join does not remove any vertices from either $\trg_1$ or $\trg_2$, so
-the validity of all resulting edges remains intact.
+{\bf Union does not require FK enforcement for \tve.}
+\julia{rephrase, ``remove'' is not the right explanation, the result
+  is a new graph.} A full outer join does not remove any vertices or
+edges from either $\trg_1$ or $\trg_2$, so the validity of all
+resulting edges remains intact.
 
 \eat{\begin{definition}[Union] Union of $TG1\ \cup\ TG2$ = $\{v, e: v
     \in TG1.V$ or $v \in TG2.V$ or $v(vid$, $f_1(a_{11}$, $a_{21})$,
