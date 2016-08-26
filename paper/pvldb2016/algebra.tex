@@ -676,13 +676,15 @@ no edges and exists for the period $[1/15, 5/15)$.  The
   intersection $[1/15, 2/15), [2/15, 5/15)$, which must be coalesced.
 
 {\bf Intersection requires FK enforcement for \tav and \tae but not
-  for \te.}  \julia{revise} The proof for this is similar to the one
-for \insql{slice}.  Consider an edge $\te(v_1, v_2, p^e)$ and one of
-the corresponding vertices $\tv(v_1, p^v)$ obtained through temporal
-joins above.  To violate the FK constraint, there has to exist at
-least one time instant $t \in p^e \wedge t \not\in p^v$.  But that is
-not possible, since by definition of temporal join $p^e$ exists both
-in $\te_1$ and $\te_2$ and $\tve_1$ and $\tve_2$ are valid \tgs.
+  for \te.}  \eat{The proof for this is similar to the one for
+  \insql{slice}. } Consider an edge $\te(v_1, v_2, p^e) \in \te'$ and
+one of the corresponding vertices $\tv(v_1, p^v) \in \tv'$ computed in
+Algorithm~\ref{alg:inter}.  To violate the FK constraint on \te',
+there must exist a time instant $t \in p^e \wedge t \not\in p^v$.  But
+that is not possible, since by definition of temporal join $p^e$
+exists in both $\te_1$ and $\te_2$, and $\tve_1$ and $\tve_2$ are
+valid \tgs.  \julia{give an example that shows that \tav requires FK
+  enforcement, say ``similarly for \tae''}
 
 \subsection{Temporal graph union}
 \label{sec:algebra:outerjoin}
