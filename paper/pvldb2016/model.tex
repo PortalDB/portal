@@ -62,9 +62,9 @@ and $q$ using the following Allen's relations~\cite{allen83}.}
 \label{sec:model:rg}
 
 The basic building block of our model is a \tg, which represents a
-graph that evolves continuously over time, and is defined over a set
-of vertices $V$, edges $E\subseteq V \times V$, vertex attributes
-\avv, and edge attributes \aee.
+single graph that evolves continuously over time, and is defined over
+a set of vertices $V$, edges $E\subseteq V \times V$, vertex
+attributes \avv, and edge attributes \aee.
 
 \begin{definition}[TGraph]
 A \tg $\tgg(g, p)$ is a valid-time period-based relation in which a
@@ -76,9 +76,15 @@ Each $g = (V_g, E_g, \avv_g, \aee_g)$, with $V_g \subseteq V$, $E_g
 %
 \tgg is temporally coalesced:
 \begin{multline}
-\forall \tgg(g,p)~~\nexists \tgg(g,p')~~| \\
+\forall \tgg(g,p)~\nexists \tgg(g,p')~~| \\
         \pred{p}{meets}{p'}~\lor~\pred{p}{contains}{p'}~\lor~\pred{p}{overlaps}{p'}
 \end{multline}
+
+\tgg represents evolution of a single graph over time:
+\begin{multline}
+\forall \tgg(\_,p)~\nexists \tgg(\_,p')|~\pred{p}{contains}{p'}~\lor~\pred{p}{overlaps}{p'}
+\end{multline}
+
 We refer to each $g$ that appears in some tuple $(g,p)$ of \tgg as a
 representative graph of \tgg during period $p$.
 \label{def:tg_abstract}
@@ -96,8 +102,8 @@ consecutive periods $p_1=[1/15, 2/15), \ldots, p_5=[7/15, 10/15)$.
     represent vertex and edge attributes.  Each vertex and edge of $g$
     during period $p$ is associated with a (possibly empty) {\em bag}
     of properties, and each property represented by a key-value pair.
-    Values of individual properties are not restricted to be of atomic
-    types, and may, e.g., be maps or tuples.
+    Values are not restricted to be of atomic types, and may, e.g., be
+    maps or tuples.
 
 As is typical in interval-based models, each representative graph is
 assumed to exists continuously, and remains unchanged, during the
@@ -202,7 +208,10 @@ i.e., that an attribute is represented exactly once for each time
 period of maximal length in which its value did not change.  Consider
 Figure~\ref{fig:tg_ve} and note that there is a single tuple for
 vertex $v_2$ in \tv, but three tuples for $v_2$ in \tav, because
-$school=CMU$ was added at time 5/15, and $school=MIT$ at 7/15.
+$school=CMU$ was added at time 5/15, and $school=MIT$ at 7/15.  It is
+not required that a vertex or an edge be represented in \tav and \tae
+--- a vertex or edge that never had any associated attributes will
+have no corresponding tuples in \tav or \tae.
 
 Definitions~\ref{def:tg_abstract} and~\ref{def:tg} give two
 alternative views of graph evolution.  In
