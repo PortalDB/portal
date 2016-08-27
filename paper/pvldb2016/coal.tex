@@ -1,7 +1,5 @@
-\subsection{Coalescing}
+\section{Lazy Coalescing}
 \label{sec:sys:coal}
-
-\julia{I have a lock on this section.}
 
 \eat{
 \begin{table}
@@ -24,25 +22,112 @@ analytics & no & yes \\
 }
 
 All operations and all sequences of operations must output a valid
-temporally coalesced \tg.  The \ql system supports both eager and lazy
-coalescing, with lazy being the default behavior for multi-operator
-queries.  Interestingly, correctness of most \tg algebra operations
-does not depend on whether the input was coalesced, and so coalescing
-can be deferred.  The following are unconditional coalescing rules,
-assuming $T, \tve, \trg$ are uncoalesced.
+temporally coalesced \tg.  There are several different implementations
+possible for the coalesce operation over temporal SQL relations,
+see~\cite{DBLP:conf/vldb/BohlenSS96} for detailed analysis.  We use a
+partitioning method, where the relation (e.g., \tv, \te, \trg) is
+grouped by key, and within each group the tuples are sorted and folded
+to produce the corresponding time periods of maximum length.  This
+approach involves shuffling between partitions, one of the most
+computationally expensive aspects of distributed systems, and thus
+lazy coalescing is preferred in most cases.  The \ql system supports
+both eager and lazy coalescing, with lazy being the default behavior
+for multi-operator queries. Interestingly, correctness of many \tg
+algebra operations does not depend on whether their input is
+coalesced, and so coalescing can be deferred.
+\eat{ As with duplicate elimination, if the coalesced output is
+  expected to be significantly reduced in size, such as after a
+  project operation on a high volatility attribute, performing
+  coalesce eagerly before a time-consuming operation, especially
+  analytics, can be advantageous.}
+%
+We now present useful coalescing rules (\ttt stands for either \trg or
+\tve).
 
-The first rule eliminates successive coalescing:
+{\bf Successive coalescing is unnecessary} in \tg algebra just as it
+is for (non-graph) temporal
+databases~\cite{DBLP:conf/vldb/BohlenSS96}:\eat{ $\cl(\cl(\ttt)) \equiv
+\cl(\ttt)$.  }
 
 \begin{equation}
-coal(coal(T)) \equiv coal(T)
-\label{rul:coalr0}
+\cl(\cl(\ttt)) \equiv \cl(\ttt)
+\label{rul:twice}
 \end{equation}
 
-Rules in ~\cref{rul:coalr1,rul:coalr2,rul:coalr3} exploit the
-fact that some operations preserve coalescing, as shown in
-Section~\ref{sec:algebra}:
+It is unnecessary to coalesce an already coalesced \ttt, a useful rule
+if the data on disk is known to be coalesced:\eat{ $\cl(\ttt) \equiv \ttt$
+$\text{iff}~\textsf{is\_coalesced}(\ttt)$.}
 
 \begin{equation}
+\cl(\ttt) \equiv \ttt ~~\text{iff}~\textsf{is\_coalesced}(\ttt)
+\label{rul:cond}
+\end{equation}
+
+%The first rule eliminates successive coalescing:
+
+%\begin{equation}
+%\cl(\cl(\ttt)) \equiv \cl(\ttt)
+%\label{rul:coalr0}
+%\end{equation}
+
+{\bf Slice allows lazy coalescing.}  We showed in
+Section~\ref{sec:algebra:slice} that slice does not destroy
+coalescing.  Further, recall that $\tau_c(\cl(\ttt))$ returns tuples
+$(x,p \cap c)$, for which $p \cap c \neq \emptyset$.  If \ttt is
+uncoalesced, then there exist some value-equivalent tuples $(x, p_1)$
+and $(x, p_2)$
+s.t. $\pred{p_1}{meets}{p_2}~\lor~\pred{p_1}{contains}{p_2}~\lor$\\$\pred{p_1}{overlaps}{p_2}$,
+which would be replaced by $(x, p_1 \cup p_2)$ in \cl(\ttt).  Because
+intersection distributes over union, i.e.,$(p_1 \cup p_2) \cap c =
+(p_1 \cap c) \cup (p_2 \cap c)$, coalescing can be equivalently
+performed before or after slice: \eat{$\cl(\tau_c(\ttt)) \equiv
+\tau_c(\cl(\ttt))$.}
+
+\begin{equation}
+\cl(\tau_c(\ttt)) \equiv \tau_c(\cl(\ttt))
+\label{rul:slice}
+\end{equation}
+
+{\bf Temporal subgraph allows lazy coalescing.} It was shown
+in~\cite{DBLP:conf/vldb/BohlenSS96} that coalescing can be deferred
+until after selection if the selection condition is independent of the
+valid time of the input. Since temporal subgraph
+(Section~\ref{sec:algebra:subgraph}) is a time-invariant form of
+select, coalescing can be deferred.  Subgraph does not uncoalesce \tve
+but may uncoalesce \trg (Section~\ref{sec:algebra:subgraph}). For this
+reason it is required to coalesce the final output in
+Rule~\ref{rul:subgraphrg} even if the input was eagerly coalesced, but
+this is not required in Rule~\ref{rul:subgraphve}.
+
+\begin{equation}
+\cl(\sigma_{C_V,C_E}(\tve)) \equiv \sigma_{C_V,C_E}(\cl(\tve))
+\label{rul:subgraphve}
+\end{equation}
+\begin{equation}
+\cl(\sigma_{C_V,C_E}(\trg)) \equiv \cl(\sigma_{C_V,C_E}(\cl(\trg)))
+\label{rul:subgraphrg}
+\end{equation}
+
+Deferring coalescing can be quite effective for
+Rules~\ref{rul:slice},~\ref{rul:subgraphve} and~\ref{rul:subgraphrg}
+if the selectivity of the predicate is high.
+
+{\bf Temporal map allows lazy coalescing}, since it processes each
+input tuple without modifying the corresponding time intervals, and
+independently of the valid time of the input.  Map may destroy
+coalescing, and requires to coalesce the final output even if the
+input was eagerly coalesced.
+
+\begin{equation}
+\cl(\map_{M_V,M_E}(\ttt)) \equiv \cl(\map_{M_V,M_E}(\cl(\ttt)))
+\label{rul:map}
+\end{equation}
+
+\eat{Rules in ~\ref{rul:coalr1,rul:coalr2,rul:coalr3} exploit the fact that
+some operations preserve coalescing, as shown in
+Section~\ref{sec:algebra}:}
+
+\eat{\begin{equation}
 coal(\tau_c(coal(T))) \equiv \tau_c(coal(T))
 \label{rul:coalr1}
 \end{equation}
@@ -53,19 +138,19 @@ coal(\sigma_f(coal(\tve))) \equiv \sigma_f(coal(\tve))
 \begin{equation}
 coal(udf(coal(T))) \equiv udf(coal(T))
 \label{rul:coalr3}
-\end{equation}
+\end{equation}}
 
-Rules in
+\eat{Rules in
 ~\cref{rul:coalr4,rul:coalr5,rul:coalr6,rul:coalr7,rul:coalr8,rul:coalr9}
 cover operations which are invariant with respect to time and so
-coalescing can be postponed until after the operation:
+coalescing can be postponed until after the operation:}
 
-\begin{equation}
+\eat{\begin{equation}
 \tau_c(coal(T)) \equiv coal(\tau_c(T))
 \label{rul:coalr4}
-\end{equation}
+\end{equation}}
 
-Recall that slice selects each entity with an interval that intersects
+\eat{Recall that slice selects each entity with an interval that intersects
 with $c$ and modifies only the selected tuple periods to $p \cap c$.
 According to the rule~\ref{rul:coalr1}, slice does not uncoalesce.  If
 the input relation is uncoalesced, it contains some value-equivalent
@@ -73,109 +158,124 @@ tuples with adjacent or overlapping periods.  According to the
 definitions of $intersect$ and $coalesce$, an intersect with interval
 $p$ is the same as the coalesce of intersects of intervals composing
 $p$.  I.e., $p \cap c = (p1 \cap c) \cup (p2 \cap c$) where $p = p1
-\cup p2$.  Thus coalescing can be performed before or after slice.
+\cup p2$.  Thus coalescing can be performed before or after slice.}
 
-\begin{equation}
+\eat{\begin{equation}
 coal(\sigma_f(coal(T))) \equiv coal(\sigma_f(T))
 \label{rul:coalr5}
-\end{equation}
+\end{equation}}
 
-As shown in~\cite{DBLP:conf/vldb/BohlenSS96}, coalescing can be
+\eat{As shown in~\cite{DBLP:conf/vldb/BohlenSS96}, coalescing can be
 deferred until after the selection if the selection condition is
 independent of the valid time of the input. Since subgraph is a
 time-invariant form of select, coalesce is not required prior to
 subgraph.  For both this rule and the slice rule above, deferring
 coalescing can be quite effective if the selectivity of the predicate
-is high.
+is high.}
 
-\begin{equation}
+\eat{\begin{equation}
 coal(\mu(coal(T))) \equiv coal(\mu(T))
 \label{rul:coalr6}
-\end{equation}
+\end{equation}}
 
-The map operation processes each tuple without modifying the
+\eat{The map operation processes each tuple without modifying the
 corresponding intervals and independently of the valid time of the
-input.  Thus, as above, coalesce can be deferred.
+input.  Thus, as above, coalesce can be deferred.}
 
-\begin{equation}
+\eat{\begin{equation}
 coal(coal(T_1) \cap coal(T_2)) \equiv coal(T_1 \cap T_2)
 \label{rul:coalr7}
-\end{equation}
+\end{equation}}
 
-\begin{equation}
+\eat{\begin{equation}
 coal(coal(T_1) \cup coal(T_2)) \equiv coal(T_1 \cup T_2)
 \label{rul:coalr8}
-\end{equation}
+\end{equation}}
 
-For \trg, temporal graph intersection is a inner theta-join followed
+\eat{For \trg, temporal graph intersection is a inner theta-join followed
 by projection.  As shown in~\cite{DBLP:conf/vldb/BohlenSS96},
 coalescing can be deferred until after a join and after a projection
 if that projection is independent of the valid time interval of the
 tuple, which is the case here.  Thus we can defer coalescing until
 after the temporal graph intersection.  Temporal graph union is also a
-join, albeit an outer one, so the same argument applies.
+join, albeit an outer one, so the same argument applies.}
 
-\begin{equation}
+\eat{\begin{equation}
 coal(udf(coal(T))) \equiv coal(udf(T))
 \label{rul:coalr9}
+\end{equation}}
+
+{\bf Temporal intersection and union allow lazy coalescing.} For \trg,
+temporal graph intersection is a join followed by projection.  As
+shown in~\cite{DBLP:conf/vldb/BohlenSS96}, coalescing can be deferred
+until after a join, and after a projection if projection is
+independent of the valid time interval of the tuple, which is the case
+here.  Thus we can defer coalescing until after temporal graph
+intersection.  Temporal graph union is also a join, albeit an outer
+one, so the same argument applies.  Note that both operations may
+destroy coalescing, and so a final coalesce is required over the
+result even if inputs were eagerly coalesced.
+
+\begin{equation}
+\cl(\cl(\ttt_1) \cap \cl(\ttt_2)) \equiv \cl(\ttt_1 \cap \ttt_2)
+\label{rul:intersect}
+\end{equation}
+\begin{equation}
+\cl(\cl(\ttt_1) \cup \cl(\ttt_2)) \equiv \cl(\ttt_1 \cup \ttt_2)
+\label{rul:union}
 \end{equation}
 
-If the \tg is not coalesced, it contains one or more value-equivalent
+{\bf Temporal aggregation requires eager coalescing.}  When
+aggregating by change, the input must be coalesced to compute correct
+aggregation windows.  If the input is not coalesced, then there may be
+two or more consecutive intervals which should be treated as one but
+would count separately. For aggregation by time, some aggregate
+functions also require coalesced input.  For example, \insql{count}
+will produce different result if several consecutive or overlapping
+value-equivalent tuples fall within the same window.  Thus we add the
+following conditional coalescing rule:
+
+\begin{multline}
+\cl(\gamma_{W,Q_V,Q_E,A_V,A_E}(\cl(\ttt))) \equiv \cl(\gamma_{W,Q_V,Q_E,A_V,A_E}(\ttt)) \\
+\text{iff}~~W \text{by\_time} \wedge A_V, A_E \in \{\insql{any},\insql{first}, \insql{last},\insql{min}, \insql{max} \}
+\label{rul:agg}
+\end{multline}
+
+\insql{any} returns any one of the values associated with a property
+within each group in $W$, and so is invariant to time and to the
+number of tuples in $W$.  \insql{first} and \insql{last} pick the
+earliest (resp. latest) value within each group in $W$.  If \ttt is
+uncoalesced, they is at least one pair of value-equivalent tuples with
+overlapping or consecutive periods.  Selecting between equivalent
+values will generate the same result.  The same argument applies to
+\insql{min} and \insql{max}.
+
+{\bf Temporal user-defined analytics allow lazy coalescing.} If \trg
+is not coalesced, it contains one or more value-equivalent
 representative graphs with consecutive or overlapping periods.
 Analytics are time-invariant functions applied to each representative
 graph.  Thus when applied to value-equivalent graphs, they will
-produce equivalent results.  Because analytics tend to be
-computationally expensive operations, it may be beneficial to eagerly
-coalesce before them so that they are executed on a smaller number of
-graphs.
-
-When aggregating by change, the input must be coalesced to compute
-correct aggregation windows.  If the input is not coalesced, then
-there may be two or more consecutive intervals which should be treated
-as one but would count separately. For aggregate by time, some
-aggregate functions also require coalesced input.  For example, count
-aggregate will produce different result if several consecutive or
-overlapping value-equivalent tuples fall within the same window.  Thus
-we add the following conditional coalescing rules:
-
-\begin{multline}
-coal(\gamma_{W,Q_V,Q_E,f_V,f_E}(coal(T))) \equiv coal(\gamma_{W,Q_V,Q_E,f_V,f_E}(T)) \\
-iff~~f_V \in \{any | first | last | min | max\}~~\wedge \\
-f_E \in \{any | first | last | min | max\}
-\label{rul:coalr10}
-\end{multline}
-
-$any$ aggregate returns one of the entity values in the aggregation
-window, with no guarantees as to which one.  It is clear that it is
-invariant to time or the number of grouped tuples.  $first$ and $last$
-aggregates pick temporally earliest, resp. latest, value in each
-group.  If $T$ is uncoalesced, they is at least one pair of
-value-equivalent tuples with overlapping or consecutive periods.
-Selecting between equivalent values will generate the same result
-regardless of the number of those values.  The same argument applies
-to $min$ and $max$.
-
-Finally, a rule that eliminates coalescing of coalesced \tgs:
+produce equivalent results, and so coalesce can be deferred.  Further,
+analytics to not destroy coalescing, and so it is not required to
+coalesce again ove the final result.  
 
 \begin{equation}
-coal(T) \equiv T~~iff~~is\_coalesced(T)
-\label{rul:coalr11}
+\cl(\uda(\ttt)) \equiv \uda(\cl(\ttt))
+\label{rul:analytic}
 \end{equation}
 
-This last rule is very useful if the data on disk is known to be
-coalesced.
+Although it is possible to defer coalesce for analytics, this will not
+be done in practice.  Analytics are computationally expensive, and it
+is usually beneficial to eagerly coalesce the input, reducing the
+number of representative graphs.
 
-There are several different implementations possible for the coalesce
-operation over temporal SQL relations,
-see~\cite{DBLP:conf/vldb/BohlenSS96} for detailed analysis.  We use a
-partitioning method, where the relation (e.g., \tv, \te, \trg) is
-grouped by key, and within each group the tuples are sorted and folded
-to produce the corresponding time periods of maximum length.  This
-approach involves shuffling between partitions, one of the most
-computationally expensive aspects of distributed systems, and thus
-lazy coalescing is preferred in most cases.\eat{ As with duplicate
-  elimination, if the coalesced output is expected to be significantly
-  reduced in size, such as after a project operation on a high
-  volatility attribute, performing coalesce eagerly before a
-  time-consuming operation, especially analytics, can be
-  advantageous.}
+%Finally, a rule that eliminates coalescing of coalesced \tgs:
+
+\eat{\begin{equation}
+coal(T) \equiv T~~iff~~is\_coalesced(T)
+\label{rul:coalr11}
+\end{equation}}
+
+%This last rule is very useful if the data on disk is known to be
+%coalesced.
+
