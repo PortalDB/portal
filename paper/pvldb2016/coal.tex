@@ -1,4 +1,5 @@
-\section{Lazy Coalescing}
+%\section{Lazy Coalescing}
+\subsection{Lazy Coalescing}
 \label{sec:sys:coal}
 
 \eat{
@@ -22,46 +23,43 @@ analytics & no & yes \\
 }
 
 All operations and all sequences of operations must output a valid
-temporally coalesced \tg.  There are several different implementations
-possible for the coalesce operation over temporal SQL relations,
-see~\cite{DBLP:conf/vldb/BohlenSS96} for detailed analysis.  We use a
+temporally coalesced \tg.  Several implementations are possible for
+the coalesce operation over temporal SQL relations,
+see~\cite{DBLP:conf/vldb/BohlenSS96} for details.  We use the
 partitioning method, where the relation (e.g., \tv, \te, \trg) is
-grouped by key, and within each group the tuples are sorted and folded
-to produce the corresponding time periods of maximum length.  This
-approach involves shuffling between partitions, one of the most
-computationally expensive aspects of distributed systems, and thus
-lazy coalescing is preferred in most cases.  The \ql system supports
-both eager and lazy coalescing, with lazy being the default behavior
-for multi-operator queries. Interestingly, correctness of many \tg
-algebra operations does not depend on whether their input is
-coalesced, and so coalescing can be deferred.
+grouped by key, and tuples are sorted and folded within each group to
+produce time periods of maximum length.  This involves shuffling
+between partitions, is computationally expensive, and motivates
+lazy coalescing.
+
+Correctness of many \tg algebra operations does not depend on whether
+their input is coalesced.  Consequently, \ql supports both eager and
+lazy coalescing, with lazy being the default for queries that admit
+it.  We now present useful coalescing rules (\ttt stands for either
+\trg or \tve).
+
 \eat{ As with duplicate elimination, if the coalesced output is
   expected to be significantly reduced in size, such as after a
   project operation on a high volatility attribute, performing
   coalesce eagerly before a time-consuming operation, especially
   analytics, can be advantageous.}
 %
-We now present useful coalescing rules (\ttt stands for either \trg or
-\tve).
 
-{\bf Successive coalescing is unnecessary} in \tg algebra just as it
+\eat{{\bf Successive coalescing is unnecessary} in \tg algebra just as it
 is for (non-graph) temporal
-databases~\cite{DBLP:conf/vldb/BohlenSS96}:\eat{ $\cl(\cl(\ttt)) \equiv
-\cl(\ttt)$.  }
-
-\begin{equation}
+databases~\cite{DBLP:conf/vldb/BohlenSS96}:}
+\eat{\begin{equation}
 \cl(\cl(\ttt)) \equiv \cl(\ttt)
 \label{rul:twice}
-\end{equation}
+\end{equation}}
 
-It is unnecessary to coalesce an already coalesced \ttt, a useful rule
-if the data on disk is known to be coalesced:\eat{ $\cl(\ttt) \equiv \ttt$
-$\text{iff}~\textsf{is\_coalesced}(\ttt)$.}
+\eat{It is unnecessary to coalesce an already coalesced \ttt, e.g., if the
+data on disk is known to be coalesced:}
 
-\begin{equation}
-\cl(\ttt) \equiv \ttt ~~\text{iff}~\textsf{is\_coalesced}(\ttt)
+\eat{\begin{equation} 
+\cl(\ttt) \equiv \ttt~~\text{iff}~\textsf{is\_coalesced}(\ttt)
 \label{rul:cond}
-\end{equation}
+\end{equation}}
 
 %The first rule eliminates successive coalescing:
 
@@ -82,7 +80,6 @@ intersection distributes over union, i.e.,$(p_1 \cup p_2) \cap c =
 (p_1 \cap c) \cup (p_2 \cap c)$, coalescing can be equivalently
 performed before or after slice: \eat{$\cl(\tau_c(\ttt)) \equiv
 \tau_c(\cl(\ttt))$.}
-
 \begin{equation}
 \cl(\tau_c(\ttt)) \equiv \tau_c(\cl(\ttt))
 \label{rul:slice}
@@ -98,7 +95,6 @@ but may uncoalesce \trg (Section~\ref{sec:algebra:subgraph}). For this
 reason it is required to coalesce the final output in
 Rule~\ref{rul:subgraphrg} even if the input was eagerly coalesced, but
 this is not required in Rule~\ref{rul:subgraphve}.
-
 \begin{equation}
 \cl(\sigma_{C_V,C_E}(\tve)) \equiv \sigma_{C_V,C_E}(\cl(\tve))
 \label{rul:subgraphve}
@@ -114,10 +110,9 @@ if the selectivity of the predicate is high.
 
 {\bf Temporal map allows lazy coalescing}, since it processes each
 input tuple without modifying the corresponding time intervals, and
-independently of the valid time of the input.  Map may destroy
-coalescing, and requires to coalesce the final output even if the
-input was eagerly coalesced.
-
+independently of the valid time.  Map destroys coalescing
+(Section~\ref{sec:algebra:project}), and requires to coalesce the
+output even if the input was eagerly coalesced.
 \begin{equation}
 \cl(\map_{M_V,M_E}(\ttt)) \equiv \cl(\map_{M_V,M_E}(\cl(\ttt)))
 \label{rul:map}
@@ -205,26 +200,6 @@ coal(udf(coal(T))) \equiv coal(udf(T))
 \label{rul:coalr9}
 \end{equation}}
 
-{\bf Temporal intersection and union allow lazy coalescing.} For \trg,
-temporal graph intersection is a join followed by projection.  As
-shown in~\cite{DBLP:conf/vldb/BohlenSS96}, coalescing can be deferred
-until after a join, and after a projection if projection is
-independent of the valid time interval of the tuple, which is the case
-here.  Thus we can defer coalescing until after temporal graph
-intersection.  Temporal graph union is also a join, albeit an outer
-one, so the same argument applies.  Note that both operations may
-destroy coalescing, and so a final coalesce is required over the
-result even if inputs were eagerly coalesced.
-
-\begin{equation}
-\cl(\cl(\ttt_1) \cap \cl(\ttt_2)) \equiv \cl(\ttt_1 \cap \ttt_2)
-\label{rul:intersect}
-\end{equation}
-\begin{equation}
-\cl(\cl(\ttt_1) \cup \cl(\ttt_2)) \equiv \cl(\ttt_1 \cup \ttt_2)
-\label{rul:union}
-\end{equation}
-
 {\bf Temporal aggregation requires eager coalescing.}  When
 aggregating by change, the input must be coalesced to compute correct
 aggregation windows.  If the input is not coalesced, then there may be
@@ -234,7 +209,6 @@ functions also require coalesced input.  For example, \insql{count}
 will produce different result if several consecutive or overlapping
 value-equivalent tuples fall within the same window.  Thus we add the
 following conditional coalescing rule:
-
 \begin{multline}
 \cl(\gamma_{W,Q_V,Q_E,A_V,A_E}(\cl(\ttt))) \equiv \cl(\gamma_{W,Q_V,Q_E,A_V,A_E}(\ttt)) \\
 \text{iff}~~W \text{by\_time} \wedge A_V, A_E \in \{\insql{any},\insql{first}, \insql{last},\insql{min}, \insql{max} \}
@@ -250,6 +224,26 @@ with overlapping or consecutive periods.  Selecting between equivalent
 values will generate the same result.  The same argument applies to
 \insql{min} and \insql{max}.
 
+{\bf Temporal intersection and union allow lazy coalescing.} For \trg,
+temporal graph intersection (Section~\ref{sec:algebra:join}) is a join
+followed by projection.  As shown in~\cite{DBLP:conf/vldb/BohlenSS96},
+coalescing can be deferred until after a join, and after a projection
+if projection is independent of the valid time interval of the tuple,
+which is the case here.  Thus we can defer coalescing until after
+temporal graph intersection.  Temporal graph union
+(Section~\ref{sec:algebra:outerjoin}) is an outer join, and the same
+argument applies.  Note that both operations may destroy coalescing,
+and so a final coalesce is required over the result even if inputs
+were eagerly coalesced.
+\begin{equation}
+\cl(\cl(\ttt_1) \cap \cl(\ttt_2)) \equiv \cl(\ttt_1 \cap \ttt_2)
+\label{rul:intersect}
+\end{equation}
+\begin{equation}
+\cl(\cl(\ttt_1) \cup \cl(\ttt_2)) \equiv \cl(\ttt_1 \cup \ttt_2)
+\label{rul:union}
+\end{equation}
+
 {\bf Temporal user-defined analytics allow lazy coalescing.} If \trg
 is not coalesced, it contains one or more value-equivalent
 representative graphs with consecutive or overlapping periods.
@@ -258,12 +252,10 @@ graph.  Thus when applied to value-equivalent graphs, they will
 produce equivalent results, and so coalesce can be deferred.  Further,
 analytics to not destroy coalescing, and so it is not required to
 coalesce again over the final result.  
-
 \begin{equation}
 \cl(\uda(\ttt)) \equiv \uda(\cl(\ttt))
 \label{rul:analytic}
 \end{equation}
-
 Although it is possible to defer coalesce for analytics, this will not
 be done in practice.  Analytics are computationally expensive, and it
 is usually beneficial to eagerly coalesce the input, reducing the

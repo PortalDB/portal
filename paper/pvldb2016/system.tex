@@ -1,3 +1,4 @@
+\newpage
 \section{System}
 \label{sec:sys}
 
@@ -15,6 +16,8 @@ def slice(bound: Interval): TGraph[VD, ED]
 def aggregate(window: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId): TGraph[VD, ED]
 def union(other: TGraph[VD, ED]): TGraph[Set[VD], Set[ED]]
 \end{lstlisting}}
+
+\input{coal}
 
 \subsection{Physical Representations}
 \label{sec:sys:datastructs}
@@ -91,7 +94,9 @@ operations.
 
 \begin{figure}[t!]
 \includegraphics[width=3in]{figs/ogc.pdf}
+\vspace{-0.2cm}
 \caption{\og representation of \insql{T1}.}
+\vspace{-0.5cm}
 \label{fig:ogc}
 \end{figure}
 
@@ -110,11 +115,11 @@ consecutively, and so VE preserves temporal locality.
   is that it can easily deal with schema evolution and leaves the
   details of attribute processing to the user. } 
 
-The VE representation supports all \tg algebra operations but cannot
-support analytics.  This is because an analytic is defined on a
-representative graph, which VE does not materialize.  As we will show
-in Section~\ref{sec:exp}, due to compactness this physical
-representation is the most efficient for many operations.
+VE supports all \tg algebra operations but cannot support analytics.
+This is because an analytic is defined on a representative graph,
+which VE does not materialize.  As we will show in
+Section~\ref{sec:exp}, due to compactness this physical representation
+is the most efficient for many operations.
 
 {\bf OneGraph (OG)} is the most topologically compact representation,
 which stores all vertices from \tav {\em and} edges from \tae once, in
@@ -159,10 +164,10 @@ performance.  However as we will see experimentally in
 Section~\ref{sec:exp}, the current \hg implementation already improves
 performance compared to \og, in some cases significantly.
 
-Like \og, the \hg representation focuses on topology-based analysis,
-and so does not represent vertex and edge attributes. OG implements
-analytics, aggregation, union, and intersection, and supports all
-other operations through inheritance from VE.
+Like \og, \hg focuses on topology-based analysis, and so does not
+represent vertex and edge attributes. OG implements analytics,
+aggregation, union, and intersection, and supports all other
+operations through inheritance from VE.
 
 \subsection{Additional Implementation Details}
 \label{sec:sys:maint}
@@ -171,21 +176,20 @@ other operations through inheritance from VE.
 representation of a \tg (Definition~\ref{def:tg}), and the
 corresponding VE physical representation
 (Section~\ref{sec:sys:datastructs}), require that referential
-integrity be maintained by algebraic operations, and this is done on
-lines 6---8 of Algorithm~\ref{alg:op}.  In Section~\ref{sec:algebra}
-we discussed that temporal subgraph~\ref{sec:algebra:subgraph} and
-aggregation~\ref{sec:algebra:agg} both require that tuples be removed
+integrity be maintained by algebraic operations (lines 6---8 of
+Algorithm~\ref{alg:op}).  We discussed that temporal subgraph
+(Section~\ref{sec:algebra:subgraph}) and aggregation
+(Section~\ref{sec:algebra:agg}) both require that tuples be removed
 from \te, or that their periods of validity be modified to be included
 within the periods of validity of the corresponding vertices
-(Condition~\ref{def:tg:c1} of Definition~\ref{def:tg}), due to changes
-in \tv.  We do this by executing a join of \te with \tv on vertex ids
---- either a broadcast join if \tv is small, or a hash join --- and
-then adjusting time periods as necessary.  This is an expensive
-operation and is only performed when necessary: when temporal subgraph
-has a non-trivial predicate on $C_V$, and when temporal aggregation
-has a more restrictive vertex aggregation quantifier $Q_V$ than edge
-quantifier $Q_E$ (see the end of Section~\ref{sec:algebra:agg} for a
-discussion).
+(Condition~\ref{def:tg:c1} of Definition~\ref{def:tg}).  We do this by
+executing a join of \te with \tv on vertex ids --- either a broadcast
+join if \tv is small, or a hash join --- and then adjusting time
+periods as necessary.  This is an expensive operation and is only
+performed when necessary: when temporal subgraph has a non-trivial
+predicate on $C_V$, and when temporal aggregation has a more
+restrictive vertex aggregation quantifier $Q_V$ than edge quantifier
+$Q_E$ (see Section~\ref{sec:algebra:agg} for a discussion).
 
 For the \trg logical representation, and for the physical
 representations RG, OG and HG, we rely on GraphX to maintain valid
@@ -210,19 +214,18 @@ explicitly.
     graphs maintain foreign key constraint during subgraph operation
     and we make use of this for all representations besides VE.}
 
-{\bf Partitioning.}  Graph partitioning can have a tremendous impact
-on system performance.  A good partitioning strategy needs to (1) be
-balanced, assigning an approximately equal number of units to each
-partition, and (2) limit the number of cuts across partitions, to
-reduce cross-partition communication.  In our experiments we compare
-performance with (1) no repartitioning after load, and (2) with
-repartitioning using the 2D edge partitioning strategy (E2D).  This
-strategy is available in GraphX and was used without modification.  In
+{\bf Partitioning.}  Graph partitioning has a tremendous impact on
+performance.  A good partitioning strategy needs to be balanced,
+assigning an approximately equal number of units to each partition,
+and limit the number of cuts across partitions, reducing
+cross-partition communication.  In our experiments we compare
+performance with no repartitioning after load vs.  with
+repartitioning, using the GraphX E2D edge partitioning strategy.  In
 E2D, a sparse edge adjacency matrix is partitioned in two dimensions,
 guaranteeing a $2 \sqrt{n}$ bound on vertex replication, where $n$ is
-the number of partitions. As has been shown
-previously~\cite{DBLP:conf/osdi/GonzalezXDCFS14,MoffittTempWeb16}, E2D
-provides good performance for Pregel-style analytics.
+the number of partitions. E2D has been shown to provide good
+performance for Pregel-style
+analytics~\cite{DBLP:conf/osdi/GonzalezXDCFS14,MoffittTempWeb16}.
 
 {\bf Graph loading.}  We use the Apache Parquet format for on-disk
 storage, with one archive for vertices and another for edges,
