@@ -7,20 +7,22 @@ ask about graphs have to do with their evolution. Which Web pages are
 showing an increasing popularity trend? How does influence propagate
 in social networks? How does knowledge evolve?
 
-Much research and engineering effort today goes into developing
+\eat{Much research and engineering effort today goes into developing
 sophisticated graph analytics and their efficient implementations,
 both stand-alone and in scope of data processing platforms. Yet, {\em
   systematic support} for scalable querying and analytics over {\em
-  evolving graphs} still lacks.
+  evolving graphs} still lacks.}
 
-In this paper we propose a representation of an evolving graph, called
-a \tg, which captures evolution of graph topology, and of attributes
-of vertices and edges, continuously through time.  We develop a
-compositional \tg algebra that includes a variety of useful
-operations, including temporal selection, subgraph and aggregation,
-and a rich class of analytics.  We present \ql, a system that
-implements our model and algebra in scope of Apache Spark, an
-open-source distributed data processing framework.  We develop
+In this paper we address the need to enable {\em systematic support}
+for scalable querying and analytics over {\em evolving
+  graphs}. \eat{In this paper w}We propose a representation of an
+evolving graph, called a \tg, which captures evolution of graph
+topology, and of attributes of vertices and edges, continuously
+through time.  We develop a compositional \tg algebra that includes a
+variety of useful operations, including temporal selection, subgraph
+and aggregation, and a rich class of analytics.  We present \ql, a
+system that implements our model and algebra in scope of Apache Spark,
+an open-source distributed data processing framework.  We develop
 multiple physical representations of evolving graphs and study the
 trade-offs between structural and temporal locality.  We provide an
 extensive experimental evaluation on real datasets, demonstrating that
