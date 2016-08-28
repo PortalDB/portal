@@ -245,8 +245,8 @@ following conditional coalescing rule:
 within each group in $W$, and so is invariant to time and to the
 number of tuples in $W$.  \insql{first} and \insql{last} pick the
 earliest (resp. latest) value within each group in $W$.  If \ttt is
-uncoalesced, they is at least one pair of value-equivalent tuples with
-overlapping or consecutive periods.  Selecting between equivalent
+uncoalesced, there is at least one pair of value-equivalent tuples
+with overlapping or consecutive periods.  Selecting between equivalent
 values will generate the same result.  The same argument applies to
 \insql{min} and \insql{max}.
 
