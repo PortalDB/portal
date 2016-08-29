@@ -14,15 +14,14 @@ both stand-alone and in scope of data processing platforms. Yet, {\em
   evolving graphs} still lacks.}
 
 In this paper we address the need to enable {\em systematic support}
-for scalable querying and analytics over {\em evolving
-  graphs}. \eat{In this paper w}We propose a representation of an
-evolving graph, called a \tg, which captures evolution of graph
-topology, and of attributes of vertices and edges, continuously
-through time.  We develop a compositional \tg algebra that includes a
-variety of useful operations, including temporal selection, subgraph
-and aggregation, and a rich class of analytics.  We present \ql, a
-system that implements our model and algebra in scope of Apache Spark,
-an open-source distributed data processing framework.  We develop
+for scalable querying and analytics over {\em evolving graphs}.  We
+propose a representation of an evolving graph, called a \tg, which
+captures evolution of graph topology, and of attributes of vertices
+and edges, continuously through time.  We develop a compositional \tg
+algebra that includes such operations as temporal selection, subgraph,
+aggregation, and a rich class of analytics.  We present \ql, a system
+that implements our model and algebra in scope of Apache Spark, an
+open-source distributed data processing framework.  We develop
 multiple physical representations of evolving graphs and study the
 trade-offs between structural and temporal locality.  We provide an
 extensive experimental evaluation on real datasets, demonstrating that

@@ -34,15 +34,19 @@ and $q$: $[\predName{max}(p.start,q.start), \predName{min}(p.end,
 \begin{figure}
 \centering
 \includegraphics[width=3.5in]{figs/T1_graphs.pdf}
+\vspace{-0.5cm}
 \caption{Representative graphs of \tg \insql{T1}.}
+\vspace{-0.5cm}
 \label{fig:tg_rg}
 \end{figure}
 
 \begin{figure}
 \centering
-\includegraphics[width=3.5in]{figs/T1_rel_tab.pdf}
-\caption{Vertex-edge representation of \tg
-  \insql{T1}.}
+%\includegraphics[width=3.5in]{figs/T1_rel_tab.pdf}
+\includegraphics[width=3in]{figs/T1_rel.pdf}
+\vspace{-0.2cm}
+\caption{Vertex-edge representation of \tg \insql{T1}.}
+\vspace{-0.5cm}
 \label{fig:tg_ve}
 \end{figure}
 
@@ -206,12 +210,12 @@ length when it is present.  Conditions~\ref{def:tg:c4}
 and~\ref{def:tg:c6} state that all attribute relations are coalesced,
 i.e., that an attribute is represented exactly once for each time
 period of maximal length in which its value did not change.  Consider
-Figure~\ref{fig:tg_ve} and note that there is a single tuple for
-vertex $v_2$ in \tv, but three tuples for $v_2$ in \tav, because
-$school=CMU$ was added at time 5/15, and $school=MIT$ at 7/15.  It is
-not required that a vertex or an edge be represented in \tav and \tae
---- a vertex or edge that never had any associated properties, i.e. an
-empty bag, will have no corresponding tuples in \tav or \tae.
+Figure~\ref{fig:tg_ve} and note that there is a single tuple for $v_2$
+in \tv, but three tuples for $v_2$ in \tav, because $school=CMU$ was
+added at time 5/15, and $school=MIT$ at 7/15.  It is not required that
+a vertex or an edge be represented in \tav and \tae --- a vertex or
+edge that never had any associated properties will have no
+corresponding tuples in \tav or \tae.
 
 Definitions~\ref{def:tg_abstract} and~\ref{def:tg} give two
 alternative views of graph evolution.  In
@@ -280,14 +284,13 @@ literature~\cite{DBLP:conf/vldb/BohlenSS96,DBLP:journals/sigmod/Zimanyi06},
 but is not supported by the standard.  Note that, while it is an
 important property of our logical model that time periods be
 coalesced, eagerly coalescing is both expensive and, in some cases,
-unnecessary.  We will discuss this when presenting \tg algebra
-(Section~\ref{sec:algebra}) and its implementation in scope of Apache
-Spark / GraphX (Section~\ref{sec:sys:coal}).
+unnecessary.  We will discuss lazy coalescing in
+Section~\ref{sec:sys:coal}.
 
 While our \ve representation is based on temporal SQL, we reiterate
-here that non-key attributes of vertices and edges are stored as
-collections of properties.  Note that Definition~\ref{def:tg} presents
-a logical data structure and may be implemented, e.g., by a columnar
+that non-key attributes of vertices and edges are stored as
+collections of properties.  Definition~\ref{def:tg} presents a logical
+data structure and may be implemented, e.g., by a columnar
 representation of vertex and edge properties (each property in a
 separate relation), or by some hybrid representation.  A columnar
 representation may be more efficient if different properties change at
@@ -307,8 +310,9 @@ vertex and edge attributes as part of \tv and \te.  The main reason is
 to streamline the enforcement of referential integrity constraints of
 Definition~\ref{def:tg}.  Consider again the example in Figure
 ~\ref{fig:tg_ve}.  If vertex attributes were stored as part of \tv,
-then there would be two tuples for $v_2$ in this relation, one for
-each $[2/15, 5/15)$ and $[5/15, 10/15)$.  This would in turn require
+then there would be two tuples for $v_2$ in this relation whose
+validity periods overlap with that of edge $e(v_1, v_2)$ --- one for
+each$[2/15, 5/15)$ and $[5/15, 7/15)$.  This would in turn require
     that $e(v_1, v_2)$ be mapped to two tuples in \tv as part of
     referential integrity checking on $v_2$.  Matching a tuple with a
     set of tuples in the referenced table, while supported by the
@@ -317,7 +321,7 @@ each $[2/15, 5/15)$ and $[5/15, 10/15)$.  This would in turn require
 %
 \eat{ We will discuss how integrity of the model is enforced, and how
   this is implemented, in Sections~\ref{sec:algebra}
-  and~\ref{sec:sys}.}  Another reason for optional \tav and \tae is
+  and~\ref{sec:sys}.}Another reason for optional \tav and \tae is
 that in many cases we are interested in applying operations (e.g.,
 analytics) only to graph topology, and in that case \tv and \te are
 sufficient.
@@ -363,13 +367,12 @@ The \trg and \tve representations are equivalent in terms of the
 information they contain.  \trg can be computed from \tve by (1)
 enumerating all time points during which some change occurred, i.e.,
 those that appear as either the start or the end of some time period
-in \tv, \te, \tav, and \tae; (2) computing \rgs periods by generating
+in \tv, \te, \tav, and \tae; (2) computing \trg periods by generating
 pairs of adjacent time points from step 1, and sorting them by
-$start$; (3) constructing a representative $g$ graph for each time
-period $p$ by selecting the entities from \tv, \te, \tav, and \tae~
-that overlap with $p$.
+$start$; (3) constructing a graph $g$ for each time period $p$ by
+selecting tuplesfrom \tv, \te, \tav, and \tae~ that overlap with $p$.
 
-To compute \ve from \rgs, we must compute four relations, \tv, \te,
+To compute \tve from \trg, we must compute four relations, \tv, \te,
 \tav, and \tae.  This is done by iterating over the tuples $\trg
 (g,p)$, computing $\tv_g(v,p)$ (similarly for $\te_g$, $\tav_g$,
 $\tav_g$) for each tuple, collecting $\tv_g \rightarrow \tv$, $\te_g
@@ -377,7 +380,7 @@ $\tav_g$) for each tuple, collecting $\tv_g \rightarrow \tv$, $\te_g
 \tae$, and finally coalescing each \tv, \te, \tav, \tae.
 
 Next, we will present operators of \tg algebra, stating their
-semantics over the \rgs and \ve data structures
+semantics over the \trg and \tve data structures
 (Section~\ref{sec:algebra}).  We will then discuss how each operator
 is implemented over several possible physical representations of these
 logical data structures (Section~\ref{sec:sys}).

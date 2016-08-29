@@ -3,7 +3,7 @@
 
 In this section we describe the operators of \tg algebra.  The algebra
 is compositional --- all operators take a \tg or a pair of \tgs as
-input, and produce a valid \tg as output.
+input, and produce a \tg.
 
 \subsection{Preliminaries}
 \label{sec:algebra:prelim}
@@ -41,19 +41,18 @@ states that an operation should yield the same result when applied to
 the temporal representation as it would if it were applied separately
 to every snapshot state of the temporal representation.
 
-Consider a unary operation \opp and suppose that it is being evaluated
-over the \ve representation \opp(\tve).  Algorithm~\ref{alg:op}
-outlines the steps in the evaluation, overloading \opp as appropriate
-when applying the operation to constituent parts of \tve.  Some of the
-steps in Algorithm~\ref{alg:op} may be unnecessary because of the
-properties of the particular operation, as we will see in the
-remainder of this section.  Furthermore, some of the operations may
-produce correct results (up to coalescing) {\em even when computing
-  over uncoalesced inputs}.  This was discussed in the context of
-temporal relational algebra in~\cite{DBLP:conf/vldb/BohlenSS96}, and
-rules were proposed to eliminate superfluous coalescing. We will
-revisit this point in the context of \tg algebra when discussing lazy
-evaluation in Section~\ref{sec:sys:coal}.
+Consider the evaluation of a unary operation \opp over the \ve
+representation \opp(\tve).  Algorithm~\ref{alg:op} outlines the steps
+in the evaluation, overloading \opp as appropriate when applying the
+operation to constituent parts of \tve.  Some of the steps in
+Algorithm~\ref{alg:op} may be unnecessary because of the properties of
+the particular operation, as we will see in the remainder of this
+section.  Furthermore, some of the operations may produce correct
+results (up to coalescing) {\em even when computing over uncoalesced
+  inputs}.  This was discussed in the context of temporal relational
+algebra in~\cite{DBLP:conf/vldb/BohlenSS96}, and rules were proposed
+to eliminate superfluous coalescing. We will revisit this point in
+Section~\ref{sec:sys:coal}.
 
 \begin{algorithm}[h!]
 \caption{Evaluation of a unary operation \opp on \tve}
@@ -74,15 +73,13 @@ evaluation in Section~\ref{sec:sys:coal}.
 \subsection{Slice}
 \label{sec:algebra:slice}
 
-The unary {\em slice} operator, denoted $\tau_c (T)$, where $c$ is a
-time period, cuts a temporal slice from $T$.  The resulting \tg will
-contain representative graphs whose period $p$ has a non-empty
-intersection with $c$ (i.e., $p$ is either contained within $c$ or
-overlaps with it, see Section~\ref{sec:model:prelim}).  If $p.start <
-c.start$ or $p.end > c.end$ for some tuple $(g, p)$, then $p$ is
-trimmed to be within the boundaries of $c$: $\tau_c (\trg) = \{ (g, p
-\cap c)~~|~~(g, p) \in \trg \wedge (\pred{c}{overlaps}{p} \vee
-\pred{c}{contains}{p})\}$.
+The unary {\em slice} operator, denoted $\tau_c (\ttt)$, where $c$ is
+a time period, cuts a temporal slice from \ttt.  The resulting \tg
+will contain representative graphs whose period $p$ has a non-empty
+intersection with $c$.  If $p.start < c.start$ or $p.end > c.end$ for
+some tuple $(g, p)$, then $p$ is trimmed to be within the boundaries
+of $c$: $\tau_c (\trg) = \{ (g, p \cap c)~~|~~(g, p) \in \trg \wedge
+(\pred{c}{overlaps}{p} \vee \pred{c}{contains}{p})\}$.
 
 To evaluate $\tau_c (\tve)$, we apply $\tau_c$ to each of the four
 constituent relations of \tve.  For example: 
@@ -136,29 +133,22 @@ computed as a result of this operation, we restrict our attention to
 functions that compute a single subgraph of a given representative
 graph as a result: $\sigma_f (\trg) = \{ (g', p)~~|~~(g, p) \in \trg
 \wedge g' = f(g) \wedge$\\$V_{g'} \subseteq V_{g} \wedge E_{g'}
-\subseteq E_{g} \}$.
-
-\eat{For example, $f$ may select a subset of the vertices or edges of
-  $g$ based on some condition that can be computed locally at a vertex
-  or edge, or by a path / reachability expression.  In this paper we
-  restrict our attention to conjunctive queries.}  Even more
-specifically, we focus on functions that can be expressed as a pair of
-{\em conjunctive queries} $\sigma_{C_V,C_E} (\trg)$, where $C_V$
-specifies {\em non-temporal predicates} over the vertices of $g$, and
-$C_E$ --- over the edges of $g$. (Computing arbitrary subgraphs of an
-evolving graph is beyond the scope of this paper, and we defer this to
-future work.)
+\subseteq E_{g} \}$. Even more specifically, we focus on functions
+that can be expressed as a pair of {\em conjunctive queries}
+$\sigma_{C_V,C_E} (\trg)$, where $C_V$ specifies {\em non-temporal
+  predicates} over the vertices, and $C_E$ --- over the
+edges. (Computing arbitrary subgraphs of an evolving graph is beyond
+the scope of this paper, and we defer this to future work.)
 
 Like other unary operators, $\sigma_{C_V, C_E} (\tve)$ follows the
-outline of Algorithm~\ref{alg:op}.  Importantly, since $C_V$ and $C_E$
-may involve predicates over the attributes, we compute the join of the
-vertex (resp. edge) relation with the corresponding attribute relation
-to evaluate the query, and push selections as appropriate.  Line 1 of
-Algorithm~\ref{alg:op} becomes: $\tv' = \pi_{v,p} (\sigma_{C_{V1}} (V)
-\bowtie \sigma_{C_{V2}} (\tav))$.  Similarly, we compute $\te' =
-\pi_{v_1,v_2,p} (\sigma_{C_{E1}} (E) \bowtie \sigma_{C_{E2}} (\tae))$
-(line 2), $\tav' = \sigma_{C_{V2}} (\tav)$ (line 3) and $\tae' =
-\sigma_{C_{V2}} (\tae)$ (line 4).
+outline of Algorithm~\ref{alg:op}.  Since $C_V$ and $C_E$ may involve
+predicates over the attributes, we compute the join of the vertex
+(resp. edge) relation with the corresponding attribute relation and
+push selections:$\tv' = \pi_{v,p} (\sigma_{C_{V1}} (V) \bowtie
+\sigma_{C_{V2}} (\tav))$ (line 1),$\te' = \pi_{v_1,v_2,p}
+(\sigma_{C_{E1}} (E) \bowtie \sigma_{C_{E2}} (\tae))$ (line 2), $\tav'
+= \sigma_{C_{V2}} (\tav)$ (line 3), $\tae' = \sigma_{C_{V2}} (\tae)$
+(line 4).
 
 {\bf Subgraph does not uncoalesce \tve.}  Consider again the
 computation of $\tv'$ described above, with a query that involves
