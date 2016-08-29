@@ -23,7 +23,7 @@ very small running times.
 wiki-talk-en & 2.9M & 10.7M & 2002--2015 & 14.4 \\ \hline
 nGrams & 29.3M & 2.5B & 1520--2008 & 16.67 \\ \hline
 %%DELIS & 128M & 40.5B & 2006--2007 & ? \\ \hline
-twitter & 505.4M & 23B & 2006--2012 & ? \\ \hline
+twitter & 505.4M & 23B & 2006--2012 & 88.? \\ \hline
 \end{tabular}
 \label{tab:datasets}
 \end{table}
@@ -60,7 +60,7 @@ previous section, and should be interpreted in that context.
 \centering
 \includegraphics[width=2.2in]{figs/slice_wikitalk_build13.png}
 \vspace{-0.1in}
-\caption{Slice on wiki-talk dataset.}
+\caption{Slice on wiki-talk.}
 \label{fig:slicewiki}
 \vspace{-0.1in}
 \end{minipage}
@@ -68,7 +68,7 @@ previous section, and should be interpreted in that context.
 \centering
 \includegraphics[width=2.2in]{figs/slice_ngrams_build13.png}
 \vspace{-0.1in}
-\caption{Slice on nGrams dataset.}
+\caption{Slice on nGrams.}
 \label{fig:slicengrams}
 \vspace{-0.1in}
 \end{minipage}
@@ -76,7 +76,7 @@ previous section, and should be interpreted in that context.
 \centering
 \includegraphics[width=2.6in]{figs/project_wikitalk_build13.png}
 \vspace{-0.1in}
-\caption{Map on wiki-talk dataset vertices.}
+\caption{Map on wiki-talk.}
 \label{fig:project}
 \vspace{-0.1in}
 \end{minipage}
@@ -99,23 +99,23 @@ when the data is stored as individual
 snapshots~\cite{PortalarXiv2016}, although less redundant work is
 needed in that case.
 
-\begin{figure*}
+\begin{figure*}[th]
 \centering
-\begin{minipage}{3.3in}
+\begin{minipage}{2.2in}
 \centering
-\includegraphics[width=2.8in]{figs/select_wikitalk_vertices_build12.png}
-\caption{Select on the wiki-talk dataset, return vertices.}
+\includegraphics[width=2.2in]{figs/subgraph_wikitalk_build13.png}
+\caption{Subgraph on wiki-talk.}
 \vspace{-0.1in}
-\label{fig:selectv}
+\label{fig:subgraphwiki}
 \vspace{-0.1in}
 \end{minipage}
-\begin{minipage}{3.3in}
+\begin{minipage}{2.2in}
 \centering
-\includegraphics[width=2.8in]{figs/select_ngrams_edges_build12.png}
+\includegraphics[width=2.2in]{figs/select_ngrams_edges_build12.png}
 \vspace{-0.1in}
 \caption{Select on the nGrams dataset, return edges.}
 \vspace{-0.1in}
-\label{fig:selecte}
+\label{fig:subgraphngrams}
 \end{minipage}
 \end{figure*}
 
@@ -128,28 +128,17 @@ because \insql{map} requires a coalescing operation as the last step,
 while \insql{slice} does not.
 
 {\bf Subgraph.}  \insql{subgraph} performance was evaluated by varying
-selectivity over length of the vertex attribute.  When materializing
-vertices, regardless of the evolution rate \ve provides better
-performance than \sg and linear to selectivity.  Performance of \sg is
-a function of the number of intervals and is insensitive to
-the selectivity.  The behavior of \ve for edges
-(Figure~\ref{fig:selecte}) is dominated by the foreign key constraint
-enforcement: with small selectivity broadcast join affords performance
-linear to the number of edges.  For large number of vertices broadcast
-join is not feasible and a hash-join is used instead, which is
-substantially slower.  Even then \ve provides an order of magnitude
-better performance than \sg.
+selectivity over length of the vertex attribute.  Performance of \sg
+is a function of the number of intervals and is insensitive to the
+selectivity (Figure~\ref{fig:subgraphwiki}).  The behavior of VE is
+dominated by the foreign key constraint enforcement: with small
+selectivity broadcast join affords performance linear to the number of
+edges (Figure~\ref{fig:subgraphwiki}).  For large number of vertices
+broadcast join is not feasible and a hash-join is used instead, which
+is substantially slower (Figure~\ref{fig:subgraphngrams}).  Even then
+VE provides an order of magnitude better performance than \sg.
 
-\eat{
-\begin{figure}
-\centering
-\includegraphics[width=2.8in]{figs/project_wikitalk_vertices_build12.png}
-\caption{Map vertex attribute into its length on the wiki-talk dataset.}
-\label{fig:project}
-\end{figure}
-}
-
-\begin{figure*}[h]
+\begin{figure*}[th]
 \begin{minipage}{2in}
 \centering
 \includegraphics[height=1.7in]{figs/agg_allall_wikitalk_vertices_build11_trimmed.png}
