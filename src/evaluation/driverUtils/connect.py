@@ -183,20 +183,6 @@ class DBConnection():
     
         return None
 
-    def persist_queryTables(self, op_dict):
-        id_dict = self.persist_ops(op_dict) #persist to Operation table
-        #check if id already exists
-        queryId = self.find_query_id(id_dict)
-	print queryId
-        if queryId is None:
-            qRef = self.persist_query() #persist to Query table
-            self.persist_query_ops(qRef, id_dict) #persist to Query_Op_Map table
-            return qRef
-        else:
-            qRef = models.Query.get((models.Query.query_id == queryId))
-            return qRef
-
-
     def persist_time_op(self, eRef, qRef, id_dict, time_dict):
         try:
             for seqN, oid in id_dict.iteritems():

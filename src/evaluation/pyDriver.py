@@ -338,7 +338,14 @@ def run(configFile, email):
                 #only run this once for each query
                 if querySaved == False:
                     op_dict = collect_args(query, strat, runw)
-                    qRef = dbconnect.persist_queryTables(op_dict)
+                    id_dict = dbconnect.persist_ops(op_dict) #persist to Operation table
+                    #check if queryId already exists
+                    queryId = dbconnect.find_query_id(id_dict)
+                    if queryId is None:
+                        qRef = dbconnect.persist_query() #persist to Query table
+                        dbconnect.persist_query_ops(qRef, id_dict) #persist to Query_Op_Map table
+                    else:
+                        qRef = driverUtils.models.Query.get((driverUtils.models.Query.query_id == queryId))
                     querySaved = True
 
 
