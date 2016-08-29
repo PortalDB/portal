@@ -1,6 +1,5 @@
 \section{Algebra}
 \label{sec:algebra}
-
 In this section we describe the operators of \tg algebra.  The algebra
 is compositional --- all operators take a \tg or a pair of \tgs as
 input, and produce a \tg.
@@ -150,6 +149,17 @@ push selections:$\tv' = \pi_{v,p} (\sigma_{C_{V1}} (V) \bowtie
 = \sigma_{C_{V2}} (\tav)$ (line 3), $\tae' = \sigma_{C_{V2}} (\tae)$
 (line 4).
 
+{\bf Subgraph may uncoalesce \trg.} Consider \insql{T1} in
+Figure~\ref{fig:tg_rg}.  The query
+$\sigma_{C_V:{school='Drexel'},C_E:\top} (\insql{T1})$ matches
+vertices $v_1$ and $v_3$ in every representative graph in which these
+occur.  Since graphs for time periods $[1/15,2/15)$ through
+  $[6/15,7/15)$ are identical (containing both $v_1$ and $v_3$ and no
+    edges), the result will be uncoalesced, and will need to be
+    coalesced explicitly.  The final result will consist of 2
+    representative graphs, with both $v_1$ and $v_3$ for $[1/15,
+      7/15)$, and with $v_3$ only for $[7/15, 10/15)$.
+
 {\bf Subgraph does not uncoalesce \tve.}  Consider again the
 computation of $\tv'$ described above, with a query that involves
 projection, selection and join over temporal SQL relations $\tv$ and
@@ -170,32 +180,22 @@ relations using only selection, they are guaranteed to be coalesced.
 Thus, it is not necessary to coalesce on lines 1-4 of
 Algorithm~\ref{alg:op}.
 
-{\bf Subgraph does require FK enforcement for \tve.}  Perhaps the most
-natural temporal subgraph query is one that specifies a selection
-condition over the vertices, and computes the vertex-induced subgraph.
-In this case we cannot compute $\te'$ from $\te$ alone, but will also
-need to remove edges for which one or both vertices are not present in
-$\tv'$ during the specified time period.  Similarly, we need to remove
-tuples from $\tav'$ and $\tae'$ for which no corresponding tuples
-exist in $\tv'$ and $\te'$, respectively.
-
-{\bf Subgraph may uncoalesce \trg.} Consider the result of
-$\sigma_{C_V:{school='Drexel'},C_E:\top} (\insql{T1})$ when applied to
-the \tg in Figure~\ref{fig:tg_rg}.  This query keeps vertices $v_1$
-and $v_3$ in every representative graph, and no edges.  Since graphs
-corresponding to time periods $p1$ through $p4$ will be identical, the
-result will be uncoalesced, and will need to be coalesced explicitly.
-The result will consist of 2 representative graphs, with both $v_1$
-and $v_3$ for $[1/15, 7/15)$, and with $v_3$ only for $[7/15, 10/15)$.
+{\bf Subgraph requires FK enforcement for \tve.}  A very natural
+temporal subgraph query specifies a selection condition over the
+vertices, and computes the vertex-induced subgraph.  In this case we
+cannot compute $\te'$ from $\te$ alone, but will also need to remove
+edges for which one or both vertices are not present in $\tv'$.
+Similarly, we need to remove tuples from $\tav'$ and $\tae'$ for which
+no corresponding tuples exist in $\tv'$ and $\te'$.
 
 \subsection{Temporal map}
 \label{sec:algebra:project}
 
-The temporal map operation iterates over representative graphs $g$ of
-\trg, and applies the user-specified map functions $M_V$ and $M_E$ to
-the vertices and edges of $g$: $\map_{M_V,M_E} (\trg) = \{(g',
-p)~~|~~(g,p) \in \trg \wedge g'= \map_{M_V,M_E}(g)\}$.  To evaluate
-map over \tve, we leave $\tv'=\tv$ and $\te'=\te$, and compute $\tav' =
+Temporal map iterates over the tuples of \trg, and applies the
+user-specified map functions $M_V$ and $M_E$ to the vertices and edges
+of each $g$: $\map_{M_V,M_E} (\trg) = \{(g', p)~~|~~(g,p) \in \trg
+\wedge g'= \map_{M_V,M_E}(g)\}$.  To evaluate $\map_{M_V,M_E} (\tve)$,
+we set $\tv'=\tv$ and $\te'=\te$, and compute $\tav' =
 \map_{M_V}(\tav)$ and $\tae' = \map_{M_E}(\tae)$.
 
 While map is an arbitrary user-specified function, there are some
@@ -205,10 +205,10 @@ notation similar to projection, listing the properties that we wish to
 retain. For example, $\map_{M_V:{school},M_E:\emptyset} (\insql{T1})$
 will keep only the school property of the vertices, and no properties
 of the edges.  Another useful map operation eliminates duplicates in
-the bag of vertex or edge properties, or both, with the short-hand
-syntax $\map_{M_V:distinct,M_E:distinct} (\insql{T1})$.  It will also
-often be useful to flatten nested collections or reconcile multiple
-values of the same property, e.g., compute a sum or an average
+the bag of vertex or edge properties.\eat{, with the short-hand syntax
+  $\map_{M_V:distinct,M_E:distinct} (\insql{T1})$.}  It may also be
+useful to flatten nested bags or aggregate multiple values of the same
+property of a vertex or edge, e.g., compute a sum or an average
 following temporal intersection or union
 (Section~\ref{sec:algebra:join}).
 
@@ -216,16 +216,15 @@ following temporal intersection or union
 $\map_{m_V:name, M_E:\emptyset} (\insql{T1})$ over \insql{T1} in
 Figure~\ref{fig:tg_ve}.  There will be three identical tuples in the
 result for vertex $v_2$ for $[2/15, 5/15)$, $[5/15, 7/15)$ and $[7/15,
-      10/15)$ (since we are projecting out $school$), which must be
-      coalesced to return a valid \tav.  A similar argument holds for
-      \tae. This operation will also produce two identical
-      representative graphs in \trg in Figure~\ref{fig:tg_rg} for
-      $[2/15, 5/15)$ and $[5/15, 6/15)$, which will have to be
-          coalesced explicitly.
+      10/15)$, which must be coalesced to return a valid \tav.  A
+      similar argument holds for \tae. This operation will also
+      produce two identical representative graphs in \trg in
+      Figure~\ref{fig:tg_rg} for $[2/15, 5/15)$ and $[5/15, 6/15)$,
+          which will have to be coalesced explicitly.
 
-{\bf Map does not require FK enforcement for \tve.}  This is because,
-by definition of this operation, only \tav and \tae are affected,
-while the contents of \tv and \te remain as in the input.
+{\bf Map does not require FK enforcement for \tve.}  This is because
+only \tav and \tae are affected, while the contents of \tv and \te
+remain as in the input.
 
 \subsection{Temporal aggregation}
 \label{sec:algebra:agg}
@@ -241,19 +240,19 @@ For this, we will use {\em moving window temporal aggregation}.  Our
 approach is inspired by stream aggregation work of~\cite{Li2005},
 adopted to graphs, and by generalized quantifiers of~\cite{Hsu1995}.
 
- {\em Temporal aggregation} is denoted $\gamma_{W,Q_V,Q_E,A_V,A_E}
- (T)$, where $W$ is the window specification, $Q_V$ and $Q_E$ are
- vertex and edge aggregation quantifiers, and $A_V$ and $A_E$ are the
- optional aggregation functions.  It produces a consolidated evolving
- graph with specific temporal granularity.
+Temporal aggregation is denoted $\gamma_{W,Q_V,Q_E,A_V,A_E} (\ttt)$,
+where $W$ is the window specification, $Q_V$ and $Q_E$ are vertex and
+edge aggregation quantifiers, and $A_V$ and $A_E$ are the optional
+aggregation functions.  It produces a consolidated evolving graph with
+specific temporal granularity.
 
 {\em Window specification} $W$ is of the form
 $n~\{unit|\insql{changes}\}$, where $n$ is an integer, and $unit$ is a
 time unit, e.g., $10~min$, $3~years$, or any multiple of the usual
-time units (minutes, hours, days, weeks, months, years).  Window
-specification of the form $n~\insql{changes}$ defines the window in
-terms of change over \trg.\eat{ (which may be computed from the \tve
-  representation, see Section~\ref{sec:model:switch}).}  For example,
+time units.  Window specification of the form $n~\insql{changes}$
+defines the window in terms of change over \trg.\eat{ (which may be
+  computed from the \tve representation, see
+  Section~\ref{sec:model:switch}).}  For example,
 $W=3~\insql{changes}$ will aggregate sequences of 3 representative
 graphs into 1.  Window boundaries are computed left-to-right, i.e.,
 from least to most recent.  The right-most window may correspond to
@@ -285,43 +284,31 @@ whole window, e.g., $A_V=\insql{any}(name), \insql{last}(school)$ and
 $A_E=\insql{sum}(cnt)$.
 %
 We support the standard \{ \insql{count} | \insql{min} | \insql{max} |
-\insql{sum} | \insql{average} \}, as well as \{ \insql{any} |
-\insql{first} | \insql{last} | \insql{trend} | \insql{list} \}.  
-\insql{first} and \insql{last} refer to earliest/latest non-null value
-of the given property in the window, and are possible to express
-because the tuples being aggregated have the time dimension.
-\insql{count} computes the number of occurrences of a property in the
-aggregation window.
+\insql{sum} | \insql{average} \}, which have their customary meaning.
+We also support \{ \insql{any} | \insql{first} | \insql{last} |
+\insql{trend} | \insql{list} \}, which are possible to compute because
+properties being aggregated have temporal information.  \insql{first}
+and \insql{last} refer to earliest/latest non-null value of the given
+property in the window, while \insql{trend} computes the slope of the
+least squares line using linear regression, making an adjustment when
+a value is missing, and \insql{list} assocites with a key an ordered
+collection of values (but does not keep the associated validity
+periods).
  
 If a \tg has vertex or edge properties, but aggregation functions are
 not specified, or if these functions are specified but one or several
 properties are omitted, then all key-value pairs for those properties
 are collected into a bag corresponding to the entity (vertex or edge)
-in the result.
+in the result.  These can be transformed or projected out subsequently
+with temporal map (Section~\ref{sec:algebra:project}).
  
-Figure~\ref{fig:tg_agg} illustrates temporal aggregation with two
-examples, both applied to \insql{T1} of Figure~\ref{fig:tg_ve}.  The
-queries differ on their window specification (``3 months'' vs. ``2
-changes'') but list the same aggregation quantifiers (\insql{all} for
-vertices and \insql{exists} for edges) and the same aggregate
-functions (\insql{first} for all vertex and edge attributes).  Note
-that $(v_2, [4/15, 7/15))$ is present in the result of $\gamma_1$
-  because $v_2$ exists for the entire period in the input \insql{T1}.
-  Further, because vertex properties took on values $(Bob, Penn)$ and
-  $(Bob, CMU)$ during this period, but $(Bob, Penn)$ was temporally
-  earlier, this value is used.  This is in contrast to only $(Bob,
-  CMU)$ being associated with $v_2, [7/15, 10/15)$.
- 
- Next, consider the result of $\gamma_2$, and note that, while $v_2$
- was present for part of $[1/15, 5/15)$, it was not there during the
-   entirety of the period, and so is not included into the result.
-   Edge $e(v_1, v_2)$ is absent during $[1/15, 5/15)$, because one of
-     the vertices it connects ($v_2$) does not exist.
+Temporal aggregation over \tve follows the outline of
+Algorithm~\ref{alg:op}, but requires an additional step, and is
+revisited in Algorithm~\ref{alg:agg_ve}.
 
-Algorithm~\ref{alg:agg_ve} implements temporal aggregation over \tve.
 We compute aggregation periods based on window specification in line
-1.  Then, in lines 2-5 we assign a tuple from each \tv, \te, \tav and
-\tae to one or several aggregation periods.  Next, as part of
+1.  Then, in lines 2---5 we assign a tuple from each \tv, \te, \tav
+and \tae to one or several aggregation periods.  Next, as part of
 $\gamma_{P,Q_V}(\tv)$ computation, we group vertices by $v$ and
 evaluate $Q_V$ on each group.  Only groups for which $Q_V$ evaluates
 to true are retained.  Edges are processed similarly by
@@ -329,7 +316,7 @@ $\gamma_{P,Q_E}(\te)$ on line 3.  Lines 4 and 5 compute
 $\gamma_{P,f_V}(\tav)$ and $\gamma_{P,f_E}(\tae)$, respectively, by
 computing a group for each vertex or edge within the period, and
 applying the aggregate functions over each group.  It is possible but
-inconvenient to express the operations on lines 2-5 in temporal SQL
+inconvenient to express the operations on lines 2---5 in temporal SQL
 because each vertex, edge or attribute tuple in the result of
 $\gamma_{P}$ may belong to multiple periods.
 
@@ -337,17 +324,17 @@ Temporal aggregation over \trg is computed by first calculating time
 periods from $W$ and \trg, and then processing the representative
 graphs directly.  
 
-\begin{algorithm}[h!]
+\begin{algorithm}[t!]
 \caption{Temporal aggregation in \tve.}
 \begin{algorithmic}[1]
 \REQUIRE \tve (\tv;\te;\tav;\tae), window specification $W$, vertex
 quantifier $Q_V$, edge quantifier $Q_E$, vertex aggregate function
-$f_V$, vertex aggregate function $f_E$.\\
+$A_V$, vertex aggregate function $A_E$.\\
 \STATE $P = \textsf{computePeriods}(W, \tv, \te, \tav, \tae)$\\
 \STATE  $\tv' = \cl (\gamma_{P,Q_V}(\tv))$\\
 \STATE  $\te' = \cl (\gamma_{P,Q_E}(\te))$\\
-\STATE  $\tav' = \cl (\gamma_{P,f_V}(\tav))$\\
-\STATE  $\tae' = \cl (\gamma_{P,f_E}(\tae))$\\
+\STATE  $\tav' = \cl (\gamma_{P,A_V}(\tav))$\\
+\STATE  $\tae' = \cl (\gamma_{P,A_E}(\tae))$\\
 \STATE  enforce foreign keys on $\te'$ w.r.t. $\tv'$\\
 \STATE  enforce foreign keys on $\tav'$ w.r.t. $\tv'$\\
 \STATE  enforce foreign keys on $\tae'$ w.r.t. $\te'$\\
@@ -356,14 +343,49 @@ $f_V$, vertex aggregate function $f_E$.\\
 \label{alg:agg_ve}
 \end{algorithm}
 
-\begin{figure*}
-\includegraphics[width=5in]{figs/agg.png}
-\caption{Temporal aggregation over \insql{T1} (Figure~\ref{fig:tg_ve}). \julia{update}}
-\label{fig:tg_agg}
-\end{figure*}
+Figure~\ref{fig:tg_agg1} illustrates temporal aggregation by time
+($W=3~\textsf{months}$), and Figure~\ref{fig:tg_agg2} --- by change
+($W=3~\textsf{changes}$).  Both are applied to \insql{T1} in our
+running example, and list the same aggregation quantifiers
+(\insql{all} for vertices and \insql{exists} for edges) and aggregate
+functions (\insql{first} for vertex and edge properties). \julia{add
+  brief explanation.}
+%
+\eat{Note that $(v_2, [4/15, 7/15))$ is present in the result in
+  Figure~\ref{fig:tg_agg1} because $v_2$ exists for the entire period
+  in the input \insql{T1}.  Further, because vertex properties took on
+  values $(Bob, Penn)$ and $(Bob, CMU)$ during this period, but $(Bob,
+  Penn)$ was temporally earlier, this value is used.  This is in
+  contrast to only $(Bob, CMU)$ being associated with $v_2, [7/15,
+    10/15)$.}
+\eat{Next, consider the result of $\gamma_2$, and note that, while $v_2$
+ was present for part of $[1/15, 5/15)$, it was not there during the
+   entirety of the period, and so is not included into the result.
+   Edge $e(v_1, v_2)$ is absent during $[1/15, 5/15)$, because one of
+     the vertices it connects ($v_2$) does not exist.}
 
-{\bf Temporal aggregation may uncoalesce \tve and \trg.} Consider a
-\tg \insql{T} that consists of only 1 vertex $v_1$ and no edges, and
+\begin{figure}[t!]
+\includegraphics[width=3.5in]{figs/agg1.pdf}
+\caption{Aggregation of \insql{T1} by time:
+  $W=3~\textsf{months}$, $Q_V=\insql{all}$, $Q_E=\insql{exists}$,
+  $A_V=\insql{first}$, $A_E=\insql{first}$.}
+\vspace{-0.2cm}
+\label{fig:tg_agg1}
+\vspace{-0.5cm}
+\end{figure}
+
+\begin{figure}[t!]
+\includegraphics[width=3in]{figs/agg2.pdf}
+\caption{Aggregation of \insql{T1} by change:
+  $W=3~\textsf{changes}$, $Q_V=\insql{all}$, $Q_E=\insql{exists}$,
+  $A_V=\insql{first}$, $A_E=\insql{first}$.}
+\vspace{-0.2cm}
+\label{fig:tg_agg2}
+\vspace{-0.5cm}
+\end{figure}
+
+{\bf Temporal aggregation may uncoalesce \tve and \trg.}  Consider
+\insql{T} that consists of only 1 vertex $v_1$ and no edges, and
 suppose that $v_1$ exists during the odd months of the year.  That is,
 \tv contains $(v_1, [1/16, 2/16)), \ldots,$ $(v_1, [11/16,12/16))$,
     for which time periods do not meet and so these tuples cannot be
@@ -371,14 +393,15 @@ suppose that $v_1$ exists during the odd months of the year.  That is,
     $\gamma_{W=2~months, Q_V=exists,Q_E=all}(T)$.  This relation will
     contain $(v_1, [1/16, 3/16)), \ldots,$ $,(v_1, [11/16,1/17))$ ---
         one tuple per input tuple, all tuples meet and so \tv' must be
-        coalesced.  A similar argument holds for other relations of
-        \tve, and for \trg.
+        coalesced.  A similar argument holds for, \te, \tav, \tae,
+        \trg.
 
 {\bf Temporal aggregation requires FK enforcement for \tve.}  As
-illustrated in Figure~\ref{fig:tg_agg}, $(v_1,v_2,[1/15,5/15))$ is
-  removed from $\te'$ not because it did not exist at some point
-  during $[1/15,5/15)$ but because $(v_2,[1/15,5/15))$ is absent from
-      $\tv'$.  
+illustrated in Figure~\ref{fig:tg_agg1}, $(v_1,v_2,[1/15,4/15))$ is
+  absent from $\te'$ because, although this edge was present in \tv
+  for part of the period, and so meets the condition
+  $Q_E=\insql{exists}$, vertex $(v_2,[1/15,5/15))$ is absent from
+    $\tv'$.
 
 We now give an analysis of whether FK enforcement is required, by
 considering the relationship between vertex and edge aggregation
@@ -399,7 +422,7 @@ specification $W$.  We produce an edge $(v_1, v_2, w)$ iff $\exists
 \{(v_1, v_2, p_1),\ldots,(v_1, v_2, p_k)\} \in
 \te~~|~~(\bigcup_{i=1}^k p_i \cap w) / w > t_E$.  According to
 Definition~\ref{def:tg:c1}, if the input graph is valid then we must
-also produce $(v_1, w)$ and $(v_2, w)$ if $t_V \leq t_E$ since vertex
+also produce $(v_1, w)$ and $(v_2, w)$ if $t_V \leq t_E$, since vertex
 periods are supersets of edge periods.  However, if $t_V > t_E$, we
 may not produce a vertex that meets $t_E$ but does not meet the
 greater $t_V$, as we showed with the example above.
