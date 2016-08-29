@@ -2,14 +2,16 @@
 \section{System}
 \label{sec:sys}
 
-Our \ql system implementation builds on Apache Spark with GraphX.  We
-selected Spark because it is a popular open-source system, and because
-of its in-memory processing approach.  All \tg operations are
-available through the public API of the \ql library, and may be used
-like any other library in an Apache Spark application.\eat{  \insql{TGraph}
-is the main abstract class that all physical representations extend.
-An excerpt of the API, where VD is the vertex attribute and ED is the
-edge attribute type:}
+Our \ql system implementation builds on Apache Spark with GraphX, an
+ open-source in-memory distributed graph computation framework that
+ combines graph parallel and data parallel abstractions.  The data is
+ distributed in partitions across the cluster workers, read in from
+ HDFS, and can be viewed both as a graph and as tables.  All \tg
+ operations are available through the public API of the \ql library,
+ and may be used like any other library in an Apache Spark
+ application.\eat{ \insql{TGraph} is the main abstract class that all
+ physical representations extend.  An excerpt of the API, where VD is
+ the vertex attribute and ED is the edge attribute type:}
 
 \eat{\begin{lstlisting}
 def slice(bound: Interval): TGraph[VD, ED]
