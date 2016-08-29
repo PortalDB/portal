@@ -305,20 +305,20 @@ with temporal map (Section~\ref{sec:algebra:project}).
 Temporal aggregation over \tve follows the outline of
 Algorithm~\ref{alg:op}, but requires an additional step, and is
 revisited in Algorithm~\ref{alg:agg_ve}.
-
+%
 We compute aggregation periods based on window specification in line
-1.  Then, in lines 2---5 we assign a tuple from each \tv, \te, \tav
-and \tae to one or several aggregation periods.  Next, as part of
-$\gamma_{P,Q_V}(\tv)$ computation, we group vertices by $v$ and
-evaluate $Q_V$ on each group.  Only groups for which $Q_V$ evaluates
-to true are retained.  Edges are processed similarly by
-$\gamma_{P,Q_E}(\te)$ on line 3.  Lines 4 and 5 compute
-$\gamma_{P,f_V}(\tav)$ and $\gamma_{P,f_E}(\tae)$, respectively, by
-computing a group for each vertex or edge within the period, and
-applying the aggregate functions over each group.  It is possible but
-inconvenient to express the operations on lines 2---5 in temporal SQL
-because each vertex, edge or attribute tuple in the result of
-$\gamma_{P}$ may belong to multiple periods.
+1.  several aggregation periods in lines 2---5.  Next, as part of
+$\gamma_{P,Q_V}(\tv)$ computation, we assign each tuple from \tv to an
+aggregation period, group vertices by $v$ and evaluate $Q_V$ on each
+group.  Only groups for which $Q_V$ evaluates to true are retained.
+Edges are processed similarly by $\gamma_{P,Q_E}(\te)$ on line 3.
+Lines 4 and 5 compute $\gamma_{P,A_V}(\tav)$ and
+$\gamma_{P,A_E}(\tae)$, respectively, by computing a group for each
+vertex or edge within the period, and applying the aggregate functions
+over each group. \eat{ It is possible but inconvenient to express the
+operations on lines 2---5 in temporal SQL because each vertex, edge or
+attribute tuple in the result of $\gamma_{P}$ may belong to multiple
+periods.}
 
 Temporal aggregation over \trg is computed by first calculating time
 periods from $W$ and \trg, and then processing the representative
@@ -348,9 +348,8 @@ Figure~\ref{fig:tg_agg1} illustrates temporal aggregation by time
 ($W=3~\textsf{changes}$).  Both are applied to \insql{T1} in our
 running example, and list the same aggregation quantifiers
 (\insql{all} for vertices and \insql{exists} for edges) and aggregate
-functions (\insql{first} for vertex and edge properties). \julia{add
-  brief explanation.}
-%
+functions (\insql{first} for vertex and edge properties). 
+%\julia{add brief explanation.}
 \eat{Note that $(v_2, [4/15, 7/15))$ is present in the result in
   Figure~\ref{fig:tg_agg1} because $v_2$ exists for the entire period
   in the input \insql{T1}.  Further, because vertex properties took on
@@ -371,7 +370,7 @@ functions (\insql{first} for vertex and edge properties). \julia{add
   $A_V=\insql{first}$, $A_E=\insql{first}$.}
 \vspace{-0.2cm}
 \label{fig:tg_agg1}
-\vspace{-0.5cm}
+\vspace{-0.2cm}
 \end{figure}
 
 \begin{figure}[t!]
@@ -381,14 +380,14 @@ functions (\insql{first} for vertex and edge properties). \julia{add
   $A_V=\insql{first}$, $A_E=\insql{first}$.}
 \vspace{-0.2cm}
 \label{fig:tg_agg2}
-\vspace{-0.5cm}
+\vspace{-0.2cm}
 \end{figure}
 
 {\bf Temporal aggregation may uncoalesce \tve and \trg.}  Consider
 \insql{T} that consists of only 1 vertex $v_1$ and no edges, and
-suppose that $v_1$ exists during the odd months of the year.  That is,
-\tv contains $(v_1, [1/16, 2/16)), \ldots,$ $(v_1, [11/16,12/16))$,
-    for which time periods do not meet and so these tuples cannot be
+suppose that $v_1$ exists during the odd months of the year.  \tv
+contains $(v_1, [1/16, 2/16)), \ldots,$ $(v_1, [11/16,12/16))$, for
+    which time periods do not meet and so these tuples cannot be
     coalesced.  Next consider $\tve'$ in the result of
     $\gamma_{W=2~months, Q_V=exists,Q_E=all}(T)$.  This relation will
     contain $(v_1, [1/16, 3/16)), \ldots,$ $,(v_1, [11/16,1/17))$ ---
@@ -656,7 +655,7 @@ $\trga \cap \trgb = \{(g_1 \cap g_2, p_1 \cap p_2)~|~((g_1, p_1) \in
 \}$.  The result of $g_1 \cap g_2$ is computed by intersecting the
 sets of vertices and of edges of the graphs~\cite{GraphTheory}.  For
 each vertex and edge in the result, we compute a {\em union} of their
-bags of properties. \julia{Figure with example.}
+bags of properties.% \julia{Figure with example.}
 
 \eat{The computation over \trg is essentially a temporal inner
   theta-join of $\trg_1$ and $\trg_2$ with a $p_1 \cap p_2$ predicate,
@@ -727,8 +726,8 @@ edges of the graphs~\cite{GraphTheory}.  For each vertex and edge in
 the result, we compute a {\em union} of their bags of properties.
 Tuples from \trga (resp. \trgb) for which there does not exist a tuple
 in \trgb (resp. \trga) for part or all of the validity period are
-included in the result of the full outer join.  \julia{Figure with
-  example.}
+included in the result of the full outer join. 
+%\julia{Figure with example.}
 
 \eat{
  $\trg_1 \cup \trg_2 = \{ (g, p) | (g_1, p_1) \in \trg_1 \wedge (g_2,
