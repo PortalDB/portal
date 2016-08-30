@@ -1,17 +1,30 @@
 \section{Related Work}
 \label{sec:related}
 
-{\bf Data model and representation.}  Representation and querying of
-evolving graphs has received active interest recently. Much of the
-work on evolving graphs is on snapshot retrieval and snapshot
-analytics in a discrete time domain.  In this case an evolving graph
-is considered to be a sequence of graph snapshots corresponding to
-time instances in the time domain $T$
+{\bf Temporal data models and languages.} We build on a rich body of
+work in temporal databases.  Our \tg representation is based on
+interval semantics~\cite{DBLP:reference/db/JensenS09k}, and is
+temporally coalesced~\cite{DBLP:conf/vldb/BohlenSS96}.  Our algebra is
+based on the principle of snapshot
+reducibility~\cite{DBLP:reference/db/Bohlen092}.  We use insights of
+temporal joins work~\cite{Gao2005} to define \tg union and
+intersection.  Our \tg aggregation is inspired by stream aggregation
+of~\cite{Li2005}.  An interval-based model of graph evolution, and a
+composable algebra for evolving graphs that is based on snapshot
+reducibility, are among the most important contributions of our work.
+
+{\bf Evolving graph models and representations.}  Representation and
+querying of evolving graphs has received active interest
+recently. Much of the work on evolving graphs is on snapshot retrieval
+and snapshot analytics in a discrete time domain.  In this case an
+evolving graph is considered to be a sequence of graph snapshots
+corresponding to time instances in the time domain $T$
 (\cite{Khurana2013,DBLP:journals/tos/MiaoHLWYZPCC15,Ren2011}).  Such a
-model has several limitations: a) it requires a discrete time domain.
-The state of the graph can be undefined at some time $t_i$ unless a
+model is in contrast to an interval-based model that we use, and has
+several limitations.  First, it requires a discrete time domain. The
+state of the graph can be undefined at some time $t_i$ unless a
 snapshot is associated with each possible value of $T$ in the discrete
-range $[t_{start}, now)$; and b) it is not compact.  Every change to
+range $[t_{start}, now)$.  Second, it is not compact.  Every change to
   an entity (vertex or edge) requires a new snapshot.  For large
   graphs, consecutive snapshots have degree of similarity approaching
   1 (on the scale of 0 of no similarity and 1 full similarity).
@@ -27,8 +40,8 @@ of queries involving multiple snapshots, such as aggregation, requires
 fully materialized views in memory, which makes this approach
 infeasible for our purposes.  Snapshot retrieval, however, is a useful
 operation for many types of analysis and thus should be supported.  In
-our model a snapshot at any time $t$ is state at time $t$ and can be
-retrieved simply by selection on $p$.
+our model a snapshot at any time $t$ can be retrieved by temporal
+slice.
 
 Ren et al.~\cite{Ren2011} develop an in-memory representation of
 evolving graphs based on representative graphs for sets of snapshots.
