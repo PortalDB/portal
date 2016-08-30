@@ -16,6 +16,7 @@ order.
 A {\em time period} \\$p = [start, end)$ is an interval of the
   continuous time domain, subject to the constraint $start < end$.
 \label{def:period} 
+\vspace{-0.2cm}
 \end{definition}
 
 It will be useful to quantify relationships between time periods using
@@ -32,11 +33,11 @@ and $q$: $[\predName{max}(p.start,q.start), \predName{min}(p.end,
   \predName{min}(p.end, q.end)$, then $p \cap q = \emptyset$.
 
 \begin{figure}
-\centering
-\includegraphics[width=3.5in]{figs/T1_graphs.pdf}
+%\centering
+\includegraphics[width=3.4in]{figs/T1_graphs.pdf}
 \vspace{-0.5cm}
 \caption{Representative graphs of \tg \insql{T1}.}
-\vspace{-0.5cm}
+\vspace{-0.3cm}
 \label{fig:tg_rg}
 \end{figure}
 
@@ -132,7 +133,7 @@ We now give an alternative representation of a \tg that uses
 valid-time temporal SQL relations~\cite{DBLP:conf/vldb/BohlenSS96},
 with nesting, to represent evolution of graph topology and of its
 vertex and edge attributes.  We term this logical representation the
-{\em \ve \tg}.  An example of a \ve \tg is given in
+{\em \ve \tg}.  An example \eat{of a \ve \tg }is given in
 Figure~\ref{fig:tg_ve}.  We will refer to the \rgs
 (Definition~\ref{def:tg_abstract}) and \ve (Definition~\ref{def:tg})
 representations of a \tg jointly as \insql{T}, and will disambiguate
@@ -152,7 +153,6 @@ relation with schema $\te(\underline{v_1}, \underline{v_2},
 \underline{p})$, connecting pairs of vertices from \tv.  Attribute $p$
 represents time period (as per Definition~\ref{def:period}).  Both \tv
 and \te are coalesced:
-
 \begin{multline}
 \forall \tv(v, p)~~\nexists \tv(v, p')~~| \\
                        \pred{p}{meets}{p'}~\lor~\pred{p}{contains}{p'}~\lor~\pred{p}{overlaps}{p'}
@@ -181,20 +181,23 @@ existing vertices and edges.
                        \pred{p}{meets}{p'}~\lor~\pred{p}{contains}{p'}~\lor~\pred{p}{overlaps}{p'}
 \label{def:tg:c4}
 \end{multline}
+\vspace{-0.5cm}
 \begin{multline}
 \forall \tav(v, p, a)~~\exists \tv(v,p')~~|~~\pred{p'}{contains}{p}
 \label{def:tg:c5}
 \end{multline}
+\vspace{-0.5cm}
 \begin{multline}
 \forall \tae(v_1, v_2, p, a)~~\nexists \tae(v_1, v_2, p', a)~~| \\
                        \pred{p}{meets}{p'}~\lor~\pred{p}{contains}{p'}~\lor~\pred{p}{overlaps}{p'}
 \label{def:tg:c6}
 \end{multline}
+\vspace{-0.5cm}
 \begin{multline}
 \forall \tae(v_1, v_2, p, a)~~\exists \te(v_1,v_2,p')~~|~~\pred{p'}{contains}{p}
 \label{def:tg:c7}
 \end{multline}
-
+\vspace{-0.6cm}
 \label{def:tg}
 \end{definition}
 
@@ -243,7 +246,7 @@ per SQL:2011):
   while edge $e(v_2,v_3)$ exists only for a portion of the period when
   both $v_2$ and $v_3$ exist.}
 
-\begin{small}
+\begin{scriptsize}
 \begin{verbatim}
 CREATE TABLE TV (
   v LONG,
@@ -251,7 +254,6 @@ CREATE TABLE TV (
   pend DATE,
   PERIOD for p (pstart, pend),
   PRIMARY KEY (v, p WITHOUT OVERLAPS) )
-
 CREATE TABLE TE (
   v1 LONG,
   v2 LONG,
@@ -262,7 +264,8 @@ CREATE TABLE TE (
   FOREIGN KEY (v1, PERIOD p) REFERENCES TV(v, PERIOD p),
   FOREIGN KEY (v2, PERIOD p) REFERENCES TV(v, PERIOD p) )
 \end{verbatim}
-\end{small}
+\vspace{-0.3cm}
+\end{scriptsize}
 
 Unfortunately, this implementation does not guarantee that \tv and \te
 will be coalesced.  It does ensure that time periods corresponding to
@@ -381,7 +384,7 @@ $\tav_g$) for each tuple, collecting $\tv_g \rightarrow \tv$, $\te_g
 
 Next, we will present operators of \tg algebra, stating their
 semantics over the \trg and \tve data structures
-(Section~\ref{sec:algebra}).  We will then discuss how each operator
+(Section~\ref{sec:algebra}).  \eat{We will then discuss how each operator
 is implemented over several possible physical representations of these
-logical data structures (Section~\ref{sec:sys}).
+logical data structures (Section~\ref{sec:sys}).}
 

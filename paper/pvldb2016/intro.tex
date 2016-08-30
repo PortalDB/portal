@@ -60,11 +60,11 @@ SQL relations $V$ and $E$ with appropriate integrity constraints.
   Corroborating / complementing information from different sources -
   graph union and intersection.  Graph analytics.}
 
-The \ql system implements the \tg abstraction along with operations of
-a fully compositional \tg algebra, motivated by several categories of
-questions one may ask about evolving networks as part of exploratory
-analysis.  We present some motivating questions next, to give the
-flavor of the capabilities of the \ql system.
+The \ql system implements the \tg abstraction \eat{along with }and the
+operations of a fully compositional \tg algebra, motivated by several
+categories of questions one may ask about evolving networks as part of
+exploratory analysis.  We present some motivating questions next, to
+give the flavor of the capabilities of the \ql system.
 
 {\em Which network nodes are showing an increasing popularity trend,
   or have increasing influence, and which are on a downward spiral?}
@@ -117,15 +117,15 @@ paths~\cite{Ren2011}.  The {\em temporal aggregation} operation in \ql
 representative subgraphs of an evolving graph.
 
 {\em How can multiple data sources be used jointly, to complement or
-  corroborate information about graph evolution?}  It may be the case
-that multiple datasets are available, each describing a series of
-crawls of different, but possibly overlapping, portions of the Web
-graph.  Further, network states may be recorded at different, possibly
-overlapping, time periods, or even at different temporal scales.  Can
-these datasets be unified, in a principled way, to support analysis or
-meta-analysis of network evolution trends?  \ql supports {\em union}
-and {\em intersection} operations over evolving graphs that enable
-this kind of analysis.
+  corroborate information about graph evolution?}  \eat{It may be the
+  case that m}Multiple datasets may be available, each describing a
+series of crawls of different, but possibly overlapping, portions of
+the Web graph.  Further, network states may be recorded at different,
+possibly overlapping, time periods, or at different temporal scales.
+Can these datasets be unified, in a principled way, to support
+analysis \eat{or meta-analysis }of network evolution trends?  \ql
+supports {\em union} and {\em intersection} operations over evolving
+graphs that enable this kind of analysis.
 
 {\bf Contributions.} We make the following contributions to support
 efficient and usable analysis of evolving graphs.
@@ -172,8 +172,8 @@ efficient and usable analysis of evolving graphs.
 \item We conduct an extensive experimental evaluation of the \ql
   system with real datasets.  We demonstrate that good performance can
   be achieved with careful engineering, and that \ql is scalable.  We
-  presents results of our evaluation in Section~\ref{sec:exp}, and
-  also briefly discuss the usability of our framework in this section.
+  presents results of our evaluation in Section~\ref{sec:exp}\eat{, and
+  also briefly discuss the usability of our framework in this section}.
 
 %\end{description}
 \end{enumerate}

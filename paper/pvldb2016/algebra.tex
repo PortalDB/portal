@@ -1,5 +1,7 @@
 \section{Algebra}
 \label{sec:algebra}
+\setlength{\textfloatsep}{5pt}% Remove \textfloatsep
+
 In this section we describe the operators of \tg algebra.  The algebra
 is compositional --- all operators take a \tg or a pair of \tgs as
 input, and produce a \tg.
@@ -279,9 +281,9 @@ window ($Q_V=\insql{all}$), and edges that span a large portion of the
 window ($Q_E=\insql{most}$).
  
 The optional {\em aggregation functions} $A_V$ and $A_E$ compute new
-values for vertex and edge properties that are representative of the
-whole window, e.g., $A_V=\insql{any}(name), \insql{last}(school)$ and
-$A_E=\insql{sum}(cnt)$.
+values for vertex and edge properties \eat{that are }representative of
+the whole window, e.g., $A_V=\insql{any}(name), \insql{last}(school)$
+and $A_E=\insql{sum}(cnt)$.
 %
 We support the standard \{ \insql{count} | \insql{min} | \insql{max} |
 \insql{sum} | \insql{average} \}, which have their customary meaning.
@@ -335,9 +337,10 @@ $A_V$, vertex aggregate function $A_E$.\\
 \STATE  $\te' = \cl (\gamma_{P,Q_E}(\te))$\\
 \STATE  $\tav' = \cl (\gamma_{P,A_V}(\tav))$\\
 \STATE  $\tae' = \cl (\gamma_{P,A_E}(\tae))$\\
-\STATE  enforce foreign keys on $\te'$ w.r.t. $\tv'$\\
-\STATE  enforce foreign keys on $\tav'$ w.r.t. $\tv'$\\
-\STATE  enforce foreign keys on $\tae'$ w.r.t. $\te'$\\
+\STATE  follow steps 5-7 of Algorithm~\ref{alg:op}\\
+%\STATE  enforce foreign keys on $\te'$ w.r.t. $\tv'$\\
+%\STATE  enforce foreign keys on $\tav'$ w.r.t. $\tv'$\\
+%\STATE  enforce foreign keys on $\tae'$ w.r.t. $\te'$\\
 \RETURN new $\tve (\tv';\te';\tav';\tae')$\\
 \end{algorithmic}
 \label{alg:agg_ve}
@@ -348,7 +351,11 @@ Figure~\ref{fig:tg_agg1} illustrates temporal aggregation by time
 ($W=3~\textsf{changes}$).  Both are applied to \insql{T1} in our
 running example, and list the same aggregation quantifiers
 (\insql{all} for vertices and \insql{exists} for edges) and aggregate
-functions (\insql{first} for vertex and edge properties). 
+functions (\insql{first} for vertex and edge properties).  $v_2$ is
+present in the result in Figure~\ref{fig:tg_agg1} starting at $4/15$
+because it did not exist for the entirety of the first window, while
+in Figure~\ref{fig:tg_agg2} it is produced starting $6/15$.
+
 %\julia{add brief explanation.}
 \eat{Note that $(v_2, [4/15, 7/15))$ is present in the result in
   Figure~\ref{fig:tg_agg1} because $v_2$ exists for the entire period
@@ -363,6 +370,7 @@ functions (\insql{first} for vertex and edge properties).
    Edge $e(v_1, v_2)$ is absent during $[1/15, 5/15)$, because one of
      the vertices it connects ($v_2$) does not exist.}
 
+\eat{
 \begin{figure}[t!]
 \includegraphics[width=3.5in]{figs/agg1.pdf}
 \caption{Aggregation of \insql{T1} by time:
@@ -370,9 +378,10 @@ functions (\insql{first} for vertex and edge properties).
   $A_V=\insql{first}$, $A_E=\insql{first}$.}
 \vspace{-0.2cm}
 \label{fig:tg_agg1}
-\vspace{-0.2cm}
+%\vspace{-0.2cm}
 \end{figure}
-
+}
+\eat{
 \begin{figure}[t!]
 \includegraphics[width=3in]{figs/agg2.pdf}
 \caption{Aggregation of \insql{T1} by change:
@@ -380,8 +389,30 @@ functions (\insql{first} for vertex and edge properties).
   $A_V=\insql{first}$, $A_E=\insql{first}$.}
 \vspace{-0.2cm}
 \label{fig:tg_agg2}
-\vspace{-0.2cm}
+%\vspace{-0.2cm}
 \end{figure}
+}
+\begin{figure*}[t]
+%\centering
+\begin{subfigure}[b]{0.5\textwidth}
+\includegraphics[width=3.5in]{figs/agg1.pdf}
+\caption{Aggregation of \insql{T1} by time:
+  $W=3~\textsf{months}$.}
+\vspace{-0.2cm}
+\label{fig:tg_agg1}
+\end{subfigure}
+\begin{subfigure}[b]{0.4\textwidth}
+\includegraphics[width=3in]{figs/agg2.pdf}
+\caption{Aggregation of \insql{T1} by change:
+  $W=3~\textsf{changes}$.}
+\vspace{-0.2cm}
+\label{fig:tg_agg2}
+\end{subfigure}
+\caption[]{Aggregation, $Q_V=\insql{all}$, $Q_E=\insql{exists}$,
+  $A_V=\insql{first}$, $A_E=\insql{first}.$}
+\label{fig:tg_agg}
+\vspace{-0.5cm}
+\end{figure*}
 
 {\bf Temporal aggregation may uncoalesce \tve and \trg.}  Consider
 \insql{T} that consists of only 1 vertex $v_1$ and no edges, and
@@ -671,7 +702,7 @@ temporal outer joins of the corresponding relations (lines 3, 4).
 Finally, we enforce foreign key constraints on \te', \tav' and \tae'
 (lines 5, 6).
 
-\begin{algorithm}
+\begin{algorithm}[b]
 \caption{Temporal graph intersection in \tve.}
 \begin{algorithmic}[1]
 %\REQUIRE $\tvea (\tv_1;\te_1;\tav_1;\tae_1), \tveb (\tv_2;\te_2;\tav_2;\tae_2)$.\\
@@ -687,6 +718,33 @@ Finally, we enforce foreign key constraints on \te', \tav' and \tae'
 \end{algorithmic}
 \label{alg:inter}
 \end{algorithm}
+
+\begin{figure}
+%\centering
+\begin{subfigure}[b]{0.4\columnwidth}
+\includegraphics[width=1.35in]{figs/T2_graphs.pdf}
+\caption{T2.}
+\vspace{-0.2cm}
+\label{fig:tg_t2}
+\end{subfigure}
+\begin{subfigure}[b]{0.5\columnwidth}
+\includegraphics[width=2in]{figs/T1_inter_T2.pdf}
+\caption{$T1 \cap T2$.}
+\vspace{-0.2cm}
+\label{fig:tg_inter}
+\end{subfigure}
+\caption{Temporal intersection.}
+\label{fig:intersect}
+\end{figure}
+
+Figure~\ref{fig:intersect} illustrates temporal intersection of \tg
+T2, shown in Figure~\ref{fig:tg_t2}, with T1 in our running example.
+Period $[2/15, 4/15)$ is computed as a result of the join of $[2/15,
+    5/15)$ in T1 and [$2/15, 4/15)$ in T2.  Only the vertices and
+      edges present in both \tgs are produced, thus eliminating $v_3$
+      and $v_4$.  Notice the result of attribute bag union with
+      duplicates for some keys.  These can be resolved by a subsequent
+      \insql{map} based on the domain requirements.
 
 {\bf Intersection may uncoalesce \tve and \trg.}  While temporal join over
 coalesced temporal relations does not uncoalesce, as shown
@@ -745,7 +803,7 @@ Algorithm~\ref{alg:union} presents the evaluation of $\tvea \cup
 \tveb$.  We compute temporal outer joins over the corresponding \tv,
 \te, \tav and \tae.
 
-\begin{algorithm}
+\begin{algorithm}[t]
 \caption{Temporal graph union in \tve.}
 \begin{algorithmic}[1]
 \REQUIRE $\tvea, \tveb$.\\
