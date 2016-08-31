@@ -4,10 +4,14 @@
 
 In this section we describe the operators of \tg algebra.  The algebra
 is compositional --- all operators take a \tg or a pair of \tgs as
-input, and produce a \tg.
+input, and produce a \tg.  Our algebra is based on the principle of
+snapshot reducibility~\cite{DBLP:reference/db/Bohlen092}, which states
+that an operation should yield the same result when applied to the
+temporal representation as it would if it were applied separately to
+every snapshot state of the temporal representation.
 
-\subsection{Preliminaries}
-\label{sec:algebra:prelim}
+%\subsection{Preliminaries}
+%\label{sec:algebra:prelim}
 
 B\"ohlen et al.~\cite{DBLP:conf/vldb/BohlenSS96} show that temporal
 selection, Cartesian product and difference all produce a coalesced
@@ -17,7 +21,7 @@ output even if the inputs were coalesced.  Intuitively, this is
 because union and projection can give rise to duplicates in
 traditional relational algebra, and lack of coalescing is the temporal
 analogy to a duplicate.
-
+%
 These observations also hold in our scenario at the level of
 individual relations, each containing representative graphs, vertices,
 edges, or vertex/edge attributes.
@@ -36,23 +40,15 @@ have a useful algebra, we do not reject a change that would lead to a
 violation in referential integrity.  Instead, we compute a consistent
 result by removing the tuples that violate referential integrity.
 
-Our algebra is based on the principle of snapshot
-reducibility~\cite{DBLP:reference/db/Bohlen092}.  This principle
-states that an operation should yield the same result when applied to
-the temporal representation as it would if it were applied separately
-to every snapshot state of the temporal representation.
-
-Consider the evaluation of a unary operation \opp over the \ve
-representation \opp(\tve).  Algorithm~\ref{alg:op} outlines the steps
-in the evaluation, overloading \opp as appropriate when applying the
+Algorithm~\ref{alg:op} outlines the evaluation of a unary operation
+\opp(\tve), overloading \opp as appropriate when applying the
 operation to constituent parts of \tve.  Some of the steps in
 Algorithm~\ref{alg:op} may be unnecessary because of the properties of
 the particular operation, as we will see in the remainder of this
-section.  Furthermore, some of the operations may produce correct
-results (up to coalescing) {\em even when computing over uncoalesced
-  inputs}.  This was discussed in the context of temporal relational
-algebra in~\cite{DBLP:conf/vldb/BohlenSS96}, and rules were proposed
-to eliminate superfluous coalescing. We will revisit this point in
+section.  Furthermore, some operations may produce correct results (up
+to coalescing) {\em even when computing over uncoalesced inputs}.
+\eat{This was discussed in the context of temporal relational algebra
+  in~\cite{DBLP:conf/vldb/BohlenSS96}.}We will revisit this point in
 Section~\ref{sec:sys:coal}.
 
 \begin{algorithm}[h!]
@@ -70,6 +66,7 @@ Section~\ref{sec:sys:coal}.
 \end{algorithmic}
 \label{alg:op}
 \end{algorithm}
+\vspace{-0.3cm}
 
 \subsection{Slice}
 \label{sec:algebra:slice}
@@ -81,12 +78,12 @@ intersection with $c$.  If $p.start < c.start$ or $p.end > c.end$ for
 some tuple $(g, p)$, then $p$ is trimmed to be within the boundaries
 of $c$: $\tau_c (\trg) = \{ (g, p \cap c)~~|~~(g, p) \in \trg \wedge
 (\pred{c}{overlaps}{p} \vee \pred{c}{contains}{p})\}$.
-
+%
 To evaluate $\tau_c (\tve)$, we apply $\tau_c$ to each of the four
-constituent relations of \tve.  For example: 
-$\tau_c (\tv) = \{ (v, p
-\cap c)~~|~~(v, p) \in \tv \wedge (\pred{c}{overlaps}{p} \vee \pred{c}{contains}{p}) \}$, 
-and analogously for each \te, \tav and \tae.
+constituent relations of \tve: $\tau_c (\tv) = \{ (v, p \cap
+c)~~|~~(v, p) \in \tv \wedge (\pred{c}{overlaps}{p} \vee
+\pred{c}{contains}{p}) \}$, and analogously for each \te, \tav and
+\tae.
 
 \eat{ 
 In SQL, slice can be expressed as follows for $V$ (similarly for other
@@ -156,11 +153,10 @@ Figure~\ref{fig:tg_rg}.  The query
 $\sigma_{C_V:{school='Drexel'},C_E:\top} (\insql{T1})$ matches
 vertices $v_1$ and $v_3$ in every representative graph in which these
 occur.  Since graphs for time periods $[1/15,2/15)$ through
-  $[6/15,7/15)$ are identical (containing both $v_1$ and $v_3$ and no
-    edges), the result will be uncoalesced, and will need to be
-    coalesced explicitly.  The final result will consist of 2
-    representative graphs, with both $v_1$ and $v_3$ for $[1/15,
-      7/15)$, and with $v_3$ only for $[7/15, 10/15)$.
+  $[6/15,7/15)$ are identical, the result will be uncoalesced, and
+    will need to be coalesced explicitly.  The final result will
+    consist of 2 representative graphs, with both $v_1$ and $v_3$ for
+    $[1/15, 7/15)$, and with $v_3$ only for $[7/15, 10/15)$.
 
 {\bf Subgraph does not uncoalesce \tve.}  Consider again the
 computation of $\tv'$ described above, with a query that involves
@@ -182,13 +178,13 @@ relations using only selection, they are guaranteed to be coalesced.
 Thus, it is not necessary to coalesce on lines 1-4 of
 Algorithm~\ref{alg:op}.
 
-{\bf Subgraph requires FK enforcement for \tve.}  A very natural
-temporal subgraph query specifies a selection condition over the
-vertices, and computes the vertex-induced subgraph.  In this case we
-cannot compute $\te'$ from $\te$ alone, but will also need to remove
-edges for which one or both vertices are not present in $\tv'$.
-Similarly, we need to remove tuples from $\tav'$ and $\tae'$ for which
-no corresponding tuples exist in $\tv'$ and $\te'$.
+{\bf Subgraph requires FK enforcement for \tve.}  A natural query
+specifies a selection condition over the vertices, and computes the
+vertex-induced subgraph.  In this case we cannot compute $\te'$ from
+$\te$ alone, but will need to remove edges for which one or both
+vertices are not present in $\tv'$.  Similarly, we must remove tuples
+from $\tav'$ and $\tae'$ for which no corresponding tuples exist in
+$\tv'$ and $\te'$.
 
 \subsection{Temporal map}
 \label{sec:algebra:project}
@@ -293,16 +289,14 @@ properties being aggregated have temporal information.  \insql{first}
 and \insql{last} refer to earliest/latest non-null value of the given
 property in the window, while \insql{trend} computes the slope of the
 least squares line using linear regression, making an adjustment when
-a value is missing, and \insql{list} assocites with a key an ordered
+a value is missing, and \insql{list} associates with a key an ordered
 collection of values (but does not keep the associated validity
 periods).
  
-If a \tg has vertex or edge properties, but aggregation functions are
-not specified, or if these functions are specified but one or several
-properties are omitted, then all key-value pairs for those properties
-are collected into a bag corresponding to the entity (vertex or edge)
-in the result.  These can be transformed or projected out subsequently
-with temporal map (Section~\ref{sec:algebra:project}).
+Key-value pairs for vertex and edge properties for which no aggregation
+functions are specified, are collected into a bag corresponding to the
+entity in the result.  These can be subsequently transformed with
+temporal map (Section~\ref{sec:algebra:project}).
  
 Temporal aggregation over \tve follows the outline of
 Algorithm~\ref{alg:op}, but requires an additional step, and is
@@ -502,7 +496,7 @@ the counterparts of these relations $R'_i = \sigma_{c_i} R_i$ and $R'_j
 = \sigma_{c_j} R_j$.  If the selection condition on $R_i$ is trivial
 (i.e., $R_i = \sigma_{c_i} R_i$), then referential integrity will hold
 on $R_i, R_j$.  However, if $c_i$ removes some tuples from $R_i$, then
-it becomes necessary to idenfity tuples in $R'_j$ for which there is
+it becomes necessary to identity tuples in $R'_j$ for which there is
 no counterpart in $R'_i$ and delete them.}
 
 \eat{
@@ -687,20 +681,12 @@ $\trga \cap \trgb = \{(g_1 \cap g_2, p_1 \cap p_2)~|~((g_1, p_1) \in
 sets of vertices and of edges of the graphs~\cite{GraphTheory}.  For
 each vertex and edge in the result, we compute a {\em union} of their
 bags of properties.% \julia{Figure with example.}
-
-\eat{The computation over \trg is essentially a temporal inner
-  theta-join of $\trg_1$ and $\trg_2$ with a $p_1 \cap p_2$ predicate,
-  followed by projection of $p_1, p_2$ into $p_1 \cap p_2$.  We use
-the standard graph intersection definition based on set theory, which
-intersects the vertex and edge sets from the two
-operands~\cite{GraphTheory}.}
-
+%
 Algorithm~\ref{alg:inter} presents the evaluation of $\tvea \cap
-\tveb$.  We compute temporal joins over the corresponding \tv and \te
-relations (lines 1, 2).  We then compute \tav' and \tae' by performing
-temporal outer joins of the corresponding relations (lines 3, 4).
-Finally, we enforce foreign key constraints on \te', \tav' and \tae'
-(lines 5, 6).
+\tveb$. We compute temporal joins over \tv and \te (lines 1, 2).  We
+then compute \tav' and \tae' with temporal outer joins of the
+corresponding relations (lines 3, 4).  Finally, we enforce foreign key
+constraints on \te', \tav' and \tae' (lines 5, 6).
 
 \begin{algorithm}[b]
 \caption{Temporal graph intersection in \tve.}
@@ -786,7 +772,6 @@ Tuples from \trga (resp. \trgb) for which there does not exist a tuple
 in \trgb (resp. \trga) for part or all of the validity period are
 included in the result of the full outer join. 
 %\julia{Figure with example.}
-
 \eat{
  $\trg_1 \cup \trg_2 = \{ (g, p) | (g_1, p_1) \in \trg_1 \wedge (g_2,
 p_2) \in \trg_2 \wedge ((g = g_1 \cup g_2 \wedge p = p_1 \cap p_2
@@ -798,7 +783,7 @@ theta-join of $\trg_1$ and $\trg_2$ with a $p_1 \cap p_2$ predicate.
 We use the standard graph union definition based on set theory, which
 computes unions of the vertex and edge sets from the two
 operands~\cite{GraphTheory}.}
-
+%
 Algorithm~\ref{alg:union} presents the evaluation of $\tvea \cup
 \tveb$.  We compute temporal outer joins over the corresponding \tv,
 \te, \tav and \tae.
@@ -845,10 +830,10 @@ valid for a period of $[12/14, 5/15)$.  The same representative graph
       does uncoalesce.  Thus we apply the coalescing operation on
       lines 3 and 4.
 
-{\bf Union does not require FK enforcement for \tve.}  By definition
-the temporal full outer join produces a vertex tuple for all periods
-in $\tv_1$ and $\tv_2$.  If $\tve_1$ and $\tve_2$ are valid graphs,
-then the referential integrity holds for $\te'$, $\tav'$ and $\tae'$.
+{\bf Union does not require FK enforcement for \tve.} Temporal full
+outer join produces a vertex tuple for all periods in $\tv_1$ and
+$\tv_2$.  If $\tve_1$ and $\tve_2$ are valid graphs, then 
+referential integrity holds for $\te'$, $\tav'$ and $\tae'$.
 
 \eat{\begin{definition}[Union] Union of $TG1\ \cup\ TG2$ = $\{v, e: v
     \in TG1.V$ or $v \in TG2.V$ or $v(vid$, $f_1(a_{11}$, $a_{21})$,
