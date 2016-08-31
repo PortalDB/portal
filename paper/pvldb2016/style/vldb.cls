@@ -4,7 +4,7 @@
 % SIG-ALTERNATE.CLS - VERSION 1.8
 % "COMPATIBLE" WITH THE "ACM_PROC_ARTICLE-SP.CLS" V2.7SP
 % Gerald Murray July 26th. 2005
-% 
+%
 % ---- Start of 'updates'  ----
 %
 % Allowance made to switch default fonts between those systems using
@@ -334,7 +334,7 @@
 
 \def\email#1{{{\eaddfnt{\vskip 4pt#1}}}}
 
-\def\addauthorsection{\ifnum\originalaucount>3
+\def\addauthorsection{\ifnum\originalaucount>6
     \section{Additional Authors}\the\addauthors
   \fi}
 
@@ -501,7 +501,7 @@
   \hrule width .4\columnwidth
   \kern 2.6\p@}                 % The \hrule has default height of .4pt .
 % ------
-\long\def\@makefntext#1{\noindent 
+\long\def\@makefntext#1{\noindent
 %\hbox to .5em{\hss$^{\@thefnmark}$}#1}   % original
 \hbox to .5em{\hss\textsuperscript{\@thefnmark}}#1}  % C. Clifton / GM Oct. 2nd. 2002
 % -------
@@ -1252,7 +1252,7 @@
 \newdimen\bibindent
 \setcounter{enumi}{1}
 \bibindent=0em
-\def\thebibliography#1{% 
+\def\thebibliography#1{%
 \ifnum\addauflag=0\addauthorsection\global\addauflag=1\fi
      \section[References]{%    <=== OPTIONAL ARGUMENT ADDED HERE
         {References} % was uppercased but this affects pdf bookmarks (SP/GM October 2004)
@@ -1362,10 +1362,11 @@
 \baselineskip=11pt
 \let\thepage\relax % For NO page numbers - GM Nov. 30th. 1999 and July 2000
 \def\setpagenumber#1{\global\setcounter{page}{#1}}
-%\pagenumbering{arabic}  % Arabic page numbers GM July 2000
+\pagenumbering{arabic}  % Arabic page numbers GM July 2000
 \twocolumn             % Double column.
 \flushbottom           % Even bottom -- alas, does not balance columns at end of document
-\pagestyle{plain}
+%\pagestyle{plain}
+\pagestyle{empty} 	% disable page number
 
 % Need Copyright Year and Copyright Data to be user definable (in .tex file).
 % Gerry Nov. 30th. 1999
@@ -1382,27 +1383,23 @@
 %\newtoks\copyrightetc
 %\global\copyrightetc{Copyright \the\copyrtyr\ ACM \the\acmcopyr\ ...\$5.00}
 
-\global\boilerplate={Permission to make digital or hard copies of all
-  or part of this work for personal or classroom use is granted
-  without fee provided that copies are not made or distributed for
-  profit or commercial advantage and that copies bear this notice and
-  the full citation on the first page. To copy otherwise, to
-  republish, to post on servers or to redistribute to lists, requires
-  prior specific permission and/or a fee.  Articles from this volume
-  were invited to present their results at The 39th International
-  Conference on Very Large Data Bases, August 26th - 30th 2013, Riva
-  del Garda, Trento, Italy. }
+% Future proceedings chair, please update the following: 1) conference sequence number, 2) date,
+% 3) location, 4) volume number, 5) Copyright year.
+% \global\boilerplate={This work is licensed under the Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License. To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-nd/3.0/.  Obtain permission prior to any use beyond those covered by the license.  Contact copyright holder by emailing info@vldb.org.  Articles from this volume were invited to present their results at the 42nd International Conference on Very Large Data Bases, September 5th - September 9th 2016, New Delhi, India.}   %%% Changed by VLDB Committee moving to a different copyright statement  -- 17/10/2015    *** Srikanta Bedathur (sbedathur@acm.org)
+\global\boilerplate={This work is licensed under the Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International License.  To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-nd/4.0/.  For any use beyond those covered by this license, obtain permission by emailing info@vldb.org.}
 
 \global\conf{Proceedings of the VLDB Endowment,}
-\global\confinfo{Vol. 6, No. 5}
+\global\confinfo{Vol. 10, No. 3}
 \newtoks\copyrightetc
-\global\copyrightetc{Copyright 2013 VLDB Endowment 2150-8097/13/03... \$ 10.00}
-		
+\global\copyrightetc{Copyright 2016 VLDB Endowment 2150-8097/16/11}
+
+%% Uncomment for camera ready
 \toappear{\the\boilerplate\par
-\confname{\the\conf} \the\confinfo\par \the\copyrightetc.}
-%
+{\confname{\the\conf}} \the\confinfo\par \the\copyrightetc.}
+
 %% End of vldb.cls -- V1.8c - 05/15/2011 --
-%% Stratis Viglas -- October 2012 (re-enabled the copyright blurb until further notice)
-%% Ahmet Sacan  -- August 2012 (volume, issue, and dates are dynamically updated)
+%% Alvin Cheung -- June 2016 (updates for vol 10)
+%% Srikanta Bedathur -- October 17th. 2015
+%% Ahmet Sacan  -- December 2011 (volume, issue, and dates are dynamically updated)
 %% Uwe Roehm    -- Oct-Dec 2010 & Jan-Apr 2011
 %% Gerry Murray -- Wednesday July 26th. 2005
