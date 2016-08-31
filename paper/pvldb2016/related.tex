@@ -29,6 +29,16 @@ range $[t_{start}, now)$.  Second, it is not compact.  Every change to
   graphs, consecutive snapshots have degree of similarity approaching
   1 (on the scale of 0 of no similarity and 1 full similarity).
 
+The G* system~\cite{Labouseur2015} manages graphs that correspond to
+periodic snapshots of an evolving network, with the focus on efficient
+data layout.  It takes advantage of the similarity between successive
+snapshots by storing shared vertices only once and maintaining
+per-graph indices.  The per-snapshot operators to support graph
+analysis also make use of this feature.  However, there is no notion
+of time as the intrinsic part of the system, as there is in \ql, and
+thus no operators to express temporal queries like aggregation and
+slice.
+
 Khurana and Deshpande~\cite{Khurana2013} investigate efficient
 physical representations using deltas to support snapshot retrieval.
 Thus the on-disk representation is compatible with the period-based
