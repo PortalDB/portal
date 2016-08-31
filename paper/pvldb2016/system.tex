@@ -146,9 +146,10 @@ As we will see experimentally in Section~\ref{sec:exp}, \og is often
 the best-performing data structure for aggregation, and also has
 competitive performance for analytics.  Because of this focus, \og
 supports operations only on topology: analytics, aggregation. union,
-and intersection for graphs with no vertex or edge attributes.  For
-completeness, all other operations are supported through inheritance
-from an abstract parent, and are carried out on the VE data structure.
+and intersection for graphs with no vertex or edge attributes.  All
+other operations are supported through inheritance from an abstract
+parent, and are carried out on the VE data structure.  Thus \og and
+\hg, below, can be thought of as indixes on VE.
 
 {\bf HybridGraph (HG)} trades compactness of \og for better structural
 locality of \rg, by aggregating together several consecutive
