@@ -2,73 +2,71 @@
 \label{sec:related}
 
 {\bf Temporal data models and languages.} We build on a rich body of
-work in temporal databases.  Our \tg representation is based on
+work in temporal databases.  The \tg representation is based on
 interval semantics~\cite{DBLP:reference/db/JensenS09k}, and is
-temporally coalesced~\cite{DBLP:conf/vldb/BohlenSS96}.  Our algebra is
+temporally coalesced~\cite{DBLP:conf/vldb/BohlenSS96}.  \tg algebra is
 based on the principle of snapshot
 reducibility~\cite{DBLP:reference/db/Bohlen092}.  We use insights of
-temporal joins work~\cite{Gao2005} to define \tg union and
-intersection.  Our \tg aggregation is inspired by stream aggregation
-of~\cite{Li2005}.  An interval-based model of graph evolution, and a
-composable algebra for evolving graphs that is based on snapshot
-reducibility, are among the most important contributions of our work.
+temporal joins~\cite{Gao2005} to define \tg union and intersection.
+aggregation is inspired by stream aggregation of~\cite{Li2005}.  An
+interval-based model of graph evolution, and a composable algebra for
+evolving graphs based on snapshot reducibility, are among our most
+important contributions.
 
-{\bf Evolving graph models and representations.}  Representation and
-querying of evolving graphs has received active interest
-recently. Much of the work on evolving graphs is on snapshot retrieval
-and snapshot analytics in a discrete time domain.  In this case an
-evolving graph is considered to be a sequence of graph snapshots
-corresponding to time instances in the time domain $T$
-(\cite{Khurana2013,DBLP:journals/tos/MiaoHLWYZPCC15,Ren2011}).  Such a
-model is in contrast to an interval-based model that we use, and has
-several limitations.  First, it requires a discrete time domain. The
-state of the graph can be undefined at some time $t_i$ unless a
-snapshot is associated with each possible value of $T$ in the discrete
-range $[t_{start}, now)$.  Second, it is not compact.  Every change to
-  an entity (vertex or edge) requires a new snapshot.  For large
-  graphs, consecutive snapshots have degree of similarity approaching
-  1 (on the scale of 0 of no similarity and 1 full similarity).
+{\bf Evolving graph models and representations.}\eat{ Representation
+  and querying of evolving graphs has received active interest
+  recently.} Much recent work represents evolving graphs as sequences
+of snapshots in a discrete time domain, and focuses on snaposhot
+retrieval and
+analytics~\cite{Khurana2013,DBLP:journals/tos/MiaoHLWYZPCC15,Ren2011}.
+This is in contrast to an interval-based model that we use, and has
+several limitations.  First, the state of the graph can be undefined
+at some time $t_i$ unless a snapshot is associated with each possible
+value in the discrete range $[t_{start}, now)$.  Second, it is not
+  compact: every change to an entity (vertex or edge) requires a new
+  snapshot.\eat{ For large graphs, consecutive snapshots have degree
+    of similarity approaching 1 (on the scale of 0 of no similarity
+    and 1 full similarity).}  This has motivated work on efficient
+  physical representations that are both compact and support efficient
+  snapshot-based
+  operations~\cite{Khurana2013,DBLP:journals/tos/MiaoHLWYZPCC15,Ren2011}.
 
 The G* system~\cite{Labouseur2015} manages graphs that correspond to
-periodic snapshots of an evolving network, with the focus on efficient
-data layout.  It takes advantage of the similarity between successive
-snapshots by storing shared vertices only once and maintaining
-per-graph indices.  The per-snapshot operators to support graph
-analysis also make use of this feature.  However, there is no notion
-of time as the intrinsic part of the system, as there is in \ql, and
-thus no operators to express temporal queries like aggregation and
-slice.
+periodic snapshots, with the focus on efficient data layout.  It takes
+advantage of the similarity between successive snapshots by storing
+shared vertices only once and maintaining per-graph indexes, which are
+in turn used by per-snapshot graph analysis operators.  \eat{Time is
+  not an intrinsic part of the system, as there is in \ql, and thus no
+  operators to express temporal queries like aggregation and slice.}
 
-Khurana and Deshpande~\cite{Khurana2013} investigate efficient
-physical representations using deltas to support snapshot retrieval.
-Thus the on-disk representation is compatible with the period-based
-model, but the logical model and the algorithms for retrieval are
-snapshot-based.  Their in-memory GraphPool maintains a single
-representation of all snapshots and stores only dependencies from a
-materialized snapshot when deltas are small.  However, an evaluation
-of queries involving multiple snapshots, such as aggregation, requires
-fully materialized views in memory, which makes this approach
-infeasible for our purposes.  Snapshot retrieval, however, is a useful
-operation for many types of analysis and thus should be supported.  In
-our model a snapshot at any time $t$ can be retrieved by temporal
-slice.
+Efficient physical representations using deltas are investigted
+in~\cite{Khurana2013}.  Their on-disk representation is compatible
+with the period-based model, but the logical model and the algorithms
+for retrieval are snapshot-based.  Their in-memory GraphPool maintains
+a single representation of all snapshots and stores only dependencies
+from a materialized snapshot when deltas are small.  However, an
+evaluation of queries involving multiple snapshots, such as
+aggregation, requires fully materialized views in memory, which makes
+this approach infeasible for our purposes.  Snapshot retrieval,
+however, is a useful operation for many types of analysis and thus
+should be supported.  In our model a snapshot at any time $t$ can be
+retrieved by temporal slice.
 
 Ren et al.~\cite{Ren2011} develop an in-memory representation of
 evolving graphs based on representative graphs for sets of snapshots.
-Note that this is a different definition of the term {\em
-  representative graph} than the one we use, since it indicates a
-commonality (a union or an intersection) between a set of consecutive
-snapshots, rather than being a consistent representation of the graph
-for some period $p$.  Nevertheless, Ren's representative graphs
-can be computed in \ql using temporal aggregation and provide further
-motivation for the existence of that operation.
+Note that this is a different definition of {\em representative graph}
+than the one we use, since it indicates a commonality (a union or an
+intersection) between a set of consecutive snapshots, rather than
+being a consistent representation of the graph for some period $p$.
+Nevertheless, Ren's representative graphs can be computed in \ql using
+temporal aggregation, further motivating this operation.
 
 Semertzidis et al.~\cite{Semertzidis2015} develop a version graph,
 where each node and edge is annotated with the set of time intervals
 in which they exist.  Their logical model is also a sequence of
-snapshots with the integer time domain.  However, it is easy to show
-that the version graph can be extended to support a period-based
-model.  Our \og representation is based on this idea.
+snapshots with the integer time domain. The version graph can be
+extended to support the period-based model, and is similar to our \og
+physical repesentation.
 
 Boldi et al.~\cite{Boldi2008} present a space-efficient non-delta
 approach for storing a large evolving Web graph that they harvested.
@@ -82,14 +80,14 @@ streams~\cite{Cheng2012,Ediger2012}, usually for the purposes of
 supporting analysis of the latest state of the graph quickly and
 efficiently.  In this model a stream $S$ emits a sequence of graph
 change events $e$, each associated with a time $t$ at which it was
-emitted.  An event can be of entity creation, deletion, or change in
-the value of one of the entity attributes.  Multiple events may be
-associated with one time instance and the event emit rate is not
-constant.  Because the stream emits {\em individual entities} rather
-than {\em whole graphs}, graph snapshots can only be reconstructed by
-maintaining the history of changes over time.  Our evolving graph
-model can be constructed from the change stream model following
-the conventional temporal database approach of maintaining valid-time data.
+emitted.\eat{ An event can be of entity creation, deletion, or change
+  in the value of one of the entity attributes.  Multiple events may
+  be associated with one time instance and the event emit rate is not
+  constant.}  Because the stream emits individual entities rather than
+whole graphs, graph snapshots can only be reconstructed by maintaining
+the history of changes over time.  A \tg can be constructed from a
+change stream following the conventional temporal database approach of
+maintaining valid-time data.
 
 \eat{
 This approach assumes that no events arrive out of order and there are
