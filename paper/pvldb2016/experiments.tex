@@ -5,56 +5,48 @@
 conducted on a 16-slave in-house Open Stack cloud, using Linux Ubuntu
 14.04 and Spark v2.0.  Each node has 4 cores and 16 GB of RAM.  Spark
 Standalone cluster manager and Hadoop 2.6 were used.
-
+%
 Because Spark is a lazy evaluation system, a materialize operation was
 appended to the end of each query, which consisted of the count of
 nodes and edges.  Each experiment was conducted 3 times with a cold
 start, we report the average running time, which is representative
-because we took great care to control variability.  Standard deviation
+because we took great care to control variability: standard deviation
 for each measure is at or below 5\% of the mean except in cases of
 very small running times.
 
-\begin{table}
-\caption{Experimental datasets.}
-\vspace{-0.1in}
-\small
-\begin{tabular}{l | c | c | c | c }
-\hline
-\multicolumn{1}{l|}{\bfseries Dataset} & \multicolumn{1}{c|}{\bfseries |V|} & \multicolumn{1}{c|}{\bfseries |E|} & \multicolumn{1}{c|}{\bfseries Time Span} & \multicolumn{1}{c}{\bfseries Evol. Rate} \\ \hline
-wiki-talk-en & 2.9M & 10.7M & 2002--2015 & 14.4 \\ \hline
-nGrams & 29.3M & 2.5B & 1520--2008 & 16.67 \\ \hline
-%%DELIS & 128M & 40.5B & 2006--2007 & ? \\ \hline
-twitter & 505.4M & 23B & 2006--2012 & 88.? \\ \hline
-\end{tabular}
-\vspace{-0.1cm}
-\label{tab:datasets}
-\end{table}
+OG and HG inherit their implementation of \insql{slice}, \insql{map}
+and \insql{subgraph} from RG and are not included in these
+experiments.  Performance of all 4 data structures is compared in
+\insql{aggregation}, \insql{union}, \insql{intersection} and analytics
+experiments.
 
 {\bf Data.}  We evaluate performance of our framework on three real
-open-source datasets: wiki-talk, nGrams, and Twitter
-(Table~\ref{tab:datasets}).  wiki-talk~\cite{wikitalk} contains over
-10 million messaging events among 3 million wiki-en users from 2002
-through 2015, aggregated at 1 month resolution.  nGrams~\cite{nGrams}
-contains word co-occurrence information from 1520 through 2008, with
-30 million word nodes and over 2.5 billion undirected co-occurrence
-edges.  Twitter social graph~\cite{Gabielkov:2014:SSN:2591971.2591985}
+open-source datasets, summarized in Table~\ref{tab:datasets}.
+wiki-talk (\url{http://dx.doi.org/10.5281/zenodo.49561}) contains over
+10 million messaging events among 3 million wiki-en users\eat{2002
+  through 2015}, aggregated at 1-month resolution.\\nGrams
+(\url{http://storage.googleapis.com/books/ngrams/books/datasetsv2.html})
+contains word co-occurrence pairs\eat{ from 1520 through 2008}, with
+30 million word nodes and over 2.5 billion undirected edges.  The
+Twitter social graph~\cite{Gabielkov:2014:SSN:2591971.2591985}
 contains over 23 billion directed follower relationships between 0.5
-billion twitter users collected in 2012, sampled at 1-month resolution
-based on account creation information from April of 2006. \eat{DELIS
-  contains monthly snapshots of a portion of the Web graph focusing on
-  the .uk domains from 05/2006 through 05/2007~\cite{BSVLTAG}. } The
-datasets differ not only in size, but also in the number and type of
-attributes and the rate of evolution.  The change rate was calculated
-as the average graph edit similarity~\cite{Ren2011}.  \eat{the
-  evolutionary properties: co-authorship network nodes and edges have
-  limited lifespan, while the nGrams network grows over time, with
-  nodes and edges persisting for long duration.  All figures in the
-  body of this section are on the larger nGrams dataset.  Refer to the
-  Appendix for the DBLP figures, which show similar trends as nGrams.}
+billion twitter users\eat{ collected in 2012}, sampled at 1-month
+resolution.\eat{ based on account creation information from April
+  2006.} \eat{DELIS contains monthly snapshots of a portion of the Web
+  graph focusing on the .uk domains from 05/2006 through
+  05/2007~\cite{BSVLTAG}. }The datasets differ in size, in the number
+and type of attributes and in evolution rates, calculated as the
+average graph edit similarity~\cite{Ren2011}. \eat{the evolutionary
+  properties: co-authorship network nodes and edges have limited
+  lifespan, while the nGrams network grows over time, with nodes and
+  edges persisting for long duration.  All figures in the body of this
+  section are on the larger nGrams dataset.  Refer to the Appendix for
+  the DBLP figures, which show similar trends as nGrams.}
 
 The behavior of the four physical representations reported below is
-dependent on the underlying data format on disk, described in the
-previous section, and should be interpreted in that context.
+dependent on the underlying data format on disk
+(Section~\ref{sec:sys:maint}), and should be interpreted in that
+context.
 
 \begin{figure*}[!ht]
 \centering
@@ -84,22 +76,31 @@ previous section, and should be interpreted in that context.
 \end{minipage}
 \end{figure*}
 
-{\bf Slice.}  \insql{slice} performance was evaluated by varying the
-slice time window and materializing the \tg.  Recollect that in VE
-\insql{slice} is a simple select on the vertex and edge relations and
-is the fastest access method when data on disk is coalesced.  \sg, in
-contrast, does multiple passes of select over the same data to compute
-each RG.  Thus, as expected, VE behavior is directly dependent on the
-size of input data regardless of the slice size for file formats and
-systems without filter pushdown, as is the case here, or if the data
-does not have temporal locality (Figure~\ref{fig:slicewiki},
-Figure~\ref{fig:slicengrams} -- about 1.5 minutes for VE).  \sg
-behavior is linear in the slice size.  This experiment essentially
-measures the cost of materializing \sg from \ve on-disk
-representation.  However, we observed the same linear trend previously
-when the data is stored as individual
-snapshots~\cite{PortalarXiv2016}, although less redundant work is
-needed in that case.
+{\bf Slice} performance was evaluated by varying the slice time window
+and materializing the \tg, and is presented in
+Figures~\ref{fig:slicewiki} for wiki-talk and~\ref{fig:slicengrams}
+for nGrams.  Similar trends were observed for twitter.  Slice is
+expected to be more efficient when executed over VE when data is
+coalesced on disk than over \sg, and we observe this in our
+experiments.  This is because multiple passes over the data are
+required for \sg to compute each representative graph, leading to
+linear growth in running times for file formats and systems without
+filter pushdown, as is the case here.  Slice over VE simply execute
+temporal selection and has constant running times (29 sec for
+wiki-talk, about 1.5 min for nGrams).\eat{Recall that in VE
+  \insql{slice} performs temporal selection, and method when data on
+  disk is coalesced.  \sg, in contrast, does multiple passes of select
+  over the same data to compute each RG.  Thus, as expected, VE
+  behavior is directly dependent on the size of input data regardless
+  of the slice size for file formats and systems without filter
+  pushdown, as is the case here, or if the data does not have temporal
+  locality (Figure~\ref{fig:slicewiki}, Figure~\ref{fig:slicengrams}
+  -- about 1.5 minutes for VE).  \sg behavior is linear in the slice
+  size. } This experiment essentially measures the cost of
+materializing \sg from a \ve on-disk representation.  We observed the
+same linear trend in our preliminary work~\cite{PortalarXiv2016}, when
+the data was stored as individual snapshots on disk, although less
+redundant work is needed in that case. 
 
 \eat{
 \begin{figure*}[th]
@@ -123,24 +124,46 @@ needed in that case.
 \end{figure*}
 }
 
-{\bf Map.}  We evaluate \insql{map} performance by varying the data
-size through the \insql{slice} operation.  Similar to \insql{slice},
-\insql{map} exhibits flat runtime for VE and linear increase in
-runtime with the number of RGs for \sg (Figure~\ref{fig:project}).
-However, performance for both VE and \sg is marginally worse than
-performance on \insql{slice} because \insql{map} requires a coalescing
-operation as the last step, while \insql{slice} does not.
+{\bf Map}\eat{ We evaluate \insql{map} performance by varying the data
+  size through the \insql{slice} operation.} exhibits a similar trend
+as \insql{slice}: constant running time for VE and a linear increase
+in running time with increasing number of representative graphs for
+\sg (Figure~\ref{fig:project} for wiki-talk, similar for other
+datasets).  Performance of \insql{map} is slightly worse than that of
+\insql{slice} because \insql{map} must coalesce its output as the last
+step, while \insql{slice} does not. 
 
-{\bf Subgraph.}  \insql{subgraph} performance was evaluated by varying
-selectivity over length of the vertex attribute.  Performance of \sg
-is a function of the number of intervals and is insensitive to the
-selectivity (Figure~\ref{fig:subgraphngrams}).  The behavior of VE is
-dominated by the foreign key constraint enforcement: with small
-selectivity broadcast join affords performance linear to the number of
-edges, whereas for large number of vertices broadcast join is not
-feasible and a hash-join is used instead, which is substantially
-slower.  Even then VE provides an order of magnitude better
-performance than \sg.
+{\bf Subgraph} performance was evaluated by specifying a condition on
+the $length(a.attr)<t$ of the vertex attribute, with different values
+of $t$ leading to different selectivity.  This experiment was executed
+for wiki-talk (with $username$ as the attribute) and for nGrams (with
+$word$ as the attribute).  Twitter has no vertex attributes and was
+not used in this experiment.  Performance on \sg is a function of the
+number of intervals and is insensitive to the selectivity
+(Figure~\ref{fig:subgraphngrams} for nGrams, similar for wiki-talk).
+The behavior on VE is dominated by FK enforcement: with high
+selectivity (few vertices) broadcast join affords performance linear
+in the number of edges, whereas for a large number of vertices
+broadcast join is infeasible and a hash-join is used instead, which is
+substantially slower.  VE provides an order of magnitude better
+performance than \sg: up to 3 min with hash-join and up to 15 min with
+broadcast join for VE, in contrast to between 95 and 200 min for \sg.
+
+\begin{table}
+\caption{Experimental datasets.}
+\vspace{-0.1in}
+\small
+\begin{tabular}{l | c | c | c | c }
+\hline
+\multicolumn{1}{l|}{\bfseries Dataset} & \multicolumn{1}{c|}{\bfseries |V|} & \multicolumn{1}{c|}{\bfseries |E|} & \multicolumn{1}{c|}{\bfseries Time Span} & \multicolumn{1}{c}{\bfseries Evol. Rate} \\ \hline
+wiki-talk-en & 2.9M & 10.7M & 2002--2015 & 14.4 \\ \hline
+nGrams & 29.3M & 2.5B & 1520--2008 & 16.67 \\ \hline
+%%DELIS & 128M & 40.5B & 2006--2007 & ? \\ \hline
+twitter & 505.4M & 23B & 2006--2012 & 88.? \\ \hline
+\end{tabular}
+\vspace{-0.1cm}
+\label{tab:datasets}
+\end{table}
 
 \begin{figure*}[ht]
 \centering
@@ -177,23 +200,23 @@ performance than \sg.
 \label{fig:agg}
 \end{figure*}
 
-{\bf Aggregate.}  We evaluate the performance of structure-only
-aggregation on all 4 representations by varying the aggregation
-window.  \insql{aggregate} performance, whether by time or change,
-depends heavily on the quantification and on the data evolution rate.
+{\bf Aggregation} performance was evaluated on 4 representations,
+since all have different implementations of this operator.  We
+executed structure-only aggregation (no attributes), varying the size
+of the aggregation window.  We observed that performance depends
+depends heavily on the quantification, and on the data evolution rate.
 \og is an aggregated data structure with good temporal locality and
-thus in most cases provides good performance insensitive to the
-aggregation window size, e.g. Figure~\ref{fig:agg1}.  However, in
-datasets with a large number of RGs (such as nGrams which has over 400
-periods), \og exhibits slow performance on large windows, an order of
-magnitude worse than VE (Figure~\ref{fig:agg2}).  VE outperforms \og
-when the V and E quantification levels match (Figure~\ref{fig:agg1}),
-but is worse than \og when the foreign key constraint is manually
-enforced, which happens with different levels of quantification for V
-and E (Figure~\ref{fig:agg4}).  VE also underperforms \og when the
-evolution rate and the aggregation window are both small, such as with
-the wiki-talk dataset - Figure~\ref{fig:agg1}.  \sg and \hg do not
-provide the best performance on any of our datasets.
+thus in most cases provides good performance and is insensitive to the
+aggregation window size (Figure~\ref{fig:agg1}).  However, in datasets
+with a large number of representative graphs (such as nGrams), \og is
+slow on large windows, an order of magnitude worse than VE
+(Figure~\ref{fig:agg2}).  VE outperforms \og when vertex and edge
+quantification levels match (Figure~\ref{fig:agg1}), but is worse than
+\og when vertex quantification is stricter than edge quantification
+and FK must be enforced (Figure~\ref{fig:agg4}).  \og also outperforms
+VE when both evolution rate is low and aggregation window is small
+(Figure~\ref{fig:agg1}, wiki-talk). \sg and \hg do not provide the
+best performance on any of our datasets.
 
 \begin{figure*}[h]
 \begin{minipage}{2.1in}
@@ -222,27 +245,27 @@ provide the best performance on any of our datasets.
 \end{minipage}
 \end{figure*}
 
-{\bf Union and Intersection.}  \insql{union} and \insql{intersection}
-by structure was evaluated by loading two time slices of the same
-dataset with varying overlap.  The performance of the four conditions
-depends on the size of the overlap (in the number of representative
-graphs) and the evolution rate.  VE produces the best performance when
-the overlap is small (Figure~\ref{fig:union1})\eat{ and when the
-  evolution rate is high (Figure~\ref{fig:union2}), regardless of the
-  size of the overlap}.  \og always produces good performance, flat
-w.r.t. the overlap.  This makes sense, considering that in \og
-\insql{union} and \insql{intersection} are implemented as joins (outer
-or inner) on the vertices and edges of the two operands.  VE, on the
-other hand, splits the coalesced vertices/edges of each of the two
-operands into intervals first, takes a union, and then reduces by key.
-When the evolution rate is low and duration of an entity is high, such
-as the case in the wiki-talk dataset for vertices, the split produces
-a lot of tuples to then reduce, and the performance suffers
-(Figure~\ref{fig:union1}). \sg only produces good performance on
-\insql{intersection} when few representative graphs overlap, and never
-on \insql{union} (Figure~\ref{fig:intersectngrams}). \hg performance
-is generally worse than \og, by a constant amount in \insql{union},
-and diverges in \insql{intersection}.
+{\bf Union and intersection} by structure was evaluated by loading two
+time slices of the same dataset with varying overlap.  The performance
+of the four conditions depends on the size of the overlap (in the
+number of representative graphs) and the evolution rate.  VE produces
+the best performance when the overlap is small
+(Figure~\ref{fig:union1})\eat{ and when the evolution rate is high
+  (Figure~\ref{fig:union2}), regardless of the size of the overlap}.
+\og always produces good performance, constant w.r.t. overlap size.
+This is expected, since \og \insql{union} and \insql{intersection} are
+implemented as joins (outer or inner) on the vertices and edges of the
+two operands.  VE, on the other hand, splits the coalesced
+vertices/edges of each of the two operands into intervals first, takes
+a union, and then reduces by key.  When the evolution rate is low and
+duration of an entity is high, such as the case in the wiki-talk
+dataset for vertices, the split produces a lot of tuples to then
+reduce, and the performance suffers (Figure~\ref{fig:union1}). \sg
+only produces good performance on \insql{intersection} when few
+representative graphs overlap, and never on \insql{union}
+(Figure~\ref{fig:intersectngrams}). \hg performance is generally worse
+than \og, by a constant amount in \insql{union}, and diverges in
+\insql{intersection}.
 
 \begin{figure*}
 \centering
