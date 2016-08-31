@@ -6,17 +6,17 @@ The importance of networks in scientific and commercial domains cannot
 be overstated.  Networks are represented by graphs, and we will use
 the terms ``network'' and ``graph'' interchangeably.  Considerable
 research and engineering effort is being devoted to developing
-effective and efficient graph representations and analytics.  As of
-late, efficient graph abstractions and analytics for {\em static
-  graphs} have become available in scope of open source platforms such
-as Apache Giraph~\cite{ApacheGiraph}, Apache Spark, through the GraphX
-API~\cite{DBLP:conf/osdi/GonzalezXDCFS14}, and GraphLab, through the
-PowerGraph library~\cite{DBLP:conf/osdi/GonzalezLGBG12}.  This in turn
-makes sophisticated graph analysis methods available to researchers
-and practitioners, facilitating their widespread adoption.  Further,
-because these systems are open source, this encourages development and
-dissemination of new graph analysis methods, and of more efficient
-implementations of existing methods.
+effective and efficient graph representations and analytics.
+Efficient graph abstractions and analytics for {\em static graphs} are
+to researchers and practitioners in scope of open source platforms
+such as Apache Giraph, Apache Spark (through
+GraphX~\cite{DBLP:conf/osdi/GonzalezXDCFS14} and GraphLab (through
+PowerGraph library~\cite{DBLP:conf/osdi/GonzalezLGBG12}).\eat{ This in
+  turn makes sophisticated graph analysis methods available to
+  researchers and practitioners, facilitating their widespread
+  adoption. Further, because these systems are open source, this
+  encourages development and dissemination of new graph analysis
+  methods, and of more efficient implementations of existing methods.}
 
 Arguably the most interesting and important questions one can ask
 about networks have to do with their evolution, rather than with their
@@ -24,7 +24,7 @@ static state.  Analysis of {\em evolving graphs} has been receiving
 increasing attention, with most progress taking place in the last
 decade~\cite{DBLP:journals/csur/AggarwalS14,Chan2008,Kan2009,DBLP:journals/tos/MiaoHLWYZPCC15,Ren2011,Semertzidis2015}.
 Some areas where evolving graphs are being studied are social network
-analysis~\cite{DBLP:conf/kdd/LeskovecBKT08,DBLP:conf/icml/SarkarCJ12},
+analysis~\cite{DBLP:conf/icml/SarkarCJ12},
 biological networks~\cite{DBLP:journals/tcsb/BeyerTLSF10} and the Web~\cite{DBLP:journals/jisa/PapadimitriouDG10}.
 %\eat{~\cite{DBLP:conf/icwsm/GoetzLMF09,DBLP:journals/tweb/LeskovecAH07,DBLP:conf/kdd/LeskovecBKT08,DBLP:conf/icml/SarkarCJ12}},
 %biological networks~\cite{DBLP:journals/tkdd/AsurPU09,DBLP:journals/tcsb/BeyerTLSF10,Stuart2003} and the Web~\cite{DBLP:journals/kais/ChanBL08,DBLP:journals/jisa/PapadimitriouDG10}.
@@ -48,8 +48,8 @@ shown using two representations.  Figure~\ref{fig:tg_rg} gives the
 graphs associated with a sequence of coalesced time periods, and with
 the semantics that no change occurred in a graph for the duration of
 the time period. Figure~\ref{fig:tg_ve} gives the {\em vertex-edge}
-representation of an evolving graph --- a pair of coalesced temporal
-SQL relations $V$ and $E$ with appropriate integrity constraints.
+representation of an evolving graph --- a collection of coalesced
+temporal SQL relations with appropriate integrity constraints.
 
 \eat{Quick overview of our model and operations.  Point to a
   figure.  We represent graph evolution through a continuous time
@@ -60,19 +60,18 @@ SQL relations $V$ and $E$ with appropriate integrity constraints.
   Corroborating / complementing information from different sources -
   graph union and intersection.  Graph analytics.}
 
-The \ql system implements the \tg abstraction \eat{along with }and the
-operations of a fully compositional \tg algebra, motivated by several
-categories of questions one may ask about evolving networks as part of
-exploratory analysis.  We present some motivating questions next, to
-give the flavor of the capabilities of the \ql system.
+The \ql system implements the \tg abstraction and the operations of a
+fully compositional algebra, motivated by several categories of
+questions one may ask about evolving networks as part of exploratory
+analysis.  We present some  questions next, to give the
+flavor of the capabilities of \ql.
 
 {\em Which network nodes are showing an increasing popularity trend,
   or have increasing influence, and which are on a downward spiral?}
 Node popularity can be quantified by, e.g., node degree, centrality,
-or PageRank score.  In the Web graph this information can help
-prioritize crawling.  In social networks it can be used for content
-recommendation and ad targeting.  In semantic knowledge bases this
-information captures the dynamics of zeitgeist.
+or PageRank score.  This information can be used to prioritize
+crawling on the Web, to target ads in a social network, and to
+captures the dynamics of zeitgeist in semantic knowledge bases.
 %
 {\em Have any changes in network connectivity been observed, either
   suddenly or gradually over time?} Connectivity can be quantified as,
@@ -81,27 +80,26 @@ or graph density.  For networks describing insulin-based metabolism
 pathways, gradual pathway disruption can be used to determine the
 onset of type-2 diabetes~\cite{DBLP:journals/tcsb/BeyerTLSF10}.  For a
 website accessibility network, sudden loss of connectivity can signal
-that censorship is taking place. In a co-authorship network,
+that censorship is taking place.\eat{ In a co-authorship network,
 increasing connectivity among topical communities indicates stronger
-collaboration across domains.
+collaboration across domains.}
 %
 \ql supports efficient computation of node popularity and network
 connectivity measures with a combination of {\em temporal aggregation}
-and {\em representative graph analytics}.
+and {\em temporal analytics}.
 
 {\em At what time scale can interesting trends be observed?} The
 answer to this question may not be known apriori, at the time when
-graph evolution data is being recorded.  For example, changes in node
-centrality in a social network may be observable on the scale of
-weeks, but not months (coarser).  On the Web, periodic events may
-change popularity of websites, with observable trends on the scale of
-days, but not hours (finer) or months (coarser).  Furthermore, the
-same network may exhibit different trends at different time scales,
-e.g., node popularity maychange at a different rate, and thus be
-observable on a different scale, than over-all network density.
-Understanding at what temporal scale to consider network evolution is
-an integral part of exploratory analysis, which \ql supports with {\em
-  temporal aggregation}.
+graph evolution data is being recorded.  Changes in node centrality in
+a social network may be observable on the scale of weeks, but not
+months (coarser).  On the Web, periodic events may change popularity
+of websites, with observable trends on the scale of days, but not
+hours (finer) or months (coarser).  Furthermore, the same network may
+exhibit different trends at different time scales, e.g., node
+popularity may change at a different rate than over-all network
+density.  Understanding at what temporal scale to consider network
+evolution is an integral part of exploratory analysis, which \ql
+supports with {\em temporal aggregation}.
 
 {\em Can information about graph evolution be used to make graph
   analytics more stable, or representative?}  Algorithms that compute
@@ -127,6 +125,15 @@ analysis \eat{or meta-analysis }of network evolution trends?  \ql
 supports {\em union} and {\em intersection} operations over evolving
 graphs that enable this kind of analysis.
 
+\begin{figure}[t!]
+%\centering
+\includegraphics[width=3.4in]{figs/T1_graphs.pdf}
+\vspace{-0.5cm}
+\caption{Representative graphs of \tg \insql{T1}.}
+\vspace{-0.3cm}
+\label{fig:tg_rg}
+\end{figure}
+
 {\bf Contributions.} We make the following contributions to support
 efficient and usable analysis of evolving graphs.
 
@@ -135,45 +142,37 @@ efficient and usable analysis of evolving graphs.
 
 \item We propose a representation of an evolving graph, called a \tg,
   which captures evolution of graph topology, and of attributes of
-  vertices and edges, \eat{continuously }through time.  \eat{ Conceptually,
-    a \tg corresponds to a pair of
+  vertices and edges (Section~\ref{sec:model}).  \eat{
+    Conceptually, a \tg corresponds to a pair of
     coalesced~\cite{DBLP:conf/vldb/BohlenSS96} temporal SQL
     relations~\cite{DBLP:journals/sigmod/KulkarniM12} (one describing
     evolution of graph vertices, and the other --- of its edges), with
-    appropriate integrity constraints. }The \tg model is presented in
-  Section~\ref{sec:model}.
+    appropriate integrity constraints. }
 
-\item We define \tg algebra, which includes temporal and structural
-  selection, temporal aggregation with novel quantification
-  mechanisms, and \tg intersection and union.  \eat{We show the
-    correspondence between \tg algebra operators and temporal SQL when
-    appropriate, and describe semantics of operations that depart from
-    temporal SQL.}\tg algebra is presented in
-  Section~\ref{sec:algebra}.
+\item We define a fully-compositional \tg algebra, which includes
+  temporal selection, subgraph, map, aggregation, join, union, and a
+  rich class of analytics (Section~\ref{sec:algebra}).
 
 \item We develop several physical representations of the logical \tg
   data structure, which represent different trade-offs in temporal and
-  structural locality.  We implement these \eat{physical }representations
-  and the operations of \tg algebra in scope of Apache Spark,
+  structural locality, and implement these \eat{physical
+  }representations and the operations of \tg algebra in Apache Spark,
   leveraging the GraphX
-  framework~\cite{DBLP:conf/osdi/GonzalezXDCFS14}, and enabling
-  distributed computation. System architecture and the implementation
-  of the \tg model and algebra are presented in Section~\ref{sec:sys}.
-
-\item An important part of our system is built-in support for
-  efficient execution of
+  framework~\cite{DBLP:conf/osdi/GonzalezXDCFS14} 
+  (Section~\ref{sec:sys}).  \eat{
+\item We support efficient execution of
   Pregel-style~\cite{DBLP:conf/sigmod/MalewiczABDHLC10} analytics over
   representative graphs of a \tg.  We also support efficient
   computation of trends over attribute values, which may themselves be
   computed, e.g., by applying a graph analytic in the previous step.
   Our support of graph analytics is discussed in
-  Section~\ref{sec:analytics}.
+  Section~\ref{sec:analytics}.}
 
-\item We conduct an extensive experimental evaluation of the \ql
-  system with real datasets.  We demonstrate that good performance can
-  be achieved with careful engineering, and that \ql is scalable.  We
-  presents results of our evaluation in Section~\ref{sec:exp}\eat{, and
-  also briefly discuss the usability of our framework in this section}.
+\item We conduct an extensive experimental evaluation with real
+  datasets, and demonstrate that good performance can be achieved with
+  careful engineering, and that \ql is scalable
+  (Section~\ref{sec:exp}).\eat{, and also briefly discuss the
+    usability of our framework in this section}
 
 %\end{description}
 \end{enumerate}
