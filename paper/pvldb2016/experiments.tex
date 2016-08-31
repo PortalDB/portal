@@ -17,8 +17,7 @@ very small running times.
 OG and HG inherit their implementation of \insql{slice}, \insql{map}
 and \insql{subgraph} from RG and are not included in these
 experiments.  Performance of all 4 data structures is compared in
-\insql{aggregation}, \insql{union}, \insql{intersection} and analytics
-experiments.
+\insql{aggregation}, \insql{union} and\insql{intersection}.
 
 {\bf Data.}  We evaluate performance of our framework on three real
 open-source datasets, summarized in Table~\ref{tab:datasets}.
@@ -215,8 +214,8 @@ quantification levels match (Figure~\ref{fig:agg1}), but is worse than
 \og when vertex quantification is stricter than edge quantification
 and FK must be enforced (Figure~\ref{fig:agg4}).  \og also outperforms
 VE when both evolution rate is low and aggregation window is small
-(Figure~\ref{fig:agg1}, wiki-talk). \sg and \hg do not provide the
-best performance on any of our datasets.
+(Figure~\ref{fig:agg1}, wiki-talk).\eat{ \sg and \hg do not provide the
+best performance on any of our datasets.}
 
 \begin{figure*}[h]
 \begin{minipage}{2.1in}
@@ -246,22 +245,21 @@ best performance on any of our datasets.
 \end{figure*}
 
 {\bf Union and intersection} by structure was evaluated by loading two
-time slices of the same dataset with varying overlap.  The performance
-of the four conditions depends on the size of the overlap (in the
-number of representative graphs) and the evolution rate.  VE produces
-the best performance when the overlap is small
-(Figure~\ref{fig:union1})\eat{ and when the evolution rate is high
-  (Figure~\ref{fig:union2}), regardless of the size of the overlap}.
-\og always produces good performance, constant w.r.t. overlap size.
-This is expected, since \og \insql{union} and \insql{intersection} are
-implemented as joins (outer or inner) on the vertices and edges of the
-two operands.  VE, on the other hand, splits the coalesced
-vertices/edges of each of the two operands into intervals first, takes
-a union, and then reduces by key.  When the evolution rate is low and
-duration of an entity is high, such as the case in the wiki-talk
-dataset for vertices, the split produces a lot of tuples to then
+time slices of the same dataset with varying overlap.  Performance
+depends on the size of the overlap (in the number of representative
+graphs) and on the evolution rate.  VE has best performance when
+overlap is small (Figure~\ref{fig:union1})\eat{ and when the evolution
+  rate is high (Figure~\ref{fig:union2}), regardless of the size of
+  the overlap}.  \og always has good performance, constant
+w.r.t. overlap size.  This is expected, since \og \insql{union} and
+\insql{intersection} are implemented as joins (outer or inner) on the
+vertices and edges of the two operands.  VE, on the other hand, splits
+the coalesced vertices/edges of each of the two operands into
+intervals first, takes a union, and then reduces by key.  When
+evolution rate is low and duration of an entity is high, such as in
+wiki-talk for vertices, the split produces a lot of tuples to then
 reduce, and the performance suffers (Figure~\ref{fig:union1}). \sg
-only produces good performance on \insql{intersection} when few
+only has good performance on \insql{intersection} when few
 representative graphs overlap, and never on \insql{union}
 (Figure~\ref{fig:intersectngrams}). \hg performance is generally worse
 than \og, by a constant amount in \insql{union}, and diverges in
@@ -295,38 +293,35 @@ than \og, by a constant amount in \insql{union}, and diverges in
 \end{minipage}
 \end{figure*}
 
-{\bf Analytics.}  We implemented PageRank and Connected Components
-analytics for the three graph-based representations using the Pregel
-GraphX API.  PageRank was executed for 10 iterations or until
-convergence, whichever came first.  Connected components was executed
-until convergence with no limit on the number of iterations.
-Performance of Pregel-based algorithms depends heavily on the
-partition strategy, with best results achieved where cross-partition
-communication is small.  For this reason, we evaluated only with the
-E2D strategy.  
-
-The performance was evaluated on time slices of varying size.  For a
-very small number of RGs (1-2), \sg provides good performance.
-However, \sg performance slows down linearly with the number of RGs.
-\hg provides the best performance on analytics under most conditions,
-with a linear increase with a significantly slower rate of growth.
-The tradeoff between \og and \hg depends on graph evolution
-characteristics.  If the graph is a growth-only evolution (such as in
-the Twitter dataset), \og is not denser than \hg and computes
-everything in a single batch mode, which leads to the fastest
-performance, as can be seen in Figure~\ref{fig:pranktwitter}.  If the
-edge evolution represents more ephemeral connections that can come and
-go, then \hg is less dense and scales better
+{\bf Analytics.}  We implemented PageRank (PR) and Connected
+Components (CC) analytics for the three graph-based representations
+using the Pregel GraphX API.  PR was executed for 10 iterations or
+until convergence, whichever came first. CC was executed until
+convergence with no limit on the number of iterations.  Performance of
+Pregel-based algorithms depends heavily on the partitioning strategy,
+with best results achieved where cross-partition communication is
+small~\cite{MoffittTempWeb16}.  For this reason, we evaluated only
+with the E2D strategy.
+%
+Performance was evaluated on time slices of varying size.  For a very
+small number of graphs (1-2), \sg provides good performance, but slows
+down linearly as the number of graphs increases.  \hg provides the
+best performance on analytics under most conditions, with a linear
+increase but a significantly slower rate of growth.  The tradeoff
+between \og and \hg depends on graph evolution characteristics.  If
+the graph is a growth-only evolution (such as in Twitter), \og is not
+denser than \hg and computes everything in a single batch, which leads
+to the fastest performance, as can be seen in
+Figure~\ref{fig:pranktwitter}.  If the edge evolution represents more
+transient connections, then \hg is less dense and scales better
 (Figure~\ref{fig:ccwiki}).  Note that \og and \hg performance could be
 further improved by computing them over coalesced structure-only V and
-E, ignoring attributes.
+E, and ignoring attributes.
 
-{\bf Cluster Size.}  We next examine how the system implementation
-scales with the the size of the cluster.  We evaluate the performance
-of the following query:
-
-\insql{slice; aggregate(1 year, exists, exists); components}
-
+{\bf Cluster Size.}  We next examine how the system performance scales
+with the size of the cluster.  We execute
+\insql{slice; aggregate(1 year, exists, exists); components}.
+%
 \eat{
 \begin{small}
 \begin{verbatim}
