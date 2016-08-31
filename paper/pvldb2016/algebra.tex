@@ -51,7 +51,7 @@ to coalescing) {\em even when computing over uncoalesced inputs}.
   in~\cite{DBLP:conf/vldb/BohlenSS96}.}We will revisit this point in
 Section~\ref{sec:sys:coal}.
 
-\begin{algorithm}[h!]
+\begin{algorithm}[t]
 \caption{Evaluation of a unary operation \opp on \tve}
 \begin{algorithmic}[1]
 \REQUIRE \tg $\tve (\tv; \te; \tav; \tae)$, operation \insql{op}.\\
@@ -66,7 +66,6 @@ Section~\ref{sec:sys:coal}.
 \end{algorithmic}
 \label{alg:op}
 \end{algorithm}
-\vspace{-0.3cm}
 
 \subsection{Slice}
 \label{sec:algebra:slice}
@@ -238,7 +237,7 @@ For this, we will use {\em moving window temporal aggregation}.  Our
 approach is inspired by stream aggregation work of~\cite{Li2005},
 adopted to graphs, and by generalized quantifiers of~\cite{Hsu1995}.
 
-Temporal aggregation is denoted $\gamma_{W,Q_V,Q_E,A_V,A_E} (\ttt)$,
+Temporal aggregation is denoted $\gamma_{W,Q_V,Q_E,A_V,A_E} (\ttt)$,\\
 where $W$ is the window specification, $Q_V$ and $Q_E$ are vertex and
 edge aggregation quantifiers, and $A_V$ and $A_E$ are the optional
 aggregation functions.  It produces a consolidated evolving graph with

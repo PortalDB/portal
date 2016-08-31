@@ -17,7 +17,7 @@ very small running times.
 OG and HG inherit their implementation of \insql{slice}, \insql{map}
 and \insql{subgraph} from RG and are not included in these
 experiments.  Performance of all 4 data structures is compared in
-\insql{aggregation}, \insql{union} and\insql{intersection}.
+\insql{aggregation}, \insql{union} and \insql{intersection}.
 
 {\bf Data.}  We evaluate performance of our framework on three real
 open-source datasets, summarized in Table~\ref{tab:datasets}.
@@ -158,7 +158,7 @@ broadcast join for VE, in contrast to between 95 and 200 min for \sg.
 wiki-talk-en & 2.9M & 10.7M & 2002--2015 & 14.4 \\ \hline
 nGrams & 29.3M & 2.5B & 1520--2008 & 16.67 \\ \hline
 %%DELIS & 128M & 40.5B & 2006--2007 & ? \\ \hline
-twitter & 505.4M & 23B & 2006--2012 & 88.? \\ \hline
+twitter & 505.4M & 23B & 2006--2012 & 88 \\ \hline
 \end{tabular}
 \vspace{-0.1cm}
 \label{tab:datasets}
@@ -203,9 +203,9 @@ twitter & 505.4M & 23B & 2006--2012 & 88.? \\ \hline
 since all have different implementations of this operator.  We
 executed structure-only aggregation (no attributes), varying the size
 of the aggregation window.  We observed that performance depends
-depends heavily on the quantification, and on the data evolution rate.
-\og is an aggregated data structure with good temporal locality and
-thus in most cases provides good performance and is insensitive to the
+heavily on the quantification, and on the data evolution rate.  \og is
+an aggregated data structure with good temporal locality and thus in
+most cases provides good performance and is insensitive to the
 aggregation window size (Figure~\ref{fig:agg1}).  However, in datasets
 with a large number of representative graphs (such as nGrams), \og is
 slow on large windows, an order of magnitude worse than VE
@@ -214,8 +214,8 @@ quantification levels match (Figure~\ref{fig:agg1}), but is worse than
 \og when vertex quantification is stricter than edge quantification
 and FK must be enforced (Figure~\ref{fig:agg4}).  \og also outperforms
 VE when both evolution rate is low and aggregation window is small
-(Figure~\ref{fig:agg1}, wiki-talk).\eat{ \sg and \hg do not provide the
-best performance on any of our datasets.}
+(Figure~\ref{fig:agg1}, wiki-talk).\eat{ \sg and \hg do not provide
+  the best performance on any of our datasets.}
 
 \begin{figure*}[h]
 \begin{minipage}{2.1in}
@@ -334,7 +334,7 @@ with the size of the cluster.  We execute
 }
 This query, executed on the wiki-talk dataset, computes connected
 components over the past 10 years on the yearly scale.  Over the
-twitter dataset the slice size is 5 years.
+twitter dataset the slice size is 2 years.
 
 %%\begin{small}
 %%\begin{verbatim}
@@ -356,13 +356,16 @@ year).  The top 10 websites with the highest increase in pagerank are
 returned.
 }
 
-For each operation, the best performing representation was selected
-based on our experimental results.  Slice, project, and aggregate were
-performed with VE, analytics with \hg.  The results are in
-Table~\ref{tab:clustersize}.  With the small wiki-talk dataset,
-performance improves initially with larger cluster sizes but levels
-off at the largest size.  With the large twitter dataset, ...
+The best performing representation was selected based on our
+experimental results.  Slice, project, and aggregate were performed
+with VE, analytics with \hg.  The results are in
+Table~\ref{tab:clustersize}.  Both queries show improvements in
+running time as the cluster size grows, with diminishing returns.
+\eat{With the small wiki-talk dataset, performance improves initially
+  with larger cluster sizes but levels off at the largest size.  With
+  the large twitter dataset, ...}
 
+\eat{
 \begin{table}
 \centering
 \caption{Effect of cluster size.}
@@ -371,11 +374,32 @@ off at the largest size.  With the large twitter dataset, ...
 \begin{tabular}{| c | c | r |}
 \hline
 \multicolumn{1}{|c|}{\bfseries Cluster Size} & \multicolumn{1}{c|}{\bfseries wiki-talk (min)} & \multicolumn{1}{r|}{\bfseries twitter} \\ \hline
-2 & 15.21 & ? \\ \hline
-4 & 9.35 & ? \\ \hline
-8 & 6.55 & ? \\ \hline
-12 & 5.05 & ? \\ \hline
-16 & 4.84 & ? \\ \hline
+%2 & 15.21 & ? \\ \hline
+4 & ? & ? \\ \hline
+8 & 6.02 & 72.75 \\ \hline
+12 & 5.02 & 55.68 \\ \hline
+16 & 2.94 & 53.46 \\ \hline
 \end{tabular}
 \label{tab:clustersize}
 \end{table}
+}
+
+\begin{table}
+\centering
+\caption{Effect of cluster size, minutes.}
+\vspace{-0.1in}
+\small
+\begin{tabular}{| l | c | c | c | c |}
+\hline
+\multicolumn{1}{|l|}{\bfseries Dataset} & \multicolumn{1}{c|}{\bfseries 4 slaves} & \multicolumn{1}{c|}{\bfseries 8 slaves} & \multicolumn{1}{c|}{\bfseries 12 slaves} & \multicolumn{1}{c|}{\bfseries 16 slaves}\\ \hline
+wiki-talk & ? & 6.02 & 5.02 & 2.94 \\ \hline
+Twitter & ? & 72.75 & 55.68 & 53.46 \\ \hline
+\end{tabular}
+\label{tab:clustersize}
+\end{table}
+
+{\bf In summary,} no one data structure is most efficient across all
+operations.  VE provides the best performance for slice, map, and
+subgraph.  \og is efficient for aggregation under most conditions, and
+\hg for analytics.  The graph evolution rate is an important factor in
+selecting the more suitable representation.

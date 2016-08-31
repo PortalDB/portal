@@ -209,11 +209,13 @@ functions also require coalesced input.  For example, \insql{count}
 will produce different result if several consecutive or overlapping
 value-equivalent tuples fall within the same window.  Thus we add the
 following conditional coalescing rule:
+\begin{fleqn}[0pt]
 \begin{multline}
 \cl(\gamma_{W,Q_V,Q_E,A_V,A_E}(\cl(\ttt))) \equiv \cl(\gamma_{W,Q_V,Q_E,A_V,A_E}(\ttt)) \\
 \text{iff}~~W \text{by\_time} \wedge A_V, A_E \in \{\insql{any},\insql{first}, \insql{last},\insql{min}, \insql{max} \}
 \label{rul:agg}
 \end{multline}
+\end{fleqn}
 
 \insql{any} returns any one of the values associated with a property
 within each group in $W$, and so is invariant to time and to the
