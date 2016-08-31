@@ -217,7 +217,7 @@ provide the best performance on any of our datasets.
 \includegraphics[width=2.55in]{figs/intersect_ngrams_build13.png}
 \vspace{-0.2in}
 \caption{Intersection on nGrams.}
-\label{fig:intersect}
+\label{fig:intersectngrams}
 \vspace{-0.1in}
 \end{minipage}
 \end{figure*}
@@ -226,23 +226,23 @@ provide the best performance on any of our datasets.
 by structure was evaluated by loading two time slices of the same
 dataset with varying overlap.  The performance of the four conditions
 depends on the size of the overlap (in the number of representative
-graphs) and the evolution rate.  VE produces the best performance
-when the overlap is small (Figure~\ref{fig:union1})\eat{ and when the
-evolution rate is high (Figure~\ref{fig:union2}), regardless of the
-size of the overlap}.  \og always produces good performance, flat
+graphs) and the evolution rate.  VE produces the best performance when
+the overlap is small (Figure~\ref{fig:union1})\eat{ and when the
+  evolution rate is high (Figure~\ref{fig:union2}), regardless of the
+  size of the overlap}.  \og always produces good performance, flat
 w.r.t. the overlap.  This makes sense, considering that in \og
 \insql{union} and \insql{intersection} are implemented as joins (outer
 or inner) on the vertices and edges of the two operands.  VE, on the
 other hand, splits the coalesced vertices/edges of each of the two
 operands into intervals first, takes a union, and then reduces by key.
 When the evolution rate is low and duration of an entity is high, such
-as the case in the wiki-talk dataset for vertices, the split produces a
-lot of tuples to then reduce, and the performance suffers
+as the case in the wiki-talk dataset for vertices, the split produces
+a lot of tuples to then reduce, and the performance suffers
 (Figure~\ref{fig:union1}). \sg only produces good performance on
 \insql{intersection} when few representative graphs overlap, and never
-on \insql{union}. \hg performance is generally worse than \og, by a
-constant amount in \insql{union}, and diverges in
-\insql{intersection}.
+on \insql{union} (Figure~\ref{fig:intersectngrams}). \hg performance
+is generally worse than \og, by a constant amount in \insql{union},
+and diverges in \insql{intersection}.
 
 \begin{figure*}
 \centering
