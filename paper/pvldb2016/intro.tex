@@ -58,7 +58,7 @@ temporal SQL relations with appropriate integrity constraints.
   graph by change or by time period, with quantification.
   Corroborating / complementing information from different sources -
   graph union and intersection.  Graph analytics.}
-
+%
 The \ql system implements the \tg abstraction and the operations of a
 fully compositional algebra, supporting exploratory analysis. 
 Consider these questions over evolving graphs:
@@ -71,7 +71,7 @@ crawling on the Web, to target ads in a social network, and to
 captures the dynamics of zeitgeist in semantic knowledge bases.
 %
 {\em Have any changes in network connectivity been observed, either
-  suddenly or gradually over time?} Connectivity can be quantified as,
+  suddenly or gradually?} Connectivity can be quantified as,
 e.g., pair-wise distance, length of shortest path between communities,
 or graph density.  For networks describing insulin-based metabolism
 pathways, gradual pathway disruption can be used to determine the
@@ -86,41 +86,40 @@ connectivity measures with a combination of {\em temporal aggregation}
 and {\em temporal analytics}.
 
 {\em At what time scale can interesting trends be observed?} The
-answer to this question may not be known apriori, at the time when
+answer to this question may not be known a priori, at the time when
 graph evolution data is being recorded.  Changes in node centrality in
 a social network may be observable on the scale of weeks, but not
-months (coarser).  On the Web, periodic events may change popularity
+months.  On the Web, periodic events may change popularity
 of websites, with observable trends on the scale of days, but not
-hours (finer) or months (coarser).  Furthermore, the same network may
+hours or months.  Furthermore, the same network may
 exhibit different trends at different time scales, e.g., node
 popularity may change at a different rate than over-all network
-density.  Understanding at what temporal scale to consider network
-evolution is an integral part of exploratory analysis, which \ql
-supports with {\em temporal aggregation}.
+density.  \ql supports this analysis via {\em temporal aggregation}.
 
 {\em Can information about graph evolution be used to make graph
-  analytics more stable, or representative?}  Algorithms that compute
-website popularly can be vulnerable to link spam, which is a
-persistent phenomenon on the Web, but the identity of spammers is
-transient~\cite{DBLP:conf/cikm/YangQZGL07}.  This suggests that
-persistence vs. transience of a node, edge, or, more generally, of a
-subgraph, is a meaningful aspect of quality.  Stable or representative
-subgraphs have also been used to improve performance of iterative
-computations in evolving graphs, e.g., for computing shortest
-paths~\cite{Ren2011}.  The {\em temporal aggregation} operation in \ql
+  analytics more stable?}  Algorithms that compute
+website popularly can be vulnerable to link spam, but the identity 
+of spammers is transient~\cite{DBLP:conf/cikm/YangQZGL07}.  Persistence 
+vs. transience of a node, edge, or, more 
+generally, of a subgraph, is a meaningful aspect of quality.  
+\eat{Stable 
+or representative subgraphs have also been used to improve performance 
+of iterative computations in evolving graphs, e.g., for computing shortest
+paths~\cite{Ren2011}.
+}  The {\em temporal aggregation} operation in \ql
 \eat{, available in several interesting variants, }can be used to find
 representative subgraphs of an evolving graph.
 
-{\em How can multiple data sources be used jointly, to complement or
+{\em How can multiple data sources be used jointly to complement or
   corroborate information about graph evolution?}  \eat{It may be the
   case that m}Multiple datasets may be available, each describing a
-series of crawls of different, but possibly overlapping, portions of
+series of crawls of different but possibly overlapping portions of
 the Web graph.  Further, network states may be recorded at different,
 possibly overlapping, time periods, or at different temporal scales.
-Can these datasets be unified, in a principled way, to support
+Can these datasets be unified to support
 analysis \eat{or meta-analysis }of network evolution trends?  \ql
 supports {\em union} and {\em intersection} operations over evolving
-graphs that enable this kind of analysis.
+graphs that enable this analysis.
 
 \begin{figure}[t!]
 %\centering
@@ -137,28 +136,28 @@ efficient and usable analysis of evolving graphs.
 \begin{enumerate}[noitemsep,leftmargin=*]
 %\begin{description}[noitemsep]
 
-\item We propose a representation of an evolving graph, called a \tg,
-  which captures evolution of graph topology, and of attributes of
-  vertices and edges (Section~\ref{sec:model}).  \eat{
+\item We propose a novel representation of an evolving graph, called a \tg,
+  which captures the evolution of both graph topology and vertex and edge attributes (Section~\ref{sec:model}).  
+\eat{
     Conceptually, a \tg corresponds to a pair of
     coalesced~\cite{DBLP:conf/vldb/BohlenSS96} temporal SQL
     relations~\cite{DBLP:journals/sigmod/KulkarniM12} (one describing
     evolution of graph vertices, and the other --- of its edges), with
     appropriate integrity constraints. }
 
-\item We define a fully-compositional \tg algebra, which includes
+\item We define a fully compositional \tg algebra, which includes
   temporal selection, subgraph, map, aggregation, join, union, and a
   rich class of analytics (Section~\ref{sec:algebra}).
 
 \item We develop several physical representations of the logical \tg
-  data structure, which represent different trade-offs in temporal and
+  data structure corresponding to different trade-offs in temporal and
   structural locality, and implement these \eat{physical
   }representations and the operations of \tg algebra in Apache Spark,
   leveraging the GraphX
   framework~\cite{DBLP:conf/osdi/GonzalezXDCFS14} 
   (Section~\ref{sec:sys}).  \eat{
 \item We support efficient execution of
-  Pregel-style~\cite{DBLP:conf/sigmod/MalewiczABDHLC10} analytics over
+  Pregel-style~\cite{DBLP:conf/sigmod/MalewiczABDHLC10} analytics over the
   representative graphs of a \tg.  We also support efficient
   computation of trends over attribute values, which may themselves be
   computed, e.g., by applying a graph analytic in the previous step.
@@ -166,8 +165,7 @@ efficient and usable analysis of evolving graphs.
   Section~\ref{sec:analytics}.}
 
 \item We conduct an extensive experimental evaluation with real
-  datasets, and demonstrate that good performance can be achieved with
-  careful engineering, and that \ql is scalable
+  datasets, demonstrating that \ql scales well
   (Section~\ref{sec:exp}).\eat{, and also briefly discuss the
     usability of our framework in this section}
 
