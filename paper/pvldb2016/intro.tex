@@ -3,50 +3,49 @@
 
 % General motivation
 The importance of networks in scientific and commercial domains cannot
-be overstated.  Networks are represented by graphs; we will use
-the terms ``network'' and ``graph'' interchangeably.  Considerable
-research and engineering effort is being devoted to developing
+be overstated.  
+Considerable research and engineering effort is being devoted to developing
 effective and efficient graph representations and analytics.
 Efficient graph abstractions and analytics for {\em static graphs} are
 to researchers and practitioners in scope of open source platforms
 such as Apache Giraph, Apache Spark (through
 GraphX~\cite{DBLP:conf/osdi/GonzalezXDCFS14} and GraphLab (through
-PowerGraph library~\cite{DBLP:conf/osdi/GonzalezLGBG12}).\eat{ This in
+the PowerGraph library~\cite{DBLP:conf/osdi/GonzalezLGBG12}).
+\eat{ This in
   turn makes sophisticated graph analysis methods available to
   researchers and practitioners, facilitating their widespread
   adoption. Further, because these systems are open source, this
   encourages development and dissemination of new graph analysis
   methods, and of more efficient implementations of existing methods.}
 
-Arguably the most interesting and important questions one can ask
-about networks have to do with their evolution, rather than with their
-static state.  Analysis of {\em evolving graphs} has been receiving
-increasing attention, with most progress taking place in the last
-decade~\cite{DBLP:journals/csur/AggarwalS14,Chan2008,Kan2009,DBLP:journals/tos/MiaoHLWYZPCC15,Ren2011,Semertzidis2015}.
-Some areas where evolving graphs are being studied are social network
-analysis,
-biological networks and the Web.
+%Arguably the most interesting and important questions one can ask
+%about networks have to do with their evolution, rather than with their
+%static state.  
+Analysis of {\em evolving graphs} has been receiving
+increasing attention~\cite{DBLP:journals/csur/AggarwalS14,Chan2008,Kan2009,DBLP:journals/tos/MiaoHLWYZPCC15,Ren2011,Semertzidis2015}.
+%Some areas where evolving graphs are being studied are social network
+%analysis,
+%biological networks and the Web.
 %\eat{~\cite{DBLP:conf/icwsm/GoetzLMF09,DBLP:journals/tweb/LeskovecAH07,DBLP:conf/kdd/LeskovecBKT08,DBLP:conf/icml/SarkarCJ12}},
 %biological networks~\cite{DBLP:journals/tkdd/AsurPU09,DBLP:journals/tcsb/BeyerTLSF10,Stuart2003} and the Web~\cite{DBLP:journals/kais/ChanBL08,DBLP:journals/jisa/PapadimitriouDG10}.
 %
-Yet, despite much recent interest and activity on the topic, and
+Yet, despite the recent activity, and
 despite increased variety and availability of evolving graph data,
 {\em systematic support for scalable querying and analytics over
   evolving graphs still lacks}.  This support is urgently needed, due
 first and foremost to the scalability and efficiency challenges
 inherent in evolving graph analysis, but also to considerations of
-usability and ease of dissemination.  {\em In this paper we present
+usability and ease of dissemination.  {\em In this paper, we present
   \ql, a system for scalable exploratory analysis of evolving graphs,
   that fills this gap.}
 
-\ql represents evolution of a graph, including changes in topology and
-in attribute values of vertices and edges, continuously through time
+\ql represents the evolution of a graph, including changes in topology 
+or attribute values of vertices and edges, continuously through time
 using the \tg abstraction.  An example of a \tg is given in
-Figures~\ref{fig:tg_rg} and~\ref{fig:tg_ve}, where graph evolution is
-shown using two representations.  Figure~\ref{fig:tg_rg} gives the
-{\em representative graphs} representation of a \tg --- a sequence of
-graphs associated with a sequence of coalesced time periods, and with
-the semantics that no change occurred in a graph for the duration of
+Figures~\ref{fig:tg_rg} and~\ref{fig:tg_ve}.  Figure~\ref{fig:tg_rg} gives the
+{\em representative graphs} of a \tg --- a sequence of
+graphs associated with a sequence of coalesced time periods.  The semantics
+is that no change occurred in a graph for the duration of
 the time period. Figure~\ref{fig:tg_ve} gives the {\em vertex-edge}
 representation of an evolving graph --- a collection of coalesced
 temporal SQL relations with appropriate integrity constraints.
@@ -61,14 +60,12 @@ temporal SQL relations with appropriate integrity constraints.
   graph union and intersection.  Graph analytics.}
 
 The \ql system implements the \tg abstraction and the operations of a
-fully compositional algebra, motivated by several categories of
-questions one may ask about evolving networks as part of exploratory
-analysis.  We present some  questions next, to give the
-flavor of the capabilities of \ql.
+fully compositional algebra, supporting exploratory analysis. 
+Consider these questions over evolving graphs:
 
-{\em Which network nodes are showing an increasing popularity trend,
-  or have increasing influence, and which are on a downward spiral?}
-Node popularity can be quantified by, e.g., node degree, centrality,
+{\em Which network nodes are showing an increasing (decreasing) popularity trend,
+  or have increasing influence?}
+Node popularity can be quantified by, e.g., node degree, centrality measures,
 or PageRank score.  This information can be used to prioritize
 crawling on the Web, to target ads in a social network, and to
 captures the dynamics of zeitgeist in semantic knowledge bases.
