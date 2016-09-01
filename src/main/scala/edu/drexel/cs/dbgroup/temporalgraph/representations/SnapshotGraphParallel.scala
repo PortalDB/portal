@@ -379,7 +379,50 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
         Graph[Double, Double](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
       } else {
         if (!uni) {
-          UndirectedPageRank.run(grp, tol, resetProb, numIter)
+          // Initialize the pagerankGraph with each edge attribute
+          // having weight 1/degree and each vertex with attribute 1.0.
+          val pagerankGraph: Graph[(Double, Double), (Double,Double)] = grp
+            // Associate the degree with each vertex
+            .outerJoinVertices(grp.degrees) {
+            (vid, vdata, deg) => deg.getOrElse(0)
+          }
+            // Set the weight on the edges based on the degree
+            .mapTriplets( e => (1.0 / e.srcAttr, 1.0 / e.dstAttr) )
+            // Set the vertex attributes to (initalPR, delta = 0)
+            .mapVertices( (id, attr) => (0.0, 0.0) )
+            .cache()
+
+          // Define the three functions needed to implement PageRank in the GraphX
+          // version of Pregel
+          val vertexProgram = (id: VertexId, attr: (Double, Double), msgSum: Double) => {
+            val (oldPR, lastDelta) = attr
+            val newPR = oldPR + (1.0 - resetProb) * msgSum
+            (newPR, newPR - oldPR)
+          }
+
+          val sendMessage = (edge: EdgeTriplet[(Double, Double), (Double, Double)]) => {
+            if (edge.srcAttr._2 > tol && edge.dstAttr._2 > tol) {
+              Iterator((edge.dstId, edge.srcAttr._2 * edge.attr._1),(edge.srcId, edge.dstAttr._2 * edge.attr._2))
+            } else if (edge.srcAttr._2 > tol) { //means dstAttr is not >
+              Iterator((edge.dstId, edge.srcAttr._2 * edge.attr._1))
+            } else if (edge.dstAttr._2 > tol) { //means srcAttr is not >
+              Iterator((edge.srcId, edge.dstAttr._2 * edge.attr._2))
+            } else {
+              Iterator.empty
+            }
+          }
+
+          val messageCombiner = (a: Double, b: Double) => a + b
+
+          // The initial message received by all vertices in PageRank
+          val initialMessage = resetProb / (1.0 - resetProb)
+
+          // Execute a dynamic version of Pregel.
+          Pregel(pagerankGraph, initialMessage, numIter,
+            activeDirection = EdgeDirection.Either)(
+            vertexProgram, sendMessage, messageCombiner)
+            .mapTriplets(e => e.attr._1) //I don't think it matters which we pick
+            .mapVertices((vid, attr) => attr._1)
         } else if (numIter < Int.MaxValue)
           grp.staticPageRank(numIter, resetProb)
         else
