@@ -1,6 +1,70 @@
 \section{Experimental Evaluation}
 \label{sec:exp}
 
+\begin{figure*}[b]
+\vspace{-0.2in}
+\centering
+\begin{minipage}{2.1in}
+\centering
+\includegraphics[width=2.1in]{figs/slice_wikitalk_build13.png}
+\vspace{-0.2in}
+\caption{Slice on wiki-talk.}
+\label{fig:slicewiki}
+\vspace{-0.1in}
+\end{minipage}
+\begin{minipage}{2.1in}
+\centering
+\includegraphics[width=2.1in]{figs/slice_ngrams_build13.png}
+\vspace{-0.2in}
+\caption{Slice on nGrams.}
+\label{fig:slicengrams}
+\vspace{-0.1in}
+\end{minipage}
+\begin{minipage}{2.1in}
+\centering
+\includegraphics[width=2.4in]{figs/project_wikitalk_build13.png}
+\vspace{-0.2in}
+\caption{Map on wiki-talk.}
+\label{fig:project}
+\vspace{-0.1in}
+\end{minipage}
+\end{figure*}
+
+\begin{figure*}[b]
+\centering
+\begin{subfigure}[b]{0.3\textwidth}
+%\begin{minipage}{2.2in}
+%\centering
+\includegraphics[width=2.2in]{figs/agg_allall_wikitalk_build13.png}
+\caption{$Q_V=\insql{all}$, $Q_E=\insql{all}$, wiki-talk}
+%\caption{Aggregate by time, all/all quantification on the wiki-talk dataset.}
+\label{fig:agg1}
+%\end{minipage}
+\end{subfigure}
+\begin{subfigure}[b]{0.3\textwidth}
+%\begin{minipage}{2.2in}
+%\centering
+\includegraphics[width=2.2in]{figs/agg_allexists_ngrams_build13.png}
+\caption{$Q_V=\insql{all}$, $Q_E=\insql{exists}$, nGrams}
+%\caption{Aggregate by time, all/exists quantification on the nGrams dataset.}
+\label{fig:agg2}
+%\end{minipage}
+\end{subfigure}
+\begin{subfigure}[b]{0.36\textwidth}
+%\begin{minipage}{2.5in}
+%\centering
+\includegraphics[width=2.5in]{figs/agg_allexists_wikitalk_build13.png}
+\caption{$Q_V=\insql{all}$, $Q_E=\insql{exists}$, wiki-talk}
+%\caption{Aggregate by time, all/exists quantification on the wiki-talk dataset.}
+\label{fig:agg4}
+%\end{minipage}
+\end{subfigure}
+\vspace{-0.1in}
+\caption[]{Aggregate by time.}
+\vspace{-0.1in}
+\label{fig:agg}
+\end{figure*}
+
 {\bf Experimental environment.} All experiments in this section were
 conducted on a 16-slave in-house Open Stack cloud, using Linux Ubuntu
 14.04 and Spark v2.0.  Each node has 4 cores and 16 GB of RAM.  Spark
@@ -46,34 +110,6 @@ The behavior of the four physical representations reported below is
 dependent on the underlying data format on disk
 (Section~\ref{sec:sys:maint}), and should be interpreted in that
 context.
-
-\begin{figure*}[!ht]
-\centering
-\begin{minipage}{2.1in}
-\centering
-\includegraphics[width=2.1in]{figs/slice_wikitalk_build13.png}
-\vspace{-0.2in}
-\caption{Slice on wiki-talk.}
-\label{fig:slicewiki}
-\vspace{-0.1in}
-\end{minipage}
-\begin{minipage}{2.1in}
-\centering
-\includegraphics[width=2.1in]{figs/slice_ngrams_build13.png}
-\vspace{-0.2in}
-\caption{Slice on nGrams.}
-\label{fig:slicengrams}
-\vspace{-0.1in}
-\end{minipage}
-\begin{minipage}{2.1in}
-\centering
-\includegraphics[width=2.4in]{figs/project_wikitalk_build13.png}
-\vspace{-0.2in}
-\caption{Map on wiki-talk.}
-\label{fig:project}
-\vspace{-0.1in}
-\end{minipage}
-\end{figure*}
 
 {\bf Slice} performance was evaluated by varying the slice time window
 and materializing the \tg, and is presented in
@@ -164,60 +200,7 @@ twitter & 505.4M & 23B & 2006--2012 & 88 \\ \hline
 \label{tab:datasets}
 \end{table}
 
-\begin{figure*}[ht]
-\centering
-\begin{subfigure}[b]{0.3\textwidth}
-%\begin{minipage}{2.2in}
-%\centering
-\includegraphics[width=2.2in]{figs/agg_allall_wikitalk_build13.png}
-\caption{$Q_V=\insql{all}$, $Q_E=\insql{all}$, wiki-talk}
-%\caption{Aggregate by time, all/all quantification on the wiki-talk dataset.}
-\label{fig:agg1}
-%\end{minipage}
-\end{subfigure}
-\begin{subfigure}[b]{0.3\textwidth}
-%\begin{minipage}{2.2in}
-%\centering
-\includegraphics[width=2.2in]{figs/agg_allexists_ngrams_build13.png}
-\caption{$Q_V=\insql{all}$, $Q_E=\insql{exists}$, nGrams}
-%\caption{Aggregate by time, all/exists quantification on the nGrams dataset.}
-\label{fig:agg2}
-%\end{minipage}
-\end{subfigure}
-\begin{subfigure}[b]{0.36\textwidth}
-%\begin{minipage}{2.5in}
-%\centering
-\includegraphics[width=2.5in]{figs/agg_allexists_wikitalk_build13.png}
-\caption{$Q_V=\insql{all}$, $Q_E=\insql{exists}$, wiki-talk}
-%\caption{Aggregate by time, all/exists quantification on the wiki-talk dataset.}
-\label{fig:agg4}
-%\end{minipage}
-\end{subfigure}
-\vspace{-0.1in}
-\caption[]{Aggregate by time.}
-\vspace{-0.1in}
-\label{fig:agg}
-\end{figure*}
-
-{\bf Aggregation} performance was evaluated on 4 representations,
-since all have different implementations of this operator.  We
-executed structure-only aggregation (no attributes), varying the size
-of the aggregation window.  We observed that performance depends
-heavily on the quantification, and on the data evolution rate.  \og is
-an aggregated data structure with good temporal locality and thus in
-most cases provides good performance and is insensitive to the
-aggregation window size (Figure~\ref{fig:agg1}).  However, in datasets
-with a large number of representative graphs (such as nGrams), \og is
-slow on large windows, an order of magnitude worse than VE
-(Figure~\ref{fig:agg2}).  VE outperforms \og when vertex and edge
-quantification levels match (Figure~\ref{fig:agg1}), but is worse than
-\og when vertex quantification is stricter than edge quantification
-and FK must be enforced (Figure~\ref{fig:agg4}).  \og also outperforms
-VE when both evolution rate is low and aggregation window is small
-(Figure~\ref{fig:agg1}, wiki-talk).\eat{ \sg and \hg do not provide
-  the best performance on any of our datasets.}
-
-\begin{figure*}[h]
+\begin{figure*}[t]
 \begin{minipage}{2.1in}
 \centering
 \includegraphics[width=2.1in]{figs/union_wikitalk_build13.png}
@@ -244,28 +227,7 @@ VE when both evolution rate is low and aggregation window is small
 \end{minipage}
 \end{figure*}
 
-{\bf Union and intersection} by structure was evaluated by loading two
-time slices of the same dataset with varying overlap.  Performance
-depends on the size of the overlap (in the number of representative
-graphs) and on the evolution rate.  VE has best performance when
-overlap is small (Figure~\ref{fig:union1})\eat{ and when the evolution
-  rate is high (Figure~\ref{fig:union2}), regardless of the size of
-  the overlap}.  \og always has good performance, constant
-w.r.t. overlap size.  This is expected, since \og \insql{union} and
-\insql{intersection} are implemented as joins (outer or inner) on the
-vertices and edges of the two operands.  VE, on the other hand, splits
-the coalesced vertices/edges of each of the two operands into
-intervals first, takes a union, and then reduces by key.  When
-evolution rate is low and duration of an entity is high, such as in
-wiki-talk for vertices, the split produces a lot of tuples to then
-reduce, and the performance suffers (Figure~\ref{fig:union1}). \sg
-only has good performance on \insql{intersection} when few
-representative graphs overlap, and never on \insql{union}
-(Figure~\ref{fig:intersectngrams}). \hg performance is generally worse
-than \og, by a constant amount in \insql{union}, and diverges in
-\insql{intersection}.
-
-\begin{figure*}
+\begin{figure*}[t]
 \centering
 \begin{minipage}{2.2in}
 \centering
@@ -292,6 +254,45 @@ than \og, by a constant amount in \insql{union}, and diverges in
 \vspace{-0.1in}
 \end{minipage}
 \end{figure*}
+
+{\bf Aggregation} performance was evaluated on 4 representations,
+since all have different implementations of this operator.  We
+executed structure-only aggregation (no attributes), varying the size
+of the aggregation window.  We observed that performance depends
+heavily on the quantification, and on the data evolution rate.  \og is
+an aggregated data structure with good temporal locality and thus in
+most cases provides good performance and is insensitive to the
+aggregation window size (Figure~\ref{fig:agg1}).  However, in datasets
+with a large number of representative graphs (such as nGrams), \og is
+slow on large windows, an order of magnitude worse than VE
+(Figure~\ref{fig:agg2}).  VE outperforms \og when vertex and edge
+quantification levels match (Figure~\ref{fig:agg1}), but is worse than
+\og when vertex quantification is stricter than edge quantification
+and FK must be enforced (Figure~\ref{fig:agg4}).  \og also outperforms
+VE when both evolution rate is low and aggregation window is small
+(Figure~\ref{fig:agg1}, wiki-talk).\eat{ \sg and \hg do not provide
+  the best performance on any of our datasets.}
+
+{\bf Union and intersection} by structure was evaluated by loading two
+time slices of the same dataset with varying overlap.  Performance
+depends on the size of the overlap (in the number of representative
+graphs) and on the evolution rate.  VE has best performance when
+overlap is small (Figure~\ref{fig:union1})\eat{ and when the evolution
+  rate is high (Figure~\ref{fig:union2}), regardless of the size of
+  the overlap}.  \og always has good performance, constant
+w.r.t. overlap size.  This is expected, since \og \insql{union} and
+\insql{intersection} are implemented as joins (outer or inner) on the
+vertices and edges of the two operands.  VE, on the other hand, splits
+the coalesced vertices/edges of each of the two operands into
+intervals first, takes a union, and then reduces by key.  When
+evolution rate is low and duration of an entity is high, such as in
+wiki-talk for vertices, the split produces a lot of tuples to then
+reduce, and the performance suffers (Figure~\ref{fig:union1}). \sg
+only has good performance on \insql{intersection} when few
+representative graphs overlap, and never on \insql{union}
+(Figure~\ref{fig:intersectngrams}). \hg performance is generally worse
+than \og, by a constant amount in \insql{union}, and diverges in
+\insql{intersection}.
 
 {\bf Analytics.}  We implemented PageRank (PR) and Connected
 Components (CC) analytics for the three graph-based representations
@@ -365,25 +366,6 @@ running time as the cluster size grows, with diminishing returns.
   with larger cluster sizes but levels off at the largest size.  With
   the large twitter dataset, ...}
 
-\eat{
-\begin{table}
-\centering
-\caption{Effect of cluster size.}
-\vspace{-0.1in}
-\small
-\begin{tabular}{| c | c | r |}
-\hline
-\multicolumn{1}{|c|}{\bfseries Cluster Size} & \multicolumn{1}{c|}{\bfseries wiki-talk (min)} & \multicolumn{1}{r|}{\bfseries twitter} \\ \hline
-%2 & 15.21 & ? \\ \hline
-4 & ? & ? \\ \hline
-8 & 6.02 & 72.75 \\ \hline
-12 & 5.02 & 55.68 \\ \hline
-16 & 2.94 & 53.46 \\ \hline
-\end{tabular}
-\label{tab:clustersize}
-\end{table}
-}
-
 \begin{table}
 \centering
 \caption{Effect of cluster size, minutes.}
@@ -392,8 +374,8 @@ running time as the cluster size grows, with diminishing returns.
 \begin{tabular}{| l | c | c | c | c |}
 \hline
 \multicolumn{1}{|l|}{\bfseries Dataset} & \multicolumn{1}{c|}{\bfseries 4 slaves} & \multicolumn{1}{c|}{\bfseries 8 slaves} & \multicolumn{1}{c|}{\bfseries 12 slaves} & \multicolumn{1}{c|}{\bfseries 16 slaves}\\ \hline
-wiki-talk & ? & 6.02 & 5.02 & 2.94 \\ \hline
-Twitter & ? & 72.75 & 55.68 & 53.46 \\ \hline
+wiki-talk & 8.41 & 6.02 & 5.02 & 2.94 \\ \hline
+Twitter & 151.77 & 72.75 & 55.68 & 53.46 \\ \hline
 \end{tabular}
 \label{tab:clustersize}
 \end{table}
