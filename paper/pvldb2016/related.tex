@@ -1,8 +1,8 @@
 \section{Related Work}
 \label{sec:related}
 
-{\bf Temporal data models and languages.} We build on a rich body of
-work in temporal databases.  The \tg representation is based on
+{\bf Temporal data models and languages.} 
+The \tg representation is based on
 interval semantics~\cite{DBLP:reference/db/JensenS09k}, and is
 temporally coalesced~\cite{DBLP:conf/vldb/BohlenSS96}.  \tg algebra is
 based on the principle of snapshot
@@ -19,7 +19,7 @@ important contributions.
 of snapshots in a discrete time domain, and focuses on snaposhot
 retrieval and
 analytics~\cite{Khurana2013,DBLP:journals/tos/MiaoHLWYZPCC15,Ren2011}.
-This is in contrast to an interval-based model that we use, and has
+This approach is in contrast to an interval-based model that we use and has
 several limitations.  First, the state of the graph can be undefined
 at some time $t$ unless a snapshot is associated with each possible
 value in the discrete range $[t_{start}, now)$.  Second, it is not
@@ -47,18 +47,19 @@ a single representation of all snapshots, and stores only dependencies
 from a materialized snapshot when deltas are small.  Evaluation of
 queries involving multiple snapshots, such as aggregation, requires
 fully materialized views in memory, which makes this approach
-infeasible for our purposes.  Snapshot retrieval is a useful operation
-for many types of analysis and thus should be supported.  In our model
-a snapshot at any time $t$ can be retrieved by temporal slice.
+infeasible for our purposes.  
+%Snapshot retrieval is a useful operation
+%for many types of analysis and thus should be supported.  In our model
+%a snapshot at any time $t$ can be retrieved by temporal slice.
 
 Ren et al.~\cite{Ren2011} develop an in-memory representation of
 evolving graphs based on representative graphs for sets of snapshots.
-Their notion of a representative graph is different from ours, since
-it indicates a commonality (a union or an intersection) between a set
-of consecutive snapshots, rather than being a consistent
+Their notion of a representative graph differs from ours, in that 
+it indicates a union or an intersection between a set
+of consecutive snapshots rather than being a consistent
 representation of the graph for some period $p$.  Nevertheless, Ren's
 representative graphs can be computed in \ql using temporal
-aggregation, further motivating this operation.
+aggregation.
 
 Semertzidis et al.~\cite{Semertzidis2015} develop a version graph,
 where each node and edge is annotated with the set of time intervals
@@ -109,11 +110,14 @@ Chan et al.~\cite{Chan2008} query evolving graphs for patterns
 represented by waveforms.  Semertzidis et al.~\cite{Semertzidis2015}
 focus on historical reachability queries.
 
-Our work shares motivation with Miao et
-al.~\cite{DBLP:journals/tos/MiaoHLWYZPCC15}, who developed an
-in-memory execution engine for temporal graph analytics called
-ImmortalGraph.  Unlike Miao et al., who focus on in-memory layout and
-locality-aware scheduling mechanisms, we work in a distributed
-processing environment.  A further difference is that our work is in
-scope of Apache Spark, a widely-used open source platform, while
-ImmortalGraph is a proprietary stand-alone prototype.
+Miao et al.~\cite{DBLP:journals/tos/MiaoHLWYZPCC15} developed ImmortalGraph,
+a proprietary in-memory execution engine for temporal graph analytics.
+Their approach is based on the snapshot model and
+does not provide a query 
+language.% and emphasize in-memory layouts and scheduling.  
+Nonetheless, many insights about temporal vs. structural locality
+by~\cite{DBLP:journals/tos/MiaoHLWYZPCC15} hold in our setting.
+
+%A further difference is that our work is in
+%scope of Apache Spark, a widely-used open source platform, while
+%ImmortalGraph is a proprietary stand-alone prototype.

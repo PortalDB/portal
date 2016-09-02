@@ -49,6 +49,9 @@ is that no change occurred in a graph for the duration of
 the time period. Figure~\ref{fig:tg_ve} gives the {\em vertex-edge}
 representation of an evolving graph --- a collection of coalesced
 temporal SQL relations with appropriate integrity constraints.
+The \ql system implements the \tg abstraction and the operations of a
+fully compositional algebra, supporting exploratory analysis. 
+Consider these questions over evolving graphs:
 
 \eat{Quick overview of our model and operations.  Point to a
   figure.  We represent graph evolution through a continuous time
@@ -59,9 +62,6 @@ temporal SQL relations with appropriate integrity constraints.
   Corroborating / complementing information from different sources -
   graph union and intersection.  Graph analytics.}
 %
-The \ql system implements the \tg abstraction and the operations of a
-fully compositional algebra, supporting exploratory analysis. 
-Consider these questions over evolving graphs:
 
 {\em Which network nodes are showing an increasing (decreasing) popularity trend,
   or have increasing influence?}
@@ -138,12 +138,6 @@ efficient and usable analysis of evolving graphs.
 
 \item We propose a novel representation of an evolving graph, called a \tg,
   which captures the evolution of both graph topology and vertex and edge attributes (Section~\ref{sec:model}).  
-\eat{
-    Conceptually, a \tg corresponds to a pair of
-    coalesced~\cite{DBLP:conf/vldb/BohlenSS96} temporal SQL
-    relations~\cite{DBLP:journals/sigmod/KulkarniM12} (one describing
-    evolution of graph vertices, and the other --- of its edges), with
-    appropriate integrity constraints. }
 
 \item We define a fully compositional \tg algebra, which includes
   temporal selection, subgraph, map, aggregation, join, union, and a
@@ -165,7 +159,7 @@ efficient and usable analysis of evolving graphs.
   Section~\ref{sec:analytics}.}
 
 \item We conduct an extensive experimental evaluation with real
-  datasets, demonstrating that \ql scales well
+  datasets, demonstrating that \ql scales
   (Section~\ref{sec:exp}).\eat{, and also briefly discuss the
     usability of our framework in this section}
 
