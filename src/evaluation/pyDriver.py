@@ -292,7 +292,6 @@ def run(configFile, email):
                 numCores = totalCores / totalWorkers
                 
             #set cluster config
-            #FIXME: find ram of slaves
             cConf = str(numWorkers) + "s_" + str(numCores) + "c_" + str(ram) + "g"  
 
         for strat in strats: 
