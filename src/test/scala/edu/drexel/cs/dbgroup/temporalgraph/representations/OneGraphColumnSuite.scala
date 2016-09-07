@@ -1450,7 +1450,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     assert(actualOGC.vertices.collect.toSet == expectedNodes.collect.toSet)
   }
 
-  ignore("directed shortestPath") {
+  test("directed shortestPath") {
     val nodes: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "John")),
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Mike")),
@@ -1506,7 +1506,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     assert(actualOGC.vertices.collect.toSet == expectedNodes.collect.toSet)
   }
 
-  ignore("directed pagerank") {
+  test("directed pagerank") {
     //PageRank for each representative graph was tested by creating graph in graphX and using spark's pagerank
     //The final OGC is sliced into the two representative graph to assert the values
     val nodes: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(

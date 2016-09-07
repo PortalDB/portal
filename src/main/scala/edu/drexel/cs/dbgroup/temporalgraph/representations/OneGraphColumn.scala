@@ -515,13 +515,12 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
 
       val vertexProgram = (id: VertexId, attr: Int2ObjectOpenHashMap[(Double, Double)], msg: Int2DoubleOpenHashMap) => {
         var vals = attr.clone
-        msg.foreach { x =>
-          val (k,v) = x
-          if (attr.contains(k)) {
-            val (oldPR, lastDelta) = attr(k)
-            val newPR = oldPR + (1.0 - resetProb) * v
-            vals.update(k,(newPR,newPR-oldPR))
-          }
+
+        val itr = attr.iterator
+        while (itr.hasNext) {
+          val (index, x) = itr.next()
+          val newPr = x._1 + (1.0 - resetProb) * msg.getOrDefault(index, 0)
+          vals.update(index, (newPr, newPr-x._1))
         }
         vals
       }
@@ -587,7 +586,6 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
         new OneGraphColumn[(VD, Double), ED](newverts, allEdges, graphs, (defaultValue, 0.0), storageLevel, false)
 
     } else {
-      //TODO: implement this using pregel
       val mergeFunc = (a:Int2IntOpenHashMap, b:Int2IntOpenHashMap) => {
         val itr = a.iterator
 
@@ -614,13 +612,12 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
 
       val vertexProgram = (id: VertexId, attr: Int2ObjectOpenHashMap[(Double, Double)], msg: Int2DoubleOpenHashMap) => {
         var vals = attr.clone
-        msg.foreach { x =>
-          val (k,v) = x
-          if (attr.contains(k)) {
-            val (oldPR, lastDelta) = attr(k)
-            val newPR = oldPR + (1.0 - resetProb) * v
-            vals.update(k,(newPR,newPR-oldPR))
-          }
+
+        val itr = attr.iterator
+        while (itr.hasNext) {
+          val (index, x) = itr.next()
+          val newPr = x._1 + (1.0 - resetProb) * msg.getOrDefault(index, 0)
+          vals.update(index, (newPr, newPr-x._1))
         }
         vals
       }
