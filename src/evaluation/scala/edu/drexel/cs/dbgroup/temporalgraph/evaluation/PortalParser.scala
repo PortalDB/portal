@@ -160,7 +160,7 @@ object Interpreter {
       case Materialize(graph) =>
         val intRes = parseExpr(graph)
         val materializeStart = System.currentTimeMillis()
-        intRes.materialize
+        intRes.coalesce.materialize
         val materializeEnd = System.currentTimeMillis()
         val total = materializeEnd - materializeStart
         println(f"Materialize Runtime: $total%dms ($argNum%d)")
