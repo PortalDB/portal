@@ -348,14 +348,14 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
       new HybridGraph(allVertices, es, widths, graphs, defaultValue, storageLevel, false)
   }
 
-  override def union(other: TGraph[VD, ED]): HybridGraph[Set[VD],Set[ED]] = {
+  override def union(other: TGraphNoSchema[VD, ED]): HybridGraph[Set[VD],Set[ED]] = {
     defaultValue match {
       case a: StructureOnlyAttr => unionStructureOnly(other)
       case _ => super.union(other).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
     }
   }
 
-  private def unionStructureOnly(other: TGraph[VD, ED]): HybridGraph[Set[VD],Set[ED]] = {
+  private def unionStructureOnly(other: TGraphNoSchema[VD, ED]): HybridGraph[Set[VD],Set[ED]] = {
     var grp2: HybridGraph[VD, ED] = other match {
       case grph: HybridGraph[VD, ED] => grph
       case _ => return super.union(other).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
@@ -502,14 +502,14 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
     }
   }
 
-  override def intersection(other: TGraph[VD, ED]): HybridGraph[Set[VD], Set[ED]] = {
+  override def intersection(other: TGraphNoSchema[VD, ED]): HybridGraph[Set[VD], Set[ED]] = {
     defaultValue match {
       case a: StructureOnlyAttr => intersectionStructureOnly(other)
       case _ => super.intersection(other).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
     }
   }
 
-  private def intersectionStructureOnly(other: TGraph[VD, ED]): HybridGraph[Set[VD],Set[ED]] = {
+  private def intersectionStructureOnly(other: TGraphNoSchema[VD, ED]): HybridGraph[Set[VD],Set[ED]] = {
     var grp2: HybridGraph[VD, ED] = other match {
       case grph: HybridGraph[VD, ED] => grph
       case _ => return super.intersection(other).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
