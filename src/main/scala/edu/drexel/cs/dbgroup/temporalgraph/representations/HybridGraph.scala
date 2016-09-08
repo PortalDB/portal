@@ -694,11 +694,6 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
           }
 
           val sendMessage = (edge: EdgeTriplet[Int2ObjectOpenHashMap[(Double, Double)], Int2ObjectOpenHashMap[(Double, Double)]]) => {
-            //This is a hack because of a bug in GraphX that
-            //does not fetch edge triplet attributes otherwise
-            edge.srcAttr
-            edge.dstAttr
-
             //need to generate an iterator of messages for each index
             edge.attr.toList.flatMap{ case (k,v) =>
               if (edge.srcAttr(k)._2 > tol && edge.dstAttr(k)._2 > tol) {

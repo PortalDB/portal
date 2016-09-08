@@ -26,11 +26,41 @@ object TestFilterPushdown {
   import sqlContext.implicits._
 
   def main(args: Array[String]): Unit ={
-    run("C:/Users/shishir/temporaldata/dblp/edges.parquet", "1952-01-01", "2013-01-01")
-    runVid("hdfs://master:9000/data/twitter/edges.parquet", 10000, 1000000)
+    //run("./dblp/edges.parquet", "1952-01-01", "2013-01-01")
+    //runDate("hdfs://master:9000/data/twitter/edges.parquet", "2006-05-01", "2012-05-01")
+    //runVid("hdfs://master:9000/data/twitter/edges.parquet", 1000, 10000000)
+    runVid("hdfs://master:9000/data/twitter/nodes.parquet", 100, 10000000)
   }
 
-  def runVid(source:String, dataWithFewCounts:Long, dateWithManyCounts:Long): Unit ={
+  def runVid(source:String, smallVid:Long, largeVid:Long): Unit ={
+    val data = sqlContext.read.parquet(source)
+    var start, end, timeTaken: Long = 0
+    data.registerTempTable("tempTable")
+    //executing test predicate to make sure the tempTable is registered
+    var output = sqlContext.sql("Select * from tempTable")
+    println(output.count())
+
+
+    //to test if number of counts affect performance keeping number of predicate constant, it looks like it doesnt
+    start = System.currentTimeMillis()
+    var sqlQuery = "Select vid from tempTable where vid<" +  largeVid
+    output = sqlContext.sql(sqlQuery)
+    println(output.count())
+    end = System.currentTimeMillis()
+    timeTaken =  end - start
+    println("Time taken when vid < " + largeVid + " = " + timeTaken/1000 + "s")
+    
+    start = System.currentTimeMillis()
+    sqlQuery = "Select vid from tempTable where vid<" +  smallVid
+    output = sqlContext.sql(sqlQuery)
+    println(output.count())
+    end = System.currentTimeMillis()
+    timeTaken =  end - start
+    println("Time taken when vid < " + smallVid  + " = " + timeTaken/1000 + "s")
+  }
+
+
+  def runDate(source:String, estartDateWithFewCounts:String, estartDateWithManyCounts:String): Unit ={
     val data = sqlContext.read.parquet(source)
     var start, end, timeTaken: Long = 0
     data.registerTempTable("tempTable")
@@ -39,54 +69,21 @@ object TestFilterPushdown {
     println(output.count())
 
     start = System.currentTimeMillis()
-    var sqlQuery = "Select vid1 from tempTable where vid1<" +  dataWithFewCounts
+    var sqlQuery = "Select estart from tempTable where estart='" + estartDateWithFewCounts + "'"
     output = sqlContext.sql(sqlQuery)
     println(output.count())
     end = System.currentTimeMillis()
     timeTaken =  end - start
-    println("Time taken for one Predicate with few counts " + timeTaken/1000 + "s")
+    println("Time taken when estart = " + estartDateWithFewCounts + " : " + timeTaken/1000 + "s")
 
     //to test if number of counts affect performance keeping number of predicate constant, it looks like it doesnt
     start = System.currentTimeMillis()
-    sqlQuery = "Select vid1 from tempTable where vid1<" +  dateWithManyCounts
+    sqlQuery = "Select estart from tempTable where estart='" + estartDateWithManyCounts + "'"
     output = sqlContext.sql(sqlQuery)
     println(output.count())
     end = System.currentTimeMillis()
     timeTaken =  end - start
-    println("Time taken for one Predicate with large counts " + timeTaken/1000 + "s")
+    println("Time taken when estart =  " + estartDateWithManyCounts + " : " + timeTaken/1000 + "s")
   }
 
-  def run(source:String, dataWithFewCounts:String, dateWithManyCounts:String): Unit ={
-    val data = sqlContext.read.parquet(source)
-    var start, end, timeTaken: Long = 0
-    data.registerTempTable("tempTable")
-    val output = sqlContext.sql("Select * from tempTable")
-    println(output.count())
-    //executing test predicate to make sure the tempTable is registered
-//    executeSQL()
-
-    start = System.currentTimeMillis()
-    executePredicate(dataWithFewCounts)
-    end = System.currentTimeMillis()
-    timeTaken =  end - start
-    println("Time taken for one Predicate with few counts " + timeTaken/1000 + "s")
-
-    //to test if number of counts affect performance keeping number of predicate constant, it looks like it doesnt
-    start = System.currentTimeMillis()
-    executePredicate(dateWithManyCounts)
-    end = System.currentTimeMillis()
-    timeTaken =  end - start
-    println("Time taken for one Predicate with large counts " + timeTaken/1000 + "s")
-  }
-
-  def executeSQL(): Unit ={
-    val output = sqlContext.sql("Select * from tempTable")
-    println(output.count())
-  }
-
-  def executePredicate(date:String):Unit={
-    val sqlQuery = "Select estart from tempTable where estart='" + date + "'"
-    val output = sqlContext.sql(sqlQuery)
-    println(output.count())
-  }
 }
