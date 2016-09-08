@@ -185,10 +185,7 @@ def run(configFile, email):
     #load configurations from file
     mainc = parser['configs']['main']
     env = parser['configs']['env']
-    mesosConf = parser['configs']['mesosConfig']
     localConf = parser['configs']['localConfig']
-    ec2Conf = parser['configs']['ec2Config']
-    standConf = parser['configs']['standaloneConfig']
     cConf = parser['configs']['clusterConfig']
     buildN = int(parser['configs']['buildNum'])
     sType = int(parser['configs']['warm'])
@@ -213,10 +210,13 @@ def run(configFile, email):
     envConf = localConf #set to local environment by default
 
     if env == "ec2":
+        ec2Conf = parser['configs']['ec2Config']
         envConf = ec2Conf
     elif env == 'mesos':
-        envConf = mesosConf    
+        mesosConf = parser['configs']['mesosConfig']
+        envConf = mesosConf
     elif env == 'standalone':
+        standConf = parser['configs']['standaloneConfig']
         envConf = standConf
 
     #run with warm start
@@ -257,7 +257,7 @@ def run(configFile, email):
             #run sbt assembly
             Popen('sbt assembly', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
             #get cluster config
-            p2 = Popen('curl http://master:8081', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+            p2 = Popen('curl http://master:8080', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
             out = p2.communicate()[0];
     
             out = out.replace(' ', '') 
@@ -292,7 +292,6 @@ def run(configFile, email):
                 numCores = totalCores / totalWorkers
                 
             #set cluster config
-            #FIXME: find ram of slaves
             cConf = str(numWorkers) + "s_" + str(numCores) + "c_" + str(ram) + "g"  
 
         for strat in strats: 
@@ -332,13 +331,20 @@ def run(configFile, email):
                             print pres[1]
                             print traceback.format_exc()
                             msg = "Subject: Job Failed \nERROR! Query run did not return a final runtime in the second try"
-                            sendMail.sendMail(email, msg)
+                            driverUtils.sendMail.sendMail(email, msg)
                             sys.exit(1)
 
                 #only run this once for each query
                 if querySaved == False:
                     op_dict = collect_args(query, strat, runw)
-                    qRef = dbconnect.persist_queryTables(op_dict)
+                    id_dict = dbconnect.persist_ops(op_dict) #persist to Operation table
+                    #check if queryId already exists
+                    queryId = dbconnect.find_query_id(id_dict)
+                    if queryId is None:
+                        qRef = dbconnect.persist_query() #persist to Query table
+                        dbconnect.persist_query_ops(qRef, id_dict) #persist to Query_Op_Map table
+                    else:
+                        qRef = driverUtils.models.Query.get((driverUtils.models.Query.query_id == queryId))
                     querySaved = True
 
 
@@ -351,7 +357,7 @@ def run(configFile, email):
     numWorkers = findNumberOfWorkers(env)
     print "***  Done with executions. Total number of workers after the experiment=" + str(numWorkers)
     msg = "Subject: Job Complete \nTotal number of workers after the experiment=" + str(numWorkers)
-    sendMail.sendMail(email, msg)
+    driverUtils.sendMail.sendMail(email, msg)
 
 def findNumberOfWorkers(env):
     numWorkers = 0
@@ -397,9 +403,9 @@ if __name__ == "__main__":
     	run(configFile, email)
     except SystemExit:
 	msg = "ERROR! sys.exit() was called. Look for the output of the program to see what caused the exception"
-	sendMail.sendMail(email, msg)
+	driverUtils.sendMail.sendMail(email, msg)
     except Exception:
 	msg = "ERROR! Unknown exception occured. Look for the output of the program to see what cause the exception"
-	sendMail.sendMail(email, msg)
+	driverUtils.sendMail.sendMail(email, msg)
 	
 	

@@ -94,6 +94,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     info("empty graph passed")
   }
 
+/*
   test("temporal select function") {
     //Regular cases
     val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
@@ -141,12 +142,13 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     info("interval completely outside the graph passed")
 
     //When the graph is empty
-    val actualHG3 = HybridGraph.emptyGraph("").select(selectFunction, selectFunction)
+    val actualHG3 = HybridGraph.emptyGraph("").subgraph(selectFunction, selectFunction)
     assert(actualHG3.vertices.collect() === HybridGraph.emptyGraph("").vertices.collect())
     assert(actualHG3.edges.collect() === HybridGraph.emptyGraph("").edges.collect())
     assert(actualHG3.getTemporalSequence.collect === Seq[Interval]())
     info("empty graph passed")
   }
+ */
 
   test("structural select function - epred") {
     //Regular cases
@@ -187,7 +189,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
     ))
     val expectedHG = HybridGraph.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
-    var actualHG = HG.select(epred = (ids: (VertexId,VertexId), attrs: (Interval, Int)) => ids._1 > 2 && attrs._2 == 42)
+    var actualHG = HG.subgraph(epred = (ids: (VertexId,VertexId), attrs: Int) => ids._1 > 2 && attrs == 42)
 
     assert(expectedHG.vertices.collect() === actualHG.vertices.collect())
     assert(expectedHG.edges.collect() === actualHG.edges.collect())
@@ -228,7 +230,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
     ))
     val expectedHG = HybridGraph.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
-    var actualHG = HG.select(vpred = (id: VertexId, attrs: (Interval, String)) => id > 3 && attrs._2 != "Ke")
+    var actualHG = HG.subgraph(vpred = (id: VertexId, attrs: String) => id > 3 && attrs != "Ke")
 
     assert(expectedHG.vertices.collect() === actualHG.vertices.collect())
     assert(expectedHG.edges.collect() === actualHG.edges.collect())
@@ -268,7 +270,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
     ))
     val expectedHG = HybridGraph.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
-    var actualHG = HG.select(vpred = (id: VertexId, attrs: (Interval, String)) => id > 3 && attrs._2 != "Ke", epred = (ids: (VertexId,VertexId), attrs: (Interval, Int)) => ids._1 > 2 && attrs._2 == 42)
+    var actualHG = HG.subgraph(vpred = (id: VertexId, attrs: String) => id > 3 && attrs != "Ke", epred = (ids: (VertexId,VertexId), attrs: Int) => ids._1 > 2 && attrs == 42)
 
     assert(expectedHG.vertices.collect() === actualHG.vertices.collect())
     assert(expectedHG.edges.collect() === actualHG.edges.collect())
@@ -1294,7 +1296,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     ))
     val HG = HybridGraph.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
-    val actualHG = HG.project(edge => (edge.attr * edge.attr), (vertex, name) => name.toUpperCase, "Default")
+    val actualHG = HG.map(edge => (edge.attr * edge.attr), (vertex, name) => name.toUpperCase, "Default")
 
     val expectedVertices: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2016-01-01")), "B")),
@@ -1332,21 +1334,14 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
 
     val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
       ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01")), 42)),
-      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), 42)),
       ((1L, 2L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22)),
-      ((5L, 7L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), 22)),
       ((1L, 4L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2015-01-01")), 56)),
-      ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42)),
-      ((1L, 4L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 12)),
-      ((3L, 5L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01")), 42))
+      ((1L, 4L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 12))
     ))
 
     val expectedEdges: RDD[((VertexId, VertexId), Map[Interval, Int])] = ProgramContext.sc.parallelize(Array(
       ((1L, 4L), new Object2IntOpenHashMap[Interval](Array(Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01")), Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2015-01-01"))), Array(42, 12, 56)).asInstanceOf[Map[Interval,Int]]),
-      ((3L, 5L), new Object2IntOpenHashMap[Interval](Array(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01"))), Array(42, 42)).asInstanceOf[Map[Interval,Int]]),
-      ((1L, 2L), new Object2IntOpenHashMap[Interval](Array(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01"))), Array(22)).asInstanceOf[Map[Interval,Int]]),
-      ((5L, 7L), new Object2IntOpenHashMap[Interval](Array(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01"))), Array(22)).asInstanceOf[Map[Interval,Int]]),
-      ((4L, 8L), new Object2IntOpenHashMap[Interval](Array(Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01"))), Array(42)).asInstanceOf[Map[Interval,Int]])
+      ((1L, 2L), new Object2IntOpenHashMap[Interval](Array(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01"))), Array(22)).asInstanceOf[Map[Interval,Int]])
     ))
 
     val actualHG = HybridGraph.fromRDDs(vertices, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
