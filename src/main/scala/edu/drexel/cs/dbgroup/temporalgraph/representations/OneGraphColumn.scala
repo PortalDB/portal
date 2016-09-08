@@ -404,8 +404,14 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       vals
     }
     val sendMsgC = (edge: EdgeTriplet[Map[TimeIndex, VD], Map[TimeIndex, ED]]) => {
-      edge.srcAttr(k)
-        et.dstAttr = edge.dstAttr(k)
+        //sendMsg takes in an EdgeTriplet[VD,ED] 
+        //so we have to construct those for each TimeIndex 
+        edge.attr.toList.flatMap{ case (k,v) => 
+          val et = new EdgeTriplet[VD, ED] 
+          et.srcId = edge.srcId
+          et.dstId = edge.dstId
+          et.srcAttr = edge.srcAttr(k)
+          et.dstAttr = edge.dstAttr(k)
         et.attr = v
         //this returns Iterator[(VertexId, A)], but we need
         //Iterator[(VertexId, Map[TimeIndex, A])]
