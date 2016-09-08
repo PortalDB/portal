@@ -356,10 +356,9 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
   }
 
   private def unionStructureOnly(other: TGraph[VD, ED]): HybridGraph[Set[VD],Set[ED]] = {
-    //TODO: if the other graph is not HG, should use the parent method which doesn't care
     var grp2: HybridGraph[VD, ED] = other match {
       case grph: HybridGraph[VD, ED] => grph
-      case _ => throw new IllegalArgumentException("graphs must be of the same type")
+      case _ => return super.union(other).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
     }
 
     if (graphs.size < 1) computeGraphs()
@@ -513,7 +512,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
   private def intersectionStructureOnly(other: TGraph[VD, ED]): HybridGraph[Set[VD],Set[ED]] = {
     var grp2: HybridGraph[VD, ED] = other match {
       case grph: HybridGraph[VD, ED] => grph
-      case _ => throw new ClassCastException
+      case _ => return super.intersection(other).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
     }
 
     if (span.intersects(grp2.span)) {
@@ -816,7 +815,6 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
   /** Spark-specific */
 
   override def numPartitions(): Int = {
-    //FIXME: this seems an overkill to compute graphs just to get the number of partitions
     if (graphs.size < 1) computeGraphs()
     graphs.filterNot(_.edges.isEmpty).map(_.edges.getNumPartitions).reduce(_ + _)
   }

@@ -257,7 +257,7 @@ def run(configFile, email):
             #run sbt assembly
             Popen('sbt assembly', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
             #get cluster config
-            p2 = Popen('curl http://master:8081', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+            p2 = Popen('curl http://master:8080', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
             out = p2.communicate()[0];
     
             out = out.replace(' ', '') 
@@ -292,7 +292,6 @@ def run(configFile, email):
                 numCores = totalCores / totalWorkers
                 
             #set cluster config
-            #FIXME: find ram of slaves
             cConf = str(numWorkers) + "s_" + str(numCores) + "c_" + str(ram) + "g"  
 
         for strat in strats: 
@@ -332,7 +331,7 @@ def run(configFile, email):
                             print pres[1]
                             print traceback.format_exc()
                             msg = "Subject: Job Failed \nERROR! Query run did not return a final runtime in the second try"
-                            sendMail.sendMail(email, msg)
+                            driverUtils.sendMail.sendMail(email, msg)
                             sys.exit(1)
 
                 #only run this once for each query
@@ -358,7 +357,7 @@ def run(configFile, email):
     numWorkers = findNumberOfWorkers(env)
     print "***  Done with executions. Total number of workers after the experiment=" + str(numWorkers)
     msg = "Subject: Job Complete \nTotal number of workers after the experiment=" + str(numWorkers)
-    sendMail.sendMail(email, msg)
+    driverUtils.sendMail.sendMail(email, msg)
 
 def findNumberOfWorkers(env):
     numWorkers = 0
@@ -404,9 +403,9 @@ if __name__ == "__main__":
     	run(configFile, email)
     except SystemExit:
 	msg = "ERROR! sys.exit() was called. Look for the output of the program to see what caused the exception"
-	sendMail.sendMail(email, msg)
+	driverUtils.sendMail.sendMail(email, msg)
     except Exception:
 	msg = "ERROR! Unknown exception occured. Look for the output of the program to see what cause the exception"
-	sendMail.sendMail(email, msg)
+	driverUtils.sendMail.sendMail(email, msg)
 	
 	

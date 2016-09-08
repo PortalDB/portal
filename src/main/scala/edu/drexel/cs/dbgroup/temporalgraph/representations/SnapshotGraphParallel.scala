@@ -39,10 +39,8 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
 
   override def materialize() = {
     graphs.foreach { x =>
-      if (!x.edges.isEmpty)
-        x.numEdges
-      if (!x.vertices.isEmpty)
-        x.numVertices
+      x.vertices.count
+      x.edges.count
     }
   }
 
@@ -92,10 +90,10 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
           //subract operation on the graph edges but dies runtime
           val e1 = head._1.edges.map(e => ((e.srcId, e.dstId), e.attr))
           val e2 = c._1.edges.map(e => ((e.srcId, e.dstId), e.attr))
-          if (head._1.vertices.subtract(c._1.vertices).isEmpty &&
-            c._1.vertices.subtract(head._1.vertices).isEmpty &&
-            e1.subtract(e2).isEmpty &&
-            e2.subtract(e1).isEmpty) //the two graphs are the same
+          if (e1.subtract(e2).isEmpty &&
+              e2.subtract(e1).isEmpty &&
+              head._1.vertices.subtract(c._1.vertices).isEmpty &&
+              c._1.vertices.subtract(head._1.vertices).isEmpty)
             (head._1, Interval(head._2.start, c._2.end)) :: tail
           else c :: r
         }
