@@ -34,11 +34,10 @@ def removeCloseValues(alignment, ticks,xmax):
 
 def smallPlot(name, dataframes):
     sns.set_context('notebook', font_scale=1)
-    keys = ['RG', 'RGS', 'OG', 'OGS', 'HG', 'HGS', 'VE', 'VES', 'RG_E2D', 'OG_E2D', 'HG_E2D']
+    keys = ['RGS', 'RG', 'OGS', 'OG', 'HGS', 'HG', 'VES', 'VE', 'RG_E2D', 'OG_E2D', 'HG_E2D']
     lines = ['-', ':', '-', '--', '-', '-.', '-', '-', '-', '-', '-']
-    #colors were genereted fromt 'sns.color_palette("Set1", n_colors=8, desat=.5)' and the first three colors were switched with 4th, 5th and 6th
     colors = sns.color_palette("Paired", n_colors=11)
-    markers = ['s', "", 'o', "", 'D', "",  "", "", "", "", ""]
+    markers = ['', 's', '', 'o', '', 'D',  "", ">", "", "", ""]
     linewitdhs = [1, 3, 1, 3, 1, 3, 1, 1, 1, 1, 1]
     linesDict =  dict(zip(keys, lines))
     colorsDict = dict(zip(keys, colors))
@@ -75,10 +74,7 @@ def smallPlot(name, dataframes):
             new_tick_locations, ticks = removeCloseValues(item[5], item[4],xmax) 
             ax2.set_xticklabels(ticks)
             ax2.set_xticks(new_tick_locations)
-            plt.title(item[1] + " build_num=" + str(item[3]), y=1.26)
-        else:
-            #title in the regular position
-            plt.title(item[1] + " build_num=" + str(item[3]), y=1.09)
+            #plt.title(item[1] + " build_num=" + str(item[3]), y=1.26)
 
         #finding number of digits
         xmax = max(item[0].index.values)

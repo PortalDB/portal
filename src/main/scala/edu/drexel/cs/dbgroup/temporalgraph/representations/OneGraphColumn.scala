@@ -404,18 +404,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       vals
     }
     val sendMsgC = (edge: EdgeTriplet[Map[TimeIndex, VD], Map[TimeIndex, ED]]) => {
-      //This is a hack because of a bug in GraphX that
-      //does not fetch edge triplet attributes otherwise
-      edge.srcAttr
-      edge.dstAttr
-
-      //sendMsg takes in an EdgeTriplet[VD,ED]
-      //so we have to construct those for each TimeIndex
-      edge.attr.toList.flatMap{ case (k,v) =>
-        val et = new EdgeTriplet[VD, ED]
-        et.srcId = edge.srcId
-        et.dstId = edge.dstId
-        et.srcAttr = edge.srcAttr(k)
+      edge.srcAttr(k)
         et.dstAttr = edge.dstAttr(k)
         et.attr = v
         //this returns Iterator[(VertexId, A)], but we need
@@ -523,11 +512,6 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       }
 
       val sendMessage = (edge: EdgeTriplet[Int2ObjectOpenHashMap[(Double, Double)], Int2ObjectOpenHashMap[(Double, Double)]]) => {
-        //This is a hack because of a bug in GraphX that
-        //does not fetch edge triplet attributes otherwise
-        edge.srcAttr
-        edge.dstAttr
-
         edge.attr.toList.flatMap{ case (k,v) =>
           if (edge.srcAttr.apply(k)._2 > tol &&
             edge.dstAttr.apply(k)._2 > tol) {
@@ -620,10 +604,6 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       }
 
       val sendMessage = (edge: EdgeTriplet[Int2ObjectOpenHashMap[(Double, Double)], Int2ObjectOpenHashMap[Double]]) => {
-        //This is a hack because of a bug in GraphX that
-        //does not fetch edge triplet attributes otherwise
-        edge.srcAttr
-
         edge.attr.toList.flatMap{ case (k,v) =>
           if  (edge.srcAttr.apply(k)._2 > tol) {
             Some((edge.dstId, {var tmp = new Int2DoubleOpenHashMap(); tmp.put(k: Int, edge.srcAttr.apply(k)._2 * v); tmp}))
@@ -694,11 +674,6 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
     }
 
     val sendMessage = (edge: EdgeTriplet[Int2LongOpenHashMap, BitSet]) => {
-      //This is a hack because of a bug in GraphX that
-      //does not fetch edge triplet attributes otherwise
-      edge.srcAttr
-      edge.dstAttr
-
       edge.attr.toList.flatMap{ k =>
         if (edge.srcAttr(k) < edge.dstAttr(k))
           Some((edge.dstId, {var tmp = new Int2LongOpenHashMap(); tmp.put(k, edge.srcAttr.get(k)); tmp}))
@@ -842,11 +817,6 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
 
     val sendMessage = if (uni)
       (edge: EdgeTriplet[Int2ObjectOpenHashMap[Long2IntOpenHashMap], BitSet]) => {
-        //This is a hack because of a bug in GraphX that
-        //does not fetch edge triplet attributes otherwise
-        edge.srcAttr
-        edge.dstAttr
-
         //each vertex attribute is supposed to be a map of int->spmap for each index
         edge.attr.toList.flatMap { k =>
           val srcSpMap = edge.srcAttr(k)
@@ -863,11 +833,6 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       }
       else
         (edge: EdgeTriplet[Int2ObjectOpenHashMap[Long2IntOpenHashMap], BitSet]) => {
-          //This is a hack because of a bug in GraphX that
-          //does not fetch edge triplet attributes otherwise
-          edge.srcAttr
-          edge.dstAttr
-
           //each vertex attribute is supposed to be a map of int->spmap for each index
           edge.attr.toList.flatMap{ k =>
             val srcSpMap = edge.srcAttr(k)

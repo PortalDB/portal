@@ -125,10 +125,10 @@ def removeCloseValues(alignment, ticks, xmax):
 def drawGraph(name,dataframes):
     sns.set_context('notebook', font_scale=1.4)
     sns.set_style('whitegrid')
-    keys = ['RG', 'RGS', 'OG', 'OGS', 'HG', 'HGS', 'VE', 'VES', 'RG_E2D', 'OG_E2D', 'HG_E2D']
+    keys = ['RGS', 'RG', 'OGS', 'OG', 'HGS', 'HG', 'VES', 'VE', 'RG_E2D', 'OG_E2D', 'HG_E2D']
     lines = ['-', ':', '-', '--', '-', '-.', '-', '-', '-', '-', '-']
     colors = sns.color_palette("Paired", n_colors=11)
-    markers = ['s', "", 'o', "", 'D', "",  "", "", "", "", ""]
+    markers = ['', 's', '', 'o', '', 'D',  "", ">", "", "", ""]
     linewitdhs = [2, 3, 2, 3, 2, 3, 2, 2, 2, 2, 2]
     linesDict =  dict(zip(keys, lines))
     colorsDict = dict(zip(keys, colors))
