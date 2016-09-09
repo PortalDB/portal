@@ -14,7 +14,7 @@ import org.apache.spark.{SparkContext, SparkConf}
   * Created by shishir on 9/2/2016.
   */
 object TestGraphXTripletsBug {
-  //Comment out the lines in OneGraphColumn.scala that fix the bug in shortestpath and run this class to test if its fixed
+  //Comment out the lines in OneGraphColumn.scala that fix the bug in connectedComponents and run this class to test if its fixed
   //the lines to comment out are,
   //edge.srcAttr
   //edge.dstAttr
@@ -80,8 +80,15 @@ object TestGraphXTripletsBug {
     val OGC = OneGraphColumn.fromRDDs(nodes, edges, "Default")
 
     val actualOGC = OGC.connectedComponents()
-    actualOGC.vertices.foreach(println)
-    actualOGC.edges.foreach(println)
+    val prOGC = OGC.pageRank(false, 0.001, 0.15, 10)
+    val prOGC2 = OGC.pageRank(true, 0.001, 0.15, 10)
+    val spOGC = OGC.shortestPaths(false, Seq(1L, 2L))
+    val spOGC2 = OGC.shortestPaths(true, Seq(1L, 2L))
+    actualOGC.vertices.collect.foreach(println)
+    prOGC.vertices.collect.foreach(println)
+    prOGC2.vertices.collect.foreach(println)
+    spOGC.vertices.collect.foreach(println)
+    spOGC2.vertices.collect.foreach(println)
   }
 
 }
