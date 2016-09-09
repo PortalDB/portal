@@ -296,7 +296,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     fromRDDs(allVertices, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(intv, Edge(ids._1, ids._2, attr))))}, defaultValue, storageLevel, false)
   }
 
-  override def union(other: TGraph[VD, ED]): VEGraph[Set[VD], Set[ED]] = {
+  override def union(other: TGraphNoSchema[VD, ED]): VEGraph[Set[VD], Set[ED]] = {
     //union is correct whether the two input graphs are coalesced or not
     var grp2: VEGraph[VD, ED] = other match {
       case grph: VEGraph[VD, ED] => grph
@@ -336,7 +336,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     }
   }
 
-  override def intersection(other: TGraph[VD, ED]): VEGraph[Set[VD], Set[ED]] = {
+  override def intersection(other: TGraphNoSchema[VD, ED]): VEGraph[Set[VD], Set[ED]] = {
     //intersection is correct whether the two input graphs are coalesced or not
     var grp2: VEGraph[VD, ED] = other match {
       case grph: VEGraph[VD, ED] => grph

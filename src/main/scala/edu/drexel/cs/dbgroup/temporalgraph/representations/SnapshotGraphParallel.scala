@@ -231,7 +231,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
     new SnapshotGraphParallel(intervals, graphs.zip(intervals.collect).map(g => g._1.mapEdges(e => map(g._2, e))), defaultValue, storageLevel, false)
   }
 
-  override def union(other: TGraph[VD, ED]): SnapshotGraphParallel[Set[VD], Set[ED]] = {
+  override def union(other: TGraphNoSchema[VD, ED]): SnapshotGraphParallel[Set[VD], Set[ED]] = {
     var grp2: SnapshotGraphParallel[VD, ED] = other match {
       case grph: SnapshotGraphParallel[VD, ED] => grph
       case _ => throw new ClassCastException
@@ -298,7 +298,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
     }
   }
 
-  override def intersection(other: TGraph[VD, ED]): SnapshotGraphParallel[Set[VD], Set[ED]] = {
+  override def intersection(other: TGraphNoSchema[VD, ED]): SnapshotGraphParallel[Set[VD], Set[ED]] = {
     var grp2: SnapshotGraphParallel[VD, ED] = other match {
       case grph: SnapshotGraphParallel[VD, ED] => grph
       case _ => throw new ClassCastException

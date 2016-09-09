@@ -15,12 +15,14 @@ object TestFilterPushdown {
   Logger.getLogger("org").setLevel(Level.OFF)
   Logger.getLogger("akka").setLevel(Level.OFF)
   var conf = new SparkConf().setAppName("TemporalGraph Project").setSparkHome(System.getenv("SPARK_HOME"))
+
   conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
   conf.set("spark.network.timeout", "240")
-  conf.set("spark.shuffle.spill.numElementsForceSpillThreshold", "500000")
+  //conf.set("spark.shuffle.spill.numElementsForceSpillThreshold", "500000")
   val sc = new SparkContext(conf)
   ProgramContext.setContext(sc)
-  val sqlContext = new SQLContext(sc)
+  val sqlContext = ProgramContext.getSession
+  sqlContext.conf.set("spark.sql.files.maxPartitionBytes", "16777216")
   import sqlContext.implicits._
 
   def main(args: Array[String]): Unit ={

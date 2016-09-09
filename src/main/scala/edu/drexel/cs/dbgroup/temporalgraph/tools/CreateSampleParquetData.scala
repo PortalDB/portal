@@ -23,11 +23,11 @@ object CreateSampleParquetData {
   var conf = new SparkConf().setAppName("TemporalGraph Project").setSparkHome(System.getenv("SPARK_HOME"))
   val sc = new SparkContext(conf)
   ProgramContext.setContext(sc)
-  val sqlContext = new SQLContext(sc)
+  val sqlContext = ProgramContext.getSession
+  sqlContext.conf.set("spark.sql.files.maxPartitionBytes", "16777216")
   import sqlContext.implicits._
   case class Nodes(vid: Long, estart: Date, eend: Date, name:String)
   case class Edges(vid1: Long, vid2: Long,  estart: Date, eend: Date, count:Int)
-
 
   def main(args: Array[String]): Unit ={
     createSampleDataParquet()

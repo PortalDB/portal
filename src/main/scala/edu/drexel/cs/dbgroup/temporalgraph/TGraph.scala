@@ -96,7 +96,9 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * @param vpred Vertex predicate.
     * Foreign key constraint is enforced.
     */
-  def subgraph(epred: ((VertexId, VertexId), ED) => Boolean, vpred: (VertexId, VD) => Boolean): TGraph[VD,ED]
+  protected val defvp2 = (vid: VertexId, attrs: VD) => true
+  protected val defep2 = (ids: (VertexId, VertexId), attrs: ED) => true
+  def subgraph(epred: ((VertexId, VertexId), ED) => Boolean = defep2, vpred: (VertexId, VD) => Boolean = defvp2): TGraph[VD,ED]
 
   /**
     * Aggregate into representative graphs over time windows.
@@ -112,24 +114,8 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * performed in pairs (ala reduce).
     * @return New tgraph 
     */
-  //TODO: change aggfuncs to include intervals? that way can support first/last/longest/etc.
-  def aggregate(window: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId): TGraph[VD, ED]
-
-  /**
-    * Produce a union of two temporal graphs. 
-    * @param other The other TGraph
-    * @return new TGraph with the union of entities from both graphs within each chronon.
-    */
-  //TODO: change from set to have bag semantics
-  def union(other: TGraph[VD, ED]): TGraph[Set[VD], Set[ED]]
-
-  /**
-    * Produce the intersection of two temporal graphs.
-    * @param other The other TGraph
-    * @return new TemporaGraph with the intersection of entities from both graphs within each chronon.
-    */
-  //TODO: change from set to have bag semantics
-  def intersection(other: TGraph[VD, ED]): TGraph[Set[VD], Set[ED]]
+  protected val vgb = (vid: VertexId, attr: Any) => vid
+  def aggregate(window: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): TGraph[VD, ED]
 
   /**
     * The analytics methods

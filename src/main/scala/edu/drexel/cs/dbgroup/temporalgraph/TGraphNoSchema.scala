@@ -46,11 +46,6 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
       .reduceByKey((a: Map[Interval, ED], b: Map[Interval, ED]) => a ++ b)
   }
 
-  protected val defvp2 = (vid: VertexId, attrs: VD) => true
-  protected val defep2 = (ids: (VertexId, VertexId), attrs: ED) => true
-  override def subgraph(epred: ((VertexId, VertexId), ED) => Boolean = defep2, vpred: (VertexId, VD) => Boolean = defvp2): TGraphNoSchema[VD,ED]
-
-  protected val vgb = (vid: VertexId, attr: Any) => vid
   override def aggregate(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): TGraphNoSchema[VD, ED] = {
     //aggregateByChange requires coalesced tgraph for correctness
     //both produce potentially uncoalesced TGraph
@@ -97,6 +92,20 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
    *
    */
   def mapEdges[ED2: ClassTag](map: (Interval, Edge[ED]) => ED2): TGraphNoSchema[VD, ED2]
+
+  /**
+    * Produce a union of two temporal graphs. 
+    * @param other The other TGraph
+    * @return new TGraph with the union of entities from both graphs within each chronon.
+    */
+  def union(other: TGraphNoSchema[VD, ED]): TGraphNoSchema[Set[VD], Set[ED]]
+
+  /**
+    * Produce the intersection of two temporal graphs.
+    * @param other The other TGraph
+    * @return new TemporaGraph with the intersection of entities from both graphs within each chronon.
+    */
+  def intersection(other: TGraphNoSchema[VD, ED]): TGraphNoSchema[Set[VD], Set[ED]]
 
   /**
     * The analytics methods

@@ -230,14 +230,14 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       new OneGraphColumn(allVertices, es, graphs, defaultValue, storageLevel, false)
   }
 
-  override def union(other: TGraph[VD, ED]): OneGraphColumn[Set[VD],Set[ED]] = {
+  override def union(other: TGraphNoSchema[VD, ED]): OneGraphColumn[Set[VD],Set[ED]] = {
     defaultValue match {
       case a: StructureOnlyAttr => unionStructureOnly(other)
       case _ => super.union(other).asInstanceOf[OneGraphColumn[Set[VD],Set[ED]]]
     }
   }
 
-  private def unionStructureOnly(other: TGraph[VD, ED]): OneGraphColumn[Set[VD],Set[ED]] = {
+  private def unionStructureOnly(other: TGraphNoSchema[VD, ED]): OneGraphColumn[Set[VD],Set[ED]] = {
     var grp2: OneGraphColumn[VD, ED] = other match {
       case grph: OneGraphColumn[VD, ED] => grph
       case _ => return super.union(other).asInstanceOf[OneGraphColumn[Set[VD],Set[ED]]]
@@ -316,14 +316,14 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
     }
   }
 
-  override def intersection(other: TGraph[VD, ED]): OneGraphColumn[Set[VD],Set[ED]] = {
+  override def intersection(other: TGraphNoSchema[VD, ED]): OneGraphColumn[Set[VD],Set[ED]] = {
     defaultValue match {
       case a: StructureOnlyAttr => intersectionStructureOnly(other)
       case _ => super.intersection(other).asInstanceOf[OneGraphColumn[Set[VD],Set[ED]]]
     }
   }
 
-  private def intersectionStructureOnly(other: TGraph[VD, ED]): OneGraphColumn[Set[VD],Set[ED]] = {
+  private def intersectionStructureOnly(other: TGraphNoSchema[VD, ED]): OneGraphColumn[Set[VD],Set[ED]] = {
     var grp2: OneGraphColumn[VD, ED] = other match {
       case grph: OneGraphColumn[VD, ED] => grph
       case _ => return super.intersection(other).asInstanceOf[OneGraphColumn[Set[VD],Set[ED]]]
@@ -404,14 +404,14 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       vals
     }
     val sendMsgC = (edge: EdgeTriplet[Map[TimeIndex, VD], Map[TimeIndex, ED]]) => {
-        //sendMsg takes in an EdgeTriplet[VD,ED] 
-        //so we have to construct those for each TimeIndex 
-        edge.attr.toList.flatMap{ case (k,v) => 
-          val et = new EdgeTriplet[VD, ED] 
-          et.srcId = edge.srcId
-          et.dstId = edge.dstId
-          et.srcAttr = edge.srcAttr(k)
-          et.dstAttr = edge.dstAttr(k)
+      //sendMsg takes in an EdgeTriplet[VD,ED]
+      //so we have to construct those for each TimeIndex
+      edge.attr.toList.flatMap{ case (k,v) =>
+        val et = new EdgeTriplet[VD, ED]
+        et.srcId = edge.srcId
+        et.dstId = edge.dstId
+        et.srcAttr = edge.srcAttr(k)
+        et.dstAttr = edge.dstAttr(k)
         et.attr = v
         //this returns Iterator[(VertexId, A)], but we need
         //Iterator[(VertexId, Map[TimeIndex, A])]
