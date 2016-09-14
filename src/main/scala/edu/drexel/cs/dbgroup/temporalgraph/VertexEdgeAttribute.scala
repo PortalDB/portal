@@ -44,3 +44,17 @@ trait VertexEdgeAttribute extends Serializable {
   //TODO: add methods for de-duplication, etc.
 
 }
+
+object VertexEdgeAttribute {
+  def empty: VertexEdgeAttribute = new EmptyVEAttribute
+}
+
+class EmptyVEAttribute extends VertexEdgeAttribute {
+  override def size: Int = 0
+  override def keys: Iterable[String] = List[String]()
+  override def apply(key: String): Iterable[Any] = List[Any]()
+  override def exists(key: String): Boolean = false
+  override def ++(other: VertexEdgeAttribute): VertexEdgeAttribute = other
+  override def add(key: String, value: Any): VertexEdgeAttribute = throw new UnsupportedOperationException("cannot add to permanently empty VE attribute")
+  override def drop(key: String): VertexEdgeAttribute = this
+}
