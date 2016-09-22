@@ -1,440 +1,391 @@
 \section{Model}
 \label{sec:model}
 
-The basic element of our model is a \tg, which represents a graph that
-evolves over time.  Our representation is based on a continuous time
-domain.  This is in contrast to representing a graph as a sequence of
-discrete states. We will discuss this distinction in detail in
-Section~\ref{sec:model:others}.  We define the structure of an
-evolving graph in Section~\ref{sec:model:structure}.  We then show the
-relationship with other models in Section~\ref{sec:model:others}.
-Finally, in Section~\ref{sec:model:algebra} we define the algebraic
-operations on our model.
+%\subsection{Preliminaries}
+%\label{sec:model:prelim}
 
-\subsection{Evolving Graphs}
-\label{sec:model:structure}
+Following the SQL:2011
+standard~\cite{DBLP:journals/sigmod/KulkarniM12}, we adopt the {\em
+  closed-open} period model, where a period (or interval) represents a
+continuous set of time instances, starting from and including the
+start time, continuing to but excluding the end time.  Time instances,
+or chronons, have limited precision and the time domain has total
+order.
 
-First we describe how time is represented in our model.  Following the
-SQL:2011 standard~\cite{DBLP:journals/sigmod/KulkarniM12}, we adopt
-the {\em closed-open} period model, where a period represents all
-times starting from and including the start time, continuing to but
-excluding the end time.
-
+\vspace{-0.2cm}
 \begin{definition}[Time period]
-A {\em time period} \\$p = [start, end)$ is an interval on the
-  continuous time domain $T$, subject to the constraint $start < end$.
+A {\em time period} \\$p = [start, end)$ is an interval of the
+  continuous time domain, subject to the constraint $start < end$.
 \label{def:period} 
+\vspace{-0.2cm}
 \end{definition}
 
+We quantify relationships between time periods using the following
+Allen's relations~\cite{allen83} with equality: \predName{meets},
+\predName{overlaps}, \predName{starts}, \predName{finishes},
+\predName{during}, and \predName{equals}.  We will use
+$\pred{p}{contains}{q}$ as a shorthand for $\pred{p}{starts}{q} \vee
+\pred{p}{finishes}{q} \vee \pred{p}{during}{q} \vee
+\pred{p}{equal}{q}$.  We denote by $p \cap q$ the intersection of $p$
+and $q$. \eat{$$to denote $[\predName{max}(p.start,q.start),
+    \predName{min}(p.end, q.end))$.}\eat{ If
+    $\predName{max}(p.start,q.start) \geq \predName{min}(p.end,
+    q.end)$, then $p \cap q = \emptyset$.}
+
+\begin{figure}[t!]
+\centering
+%\includegraphics[width=3.5in]{figs/T1_rel_tab.pdf}
+\includegraphics[width=3in]{figs/T1_rel.pdf}
+\vspace{-0.2cm}
+\caption{Vertex-edge representation of \tg \insql{T1}.}
+\vspace{-0.3cm}
+\label{fig:tg_ve}
+\end{figure}
+
+\eat{It will be useful to quantify relationships between time periods $p$
+and $q$ using the following Allen's relations~\cite{allen83}.}
+
+\eat{\begin{itemize}
+\item $p equal q$, defined as $p.start = q.start \wedge p.end = q.end$
+\item $p overlaps q$, defined as $p.end > q.start$
+\item $p meets q$, defined as $p.end = q.start$
+\item $p during q$, defines as $p.start > q.start \wedge p.end < q.end$ 
+\item $p starts q$, defined as $p.start = q.start \wedge p.end < q.end$
+\item $p finishes q$, defined as $p.start > q.start \wedge p.end = q.end$
+\end{itemize}}
+
+\subsection{Representative graphs of a \tg}
+\label{sec:model:rg}
+
+The basic building block of our model is a \tg, which represents a
+single graph that evolves continuously over time, and is defined over
+a set of vertices $V$, edges $E\subseteq V \times V$, vertex
+attributes \avv, and edge attributes \aee.
+
+\vspace{-0.2cm}
 \begin{definition}[TGraph]
-An {\em evolving graph} $TG$ is a pair $(V;E)$, where $V$ is a finite
-set of nodes with schema $(\underline{vid}, a_1, \ldots, a_n,
-\underline{p})$, and $E$ is a finite set of edges connecting pairs of
-nodes from $V$, with schema $(\underline{vid_1}, \underline{vid_2},
-b_1, \ldots, b_m, \underline{p})$, and $p$ is a {\em maximally
-  coalesced} time period.  Formally stated, the relationship between
-$V$ and $E$ is through a constraint on $E$: $\forall e(vid_1, vid_2,
-p_i) \in E, \exists v1(vid_1, p_j)$ and $v2(vid_2, p_k)$ and
-$p_i.contains(p_j)$ and $p_i.contains(p_k)$.
+A \tg $\tgg(g, p)$ is a valid-time period-based relation that
+associates a state of the graph $g$ with a time period $p$ during
+which the graph is in that state.
+%
+Each $g = (V_g, E_g, \avv_g, \aee_g)$, with $V_g \subseteq V$, $E_g
+\subseteq E$, $\avv_g \subseteq \avv$, $\aee_g \subseteq \aee$.
+%
+\tgg is temporally coalesced:
+\vspace{-0.2cm}
+\begin{multline}
+\forall \tgg(g,p)~\nexists \tgg(g,p')~~| \\
+        \pred{p}{meets}{p'}~\lor~\pred{p}{contains}{p'}~\lor~\pred{p}{overlaps}{p'}
+\end{multline}
+
+\tgg represents evolution of a single graph over time:
+\begin{multline}
+\forall \tgg(\_,p)~\nexists \tgg(\_,p')|~\pred{p}{contains}{p'}~\lor~\pred{p}{overlaps}{p'}
+\end{multline}
+
+We refer to each $g$ that appears in some tuple $(g,p)$ of \tgg as a
+representative graph of \tgg during period $p$.
+\label{def:tg_abstract}
+\end{definition}
+
+An example of a \tg is given in Figure~\ref{fig:tg_rg}, where 5
+representative graphs (states) of \insql{T1} are associated with 5
+consecutive periods $p_1=[1/15, 2/15), \ldots, p_5=[7/15, 10/15)$. \eat{ It
+    is not required that time periods of a \tg be consecutive and with
+    no gaps.}
+
+    Vertices and edges of a \tg are not required to be homogeneous in
+    terms of their schemas.  In line with several popular graph
+    databases, we use the property graph model~\cite{GraphDB} to
+    represent vertex and edge attributes.  Each vertex and edge of $g$
+    during period $p$ is associated with a (possibly empty) {\em bag}
+    of properties, and each property is represented by a key-value pair.
+    Values are not restricted to be of atomic types, and may, e.g., be
+    maps or tuples.
+
+As is typical in interval-based models, each representative graph is
+assumed to exists continuously, and remains unchanged, during the
+associated period.  By this we mean that graph topology (identities of
+its vertices and edges), and properties of each vertex and edge remain
+unchanged.
+%
+The statement that \tgg is temporally coalesced means that each fact
+(unchanging state of the graph) is represented exactly once for each
+time period of maximal length when it
+holds~\cite{DBLP:conf/vldb/BohlenSS96}.\eat{ This is the standard
+  meaning of the term ``coalesce'' in temporal databases, and is
+  unrelated to the SQL coalesce function.}  For interval-based models,
+requiring that relations be coalesced is both space-efficient and
+avoids semantic ambiguity (see~\cite{DBLP:reference/db/JensenS09k}
+Fig. 2 and its description).
+
+\subsection{Vertex-edge representation of a \tg}
+\label{sec:model:ve}
+
+We now give an alternative representation of a \tg that uses
+valid-time temporal SQL relations~\cite{DBLP:conf/vldb/BohlenSS96},
+with nesting, to represent evolution of graph topology and of its
+vertex and edge attributes.  We term this logical representation the
+{\em \ve \tg}.  An example \eat{of a \ve \tg }is given in
+Figure~\ref{fig:tg_ve}.  We will refer to the \rgs
+(Definition~\ref{def:tg_abstract}) and \ve (Definition~\ref{def:tg})
+representations of a \tg jointly as \insql{T}, and will disambiguate
+between the two representations with \trg and \tve when necessary.
+
+\eat{ Following notation in~\ref{DBLP:conf/vldb/BohlenSS96}, we will
+  make use of $value\_equivalent(x,y) = (x[A] = y[A])$ --- a Boolean
+  predicate that evaluates to true of $x$ and $y$ agree on values of
+  their explicit (non-temporal) attributes.}
+
+\vspace{-0.2cm}
+\begin{definition}[Vertex-Edge TGraph]
+A vertex-\\edge representation of \tg is a pair $\tve=(\tv, \te)$. \tv
+is a valid-time temporal SQL relation with schema $\tv(\underline{v},
+\underline{p})$ that associates a vertex with the time period during
+which it is present. \te is a valid-time temporal SQL relation with
+schema $\te(\underline{v_1}, \underline{v_2}, \underline{p})$,
+connecting pairs of vertices from \tv.\eat{ Attribute $p$ represents
+  time period (as per Definition~\ref{def:period}).} \tv and \te are
+temporally coalesced:
+\vspace{-0.3cm}
+\begin{multline}
+\vspace{-0.3cm}
+\forall \tv(v, p)~~\nexists \tv(v, p')~~| \\
+                       \pred{p}{meets}{p'}~\lor~\pred{p}{contains}{p'}~\lor~\pred{p}{overlaps}{p'}
+\label{def:tg:c2}
+\end{multline}
+\vspace{-0.7cm}
+\begin{multline}
+\forall \te(v_1, v_2, p)~~\nexists \te(v_1,v_2, p')~~| \\
+                       \pred{p}{meets}{p'}~\lor~\pred{p}{contains}{p'}~\lor~\pred{p}{overlaps}{p'}
+\label{def:tg:c3}
+\end{multline}
+
+An edge connects a pair of vertices that exist at the time when the edge exists:
+\vspace{-0.3cm}
+\begin{multline}
+\forall \te(v_1, v_2, p)~~\exists \tv(v_1, p_1), \tv(v_2, p_2)~~| \\
+                       \pred{p_1}{contains}{p}~\wedge~\pred{p_2}{contains}{p}
+\label{def:tg:c1}
+\end{multline}
+\vspace{-0.5cm}
+
+\tve optionally includes vertex and edge attribute relations \tav
+and \tae.  Both are coalesced, and associate bags of properties with
+existing vertices and edges.
+\vspace{-0.3cm}
+\begin{multline}
+\forall \tav(v, p, a)~~\nexists \tav(v, p', a)~~| \\
+                       \pred{p}{meets}{p'}~\lor~\pred{p}{contains}{p'}~\lor~\pred{p}{overlaps}{p'}
+\label{def:tg:c4}
+\end{multline}
+\vspace{-0.5cm}
+\begin{multline}
+\forall \tav(v, p, a)~~\exists \tv(v,p')~~|~~\pred{p'}{contains}{p}
+\label{def:tg:c5}
+\end{multline}
+\vspace{-0.5cm}
+\begin{multline}
+\forall \tae(v_1, v_2, p, a)~~\nexists \tae(v_1, v_2, p', a)~~| \\
+                       \pred{p}{meets}{p'}~\lor~\pred{p}{contains}{p'}~\lor~\pred{p}{overlaps}{p'}
+\label{def:tg:c6}
+\end{multline}
+\vspace{-0.5cm}
+\begin{multline}
+\forall \tae(v_1, v_2, p, a)~~\exists \te(v_1,v_2,p')~~|~~\pred{p'}{contains}{p}
+\label{def:tg:c7}
+\end{multline}
+\vspace{-0.6cm}
 \label{def:tg}
 \end{definition}
+\vspace{-0.3cm}
+Graphs may be directed or undirected.  For undirected graphs we choose
+a canonical representation of an edge, with $v_1 \leq v_2$ (self-loops
+are allowed).
 
-\begin{figure}
-\includegraphics[width=3in]{figs/T1.pdf}
-\caption{\tg \insql{T1} example.}
-\label{fig:tg}
-\end{figure}
+Conditions~\ref{def:tg:c2} and~\ref{def:tg:c3} in
+Definition~\ref{def:tg} state that \tv and \te are
+coalesced~\cite{DBLP:conf/vldb/BohlenSS96}, i.e., that each vertex and
+edge is represented exactly once for each time period of maximal
+length when it is present.  Conditions~\ref{def:tg:c4}
+and~\ref{def:tg:c6} state that all attribute relations are coalesced,
+i.e., that an attribute is represented exactly once for each time
+period of maximal length in which its value did not change.  Consider
+Figure~\ref{fig:tg_ve} and note that there is a single tuple for $v_2$
+in \tv, but three tuples for $v_2$ in \tav, because $school=CMU$ was
+added at time 5/15, and $school=MIT$ at 7/15.  It is not required that
+a vertex or an edge be represented in \tav and \tae --- a vertex or
+edge that never had any associated properties will have no
+corresponding tuples in \tav or \tae.
 
-An example of a \tg is given in Figure~\ref{fig:tg}, with vertex
-schema name:string and salary:int and edge schema count:int.
+Definitions~\ref{def:tg_abstract} and~\ref{def:tg} give two
+alternative views of graph evolution.  In
+Definition~\ref{def:tg_abstract} the graph is represented in its
+entirety, with a change of state occurring whenever there is a change
+in graph topology or in its vertex or edge properties.  In other
+words, time periods here are at their finest granularity.  In
+contrast, Definition~\ref{def:tg} decouples evolution of graph
+vertices, edges and attribute values, coalescing each relation
+independently of the others.  This makes graph maintenance and
+manipulation more manageable.
 
-The time periods of all graph entities, i.e. vertices and edges, are
-maximally coalesced.  That means that all the tuples in $V$ and $E$
-are distinct in all attributes, including the time periods, and that
-time periods do not overlap for any individual entity and are maximal.
-The above evolving graph definition~\ref{def:tg} can be expressed in
-temporal SQL as follows (without attributes):
+\eat{The \tv and \te relations of Definition~\ref{def:tg}, although only
+partially enforcing the constraints, can be implemented as follows (as
+per SQL:2011):}
 
-\begin{small}
+\eat{ Condition~\ref{def:tg:c1} in Definition~\ref{def:tg} states the
+  natural integrity constraint that an edge linking two vertices can
+  only exist during a time when both vertices exist. Here,
+  $\pred{p}{contains}{q}$ is the Allen \predName{contains} relation
+  with equality~\cite{allen83}, defined as $p.start \leq q.start
+  \wedge p.end \geq q.end$.  Consider the vertex-edge representation
+  of \tg \insql{T1} in Figure~\ref{fig:tg_ve}, where edge $e(v_1,v_2)$
+  exists during the entire period when both $v_1$ and $v_2$ exist,
+  while edge $e(v_2,v_3)$ exists only for a portion of the period when
+  both $v_2$ and $v_3$ exist.}
+
+\eat{
+\begin{scriptsize}
 \begin{verbatim}
-CREATE TABLE V (
-  vid LONG,
-  estart DATE,
-  eend DATE,
-  PERIOD for eperiod (estart, eend),
-  PRIMARY KEY (vid, eperiod WITHOUT OVERLAPS)
-);
-CREATE TABLE E (
-  vid1 LONG,
-  vid2 LONG,
-  estart DATE,
-  eend DATE,
-  PERIOD for eperiod (estart, eend),
-  PRIMARY KEY (vid1, vid2, eperiod WITHOUT OVERLAPS),
-  FOREIGN KEY (vid1, PERIOD eperiod) 
-           REFERENCES V(vid, PERIOD eperiod),
-  FOREIGN KEY (vid2, PERIOD eperiod) 
-           REFERENCES V(vid, PERIOD eperiod)
-)
+CREATE TABLE TV (
+  v LONG,
+  pstart DATE,
+  pend DATE,
+  PERIOD for p (pstart, pend),
+  PRIMARY KEY (v, p WITHOUT OVERLAPS) )
+CREATE TABLE TE (
+  v1 LONG,
+  v2 LONG,
+  pstart DATE,
+  pend DATE,
+  PERIOD for p (pstart, pend),
+  PRIMARY KEY (v1, v2, p WITHOUT OVERLAPS),
+  FOREIGN KEY (v1, PERIOD p) REFERENCES TV(v, PERIOD p),
+  FOREIGN KEY (v2, PERIOD p) REFERENCES TV(v, PERIOD p) )
 \end{verbatim}
-\end{small}
+\vspace{-0.3cm}
+\end{scriptsize}
+}\eat{ The \tv and \te relations of Definition~\ref{def:tg}, although only
+partially enforcing the constraints, can be implemented per SQL:2011
+standard. Unfortunately, an implementation will not guarantee that \tv
+and \te are coalesced.  It is possible to ensure that time periods
+corresponding to a vertex (resp. edge) do not overlap or contain each
+other, but it is not possible to prevent the existence of two adjacent
+time periods for a vertex or edge, i.e., periods $p$ and $q$ for which
+$\pred{p}{meets}{q}$.  That is, there may well be two tuples in \tv
+for $v_1$ in Figure~\ref{fig:tg_ve}, one associated with $[1/15,
+  2/15)$ and the other with $[2/15, 7/15)$.}
 
-\vera{placeholder for schema on load explanation}
+The relations of \tve can be implemented in temporal SQL, as per the
+SQL:2011 standard~\cite{DBLP:journals/sigmod/KulkarniM12}, but this
+implementation will not ensure that relations are coalesced.  SQL:2011
+does not provide a way to specify that a relation be coalesced, and
+does not enable efficient mechanisms to implement the coalesce
+operator.  Coalescing requires that the system automatically merge
+adjacent and overlapping time periods.  This operation, which is
+similar to duplicate elimination in conventional databases, has been
+extensively studied in the
+literature~\cite{DBLP:conf/vldb/BohlenSS96,DBLP:journals/sigmod/Zimanyi06},
+but is not supported by the standard.\eat{ Note that, while it is an
+  important property of our logical model that time periods be
+  coalesced, eagerly coalescing is both expensive and, in some cases,
+  unnecessary.  We will discuss lazy coalescing in
+  Section~\ref{sec:sys:coal}.}
 
-\subsection{Other Models}
-\label{sec:model:others}
+While our \ve representation is based on temporal SQL, we reiterate
+that non-key attributes of vertices and edges are stored as
+collections of properties.  Definition~\ref{def:tg} presents a logical
+data structure and may be implemented, e.g., by a columnar
+representation of vertex and edge properties (each property in a
+separate relation), or by some hybrid representation.  A columnar
+representation may be more efficient if different properties change at
+different rates.
 
-There are two common ways to represent entities in time: continuous
-and discrete.  We use a continous representation which is more general.
+\eat{
+Definition~\ref{def:tg} gives a columnar representation of vertex and
+edge attributes.  Such a representation naturally supports {\em schema
+  evolution} and can lead to more efficient physical representations,
+especially when values of different attributes change at different
+rates.  That said, our support of non-atomic types allows to combine
+multiple, or even all, vertex (resp. edge) attributes in a single
+attribute relation, as is the case in \tav Figure~\ref{fig:tg_ve}.}
 
-Much of the work on evolving graphs is on snapshot retrieval and
-snapshot analytics in a discrete time domain.  In this case an
-evolving graph is considered to be a sequence of graph snapshots
-corresponding to time instances in the time domain $T$
-(\cite{Khurana2013,DBLP:journals/tos/MiaoHLWYZPCC15,Ren2011}).  Such a
-model has several limitations:
+Our choice to use attribute relations is in contrast to representing
+vertex and edge attributes as part of \tv and \te.  The main reason is
+to streamline the enforcement of referential integrity constraints of
+Definition~\ref{def:tg}.  Consider again the example in
+Figure~\ref{fig:tg_ve}.  If vertex attributes were stored as part of
+\tv, then there would be two tuples for $v_2$ in this relation whose
+validity periods overlap with that of edge $e(v_1, v_2)$ --- one for
+each $[2/15, 5/15)$ and $[5/15, 7/15)$.  This would in turn require
+    that $e(v_1, v_2)$ be mapped to two tuples in \tv as part of
+    referential integrity checking on $v_2$.  Matching a tuple with a
+    set of tuples in the referenced table, while supported by the
+    SQL:2011 standard, is potentially inefficient, and we avoid it in
+    our representation.
+%
+\eat{ We will discuss how integrity of the model is enforced, and how
+  this is implemented, in Sections~\ref{sec:algebra}
+  and~\ref{sec:sys}.}Another reason for optional \tav and \tae is
+that in many cases we are interested in applying operations (e.g.,
+analytics) only to graph topology, and in that case \tv and \te are
+sufficient.
+%
+\eat{ Non-key attributes of $V$ and $E$ are not restricted to be of
+  atomic types, but may, e.g., be maps or tuples.  Because of this,
+  \ql supports {\em schema evolution} in a \tg in much the same way as
+  is done in popular (non-temporal) graph databases like Neo4j.  At an
+  extreme, the vertex (resp. edge) relation will have a single
+  unstructured non-key attribute, which would store all attribute
+  information.  This representation has the usual advantages and
+  disadvantages --- flexibility of a schema-less representation at the
+  expense of missed performance optimization opportunities afforded by
+  a structured representation.}
 
-\begin{itemize}[noitemsep,topsep=0pt]
-\item It requires a discrete time domain.  The state of the graph can
-  be undefined at some time $t_i$ unless a snapshot is associated with
-  each possible value of $T$ in the discrete range $[t_{start}, now)$.
-\item It is not compact.  Every change to an entity (vertex or edge)
-  requires a new snapshot.  For large graphs, consecutive snapshots
-  have degree of similarity approaching 1 (on the scale of 0 of no
-  similarity and 1 full similarity).
-\end{itemize}
+\eat{
+To conclude this section, let us revisit \tg \insql{T1} in
+Figure~\ref{fig:tg_ve}.  Figure~\ref{fig:tg_rg} represents \insql{T1} as a
+continuous sequence of graph states, each corresponding to a time
+period during which no change occurred to the graph, in terms of
+either topology or attribute values.}
 
-\begin{figure}[h]
-\includegraphics[width=3in]{figs/getsnap.pdf}
-\caption{A graph snapshot over interval model TG is a time slice at time t.}
-\label{fig:getsnap}
-\end{figure}
+\eat{\begin{definition}[\rgs]
+A {\em representative graphs} view of a \tg is a sequence of
+(non-temporal) graphs associated with a sequence of consecutive
+non-overlapping time periods.
+\label{def:rgs} 
+\end{definition}}
 
-Snapshot retrieval, however, is a useful operation for many types of
-analysis and thus should be supported.  In our model a snapshot at any
-time $t$ is state at time $t$ and can be retrieved simply by selection
-on $p$ (Figure~\ref{fig:getsnap}). In SQL (similarly for E):
+\eat{This view, to which we refer as \rgs of \insql{T1}, is computed from
+properly coalesced $V$, $E$, $A^{V}$, and $A^{E}$ by (1) enumerating
+all time points during which some change occurred, i.e., that appear as
+either the start or the end of some time period, and (2) generating
+pairs of adjacent time points. See Appendix for details.  \rgs is an
+important abstraction that will be useful to us in the next section,
+where we present \tg algebra.
+}
 
-\begin{small}
-\begin{verbatim}
-SELECT *
-FROM V
-WHERE eperiod CONTAINS DATE ':date';
-\end{verbatim}
-\end{small}
+\subsection{Switching between representations}  
+\label{sec:model:switch}
 
-Observe that many discrete dates can lead to equivalent snapshots if
-no changes to the graph occurred in the intervening time.  It may be
-desirable to instead retrieve a sequence of deduplicated snapshots
-with respect to a subset of graph attributes.  We discuss how our
-model supports such operations in the next section.
+\trg and \tve are equivalent in terms of the information they contain.
+\trg can be computed from \tve by (1) enumerating all time points
+during which some change occurred, i.e., those that appear as either
+the start or the end of some time period in \tv, \te, \tav, and \tae;
+(2) computing \trg periods by generating pairs of adjacent time points
+from step 1, and sorting them by $start$; (3) constructing a graph $g$
+for each time period $p$ by selecting tuples from \tv, \te, \tav, and
+\tae that overlap with $p$.
 
-Another commonly used graph model in the research literature is a
-continuous time model based on change
-streams~\cite{Cheng2012,Ediger2012}, usually for the purposes of
-supporting analysis of the latest state of the graph quickly and
-efficiently.  In this model a stream $S$ emits a sequence of graph
-change events $e$, each associated with a time $t$ at which it was
-emitted.  An event can be of entity creation, deletion, or change in
-the value of one of the entity attributes.  Multiple events may be
-associated with one time instance and the event emit rate is not
-constant.
+To compute \tve from \trg, we iterate over $\trg (g,p)$, computing
+$\tv_g(v,p)$ (similarly for $\te_g$, $\tav_g$, $\tav_g$) for each
+tuple, collecting $\tv_g \rightarrow \tv$, $\te_g \rightarrow \te$,
+$\tav_g \rightarrow \tav$, $\tae_g \rightarrow \tae$, and coalescing
+each \tv, \te, \tav, \tae.
 
-\begin{figure*}[t]
-\centering
-\includegraphics[width=6in]{figs/stream_to_state.pdf}
-\caption{Stream $S$ emits graph change events which are converted to
-  evolving graph state model $TG$.}
-\label{fig:streamtotg}
-\end{figure*}
+\eat{Next, we will present operators of \tg algebra, stating their
+semantics over both\trg and \tve.}  \eat{We will then discuss how each
+  operator is implemented over several possible physical
+  representations of these logical data structures
+  (Section~\ref{sec:sys}).}
 
-Because the stream emits {\em individual entities} rather than {\em
-  whole graphs}, graph snapshots can only be reconstructed by
-maintaining the history of changes over time.  Our evolving graph
-model can be easily constructed from the change stream model following
-the conventional temporal database approach
-(Figure~\ref{fig:streamtotg}):
-\begin{itemize}[noitemsep,topsep=0pt]
-\item For an Add event at time $t_i$, add a new tuple with $p=[t_i,
-  now)$
-\item For a Delete event at time $t_i$, modify the tuple matching the
-  primary key by setting $p=[t_s, now)$ to $[t_s, t_i)$.
-\item For a Change event at time $t_i$, modify the tuple matching the
-  primary key as for a Delete event, and add a new tuple with the
-  changed value as for an Add event.
-\end{itemize}
-
-This approach assumes that no events arrive out of order and there are
-no redundant or duplicate events.  However, it would be a simple
-extension to relax these two assumptions.  We also use a closed world
-assumption -- if no event is recorded, for our purposes it did not
-occur.
-
-\subsection{Algebra}
-\label{sec:model:algebra}
-
-All operations in our model take one or two \tgs and return a \tg,
-i.e. the algebra is compositional.  More importantly, all operations
-maintain the integrity of the model by computing the value of $V$,
-followed by the value of $E$, maintaining the foreign key constraint
-from $E$ to $V$ and the maximally coalesced non-overlapping time
-period contraint on both $V$ and $E$.
-
-\begin{definition}[Selection]
-Temporal and structural selection on $TG$ is a selection on the
-attributes of $V$ and $E$.  Subgraph is $\sigma_{a \theta v}(TG)$,
-where $a$ are attributes of $V$ and/or $E$, $\theta$ is a binary
-operation in the set $\{<, \leq, =, \neq, \geq, >\}$, and $v$ is a
-value constant.  Temporal selection over $TG$ is $\sigma_{[a,b)}(TG) =
-  \{t: t \in TG, t(p).overlaps(period(a,b))\}$ which returns a subset
-  of $TG$ within the bounds of $[a,b)$.
-\label{def:selection}
-\end{definition}
-
-In SQL, temporal selection can be expressed as follows for $V$
-(similarly for $E$):
-
-\begin{small}
-\begin{verbatim}
-SELECT vid, a1, ..., an, greatest(estart, DATE ':date1'), 
-       least(eend, DATE ':date2')
-FROM V
-WHERE eperiod OVERLAPS PERIOD (DATE ':date1', DATE ':date2')
-\end{verbatim}
-\end{small}
-
-Temporal and structural selection are supported by the same selection
-operator and can be used together.  For example, one could select a
-sub-graph in an evolving co-citation network of only authors whose
-names start with letter A, over the past decade.  Because of the
-constraint on $E$, even if the structural selection is only on
-attributes of $V$, only edges connecting selected vertices are
-retained.  Neither deduplication nor coalescing is required as a
-post-operation.
-
-\begin{definition}[Projection]
-Projection on $TG$ is projection on attributes of $V$ and $E$ with
-coalescing, i.e. \\$\Pi vid, p, a_1, \ldots, a_n(V); \Pi vid_1, vid_2,
-p, b_1, \ldots, b_m(E)$. 
-\label{def:projection}
-\end{definition}
-
-The primary key is always retained, so deduplication is not necessary.
-However, coalescing is always performed.  Projection and coalescing
-can be expressed in temporal SQL as follows in a structure-only case:
-
-\begin{small}
-\begin{verbatim}
-CREATE VIEW ProjV(vid, estart, eend) AS (
-  SELECT vid, estart, eend FROM V);
-CREATE VIEW ProjE(vid1, vid2, estart, eend) AS (
-  SELECT vid1, vid2, estart, eeend FROM E);
-CREATE VIEW CoalescV(vid, estart, eend) AS (
-  SELECT DISTINCT F.vid, F.estart, L.eend
-  FROM ProjV F, ProjV L
-  WHERE F.estart < L.eend AND F.vid = L.vid
-  AND NOT EXISTS (SELECT * FROM ProjV M
-    WHERE M.vid = F.vid
-    AND F.estart < M.estart AND M.estart <= L.eend
-    AND NOT EXISTS (SELECT * From ProjV M1
-      WHERE M1.vid = F.vid
-      AND M1.estart < M.estart
-      AND V.estart <= M1.eend ) )
-  AND NOT EXISTS (SELECT * from ProjV M2
-    WHERE M2.vid = F.vid
-    AND ( (M2.estart < F.estart AND F.estart <= M2.eend)
-    OR (M2.estart <= L.eend AND L.eend < M2.eend) ) ) );
-CREATE VIEW CoalescE(vid1, vid2, estart, eend) AS (
-  SELECT DISTINCT F.vid1, F.vid2, F.estart, L.eend
-  FROM ProjE F, ProjE L
-  WHERE F.estart < L.eend AND F.vid1 = L.vid1 
-  AND F.vid2 = L.vid2
-  AND NOT EXISTS (SELECT * FROM ProjE M
-    WHERE M.vid1 = F.vid1 AND M.vid2 = F.vid2
-    AND F.estart < M.estart AND M.estart <= L.eend
-    AND NOT EXISTS (SELECT * From ProjE M1
-      WHERE M1.vid1 = F.vid1
-      AND M1.vid2 = F.vid2
-      AND M1.estart < M.estart
-      AND V.estart <= M1.eend ) )
-  AND NOT EXISTS (SELECT * from ProjE M2
-    WHERE M2.vid1 = F.vid1 AND M2.vid2 = F.vid2
-    AND ( (M2.estart < F.estart AND F.estart <= M2.eend)
-    OR (M2.estart <= L.eend AND L.eend < M2.eend) ) ) )
-\end{verbatim}
-\end{small}
-
-As already mentioned, snapshots represent the state of the graph at a
-particular time instant $t$.  It is often useful to instead analyze
-the graph as an aggregation over some time period $p$.  We call such a
-graph a {\em representative graph}.  For example, a union of all
-vertices/edges over 1 month is representative of that graph during
-that month.  Analysis of representative graphs can lead to deeper
-insight than of a snapshot.  For example, a co-authorship network DBLP
-is very sparse - one can only publish so many papers in any given
-month - on a daily or even monthly level of granularity, but can show
-community formation and affiliation when aggregated over multiples of
-years.  From this perspective, an evolving graph is a sequence of
-representative graphs over consecutive arbitrary-length periods.
-
-In SQL, the representative graph periods can be computed as follows:
-
-\begin{small}
-\begin{verbatim}
-CREATE VIEW Changes(day) as (
-  SELECT DISTINCT estart FROM V
-  UNION SELECT DISTINCT eend FROM E
-  UNION SELECT DISTINCT estart from E
-  UNION SELECT DISTINCT eend FROM E);
-CREATE VIEW ChangePeriods(estart, eend) as (
-  SELECT P1.day, P2.day
-  FROM Changes P1, Changes P2
-  WHERE P1.day < P2.day AND NOT EXISTS (
-     SELECT * from Changes P3
-     WHERE P1.day < P3.day and P3.day < P2.day ) )
-\end{verbatim}
-\end{small}
-
-\begin{figure}
-\centering
-\includegraphics[width=3.4in]{figs/change_timeline.pdf}
-\caption{The regions of constant value within the whole graph compose
-  representative graphs.}
-\label{fig:changes}
-\end{figure}
-
-An example in Figure~\ref{fig:changes} illustrates this concept.
-
-Here we propose a general way to aggregate evolving graphs over our
-model.  This approach is based on the stream aggregation work by Li,
-et al.~\cite{Li2005} with addition of quantifiers.  Aggregation is
-performed through specification of time windows.  Windows can be
-defined in terms of {\em time} or {\em change}.  The time window is
-semantic and can be any multiples of $\{minutes, hours, days, weeks,
-\\ months, years\}$, i.e. the usual time units.  The window span
-itself is based on absolute values rather than from some starting
-point and direction.  Thus, window specification of 1 year would
-produce windows for each calendar year occurring in the data.  The
-{\em change} type is equivalent to the time period of one
-representative graph, i.e. period during which all the graph values
-are constant (this is similar to the slide-by-row type in stream
-aggregation).
-
-Aggregation in relational algebra produces results for each grouping
-irrespective of how many results there are, unless a \insql{HAVING}
-restriction is applied.  The quantification over the aggregation
-results in evolving graphs is useful for producing different kinds of
-representative graphs.  For example, to produce a representative graph
-with only strong connections over a volatile evolving graph, we want
-to restrict results to those edges that span the entire window or a
-large subset of that window.  For this purpose we introduce
-quantifiers.
-
-Hsu and Parker define a ``{\em generalized quantifier} $Q(R)$ as a
-Boolean-valued function of a relation'' ~\cite{Hsu1995}.  A quantifier
-contains an {\em n-place determiner}.
-
-For example, ``at least one vertex in each window for each group'' is
-a 2-place determiner quantifier which has the existential semantics.
-Many kinds of quantifiers are possible.  In our work we restrict the
-determiners to be from the set $\{at\ least\ one, all, most,
-at\ least\ n\}$, where $n$ is an integer representing a ratio.  $all$
-is a usual universal quantifier that in standard SQL can be achieved
-with the use of two \insql{NOT EXISTS}.
-
-Now that we have the window semantics and quantification defined, we
-can define the aggregation operation over an evolving graph $TG$.
-
-\begin{definition}[Evolving Graph Aggregation]
-An {\em aggregation} operation over $TG$ is a function \\ $G_1, G_2,
-\ldots, G_n, W, Q g f_1(A_1), f_2(A_2), \ldots, f_m(A_m)(TG)$, where
-each $G_i$ is a grouping attribute from $TG$ with the exception of
-$p$; $W$ is the window specification; $Q$ is a generalized quantifier
-specification for vertices and edges on the coverage of the window;
-each $F_i$ is an aggregation function; and each $A_i$ is an attribute
-name from $TG$.
-\label{def:agg}
-\end{definition}
-
-This definition is similar to the regular relational algebra
-aggregation definition, with the addition of the window specification
-and the restriction of grouping attributes to exclude the time
-periods.  However, both $V$ and $E$ relations are aggregated by the
-same operation and the constraint on $E$ to contain only those
-vertices that exist in $V$ is maintained.  The aggregation defined
-this way allows to aggregate graphs structurally, temporally, or in
-combination.  To aggregate only temporally, the grouping attribute
-must be $vid$ for $V$ and $(vid1, vid2)$ for $E$.  To aggregate only
-structurally, the window specification must be by 1 change.  Observe
-that aggregation by 1 change with grouping by id is a no-op, and in
-fact the sequence of representative graphs on the source data is equal
-to the deduplicated sequence of snapshots.
-
-The quantifier is applied to the coverage of the window period within
-each grouping.  For example, to construct the persistent edges graph
-from the example above, we use the $all$ quantifier over the $E$ relation.
-Only the edges that span the duration of the window period are
-produced.  Since the universal quantification is very restrictive,
-$most$ and $at\ least\ n$ quantifiers are more appropriate in some
-aggregations, especially over long windows.  To obtain a stable
-1-month graph over an evolving network connections graph, we may ask
-for connections that exist in at least 90\% of the period.
-
-Remember that the schema for $V$ has a $(vid, p)$ primary key.  Any
-aggregation operation must produce both a valid $vid$ and valid time
-interval for each tuple.  We produce a $vid$ by using the hash of the
-grouping variables to maintain temporal consistency.  The time
-interval is produced by the window extent from the window
-specification. Similarly for $E$.
-
-The aggregation functions over the selected graph attributes are used
-to compute the new value representative of the whole window.  We
-support the standard set $\{count, min,$ $max, sum, average\}$, as
-well as $\{any, first, last, list\}$.  $first$ and $last$ refer to
-first/last non-null value in the window and are possible because the
-aggregating tuples have the time dimension, and the ties are decided
-arbitrarily.  $count$ is the count of the number of distinct values
-over the aggregation window.  Additional aggregation functions can be
-defined by the user.
-
-\begin{figure*}
-\includegraphics[width=6.5in]{figs/agg1.pdf}
-\caption{1-month window aggregation with grouping by id, with
-  existential vertex/edge quantifier.  Structure only.}
-\label{fig:agg1}
-\end{figure*}
-
-An example in Figure~\ref{fig:agg1} shows a small \tg and a result of
-aggregation by 1 month on that graph with $at\ least\ one$ quantifier,
-with group by id.
-
-It is possible but difficult to express the aggregation operation as
-defined above in temporal SQL because each tuple may belong to
-multiple windows.
-
-\begin{definition}[Union]
-Union of $TG1\ \cup\ TG2$ = $\{v, e: v \in TG1.V$ or $v \in TG2.V$ or
-$v(vid$, $f_1(a_{11}$, $a_{21})$, \ldots, $f_n(a_{1n}, a_{2n})$,
-$period(least(p_1, p_2), greatest(p_1, p_2)))$, $e \in TG1.E$ or $e
-\in TG2.E$ or $e(vid1, vid2, g_1(b_{11}, b_{21}), \ldots, g_m(b_{1m},
-b_{2m})$, $period(least(p_1, p_2), greatest(p_1, p_2))) \}$, where
-each $f$, respectively $G$, is an aggregation function over one
-vertex, respectively edge, attribute where the values intersect over
-some period $p$.
-\label{def:union}
-\end{definition}
-
-\begin{figure*}
-\includegraphics[width=6.5in]{figs/union.pdf}
-\caption{Union of TG1 and TG2.}
-\label{fig:union}
-\end{figure*}
-
-In other words, union of two \tgs is simply all vertices and edges
-from both \tgs, with vertex/edge attributes decided by specified
-aggregation functions for each period where both values are present,
-with coalescing.  Figure~\ref{fig:union} illustrates this concept.
-
-Similarly, intersection of two \tgs is an intersection of
-vertices/edges of two graphs, with values for each overlapping
-attribute computed by a specified aggregate function.

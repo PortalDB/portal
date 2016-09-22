@@ -1,4 +1,5 @@
-\documentclass{style/sig-alternate}
+%\documentclass{style/sig-alternate}
+\documentclass{style/vldb}
 
 \input{package}
 \input{preamble}
@@ -7,8 +8,7 @@
 
 \title{Portal: A Query Language for Evolving Graphs}
 
-%\numberofauthors{2}
-\eat{
+\numberofauthors{2}
 \author{
   \alignauthor Vera Zaychik Moffitt\\
   \affaddr{Drexel University}\\
@@ -19,7 +19,6 @@
   \email{stoyanovich@drexel.edu}  \\
  %
 }
-}
 
 \maketitle
 
@@ -28,16 +27,15 @@
 \input{abstract}
 \input{intro}
 \input{model}
-%\input{example}
-%\input{system}
-%\input{experiments}
+\input{algebra}
+\input{analytics}
+\input{system}
+\input{experiments}
 \input{related}
 \input{conc}
-\newpage
+
 \bibliographystyle{abbrv}
 \bibliography{temporal}
-
-%\input{appendix}
 
 \end{document}
 
