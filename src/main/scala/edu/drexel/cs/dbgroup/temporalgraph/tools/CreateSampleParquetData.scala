@@ -58,11 +58,11 @@ object CreateSampleParquetData {
     val df2 = edges.map(x => Edges(x._1._1.toLong, x._1._2.toLong, Date.valueOf(x._2._1.start), Date.valueOf(x._2._1.end), x._2._2)).toDF()
 
 
-    var f = new File("/home/sk3432/temporaldata/sampleData");
+    var f = new File("./sampleData");
     f.mkdir()
 
-    df1.write.parquet("/home/sk3432/temporaldata/sampleData/nodes.parquet")
-    df2.write.parquet("/home/sk3432/temporaldata/sampleData/edges.parquet")
+    df1.write.parquet("./sampleData/nodes.parquet")
+    df2.write.parquet("./sampleData/edges.parquet")
 
   }
 }
