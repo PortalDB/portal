@@ -1,4 +1,32 @@
-\appendix \label{sec:app}
+\appendix \label{sec:app1}
+
+Computing time periods during which no change occurred, necessary to
+compute the \rgs view of a \tg.
+
+\begin{small}
+\begin{verbatim}
+CREATE VIEW Changes(point) as (
+  SELECT pstart FROM V  UNION  SELECT pend FROM V
+  UNION
+  SELECT pstart from E  UNION  SELECT pend FROM E
+);
+
+CREATE VIEW ChangesBefore(point, cnt) as (
+  SELECT P1.point, count(*)
+  FROM   Changes P1, Changes P2
+  WHERE  P1.point >= P2.point
+  GROUP BY P1.point
+);
+
+CREATE VIEW ChangePeriods(pstart, pend) as (
+  SELECT P1.point as pstart, P2.point as pend
+  FROM   ChangesBefore P1, ChangesBefore P2
+  WHERE  P1.cnt+1 = P2.cnt
+);
+\end{verbatim}
+\end{small}
+
+\appendix \label{sec:app2}
 
 Plots and discussion in this section complement experimental results
 presented in Section~\ref{sec:exp}.

@@ -162,6 +162,16 @@ object GraphLoader {
 
   }
 
+  def loadDataPropertyModel(url: String): TGraphWProperties = {
+    val users = ProgramContext.getSession.read.parquet(url + "/nodes.parquet")
+    val links = ProgramContext.getSession.read.parquet(url + "/edges.parquet")
+
+    //load each column as a property with that key
+    //TODO when we have the concrete property bag implementation
+    //for now, empty graph
+    VEAGraph.emptyGraph
+  }
+
   def loadGraphSpan(url: String): Interval = {
     var source: scala.io.Source = null
     var fs: FileSystem = null

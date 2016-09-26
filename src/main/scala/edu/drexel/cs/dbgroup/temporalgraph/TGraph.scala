@@ -11,6 +11,8 @@ import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
 
 import java.time.LocalDate
 
+//TODO: this really should be a trait but traits do not allow type parameters
+//so this would require defining implicit evidence, etc.
 abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
 
   /**

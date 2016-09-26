@@ -162,6 +162,7 @@ object TGraphNoSchema {
    * single tuple (1, (1-4, "blah"))
    * Warning: This is a very expensive operation, use sparingly
    */
+  //TODO: this method is not specific to nonschema relations, move to util class
   def coalesce[K: Ordering : ClassTag, V: ClassTag](rdd: RDD[(K, (Interval, V))]): RDD[(K, (Interval, V))] = {
     implicit val ord = TempGraphOps.dateOrdering
     //it's faster if we partition first
@@ -172,7 +173,7 @@ object TGraphNoSchema {
       seq.toSeq.sortBy(x => x._1.start)
         .foldLeft(List[(Interval, V)]()){ (r,c) => r match {
           case head :: tail =>
-            if (head._2 == c._2 && head._1.end == c._1.start) (Interval(head._1.start, c._1.end), head._2) :: tail
+            if (head._2 == c._2 && (head._1.end == c._1.start || head._1.intersects(c._1))) (Interval(head._1.start, c._1.end), head._2) :: tail
             else c :: r
           case Nil => List(c)
         }

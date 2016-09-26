@@ -332,7 +332,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
       val edg1: RDD[((VertexId,VertexId),(Interval,Set[ED]))] = allEdges.mapValues{ case (intv, attr) => (intv, Set(attr))}
       val edg2: RDD[((VertexId,VertexId),(Interval,Set[ED]))] = grp2.allEdges.mapValues{ case (intv, attr) => (intv, Set(attr))}
       fromRDDs(verts1.union(verts2), edg1.union(edg2), 
-        Set(defaultValue), storageLevel, coalesced && grp2.coalesced)
+        Set(defaultValue), storageLevel, col)
     }
   }
 

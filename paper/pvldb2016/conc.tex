@@ -1,21 +1,18 @@
 \section{Conclusions and Future Work}
 \label{sec:conc}
 
-In this paper we presented \ql, a declarative query language for
-evolving graphs.  We also proposed an implementation of \ql in scope
-of Apache Spark, a distributed open-source processing framework.  We
-implemented several physical representations of evolving graphs, and
-several partitioning strategies, and studied their relative
-performance for \ql operators.  
+In this paper we presented an interval-based model of evolving graphs,
+and proposed a composable \tg algebra that supports a rich set of
+operations.  It is in our immediate plans to develop a declarative
+syntax for the algebra, making it accessible to a wider audience of
+users.
 
-Our experiments demonstrate interesting trade-offs between spatial and
-temporal locality.  This work opens many avenues for future work.  It
-is in our immediate plans to start work on a query optimizer for \ql.
-We will also implement and evaluate additional \tg representations
-that explore the trade-off between density and compactness, and
-between temporal and structural locality.  Finally, we are working on
-extending the class of trend analytics, and on optimizing the
-performance of snapshot and trend analytics.
+We described an impementation in scope of Apache Spark, and studied
+performance of operations on different physical representations.
+Interestingly, different physical implementations perform best for
+different operations, opening up avenues for rule-based and cost-based
+optimization.  Developing a query optimizer for \ql is in our
+immediate plans.
 
 \eat{ While the Portal language is extensive, it is by no means
   complete. We recognize that there are a number of operations that
