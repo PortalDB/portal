@@ -7,7 +7,7 @@ import org.apache.spark.sql.catalyst.analysis.{FunctionRegistry,SimpleFunctionRe
 import org.apache.spark.sql.catalyst.analysis.FunctionRegistry.FunctionBuilder
 import org.apache.spark.sql.catalyst.expressions.{ExpressionInfo,Expression,ExpressionDescription}
 
-//import edu.drexel.cs.dbgroup.temporalgraph.expressions._
+import edu.drexel.cs.dbgroup.temporalgraph.expressions._
 
 //TODO: we may want to switch away from SimpleFunctionRegistry
 //if we want to explicitly distinguish between aggregation and
@@ -15,6 +15,13 @@ import org.apache.spark.sql.catalyst.expressions.{ExpressionInfo,Expression,Expr
 
 object PortalFunctionRegistry {
   val expressions: Map[String, (ExpressionInfo, FunctionBuilder)] = Map(
+    expression[PageRank]("pagerank"),
+    expression[ConnectedComponents]("components"),
+    expression[Any]("any"),
+    expression[First]("first"),
+    expression[Last]("last"),
+    expression[Sum]("sum"),
+    expression[Max]("max")
   )
 
   val builtin: FunctionRegistry = {

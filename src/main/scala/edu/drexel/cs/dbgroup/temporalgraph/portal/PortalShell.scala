@@ -289,13 +289,12 @@ object PortalShell {
     try {
       printInfo(PortalShellConstants.StatusCreatingTView(tViewName));
 
-      var command = new CreateViewCommand(portalContext, portalQuery, tViewName, isMaterialized);
-      command.execute();
-
       if (commandList.contains(tViewName)) {
-        //FIXME: what is the correct action if tViewName already exists
         return printErrAndReturnFalse(PortalShellConstants.TViewExistsMessage(tViewName))
       }
+
+      var command = new CreateViewCommand(portalContext, portalQuery, tViewName, isMaterialized);
+      command.execute();
 
       //add new command to list of commands
       commandList += (tViewName -> command)

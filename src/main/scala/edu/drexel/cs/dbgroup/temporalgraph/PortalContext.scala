@@ -39,15 +39,6 @@ class PortalContext(@transient val sparkContext: SparkContext) {
   def executePlan(plan: LogicalPlan) = new this.QueryExecution(plan)
   def portal(portalText: String): TGraphWProperties = executePortal(portalText).toTGraph
 
-/* FIXME 
-  def graphNames(): Array[String] = {
-    sessionCatalog.listTables.collect.map {
-      t => t.name
-      //case (tableName, _) => tableName
-    }
-  }
- */
-
   protected[temporalgraph] class QueryExecution(val logical: LogicalPlan) {
     def assertAnalyzed(): Unit = analyzer.checkAnalysis(analyzed)
 

@@ -5,6 +5,7 @@ package edu.drexel.cs.dbgroup.temporalgraph
   Key-value pairs with bag semantics.
   Not meant to be mutable since Graphs are not mutable.
 */
+//TODO: it may be more efficient to have a mutable version because of memory churn
 trait VertexEdgeAttribute extends Serializable {
   /**
     * How many entries, with bag semantics, which includes duplicates.

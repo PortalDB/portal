@@ -6,7 +6,6 @@ import scala.util.parsing.combinator.syntactical.StandardTokenParsers
 import scala.util.parsing.combinator.lexical.StdLexical
 import scala.util.parsing.input.CharArrayReader.EofCh
 import scala.util.matching.Regex
-import java.time.LocalDate
 
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
@@ -16,6 +15,7 @@ import org.apache.spark.sql.catalyst.expressions._
 import edu.drexel.cs.dbgroup.temporalgraph._
 import edu.drexel.cs.dbgroup.temporalgraph.{Exists => GExists}
 import edu.drexel.cs.dbgroup.temporalgraph.plans.logical._
+import edu.drexel.cs.dbgroup.temporalgraph.expressions.PropertyStar
 
 object PortalParser extends StandardTokenParsers with PackratParsers {
   protected case class Keyword(str: String) {
@@ -110,16 +110,12 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
       case vproj ~ eproj ~ id ~ vw ~ ew ~ tg =>
         //if there are analytics in there, that gets pulled out later
         //similar with aggregation functions
-        val vprojt = vproj.map(e => UnresolvedAlias(e.transformDown{
-          case u @ UnresolvedAttribute(nameParts) => UnresolvedAttribute("V." + u.name)
-        }))
-        val eprojt = eproj.map(e => UnresolvedAlias(e.transformDown{
-          case u @ UnresolvedAttribute(nameParts) => UnresolvedAttribute("E." + u.name)
-        }))
+        val vprojt = vproj.map(e => UnresolvedAlias(e))
+        val eprojt = eproj.map(e => UnresolvedAlias(e))
 
-        //if there are slice conditions there, that gets pulled out later
-        val vwt = vw.getOrElse(UnresolvedStar(None))
-        val ewt = ew.getOrElse(UnresolvedStar(None))
+        //if there are slice conditions there, that gets pulled out in analyzer
+        val vwt = vw.getOrElse(Literal(true))
+        val ewt = ew.getOrElse(Literal(true))
         val subg = if (vw.isDefined || ew.isDefined) Subgraph(vwt, ewt, id) else id
 
         val withTGroup = tg.map(g => Aggregate(g.value, g.vq, g.eq, vprojt, eprojt, subg)).getOrElse(subg)
@@ -132,7 +128,8 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
 
   protected lazy val proj: Parser[Seq[Expression]] = (
     "*" ^^^ Seq() 
-      | repsep(projection, ",")
+      | repsep(projection, ",") ~ ("," ~> "*").? ^^ { case pr ~ st => 
+        if (st.isDefined) pr :+ PropertyStar()() else pr }
   )
 
   protected lazy val tgraph: Parser[LogicalPlan] =
@@ -273,7 +270,7 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
 
   lazy val quantifier: Parser[Quantification] =
     ( ALWAYS ^^^ Always()
-    | EXISTS ^^^ GExists()
+    | EXISTS.? ^^^ GExists()
     | MOST ^^^ Most()
     | ">" ~> numericLit ^^ { case nu => AtLeast(nu.toDouble) }
     )
