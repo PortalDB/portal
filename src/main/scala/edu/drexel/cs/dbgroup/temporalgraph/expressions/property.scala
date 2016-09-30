@@ -24,5 +24,5 @@ case class PropertyStar()(val exprId: ExprId = NamedExpression.newExprId) extend
   override def nullable: Boolean = true
   override def newInstance(): NamedExpression = Property(name)()
   override lazy val resolved = true
-
+  override def toString: String = "*"
 }

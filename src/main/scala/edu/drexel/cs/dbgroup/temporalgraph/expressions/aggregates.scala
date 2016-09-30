@@ -1,7 +1,9 @@
 package edu.drexel.cs.dbgroup.temporalgraph.expressions
 
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.catalyst.expressions.{Expression,UnaryExpression,Unevaluable}
+import org.apache.spark.sql.catalyst.expressions.{Expression,UnaryExpression,Unevaluable,Attribute}
+import org.apache.spark.sql.catalyst.util.TypeUtils
+import org.apache.spark.sql.catalyst.analysis.TypeCheckResult
 
 import edu.drexel.cs.dbgroup.temporalgraph._
 import edu.drexel.cs.dbgroup.temporalgraph.portal.PortalException
@@ -16,9 +18,10 @@ abstract class StructuralAggregate extends UnaryExpression with Unevaluable {
 
   override def foldable: Boolean = false
   override def nullable: Boolean = true
+  //children should override as necessary
   override def dataType: DataType = child.dataType
   def name: String = child match {
-    case p: Property => p.name
+    case p: Attribute => p.name
     case _ => throw new PortalException("cannot define an aggregate over non-property expression")
   }
 
@@ -130,6 +133,8 @@ case class Sum(child: Expression) extends StructuralAggregate {
       modified.add(name, sum)
     } else value
   }
+  override def checkInputDataTypes(): TypeCheckResult =
+    TypeUtils.checkForNumericExpr(child.dataType, "function sum")
 }
 
 case class Max(child: Expression) extends StructuralAggregate {
@@ -147,4 +152,6 @@ case class Max(child: Expression) extends StructuralAggregate {
       modified.add(name, max)
     } else value
   }
+  override def checkInputDataTypes(): TypeCheckResult =
+    TypeUtils.checkForNumericExpr(child.dataType, "function max")
 }

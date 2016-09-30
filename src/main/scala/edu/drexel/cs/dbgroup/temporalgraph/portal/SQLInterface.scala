@@ -11,9 +11,7 @@ import org.apache.spark.sql.types._
 
 import edu.drexel.cs.dbgroup.temporalgraph._
 
-class SQLInterface {
-
-  private val sqlContext = new SQLContext(SparkContext.getOrCreate())
+object SQLInterface {
 
   /**
     * Add schema to vertexes RDD of TGraphWProperties and return a dataframe
@@ -22,7 +20,7 @@ class SQLInterface {
     */
   private final def convertGraphVertexToDataframe(temporalGraph: TGraphWProperties): DataFrame = {
     val vertexes: RDD[(VertexId, (Interval, VertexEdgeAttribute))] = temporalGraph.vertices
-    //val vertexSchema = temporalGraph.getSchema().getVertexSchema()
+    val vertexSchema = temporalGraph.graphSpec.getVertexSchema()
     var schema =
       StructType(
         StructField("vid", LongType, false) ::
@@ -31,16 +29,16 @@ class SQLInterface {
           Nil
       )
 
-    throw new UnsupportedOperationException("interface with SQL currently not supported")
-/*
+
+    //we cannot make it into a map because
+    //in spark sql maps have to have known key and value types
+    //and for us the value is a sequence of different types, depending on the property
     for (struct <- vertexSchema) {
-      schema = schema.add(struct)
+      schema = schema.add(StructField(struct.name, ArrayType(struct.dataType), true))
     }
-    var internalRowSchema = vertexSchema.map(x => x.dataType);
-    val vertexRowRdd = vertexes.map(x => Row.fromSeq(Seq(x._1.toLong, Date.valueOf(x._2._1.start), Date.valueOf(x._2._1.end)) ++ x._2._2.toSeq(internalRowSchema)))
-    val vertexDF = sqlContext.createDataFrame(vertexRowRdd, schema)
-    vertexDF
- */
+
+    val vertexRowRdd = vertexes.map(x => Row.fromSeq(Seq(x._1.toLong, Date.valueOf(x._2._1.start), Date.valueOf(x._2._1.end)) ++ convertAttribute(x._2._2, vertexSchema)))
+    ProgramContext.getSession.createDataFrame(vertexRowRdd, schema)
   }
 
   /**
@@ -50,7 +48,7 @@ class SQLInterface {
     */
   private final def convertGraphEdgeToDataframe(temporalGraph: TGraphWProperties): DataFrame = {
     val edges: RDD[((VertexId, VertexId), (Interval, VertexEdgeAttribute))] = temporalGraph.edges
-    //val edgeSchema = temporalGraph.getSchema().getEdgeSchema()
+    val edgeSchema = temporalGraph.graphSpec.getEdgeSchema()
     var schema =
       StructType(
         StructField("vid1", LongType, false) ::
@@ -60,15 +58,12 @@ class SQLInterface {
           Nil
       )
 
-    throw new UnsupportedOperationException("interface with SQL currently not supported")
-/*
     for (struct <- edgeSchema) {
-      schema = schema.add(struct)
+      schema = schema.add(StructField(struct.name, ArrayType(struct.dataType), true))
     }
-    var internalRowSchema = edgeSchema.map(x => x.dataType);
-    val edgesRowRdd = edges.map{ case (k,v) => Row.fromSeq(Seq(k._1.toLong, k._2.toLong, Date.valueOf(v._1.start), Date.valueOf(v._1.end)) ++ v._2.toSeq(internalRowSchema))}
-    sqlContext.createDataFrame(edgesRowRdd, schema)
- */
+
+    val edgesRowRdd = edges.map{ case (k,v) => Row.fromSeq(Seq(k._1.toLong, k._2.toLong, Date.valueOf(v._1.start), Date.valueOf(v._1.end)) ++ convertAttribute(v._2, edgeSchema))}
+    ProgramContext.getSession.createDataFrame(edgesRowRdd, schema)
   }
 
   /**
@@ -88,8 +83,8 @@ class SQLInterface {
 
     //creating temp table and executing the query
     val vertexDF = convertGraphVertexToDataframe(temporalGraph)
-    vertexDF.registerTempTable(tableName)
-    sqlContext.sql(sqlQuery)
+    vertexDF.createOrReplaceTempView(tableName)
+    ProgramContext.getSession.sql(sqlQuery)
   }
 
 
@@ -110,8 +105,8 @@ class SQLInterface {
 
     //creating temp table and executing the query
     val edgeDF = convertGraphEdgeToDataframe(temporalGraph)
-    edgeDF.registerTempTable(tableName)
-    val output = sqlContext.sql(sqlQuery)
+    edgeDF.createOrReplaceTempView(tableName)
+    val output = ProgramContext.getSession.sql(sqlQuery)
     output.first()
     output
   }
@@ -139,5 +134,14 @@ class SQLInterface {
     else {
       throw new IllegalArgumentException("Query does not contain .toVertices() or .toEdges()");
     }
+  }
+
+  private def convertAttribute(attr: VertexEdgeAttribute, schema: Seq[StructField]): Seq[Seq[Any]] = {
+    schema.map( f =>
+      if (attr.exists(f.name))
+        attr(f.name).toSeq
+      else
+        Seq()
+    )
   }
 }

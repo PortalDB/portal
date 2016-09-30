@@ -11,7 +11,7 @@ import org.apache.spark.graphx._
 import edu.drexel.cs.dbgroup.temporalgraph._
 import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps
 
-class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Interval)], vas: RDD[(VertexId, (Interval, VertexEdgeAttribute))], eas: RDD[((VertexId, VertexId), (Interval, VertexEdgeAttribute))], storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraphWProperties(storLevel, coal) {
+class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Interval)], vas: RDD[(VertexId, (Interval, VertexEdgeAttribute))], eas: RDD[((VertexId, VertexId), (Interval, VertexEdgeAttribute))], schema: GraphSpec = PartialGraphSpec(), storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraphWProperties(schema, storLevel, coal) {
 
   //TODO: encapsulate each of these into a special type that knows whether
   //the relation is coalesced or not, so avoid unnecessary coalescing
@@ -105,7 +105,7 @@ class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Int
     if (coalesced)
       this
     else
-      fromRDDs(TGraphWProperties.coalesce(allVertices), TGraphWProperties.coalesce(allEdges), TGraphNoSchema.coalesce(allVProperties), TGraphNoSchema.coalesce(allEProperties), storageLevel, true)
+      fromRDDs(TGraphWProperties.coalesce(allVertices), TGraphWProperties.coalesce(allEdges), TGraphNoSchema.coalesce(allVProperties), TGraphNoSchema.coalesce(allEProperties), graphSpec, storageLevel, true)
   }
 
   override def slice(bound: Interval): VEAGraph = {
@@ -130,7 +130,7 @@ class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Int
         .mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)),
       allEProperties.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}
         .mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)),
-      storageLevel, coalesced)
+      graphSpec, storageLevel, coalesced)
   }
 
   /**
@@ -164,7 +164,7 @@ class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Int
 
     //no need to coalesce either vertices or edges because we are removing some entities, but not extending them or modifying attributes
 
-    fromRDDs(newVerts, newEdges, newVProps, newEProps, storageLevel, true)
+    fromRDDs(newVerts, newEdges, newVProps, newEProps, graphSpec, storageLevel, true)
 
   }
 
@@ -175,7 +175,7 @@ class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Int
     val newEProps = if (vpred == defvp2) filtered else TGraphWProperties.constrainEProperties(newVerts, filtered)
     val newEdges = if (coalesced) TGraphWProperties.coalesce(newEProps.map{ case (k,v) => (k, v._1)}) else newEProps.map{ case (k,v) => (k, v._1)}
 
-    fromRDDs(newVerts, newEdges, newVProps, newEProps, storageLevel, coalesced)
+    fromRDDs(newVerts, newEdges, newVProps, newEProps, graphSpec, storageLevel, coalesced)
   }
 
   override protected def aggregateByChange(c: ChangeSpec, vgroupby: (VertexId, VertexEdgeAttribute) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute, eAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute): VEAGraph = {
@@ -222,7 +222,7 @@ class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Int
       val newVProps: RDD[(VertexId, (Interval, VertexEdgeAttribute))] = allVProperties.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii._1), attr))}.reduceByKey((a,b) => vAggFunc(a, b)).map{ case ((vid, intv), attr) => (vid, (intv, attr))}.join(newVerts).filter{ case (vid, (u, w)) => u._1.intersects(w)}.map{ case (vid, (u, w)) => (vid, u)}
       val newEProps: RDD[((VertexId, VertexId), (Interval, VertexEdgeAttribute))] = allEProperties.flatMap{ case (vids, (intv, attr)) => split(intv).map(ii => ((vids._1, vids._2, ii._1), attr))}.reduceByKey((a,b) => eAggFunc(a,b)).map{ case ((vid1, vid2, intv), attr) => ((vid1, vid2), (intv, attr))}.join(newEdges).filter{ case (vids, (u, w)) => u._1.intersects(w)}.map{ case (vids, (u, w)) => (vids, u)}
 
-      fromRDDs(newVerts, newEdges, newVProps, newEProps, storageLevel, false)
+      fromRDDs(newVerts, newEdges, newVProps, newEProps, graphSpec, storageLevel, false)
 
     } else {
       //TODO!
@@ -261,7 +261,7 @@ class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Int
       val newVProps: RDD[(VertexId, (Interval, VertexEdgeAttribute))] = allVProperties.flatMap{ case (vid, (intv, attr)) => intv.split(c.res, start).map(ii => ((vid, ii._1), attr))}.reduceByKey((a,b) => vAggFunc(a, b)).map{ case ((vid, intv), attr) => (vid, (intv, attr))}.join(newVerts).filter{ case (vid, (u, w)) => u._1.intersects(w)}.map{ case (vid, (u, w)) => (vid, u)}
       val newEProps: RDD[((VertexId, VertexId), (Interval, VertexEdgeAttribute))] = allEProperties.flatMap{ case (vids, (intv, attr)) => intv.split(c.res, start).map(ii => ((vids._1, vids._2, ii._1), attr))}.reduceByKey((a,b) => eAggFunc(a,b)).map{ case ((vid1, vid2, intv), attr) => ((vid1, vid2), (intv, attr))}.join(newEdges).filter{ case (vids, (u, w)) => u._1.intersects(w)}.map{ case (vids, (u, w)) => (vids, u)}
 
-      fromRDDs(newVerts, newEdges, newVProps, newEProps, storageLevel, false)
+      fromRDDs(newVerts, newEdges, newVProps, newEProps, graphSpec, storageLevel, false)
 
     } else {
       //TODO!
@@ -275,11 +275,11 @@ class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Int
     * @param vmap The mapping function for vertices
     * @return tgraph The transformed graph. The temporal schema is unchanged.
     */
-  override def map(emap: Edge[VertexEdgeAttribute] => VertexEdgeAttribute, vmap: (VertexId, VertexEdgeAttribute) => VertexEdgeAttribute): VEAGraph = {
+  override def map(emap: Edge[VertexEdgeAttribute] => VertexEdgeAttribute, vmap: (VertexId, VertexEdgeAttribute) => VertexEdgeAttribute, newSpec: GraphSpec): VEAGraph = {
     //map may cause uncoalesce but it does not affect the integrity constraint on E
     //so we don't need to check it
     //map does not care whether data is coalesced or not
-    fromRDDs(allVertices, allEdges, allVProperties.map{ case (vid, (intv, attr)) => (vid, (intv, vmap(vid, attr)))}, allEProperties.map{ case (ids, (intv, attr)) => (ids, (intv, emap(Edge(ids._1, ids._2, attr))))}, storageLevel, false)
+    fromRDDs(allVertices, allEdges, allVProperties.map{ case (vid, (intv, attr)) => (vid, (intv, vmap(vid, attr)))}, allEProperties.map{ case (ids, (intv, attr)) => (ids, (intv, emap(Edge(ids._1, ids._2, attr))))}, newSpec, storageLevel, false)
   }
 
   /**
@@ -289,8 +289,8 @@ class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Int
     *
     * @param map the function from a vertex object to a new vertex value
     */
-  override def mapVertices(map: (VertexId, Interval, VertexEdgeAttribute) => VertexEdgeAttribute): VEAGraph = {
-    fromRDDs(allVertices, allEdges, allVProperties.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, intv, attr)))}, allEProperties, storageLevel, false)
+  override def mapVertices(map: (VertexId, Interval, VertexEdgeAttribute) => VertexEdgeAttribute, newSpec: GraphSpec): VEAGraph = {
+    fromRDDs(allVertices, allEdges, allVProperties.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, intv, attr)))}, allEProperties, newSpec, storageLevel, false)
   }
 
   /**
@@ -301,8 +301,8 @@ class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Int
    *
    * @param map the function from an edge object with a time index to a new edge value.
    */
-  override def mapEdges(map: (Interval, Edge[VertexEdgeAttribute]) => VertexEdgeAttribute): VEAGraph = {
-    fromRDDs(allVertices, allEdges, allVProperties, allEProperties.map{ case (ids, (intv, attr)) => (ids, (intv, map(intv, Edge(ids._1, ids._2, attr))))}, storageLevel, false)
+  override def mapEdges(map: (Interval, Edge[VertexEdgeAttribute]) => VertexEdgeAttribute, newSpec: GraphSpec): VEAGraph = {
+    fromRDDs(allVertices, allEdges, allVProperties, allEProperties.map{ case (ids, (intv, attr)) => (ids, (intv, map(intv, Edge(ids._1, ids._2, attr))))}, newSpec, storageLevel, false)
   }
 
   override def union(other: TGraphWProperties): VEAGraph = {
@@ -334,7 +334,7 @@ class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Int
       val newVProps = allVProperties.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}.fullOuterJoin(grp2.allVProperties.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}).map{ case (v, attr) => (v._1, (v._2, attr._1.getOrElse(emptyat) ++ attr._2.getOrElse(emptyat)))}
       val newEProps = allEProperties.flatMap{ case (vids, (intv, attr)) => split(intv).map(ii => ((vids._1, vids._2, ii), attr))}.fullOuterJoin(grp2.allEProperties.flatMap{ case (vids, (intv, attr)) => split(intv).map(ii => ((vids._1, vids._2, ii), attr))}).map{ case (e, attr) => ((e._1, e._2), (e._3, attr._1.getOrElse(emptyat) ++ attr._2.getOrElse(emptyat)))}
 
-      fromRDDs(newVerts, newEdges, newVProps, newEProps, storageLevel, false)
+      fromRDDs(newVerts, newEdges, newVProps, newEProps, graphSpec, storageLevel, false)
 
     } else {
       //if the two spans are one right after another but do not intersect
@@ -343,7 +343,7 @@ class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Int
       val col = coalesced && grp2.coalesced && span.end != grp2.span.start && span.start != grp2.span.end
 
       fromRDDs(allVertices.union(grp2.allVertices), allEdges.union(grp2.allEdges), allVProperties.union(grp2.allVProperties), allEProperties.union(grp2.allEProperties),
-        storageLevel, col)
+        graphSpec, storageLevel, col)
     }
   }
 
@@ -380,7 +380,7 @@ class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Int
       val newVProps = allVProperties.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}.fullOuterJoin(grp2.allVProperties.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}).map{ case (v, attr) => (v._1, (v._2, attr._1.getOrElse(emptyat) ++ attr._2.getOrElse(emptyat)))}.join(newVertices).filter{ case (vid, (u, w)) => u._1.intersects(w)}.map{ case (vid, (u, w)) => (vid, (u._1.intersection(w).get, u._2))}
       val newEProps = allEProperties.flatMap{ case (vids, (intv, attr)) => split(intv).map(ii => ((vids._1, vids._2, ii), attr))}.fullOuterJoin(grp2.allEProperties.flatMap{ case (vids, (intv, attr)) => split(intv).map(ii => ((vids._1, vids._2, ii), attr))}).map{ case (e, attr) => ((e._1, e._2), (e._3, attr._1.getOrElse(emptyat) ++ attr._2.getOrElse(emptyat)))}.join(newEdges).filter{ case (vids, (u, w)) => u._1.intersects(w)}.map{ case (vids, (u, w)) => (vids, u)}
 
-      fromRDDs(newVertices, newEdges, newVProps, newEProps, storageLevel, false)
+      fromRDDs(newVertices, newEdges, newVProps, newEProps, graphSpec, storageLevel, false)
 
     } else {
       emptyGraph
@@ -449,8 +449,8 @@ class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Int
       Interval(dates.min, dates.max)
   }
 
-  protected def fromRDDs(verts: RDD[(VertexId, Interval)], edgs: RDD[((VertexId, VertexId), Interval)], vprops: RDD[(VertexId, (Interval, VertexEdgeAttribute))], eprops: RDD[((VertexId, VertexId), (Interval, VertexEdgeAttribute))], storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false): VEAGraph = {
-    VEAGraph.fromRDDs(verts, edgs, vprops, eprops, storLevel, coalesced = coal)
+  protected def fromRDDs(verts: RDD[(VertexId, Interval)], edgs: RDD[((VertexId, VertexId), Interval)], vprops: RDD[(VertexId, (Interval, VertexEdgeAttribute))], eprops: RDD[((VertexId, VertexId), (Interval, VertexEdgeAttribute))], spec: GraphSpec, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false): VEAGraph = {
+    VEAGraph.fromRDDs(verts, edgs, vprops, eprops, spec, storLevel, coalesced = coal)
   }
 
   override protected def emptyGraph: VEAGraph = VEAGraph.emptyGraph
@@ -460,7 +460,7 @@ class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Int
 object VEAGraph extends Serializable {
   def emptyGraph: VEAGraph = new VEAGraph(ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD, coal = true)
 
-  def fromRDDs(verts: RDD[(VertexId, Interval)], edgs: RDD[((VertexId, VertexId), Interval)], vprops: RDD[(VertexId, (Interval, VertexEdgeAttribute))], eprops: RDD[((VertexId, VertexId), (Interval, VertexEdgeAttribute))], storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): VEAGraph = {
+  def fromRDDs(verts: RDD[(VertexId, Interval)], edgs: RDD[((VertexId, VertexId), Interval)], vprops: RDD[(VertexId, (Interval, VertexEdgeAttribute))], eprops: RDD[((VertexId, VertexId), (Interval, VertexEdgeAttribute))], spec: GraphSpec = PartialGraphSpec(), storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): VEAGraph = {
     val cverts = if (ProgramContext.eagerCoalesce && !coalesced) TGraphWProperties.coalesce(verts) else verts
     val cedges = if (ProgramContext.eagerCoalesce && !coalesced) TGraphWProperties.coalesce(edgs) else edgs
     val cvps = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(vprops) else vprops
@@ -468,7 +468,7 @@ object VEAGraph extends Serializable {
 
     val coal = coalesced | ProgramContext.eagerCoalesce
 
-    new VEAGraph(cverts, cedges, cvps, ceps, storLevel, coal)
+    new VEAGraph(cverts, cedges, cvps, ceps, spec, storLevel, coal)
   }
 
 }

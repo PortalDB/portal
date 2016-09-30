@@ -16,7 +16,7 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 
 import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps
 
-abstract class TGraphWProperties(storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraph[VertexEdgeAttribute, VertexEdgeAttribute] {
+abstract class TGraphWProperties(spec: GraphSpec, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraph[VertexEdgeAttribute, VertexEdgeAttribute] {
 
   val storageLevel = storLevel
   //whether this TGraph is known to be coalesced
@@ -24,7 +24,10 @@ abstract class TGraphWProperties(storLevel: StorageLevel = StorageLevel.MEMORY_O
   //whereas true means definitely coalesced
   val coalesced: Boolean = coal
 
-  //TODO: add some notion of schema?
+  //in order to better support maps and other operations on properties
+  //we maintain a schema for the graph which is a type spec for each possible property
+  //this does not mean each property is contained in each vertex or edge
+  val graphSpec: GraphSpec = spec
 
   /**
     * An RDD containing the vertices and their associated attributes.
@@ -63,9 +66,10 @@ abstract class TGraphWProperties(storLevel: StorageLevel = StorageLevel.MEMORY_O
     * Transforms the attributes of the graph
     * @param emap The mapping function for edges
     * @param vmap The mapping function for vertices
+    * @param newSpec The new graph specification/schema
     * @return tgraph The transformed graph. The temporal schema is unchanged.
     */
-  def map(emap: Edge[VertexEdgeAttribute] => VertexEdgeAttribute, vmap: (VertexId, VertexEdgeAttribute) => VertexEdgeAttribute): TGraphWProperties
+  def map(emap: Edge[VertexEdgeAttribute] => VertexEdgeAttribute, vmap: (VertexId, VertexEdgeAttribute) => VertexEdgeAttribute, newSpec: GraphSpec): TGraphWProperties
 
   /**
     * Transforms each vertex attribute in the graph for each time period
@@ -74,7 +78,7 @@ abstract class TGraphWProperties(storLevel: StorageLevel = StorageLevel.MEMORY_O
     * @param map the function from a vertex object to a new vertex value
     *
     */
-  def mapVertices(map: (VertexId, Interval, VertexEdgeAttribute) => VertexEdgeAttribute): TGraphWProperties
+  def mapVertices(map: (VertexId, Interval, VertexEdgeAttribute) => VertexEdgeAttribute, newSpec: GraphSpec): TGraphWProperties
 
   /**
    * Transforms each edge attribute in the graph using the map function.  The map function is not
@@ -84,7 +88,7 @@ abstract class TGraphWProperties(storLevel: StorageLevel = StorageLevel.MEMORY_O
    * @param map the function from an edge object with a time index to a new edge value.
    *
    */
-  def mapEdges(map: (Interval, Edge[VertexEdgeAttribute]) => VertexEdgeAttribute): TGraphWProperties
+  def mapEdges(map: (Interval, Edge[VertexEdgeAttribute]) => VertexEdgeAttribute, newSpec: GraphSpec): TGraphWProperties
 
   /**
     * Produce a union of two temporal graphs. 
@@ -203,8 +207,8 @@ object TGraphWProperties {
         val m: scala.collection.Map[VertexId, List[Interval]] = bverts.value
         for {
           ((vid1, vid2), p) <- iter
-          val l1 = m.get(vid1).getOrElse(List[Interval]()).filter(ii => ii.intersects(p))
-          val l2 = m.get(vid2).getOrElse(List[Interval]()).filter(ii => ii.intersects(p))
+          l1 = m.get(vid1).getOrElse(List[Interval]()).filter(ii => ii.intersects(p))
+          l2 = m.get(vid2).getOrElse(List[Interval]()).filter(ii => ii.intersects(p))
           if l1.size == 1 && l2.size == 1 && l1.head.intersects(l2.head)
         } yield ((vid1, vid2), Interval(TempGraphOps.maxDate(p.start, m(vid1).find(_.intersects(p)).get.start, m(vid2).find(_.intersects(p)).get.start), TempGraphOps.minDate(p.end, m(vid1).find(_.intersects(p)).get.end, m(vid2).find(_.intersects(p)).get.end)))
       }, preservesPartitioning = true)
@@ -246,8 +250,8 @@ object TGraphWProperties {
         val m: scala.collection.Map[VertexId, List[Interval]] = bverts.value
         for {
           ((vid1, vid2), (p, v)) <- iter
-          val l1 = m.get(vid1).getOrElse(List[Interval]()).filter(ii => ii.intersects(p))
-          val l2 = m.get(vid2).getOrElse(List[Interval]()).filter(ii => ii.intersects(p))
+          l1 = m.get(vid1).getOrElse(List[Interval]()).filter(ii => ii.intersects(p))
+          l2 = m.get(vid2).getOrElse(List[Interval]()).filter(ii => ii.intersects(p))
           if l1.size == 1 && l2.size == 1 && l1.head.intersects(l2.head)
         } yield ((vid1, vid2), (Interval(TempGraphOps.maxDate(p.start, m(vid1).find(_.intersects(p)).get.start, m(vid2).find(_.intersects(p)).get.start), TempGraphOps.minDate(p.end, m(vid1).find(_.intersects(p)).get.end, m(vid2).find(_.intersects(p)).get.end)), v))
       }, preservesPartitioning = true)

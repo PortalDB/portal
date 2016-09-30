@@ -26,12 +26,11 @@ class PortalAnalyzer(catalog: SessionCatalog, registry: FunctionRegistry, conf: 
         ResolvePortalReferences ::
         ResolvePortalFunctions ::
         ResolvePortalAliases ::
-        Analytics ::
         Aggregates ::
+        Analytics ::
       Nil : _*),
     Batch("Cleanup", Once,
-      CleanupMaps,
-      EliminateSubqueryAliases)
+      CleanupMaps)
   )
 
   override val extendedCheckRules: Seq[LogicalPlan => Unit] = Seq(
@@ -40,7 +39,7 @@ class PortalAnalyzer(catalog: SessionCatalog, registry: FunctionRegistry, conf: 
   object ResolveGraphs extends Rule[LogicalPlan] {
     def getGraph(u: logical.UnresolvedGraph): LogicalPlan = {
       try {
-        catalog.lookupRelation(ModifierWorkaround.makeTableIdentifier(u.graphIdentifier))
+        EliminateSubqueryAliases(catalog.lookupRelation(ModifierWorkaround.makeTableIdentifier(u.graphIdentifier)))
       } catch {
         case _: NoSuchTableException =>
           failAnalysis("no such view ${u.graphIdentifier}")
@@ -59,10 +58,13 @@ class PortalAnalyzer(catalog: SessionCatalog, registry: FunctionRegistry, conf: 
     def apply(plan: LogicalPlan): LogicalPlan = plan resolveOperators {
       case p: LogicalPlan if !p.childrenResolved => p
 
-      case q: LogicalPlan =>
+      case q: LogicalPlan if !q.resolved =>
         q transformExpressionsUp  {
           case u @ UnresolvedAttribute(nameParts) =>
-            Property(nameParts.head)()
+            // Leave unchanged if resolution fails.  Hopefully will be resolved next round.
+            val result =
+              withPosition(u) { q.resolveChildren(nameParts, resolver).getOrElse(u) }
+            result
         }
     }
   }
@@ -104,7 +106,7 @@ class PortalAnalyzer(catalog: SessionCatalog, registry: FunctionRegistry, conf: 
       }
     }
 
-    //TODO: this only works for one case where the left side is a 'start' or 'end'
+    //FIXME: this only works for one case where the left side is a 'start' or 'end'
     //and doesn't check the operators which have to be
     //>= for start and < for end to be correct
     //rewrite better
@@ -138,12 +140,15 @@ class PortalAnalyzer(catalog: SessionCatalog, registry: FunctionRegistry, conf: 
           case u if !u.childrenResolved => 
             u // Skip until children are resolved.
           case u @ UnresolvedFunction(name, children, isDistinct) =>
-            withPosition(u) {
+            //println("trying to resolve function " + name + " in plan " + q)
+            val res = withPosition(u) {
               catalog.lookupFunction(name, children) match {
                 case other => 
                   other
               }
             }
+            //println("result: " + res)
+            res
         }
     }
   }
@@ -197,7 +202,7 @@ class PortalAnalyzer(catalog: SessionCatalog, registry: FunctionRegistry, conf: 
     */
   object Analytics extends Rule[LogicalPlan] {
     def apply(plan: LogicalPlan): LogicalPlan = plan resolveOperators {
-      //TODO: add edge too
+      //TODO: add edge too if we have edge analytics
       case pv @ logical.VertexMap(vattrs, child) if containsAnalytics(vattrs) =>
         logical.VertexMap(removeAnalytics(vattrs), logical.VertexAnalytics(pullAnalytics(vattrs), child))
     }
@@ -214,7 +219,7 @@ class PortalAnalyzer(catalog: SessionCatalog, registry: FunctionRegistry, conf: 
       exprs.map { e => e.transformUp {
         case al: Alias =>
           al.child match {
-            case an: SnapshotAnalytic => Property(al.name)()
+            case an: SnapshotAnalytic => AttributeReference(al.name, an.dataType, true)(al.exprId, Some("V"), false)
             case other => al
           }
       }
@@ -226,6 +231,7 @@ class PortalAnalyzer(catalog: SessionCatalog, registry: FunctionRegistry, conf: 
         case al: Alias =>
           al.child match {
             case an: SnapshotAnalytic => true
+            case _ => false
           }
         case _ => false
       } != None)
@@ -240,39 +246,48 @@ class PortalAnalyzer(catalog: SessionCatalog, registry: FunctionRegistry, conf: 
     */
   object Aggregates extends Rule[LogicalPlan] {
     def apply(plan:LogicalPlan): LogicalPlan = plan resolveOperators {
+      case q: LogicalPlan if !q.childrenResolved => q
       case vm @ logical.VertexMap(vattrs, child) if containsAggregates(vattrs) =>
-        child match {
-          case a: logical.Aggregate =>
-            logical.VertexMap(removeAggregates(vattrs), child)
-          case _ => vm
-        }
+        val resolved = vattrs.map(resolveAggregateExpression(_, child)).asInstanceOf[Seq[NamedExpression]]
+        if (resolved == vattrs)
+          vm
+        else
+          logical.VertexMap(resolved, child)
       case em @ logical.EdgeMap(eattrs, child) if containsAggregates(eattrs) =>
         //aggregation is likely not the immediate child, so have to look for it
-        if (child.find(_.isInstanceOf[logical.Aggregate]).isDefined)
-          logical.EdgeMap(removeAggregates(eattrs), child)
-        else
+        val resolved = eattrs.map(resolveAggregateExpression(_, child)).asInstanceOf[Seq[NamedExpression]]
+        if (resolved == eattrs)
           em
+        else
+          logical.EdgeMap(resolved, child)
       case ag @ logical.Aggregate(w, vq, eq, va, ea, child) if containsNonAggregates(va) || containsNonAggregates(ea) =>
         logical.Aggregate(w, vq, eq, removeNonAggregates(va), removeNonAggregates(ea), child)
     }
 
+    def resolveAggregateExpression(
+      expr: Expression,
+      plan: LogicalPlan) = {
+    try {
+      expr transformUp {
+        case u @ UnresolvedAttribute(nameParts) =>
+          withPosition(u) { plan.resolve(nameParts, resolver).getOrElse(u) }
+        case al @ Alias(child, name) =>
+          withPosition(al) { plan.resolve(Seq(name), resolver).getOrElse(al) }
+        case st: StructuralAggregate =>
+          withPosition(st) { plan.resolve(Seq(st.name), resolver).getOrElse(st) }
+      }
+    } catch {
+      case a: Exception => expr
+    }
+  }
+
     def containsAggregates(exprs: Seq[Expression]): Boolean = {
       exprs.foreach(_.foreach {
         case agg: StructuralAggregate => return true
+        case un: UnresolvedFunction => return true
         case _ =>
       })
       false
-    }
-
-    def removeAggregates(exprs: Seq[NamedExpression]): Seq[NamedExpression] = {
-      exprs.map { e => e.transformUp {
-        case al: Alias =>
-          al.child match {
-            case agg: StructuralAggregate => Property(al.name)()
-            case other => al
-          }
-      }
-      }.asInstanceOf[Seq[NamedExpression]]
     }
 
     def containsNonAggregates(exprs: Seq[NamedExpression]): Boolean = {
@@ -283,14 +298,15 @@ class PortalAnalyzer(catalog: SessionCatalog, registry: FunctionRegistry, conf: 
     }
 
     def removeNonAggregates(exprs: Seq[NamedExpression]): Seq[NamedExpression] = {
-      exprs.filter(e => e.find {
-        case al: Alias =>
-          al.child match {
-            case agg: StructuralAggregate => true
-            case _ => false
-          }
+      exprs.flatMap(e => e.find {
+        case al @ Alias(child: StructuralAggregate, name) => true
+        case agg: StructuralAggregate => true
         case _ => false
-      } != None)
+      }).map{
+        case agg: StructuralAggregate => Alias(agg, agg.name)()
+        case other => other
+      }.asInstanceOf[Seq[NamedExpression]]
+ 
     }
 
   }
@@ -304,7 +320,7 @@ class PortalAnalyzer(catalog: SessionCatalog, registry: FunctionRegistry, conf: 
       //if we only have regular properties listed with no expressions
       //and a star as well, then we have no projection/map
       attrs.foreach(_.foreach {
-        case p: Property =>
+        case p: AttributeReference =>
         case ps: PropertyStar =>
         case other => return true
       })

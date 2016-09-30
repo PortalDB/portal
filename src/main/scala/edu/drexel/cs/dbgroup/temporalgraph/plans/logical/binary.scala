@@ -7,9 +7,9 @@ import org.apache.spark.sql.catalyst.expressions._
 import edu.drexel.cs.dbgroup.temporalgraph._
 
 case class TemporalUnion(left: LogicalPlan, right: LogicalPlan) extends BinaryNode {
-  override def output: Seq[Attribute] = left.output
+  override def output: Seq[Attribute] = left.output ++ right.output
 }
 case class TemporalIntersection(left: LogicalPlan, right: LogicalPlan) extends BinaryNode {
-  override def output: Seq[Attribute] = left.output
+  override def output: Seq[Attribute] = left.output ++ right.output
 }
 

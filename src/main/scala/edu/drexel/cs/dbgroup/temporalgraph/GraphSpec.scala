@@ -22,8 +22,7 @@ class GraphSpec(vertexSchema: Seq[StructField], edgeSchema: Seq[StructField]) {
   lazy val edgeSchemaAsAttributes: Seq[Attribute] = edgeSchema.map{ v => AttributeReference(v.name, v.dataType, v.nullable, v.metadata)()}  
 
   def toAttributes(): Seq[Attribute] = {
-    Seq(AttributeReference("V", StructType(vertexSchema), false, Metadata.empty)(),
-      AttributeReference("E", StructType(edgeSchema), false, Metadata.empty)())
+    vertexSchema.map(f => AttributeReference(f.name, f.dataType, f.nullable, f.metadata)(qualifier = Some("V"))) ++ edgeSchema.map(f => AttributeReference(f.name, f.dataType, f.nullable, f.metadata)(qualifier = Some("E")))
   }
 
   def validate(v: Seq[StructField], e: Seq[StructField]): Boolean = {
@@ -40,4 +39,8 @@ object GraphSpec {
 class PartialGraphSpec(vertexSchema: Option[Seq[StructField]], edgeSchema: Option[Seq[StructField]]) extends GraphSpec(vertexSchema.getOrElse(Seq()), edgeSchema.getOrElse(Seq())) {
   def hasVertexSchema(): Boolean = vertexSchema != None
   def hasEdgeSchema(): Boolean = edgeSchema != None
+}
+
+object PartialGraphSpec {
+  def apply(vertexSchema: Option[Seq[StructField]] = None, edgeSchema: Option[Seq[StructField]] = None) = new PartialGraphSpec(vertexSchema, edgeSchema)
 }

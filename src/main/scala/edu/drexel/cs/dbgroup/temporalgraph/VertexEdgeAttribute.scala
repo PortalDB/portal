@@ -42,8 +42,6 @@ trait VertexEdgeAttribute extends Serializable {
     */
   def drop(key: String): VertexEdgeAttribute
 
-  //TODO: add methods for de-duplication, etc.
-
 }
 
 object VertexEdgeAttribute {

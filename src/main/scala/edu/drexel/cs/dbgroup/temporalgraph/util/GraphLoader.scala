@@ -191,4 +191,36 @@ object GraphLoader {
     Interval(minin,maxin)
   }
 
+  def loadGraphDescription(url: String): GraphSpec = {
+    //there should be a special file called graph.info
+    //which contains the number of attributes and their name/type
+
+    val pt: Path = new Path(url + "/graph.info")
+    val conf: Configuration = new Configuration()    
+    if (System.getenv("HADOOP_CONF_DIR") != "") {
+      conf.addResource(new Path(System.getenv("HADOOP_CONF_DIR") + "/core-site.xml"))
+    }
+    val fs:FileSystem = FileSystem.get(conf)
+    val source:scala.io.Source = scala.io.Source.fromInputStream(fs.open(pt))
+
+    val lines = source.getLines
+    val numVAttrs: Int = lines.next.toInt
+    val vertexAttrs: Seq[StructField] = (0 until numVAttrs).map { index =>
+      val nextAttr = lines.next.split(':')
+      //the format is name:type
+      StructField(nextAttr.head, TypeParser.parseType(nextAttr.last))
+    }
+
+    val numEAttrs: Int = lines.next.toInt
+    val edgeAttrs: Seq[StructField] = (0 until numEAttrs).map { index =>
+      val nextAttr = lines.next.split(':')
+      //the format is name:type
+      StructField(nextAttr.head, TypeParser.parseType(nextAttr.last))
+    }
+
+    source.close()          
+
+    new GraphSpec(vertexAttrs, edgeAttrs)
+  }
+
 }
