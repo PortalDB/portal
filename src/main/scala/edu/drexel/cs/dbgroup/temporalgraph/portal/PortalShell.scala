@@ -105,8 +105,6 @@ object PortalShell {
   def startConsole() = {
     val consoleReader = new ConsoleReader();
     val loop = new Breaks;
-    //consoleReader.setEchoCharacter(new Character('*'));
-    consoleReader.getTerminal().setEchoEnabled(false);
     printProgramStart();
 
     loop.breakable {
