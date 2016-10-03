@@ -22,6 +22,7 @@ object PortalShell {
   var numGenericTViews: Integer = 0;
   var commandList: Map[String, PortalCommand] = Map(); //tViewName -> PortalCommand
   var portalContext: PortalContext = null;
+  var hideCharactersInTerminal = false;
 
   def main(args: Array[String]) = {
 
@@ -64,6 +65,8 @@ object PortalShell {
           query = args.drop(i + 1)
         case "--runwidth" =>
           runWidth = args(i + 1).toInt
+	case "--hideCharactersInTerminal" =>
+	  hideCharactersInTerminal = true
         case _ => ()
       }
     }
@@ -102,19 +105,30 @@ object PortalShell {
   def startConsole() = {
     val consoleReader = new ConsoleReader();
     val loop = new Breaks;
-
+    //consoleReader.setEchoCharacter(new Character('*'));
+    consoleReader.getTerminal().setEchoEnabled(false);
     printProgramStart();
 
     loop.breakable {
       while (true) {
-        var line = consoleReader.readLine("portal> ");
-
+	var line = "";
+	if(!hideCharactersInTerminal){
+	  line = consoleReader.readLine("portal> ");
+	}
+	else{
+	  line = consoleReader.readLine("portal> ", new Character(0));
+	}
         if (checkQuit(line)) {
           loop.break;
         }
 
         while (!isLineEnd(line)) {
-          line += consoleReader.readLine(">");
+	  if(!hideCharactersInTerminal){
+            line += consoleReader.readLine(">");
+          }
+	  else{
+            line += consoleReader.readLine(">", new Character(0));
+	  }
         }
 
         line = line.dropRight(1).trim(); //remove terminating "\" and whitespace
