@@ -1,0 +1,9 @@
+To download project dependencies run this command on current directory
+npm install
+
+To run the webterminal, go back one directory to the root of temporal data project and run
+nodejs WebTerminal/index.js
+
+This will start up the server in port 7180. 
+On a localmachine, you can access the webterminal at http://localhost:7180/
+On waltz, you can access the webterminal at http://waltz.cs.drexel.edu:7180/
