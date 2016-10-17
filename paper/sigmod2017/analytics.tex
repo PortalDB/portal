@@ -1,0 +1,40 @@
+\subsection{Temporal User-Defined Analytics}
+\label{sec:analytics}
+
+For many types of evolving graph analysis, it is necessary to compute
+some property, such as PageRank of each vertex $v$, or the length of
+the shortest path from a given designated vertex $u$ to each $v$, for
+each representative graph.  This information can then be used to study
+how the graph evolves over time.  \ql supports this type of analysis
+through {\em temporal user-defined analytics}, which conceptually
+execute an analytic over each \rg, compute a value for each vertex of
+the \rg, and then store this value among the attributes of the vertex
+(adding it to the property bag).  We provide an API that allows
+developers to implement custom analytics that can either be computed
+locally at a vertex, like degree\eat{ (these are essentially map
+functions~\ref{sec:algebra:map})}, or that can be expressed in the
+popular Pregel API~\cite{DBLP:conf/sigmod/MalewiczABDHLC10}.
+
+Logically, an analytic is computed on each representative graph.
+However, we will show in Section~\ref{sec:exp} that more efficient
+methods that use batching are possible.  Analytics cannot be computed
+directly on \tve, because they must, by definition, act over
+representative graphs.
+
+{\bf Analytics do not uncoalesce.} An analytic adds a new key-value
+pair to the property bag of each vertex $v$ of every representative
+graph $g$, and does not implicitly project out vertex attributes.
+\eat{For this reason}Thus, an analytic cannot cause two temporally
+adjacent graphs \eat{$g_1$ and $g_2$ }that were not equivalent before
+the attribute addition \eat{new attribute was added }to become
+equivalent after it was added.
+
+\eat{With bag semantics, if the input was coalesced, then for any pair
+  of consecutive $a_1, a_2$, $a_1 \neq a_2 \wedge a_1' \neq a_2'$.}
+
+\eat{\vera{
+2 options:
+1) replace - compute the new values (vertex usually), return new graph with only that property. the user can then union back with the original graph to get old and new (this is how GraphX does it). this can uncoalesce.
+2) append - compute the new values, add a new property to the bag with that value. this does not uncoalesce. option 2 described above.
+}}
+
