@@ -8,12 +8,14 @@ import org.apache.spark.storage.StorageLevel._
 import java.time.LocalDate
 
 import org.apache.spark.graphx.Edge
+import org.apache.spark.graphx.VertexId
 
 import edu.drexel.cs.dbgroup.temporalgraph._
 import edu.drexel.cs.dbgroup.temporalgraph.util.{LinearTrendEstimate, GraphLoader}
+import edu.drexel.cs.dbgroup.temporalgraph.representations._
 
 object PortalParser extends StandardTokenParsers with PackratParsers {
-  lexical.reserved += ("select", "from", "union", "intersection", "min", "max", "sum", "any", "all", "exists", "directed", "undirected", "vertices", "edges", "group", "by", "with", "return", "compute", "pagerank", "degree", "components", "count", "id", "attr", "trend", "list", "ave", "year", "month", "day", "changes", "start", "end", "where", "and", "length", "value", "spaths", "months", "days", "years", "project", "first", "second",
+  lexical.reserved += ("select", "from", "union", "intersection", "min", "max", "sum", "any", "all", "exists", "directed", "undirected", "vertices", "edges", "group", "by", "vgroup", "with", "return", "compute", "pagerank", "degree", "components", "count", "id", "attr", "trend", "list", "ave", "year", "month", "day", "changes", "start", "end", "where", "and", "length", "value", "spaths", "months", "days", "years", "project", "first", "second", "OG", "HG", "VE", "RG",
     //these are for debugging and testing
     "materialize")
   lexical.delimiters ++= List("-", "=", ".", "<", ">", "(", ")", "+", ",")
@@ -32,7 +34,7 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
     }
   }
 
-  lazy val query: PackratParser[Query] = ( expr ~ "return" ~ entity ~ opt(attrStr) ^^ { case g ~ _ ~ e ~ Some(astr) => Return(g, e, astr) 
+  lazy val query: PackratParser[Query] = ( expr ~ "return" ~ entity ~ opt("." ~> attrStr) ^^ { case g ~ _ ~ e ~ Some(astr) => Return(g, e, astr) 
     case g ~ _ ~ e ~ _ => Return(g, e, Attr()) }
     | expr ~ "materialize" ^^ { case g ~ _ => Materialize(g)}
   )
@@ -46,16 +48,22 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
     | "edges" ^^^ Edges()
   )
 
-  lazy val attrStr = ( "." <~ "count" ^^^ Count()
-    | "." <~ "id" ^^^ Id()
-    | "." <~ "attr" ^^^ Attr()
+  lazy val attrStr = ( "count" ^^^ Count()
+    | "id" ^^^ Id()
+    | "attr" ^^^ Attr()
+  )
+
+  lazy val structure = ( "RG" ^^^ RG()
+    | "OG" ^^^ RG()
+    | "HG" ^^^ HG()
+    | "VE" ^^^ VE()
   )
 
   lazy val select: PackratParser[Select] = (
-    "select" ~> "from" ~> graph ~ compute ^^ { case g ~ cmp => new SCompute(g, cmp) }
-      | "select" ~> "from" ~> graph ~ where ^^ { case g ~ w => new SWhere(g, w) }
-      | "select" ~> "from" ~> graph ~ groupby ^^ { case g ~ gpb => new SGroupBy(g, gpb) }
-      | "select" ~> "from" ~> graph ~ "project" ~ entity ~ projfunction ^^ { case g ~ _ ~ e ~ pr => new SProject(g, e, pr) }
+    "select" ~> "from" ~> graph ~ compute ~ ("with" ~> structure).? ^^ { case g ~ cmp ~ st => new SCompute(g, cmp, st.getOrElse(Same())) }
+      | "select" ~> "from" ~> graph ~ where ~ ("with" ~> structure).? ^^ { case g ~ w ~ st => new SWhere(g, w, st.getOrElse(Same())) }
+      | "select" ~> "from" ~> graph ~ groupby ~ ("with" ~> structure).? ^^ { case g ~ gpb ~ st => new SGroupBy(g, gpb, st.getOrElse(Same())) }
+      | "select" ~> "from" ~> graph ~ "project" ~ entity ~ projfunction ~ ("with" ~> structure).? ^^ { case g ~ _ ~ e ~ pr ~ st => new SProject(g, e, pr, st.getOrElse(Same())) }
       | "select" ~> "from" ~> graph ^^ { case g => new Select(g) }
   )
 
@@ -74,9 +82,10 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
     | "where" ~> attr ~ operation ~ literal ^^ { case a ~ o ~ l => SubWhere(a, o, l) }
   )
 
-  //TODO: add vgroupby
   //TODO: add group by size
-  lazy val groupby = ("group" ~> "by" ~> numericLit ~ period ~ "vertices" ~ semantics ~ function ~ "edges" ~ semantics ~ function ^^ { case num ~ per ~ _ ~ vsem ~ vfunc ~ _ ~ esem ~ efunc => new GroupBy(num, per, vsem, vfunc, esem, efunc)})
+  lazy val groupby = ("group" ~> "by" ~> numericLit ~ period ~ "vertices" ~ semantics ~ function ~ "edges" ~ semantics ~ function ~ vgroupby.? ^^ { case num ~ per ~ _ ~ vsem ~ vfunc ~ _ ~ esem ~ efunc ~ vgb => new GroupBy(num, per, vsem, vfunc, esem, efunc, vgb.getOrElse(Id()))})
+
+  lazy val vgroupby = ("vgroup" ~> "by" ~> attrStr)
 
   lazy val projfunction = ("first" ^^^ ProjectFirst()
     | "second" ^^^ ProjectSecond()
@@ -84,7 +93,7 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
   )
 
   lazy val graph = ("(" ~> select <~ ")" ^^ { case s => Nested(s) }
-    | stringLit ^^ { case s => DataSet(s) }
+    | stringLit ~ numericLiteral.? ^^ { case s ~ c => DataSet(s, c.getOrElse("0").toInt) }
   )
 
   lazy val literal: Parser[String] =
@@ -238,14 +247,17 @@ object Interpreter {
 
   def parseSelect(sel: Select): TGraphNoSchema[Any,Any] = {
     sel match {
-      case SCompute(g, cmp) => {
+      case SCompute(g, cmp, st) => {
         val gr = parseGraph(g)
-        compute(gr, cmp)
+        compute(gr, cmp, st)
       }
-      case SWhere(g, w) => {
+      case SWhere(g, w, st) => {
+        val gr = st match {
+          case s: Same => parseGraph(g)
+          case _ => convertGraph(parseGraph(g), st)
+        }
         w match {
           case t: TWhere => {
-            val gr = parseGraph(g)
             val opStart = System.currentTimeMillis()
             val res = gr.slice(Interval(t.start, t.end)).partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
             val opEnd = System.currentTimeMillis()
@@ -258,7 +270,6 @@ object Interpreter {
             val vp = (vid: Long, attrs: Any) => {
               s.compute(attrs)
             }
-            val gr = parseGraph(g)
             val opStart = System.currentTimeMillis()
             val res = gr.subgraph(vpred = vp).partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
             val opEnd = System.currentTimeMillis()
@@ -269,8 +280,11 @@ object Interpreter {
           }
         }
       }
-      case SGroupBy(g, gbp) => {
-        val gr = parseGraph(g)
+      case SGroupBy(g, gbp, st) => {
+        val gr = st match {
+          case s: Same => parseGraph(g)
+          case _ => convertGraph(parseGraph(g), st)
+        }
         val opStart = System.currentTimeMillis()
         val spec = gbp.per match {
           case Changes() => ChangeSpec(gbp.num.toInt)
@@ -356,7 +370,14 @@ object Interpreter {
           case _ => gr
         }
 
-        val agg = mpd.aggregate(spec, gbp.vsem.value, gbp.esem.value, fun1, fun2)().partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
+        val agg = gbp.vgb match {
+          case i: Id => mpd.aggregate(spec, gbp.vsem.value, gbp.esem.value, fun1, fun2)().partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
+          case a: Attr => {
+            val vgb = (vid: VertexId, attr: Any) => attr.hashCode().toLong
+            mpd.aggregate(spec, gbp.vsem.value, gbp.esem.value, fun1, fun2)(vgb).partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
+          }
+          case _ => throw new IllegalArgumentException("unsupported vgroupby")
+        }
 
         val res: TGraphNoSchema[Any,Any] = gbp.vfun match {
           case td: TrendFunc => agg.mapVertices((vid, intv, attr) => LinearTrendEstimate.calculateSlopeFromIntervals(attr.asInstanceOf[Map[Interval,Double]]), 0.0)
@@ -369,8 +390,11 @@ object Interpreter {
         argNum += 1
         res
       }
-      case SProject(g, e, f) => {
-        val gr = parseGraph(g)
+      case SProject(g, e, f, st) => {
+        val gr = st match {
+          case s: Same => parseGraph(g)
+          case _ => convertGraph(parseGraph(g), st)
+        }
         val opStart = System.currentTimeMillis()
         val vm = (vid:Long, attr:Any) => {
           attr match {
@@ -445,17 +469,35 @@ object Interpreter {
 
   def parseGraph(g: Graph): TGraphNoSchema[Any,Any] = {
     g match {
-      case DataSet(nm) => load(nm)
+      case DataSet(nm, col) => load(nm, col)
       case Nested(sel) => parseSelect(sel)
     }
   }
 
-  def load(name: String): TGraphNoSchema[Any,Any] = {
+  def convertGraph(gr: TGraphNoSchema[Any,Any], ds: DataStructure) = {
+    val (verts, edgs, coal) = gr match {
+      case rg: SnapshotGraphParallel[Any,Any] => (rg.verticesRaw, rg.edgesRaw, false)
+      case og: OneGraphColumn[Any,Any] => (og.allVertices, og.allEdges, og.coalesced)
+      case hg: HybridGraph[Any,Any] => (hg.allVertices, hg.allEdges, hg.coalesced)
+      case ve: VEGraph[Any,Any] => (ve.allVertices, ve.allEdges, ve.coalesced)
+      case _ => throw new IllegalArgumentException("oops, something went wrong and is a bug, unknown data type")
+    }
+
+    ds match {
+      case r: RG => SnapshotGraphParallel.fromRDDs(verts, edgs, gr.defaultValue, gr.storageLevel, coal)
+      case o: OG => OneGraphColumn.fromRDDs(verts, edgs, gr.defaultValue, gr.storageLevel, coal)
+      case h: HG => HybridGraph.fromRDDs(verts, edgs, gr.defaultValue, gr.storageLevel, coal)
+      case v: VE => VEGraph.fromRDDs(verts, edgs, gr.defaultValue, gr.storageLevel, coal)
+      case s: Same => gr
+    }
+  }
+
+  def load(name: String, column: Int): TGraphNoSchema[Any,Any] = {
     val selStart = System.currentTimeMillis()
-    val res = if (name.endsWith("structure")) {
-      GraphLoader.loadStructureOnlyParquet(PortalShell.uri + "/" + name.dropRight("structure".length)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
+    val res = if (name.endsWith("structure") || column < 1) {
+      GraphLoader.loadStructureOnlyParquet(PortalShell.uri + "/" + name.split("structure").head).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
     } else
-      GraphLoader.loadDataParquet(PortalShell.uri + "/" + name)//.persist(StorageLevel.MEMORY_ONLY_SER)
+      GraphLoader.loadDataParquet(PortalShell.uri + "/" + name, column)//.persist(StorageLevel.MEMORY_ONLY_SER)
     if (PortalShell.warmStart)
       res.materialize
     val selEnd = System.currentTimeMillis()
@@ -465,11 +507,15 @@ object Interpreter {
     res
   }
 
-  def compute(gr: TGraphNoSchema[Any,Any], com: Compute): TGraphNoSchema[Any,Any] = {
+  def compute(gr: TGraphNoSchema[Any,Any], com: Compute, st: DataStructure): TGraphNoSchema[Any,Any] = {
+    val grin = st match {
+      case s: Same => gr
+      case _ => convertGraph(gr, st)
+    }
     com match {
       case Pagerank(dir, tol, res, numIter) => {
         val prStart = System.currentTimeMillis()
-        val result = gr.pageRank(dir.value, tol, res, numIter.toInt).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
+        val result = grin.pageRank(dir.value, tol, res, numIter.toInt).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
         val prEnd = System.currentTimeMillis()
         val total = prEnd - prStart
         println(f"PageRank Runtime: $total%dms ($argNum%d)")
@@ -479,7 +525,7 @@ object Interpreter {
       case Degrees() => {
         throw new UnsupportedOperationException("degree not currently supported")
 //        val degStart = System.currentTimeMillis()
-//        val result = gr.degree()
+//        val result = grin.degree()
 //        val degEnd = System.currentTimeMillis()
 //        val total = degEnd - degStart
 //        println(f"Degree Runtime: $total%dms ($argNum%d)")
@@ -489,7 +535,7 @@ object Interpreter {
       case ConnectedComponents() => {
         val conStart = System.currentTimeMillis()
 
-        val result = gr.connectedComponents().asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
+        val result = grin.connectedComponents().asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
         val conEnd = System.currentTimeMillis()
         val total = conEnd - conStart
         println(f"ConnectedComponents Runtime: $total%dms ($argNum%d)")
@@ -499,7 +545,7 @@ object Interpreter {
       case ShortestPaths(dir, ids) => {
         val spStart = System.currentTimeMillis()
 
-        val result = gr.shortestPaths(dir.value, ids.map(_.toLong)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
+        val result = grin.shortestPaths(dir.value, ids.map(_.toLong)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
         val spEnd = System.currentTimeMillis()
         val total = spEnd - spStart
         println(f"ShortestPaths Runtime: $total%dms ($argNum%d)")
@@ -528,16 +574,23 @@ case class Count() extends AttrStr
 case class Id() extends AttrStr
 case class Attr() extends AttrStr
 
+sealed abstract class DataStructure
+case class Same() extends DataStructure
+case class RG() extends DataStructure
+case class OG() extends DataStructure
+case class HG() extends DataStructure
+case class VE() extends DataStructure
+
 class Select(data: Graph) extends Serializable {
   val graph: Graph = data
 }
-case class SCompute(data: Graph, com: Compute) extends Select(data)
-case class SWhere(data: Graph, w: Where) extends Select(data)
-case class SGroupBy(data: Graph, g: GroupBy) extends Select(data)
-case class SProject(data: Graph, e: Entity, f: ProjectFunction) extends Select(data)
+case class SCompute(data: Graph, com: Compute, st: DataStructure) extends Select(data)
+case class SWhere(data: Graph, w: Where, st: DataStructure) extends Select(data)
+case class SGroupBy(data: Graph, g: GroupBy, st: DataStructure) extends Select(data)
+case class SProject(data: Graph, e: Entity, f: ProjectFunction, st: DataStructure) extends Select(data)
 
 sealed abstract class Graph
-case class DataSet(name: String) extends Graph
+case class DataSet(name: String, column: Int) extends Graph
 case class Nested(sel: Select) extends Graph
 
 sealed abstract class Compute
@@ -594,7 +647,7 @@ class Date(y: Int, m: Int, d: Int) {
   def value():LocalDate = LocalDate.of(year, month, day)
 }
 
-case class GroupBy(num: String, per: Period, vsem: Semantics, vfun: Function, esem: Semantics, efun: Function) {
+case class GroupBy(num: String, per: Period, vsem: Semantics, vfun: Function, esem: Semantics, efun: Function, vgb: AttrStr) {
   val period = "P" + num + per.value
 }
 

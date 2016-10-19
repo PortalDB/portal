@@ -114,7 +114,7 @@ object PortalShell {
 	  line = consoleReader.readLine("portal> ");
 	}
 	else{
-	  line = consoleReader.readLine("portal> ", new Character(0));
+	  line = consoleReader.readLine("", new Character(0));
 	}
         if (checkQuit(line)) {
           loop.break;
