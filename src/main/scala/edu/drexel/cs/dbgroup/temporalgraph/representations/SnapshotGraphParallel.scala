@@ -46,21 +46,25 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
 
   override def vertices: RDD[(VertexId, (Interval, VD))] = coalescedVertices
 
-  private lazy val coalescedVertices = {
+  lazy val verticesRaw: RDD[(VertexId, (Interval, VD))] = {
     if (graphs.size > 0)
-      TGraphNoSchema.coalesce(graphs.zip(collectedIntervals).map{ case (g,i) => g.vertices.map{ case (vid, attr) => (vid, (i, attr))}}.reduce((a, b) => a union b))
+      graphs.zip(collectedIntervals).map{ case (g,i) => g.vertices.map{ case (vid, attr) => (vid, (i, attr))}}.reduce((a, b) => a union b)
     else
       ProgramContext.sc.emptyRDD[(VertexId, (Interval, VD))]
   }
 
+  private lazy val coalescedVertices = TGraphNoSchema.coalesce(verticesRaw)
+
   override def edges: RDD[((VertexId,VertexId),(Interval,ED))] = coalescedEdges
 
-  private lazy val coalescedEdges = {
+  lazy val edgesRaw: RDD[((VertexId,VertexId),(Interval,ED))] = {
     if (graphs.size > 0)
-      TGraphNoSchema.coalesce(graphs.zip(collectedIntervals).map{ case (g,i) => g.edges.map(e => ((e.srcId, e.dstId), (i, e.attr)))}.reduce((a, b) => a union b))
+      graphs.zip(collectedIntervals).map{ case (g,i) => g.edges.map(e => ((e.srcId, e.dstId), (i, e.attr)))}.reduce((a, b) => a union b)
     else
       ProgramContext.sc.emptyRDD[((VertexId,VertexId),(Interval,ED))]
   }
+
+  private lazy val coalescedEdges = TGraphNoSchema.coalesce(edgesRaw)
 
   override def getTemporalSequence: RDD[Interval] = coalescedIntervals
 
@@ -109,8 +113,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
   /** Algebraic operations */
 
   override def slice(bound: Interval): SnapshotGraphParallel[VD, ED] = {
-    //VZM: FIXME: this special case is commented out for experimental purposes
-    //if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
+    if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
     if (!span.intersects(bound)) {
       return SnapshotGraphParallel.emptyGraph[VD,ED](defaultValue)
     }
