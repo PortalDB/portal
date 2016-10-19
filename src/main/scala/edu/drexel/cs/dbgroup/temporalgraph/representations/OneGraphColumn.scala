@@ -502,8 +502,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
         case (vid, vdata, None) => val tmp = new Int2IntOpenHashMap(); vdata.seq.foreach(x => tmp.put(x,0)); tmp
       }
         .mapTriplets{ e => val tmp = new Int2ObjectOpenHashMap[(Double, Double)](); e.attr.seq.foreach(x => tmp.put(x, (1.0 / e.srcAttr(x), 1.0 / e.dstAttr(x)) )); tmp}
-        .mapVertices( (id,attr) => {var tmp = new Int2ObjectOpenHashMap[(Double, Double)](); attr.foreach(x => tmp.put(x._1, (0.0,0.0))); tmp.map(identity); tmp})
-        .cache()
+        .mapVertices( (id,attr) => new Int2ObjectOpenHashMap[(Double, Double)](attr.keySet().toIntArray(), Array.fill(attr.size)((0.0,0.0)))).cache()
 
       val vertexProgram = (id: VertexId, attr: Int2ObjectOpenHashMap[(Double, Double)], msg: Int2DoubleOpenHashMap) => {
         var vals = attr.clone
@@ -594,10 +593,10 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
         case (vid, vdata, None) => val tmp = new Int2IntOpenHashMap(); vdata.seq.foreach(x => tmp.put(x,0)); tmp
       }
         .mapTriplets{ e => val tmp = new Int2ObjectOpenHashMap[Double](); e.attr.seq.foreach(x => tmp.put(x, (1.0 / e.srcAttr(x)) )); tmp}
-        .mapVertices( (id,attr) => {var tmp = new Int2ObjectOpenHashMap[(Double, Double)](); attr.foreach(x => tmp.put(x._1, (0.0,0.0))); tmp.map(identity); tmp})
-        .cache()
+        .mapVertices( (id,attr) => new Int2ObjectOpenHashMap[(Double, Double)](attr.keySet().toIntArray(), Array.fill(attr.size)((0.0,0.0)))).cache()
 
-      val vertexProgram = (id: VertexId, attr: Int2ObjectOpenHashMap[(Double, Double)], msg: Int2DoubleOpenHashMap) => {
+
+    val vertexProgram = (id: VertexId, attr: Int2ObjectOpenHashMap[(Double, Double)], msg: Int2DoubleOpenHashMap) => {
         var vals = attr.clone
 
         val itr = attr.iterator
@@ -799,8 +798,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
 
       while(itr.hasNext){
         val(index, mp) = itr.next()
-
-        b.put(index, addMaps(mp, b.getOrElse(index, makeMap(Seq[(VertexId,Int)]()))))
+        b.put(index.toInt, addMaps(mp, b.getOrElse(index, makeMap(Seq[(VertexId,Int)]()))))
       }
       b
     }

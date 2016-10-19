@@ -723,22 +723,28 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
           //TODO: replace these foreach with using the arrays constructor
           val degs: VertexRDD[Int2IntOpenHashMap] = grp.aggregateMessages[Int2IntOpenHashMap](
             ctx => {
-              ctx.sendToSrc{val tmp = new Int2IntOpenHashMap(); ctx.attr.seq.foreach(x => tmp.put(x,1)); tmp}
-              ctx.sendToDst{val tmp = new Int2IntOpenHashMap(); ctx.attr.seq.foreach(x => tmp.put(x,1)); tmp}
+              ctx.sendToSrc{new Int2IntOpenHashMap(ctx.attr.toArray, Array.fill(ctx.attr.size)(1))}
+              ctx.sendToDst{new Int2IntOpenHashMap(ctx.attr.toArray, Array.fill(ctx.attr.size)(1))}
             },
             mergeFunc, TripletFields.EdgeOnly)
 
           val joined: Graph[Int2IntOpenHashMap, BitSet] = grp.outerJoinVertices(degs) {
-            case (vid, vdata, Some(deg)) => vdata.filter(x => !deg.contains(x)).seq.foreach(x => deg.put(x,0)); deg
-            case (vid, vdata, None) => val tmp = new Int2IntOpenHashMap(); vdata.seq.foreach(x => tmp.put(x,0)); tmp
+            case (vid, vdata, Some(deg)) => {
+              val filtered = vdata.filter(x => !deg.contains(x))
+              deg.putAll(new Int2IntOpenHashMap(filtered.toArray, Array.fill(filtered.size)(0)))
+              deg
+            }
+            case (vid, vdata, None) => new Int2IntOpenHashMap(vdata.seq.toArray, Array.fill(vdata.seq.size)(0))
           }
 
           val withtrips: Graph[Int2IntOpenHashMap, Int2ObjectOpenHashMap[(Double, Double)]] = joined.mapTriplets{ e:EdgeTriplet[Int2IntOpenHashMap, BitSet] =>
             val tmp = new Int2ObjectOpenHashMap[(Double, Double)](); e.attr.seq.foreach(x => tmp.put(x, (1.0 / e.srcAttr(x), 1.0 / e.dstAttr(x)))); tmp}
 
-          val prankGraph:Graph[Int2ObjectOpenHashMap[(Double, Double)], Int2ObjectOpenHashMap[(Double, Double)]]
+
+
+        val prankGraph:Graph[Int2ObjectOpenHashMap[(Double, Double)], Int2ObjectOpenHashMap[(Double, Double)]]
           = withtrips.mapVertices( (id,attr) =>
-          {val tmp = new Int2ObjectOpenHashMap[(Double, Double)](); attr.foreach(x => tmp.put(x._1, (0.0,0.0))); tmp}).cache()
+          {new Int2ObjectOpenHashMap[(Double, Double)](attr.keySet().toIntArray, Array.fill(attr.size)((0.0,0.0)))}).cache()
 
           val initialMessage: Int2DoubleOpenHashMap = {
             val tmpMap = new Int2DoubleOpenHashMap()
