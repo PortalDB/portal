@@ -237,11 +237,19 @@ For this, we will use {\em moving window temporal aggregation}.  Our
 approach is inspired by stream aggregation work of~\cite{Li2005},
 adopted to graphs, and by generalized quantifiers of~\cite{Hsu1995}.
 
-Temporal aggregation is denoted $\gamma_{W,Q_V,Q_E,A_V,A_E} (\ttt)$,\\
-where $W$ is the window specification, $Q_V$ and $Q_E$ are vertex and
-edge aggregation quantifiers, and $A_V$ and $A_E$ are the optional
-aggregation functions.  It produces a consolidated evolving graph with
-specific temporal granularity.
+Temporal aggregation is denoted $_{G_V}\gamma_{W,Q_V,Q_E,A_V,A_E}
+(\ttt)$,\\ where $G_V$ are the grouping attributes, $W$ is the window
+specification, $Q_V$ and $Q_E$ are vertex and edge aggregation
+quantifiers, and $A_V$ and $A_E$ are the optional aggregation
+functions.  It produces a consolidated evolving graph with specific
+temporal granularity.
+
+{\em Grouping attributes} $G_V$ are vertex properties by which
+vertices are aggregated into new entities, similar to \insql{GROUP BY}
+clause in SQL.  Since node creation requires new identifiers, the
+combination of the grouping properties can be used in a mechanism
+equivalent to a Skolem function.  The simplest, default grouping
+attribute is the $vid$ of the vertex.
 
 {\em Window specification} $W$ is of the form
 $n~\{unit|\insql{changes}\}$, where $n$ is an integer, and $unit$ is a
@@ -267,15 +275,11 @@ would produce the following set $(g_1, [1/15, 4/15)), (g_2, [4/15,
       definition~\ref{tg_abstract}.  
 
 Similar to~\cite{Li2005} we support aggregation simultaneously by time
-and by non-temporal attributes (e.g., vertex properties).  \vera{This
-  section has to be revised to explain how structural aggregation is
-  supported.}
-
-\eat{
-Also unlike~\cite{Li2005}, we do not currently support aggregation
-simultaneously by time and by non-temporal attributes (e.g., vertex
-properties). Incorporating this into \tg algebra is in our immediate
-plans.}
+and by non-temporal attributes (e.g., vertex properties).  If the
+aggregation window is one change, then the operation devolves into
+pure structural reduce or node creation, as classified by
+Wood~\cite{Wood2012}.  If the grouping attribute is the vertex $vid$,
+then the aggregation is purely temporal, with no structural aspect.
 
 {\em Aggregation quantifiers} $Q_V$ and $Q_E$ are of the form \{
 \insql{all} | \insql{most} | \insql{at least} $n$ | \insql{exists} \},
@@ -315,21 +319,23 @@ Algorithm~\ref{alg:op}, but requires an additional step, and is
 revisited in Algorithm~\ref{alg:agg_ve}.
 %
 We compute aggregation periods based on window specification in line
-1.  Next, as part of $\gamma_{P,Q_V}(\tv)$ computation, we assign each
-tuple from \tv to an aggregation period, group vertices by $v$ and
-evaluate $Q_V$ on each group.  Only groups for which $Q_V$ evaluates
-to true are retained.  Edges are processed similarly by
-$\gamma_{P,Q_E}(\te)$ on line 3.  Lines 4 and 5 compute
-$\gamma_{P,A_V}(\tav)$ and $\gamma_{P,A_E}(\tae)$, respectively, by
-computing a group for each vertex or edge within the period, and
-applying the aggregate functions over each group. \eat{ It is possible
-  but inconvenient to express the operations on lines 2---5 in
-  temporal SQL because each vertex, edge or attribute tuple in the
-  result of $\gamma_{P}$ may belong to multiple periods.}
+1.  Next, as part of $_{G_V}\gamma_{P,Q_V}(\tv)$ computation, we assign
+each tuple from \tv to an aggregation period (this requires
+splitting), group vertices by $G_V$ and evaluate $Q_V$ on each group.
+Only groups for which $Q_V$ evaluates to true are retained.  Edges are
+processed similarly by $_{G_V}\gamma_{P,Q_E}(\te)$ on line 3.  Note that
+when $G_V$ is anything besides $vid$, we need edge triplets in order
+to compute new source and destination ids of each edge.  Lines 4 and 5
+compute $_{G_V}\gamma_{P,A_V}(\tav)$ and $_{G_V}\gamma_{P,A_E}(\tae)$,
+respectively, by computing a group for each vertex or edge within the
+period, and applying the aggregate functions over each group. \eat{ It
+  is possible but inconvenient to express the operations on lines
+  2---5 in temporal SQL because each vertex, edge or attribute tuple
+  in the result of $\gamma_{P}$ may belong to multiple periods.}
 
 Temporal aggregation over \trg is computed by first calculating time
-periods from $W$ and \trg, and then processing the representative
-graphs directly.  
+periods from $W$ and \trg, and then reducing and combining the
+representative graphs directly.
 
 \begin{algorithm}[t!]
 \caption{Temporal aggregation in \tve.}
@@ -338,10 +344,10 @@ graphs directly.
 quantifier $Q_V$, edge quantifier $Q_E$, vertex aggregate function
 $A_V$, vertex aggregate function $A_E$.\\
 \STATE $P = \textsf{computePeriods}(W, \tv, \te, \tav, \tae)$\\
-\STATE  $\tv' = \cl (\gamma_{P,Q_V}(\tv))$\\
-\STATE  $\te' = \cl (\gamma_{P,Q_E}(\te))$\\
-\STATE  $\tav' = \cl (\gamma_{P,A_V}(\tav))$\\
-\STATE  $\tae' = \cl (\gamma_{P,A_E}(\tae))$\\
+\STATE  $\tv' = \cl (_{G_V}\gamma_{P,Q_V}(\tv))$\\
+\STATE  $\te' = \cl (_{G_V}\gamma_{P,Q_E}(\te))$\\
+\STATE  $\tav' = \cl (_{G_V}\gamma_{P,A_V}(\tav))$\\
+\STATE  $\tae' = \cl (_{G_V}\gamma_{P,A_E}(\tae))$\\
 \STATE  follow steps 5-7 of Algorithm~\ref{alg:op}\\
 %\STATE  enforce foreign keys on $\te'$ w.r.t. $\tv'$\\
 %\STATE  enforce foreign keys on $\tav'$ w.r.t. $\tv'$\\
@@ -353,13 +359,22 @@ $A_V$, vertex aggregate function $A_E$.\\
 
 Figure~\ref{fig:tg_agg1} illustrates temporal aggregation by time
 ($W=3~\textsf{months}$), and Figure~\ref{fig:tg_agg2} --- by change
-($W=3~\textsf{changes}$).  Both are applied to \insql{T1} in our
-running example, and list the same aggregation quantifiers
-(\insql{all} for vertices and \insql{exists} for edges) and aggregate
-functions (\insql{first} for vertex and edge properties).  $v_2$ is
-present in the result in Figure~\ref{fig:tg_agg1} starting at $4/15$
-because it did not exist for the entirety of the first window, while
-in Figure~\ref{fig:tg_agg2} it is produced starting $6/15$.
+($W=3~\textsf{changes}$).  Figure~\ref{fig:tg_agg3} illustrates
+structural aggregation only ($W=1~\textsf{change}$), and
+Figure~\ref{fig:tg_agg4} both structural and temporal
+($G_V=\textsf{school}, W=3~\textsf{months}$).  All four are applied to
+\insql{T1} in our running example, and list the same aggregation
+quantifiers (\insql{all} for vertices and \insql{exists} for edges)
+and aggregate functions (\insql{first} for vertex and edge
+properties).  $v_2$ is present in the result in
+Figure~\ref{fig:tg_agg1} starting at $4/15$ because it did not exist
+for the entirety of the first window, while in
+Figure~\ref{fig:tg_agg2} it is produced starting $6/15$.  In
+Figure~\ref{fig:tg_agg3} vertices $v1$ and $v3$ are aggregated into a
+single new vertex $v1$ representing the institution.  A subsequent
+\insql{map} operation to produce a new name attribute and a count of
+people would produce a more meaningful final result.
+
 
 %\julia{add brief explanation.}
 \eat{Note that $(v_2, [4/15, 7/15))$ is present in the result in
@@ -397,21 +412,32 @@ in Figure~\ref{fig:tg_agg2} it is produced starting $6/15$.
 %\vspace{-0.2cm}
 \end{figure}
 }
+
 \begin{figure*}[t]
 %\centering
 \begin{subfigure}[b]{0.5\textwidth}
 \includegraphics[width=3.5in]{figs/agg1.pdf}
 \caption{Aggregation of \insql{T1} by time:
-  $W=3~\textsf{months}$.}
-\vspace{-0.2cm}
+  $W=3~\textsf{months}, G_V=\textsf{vid}$.}
 \label{fig:tg_agg1}
 \end{subfigure}
 \begin{subfigure}[b]{0.4\textwidth}
 \includegraphics[width=3in]{figs/agg2.pdf}
 \caption{Aggregation of \insql{T1} by change:
-  $W=3~\textsf{changes}$.}
-\vspace{-0.2cm}
+  $W=3~\textsf{changes}, G_V=\textsf{vid}$.}
 \label{fig:tg_agg2}
+\end{subfigure}
+\begin{subfigure}[b]{0.5\textwidth}
+\includegraphics[width=3.5in]{figs/agg3.pdf}
+\caption{Aggregation of \insql{T1} grouped by attribute:
+  $W=1~\textsf{change}, G_V=\textsf{school}$.}
+\label{fig:tg_agg3}
+\end{subfigure}
+\begin{subfigure}[b]{0.4\textwidth}
+\includegraphics[width=3in]{figs/agg4.pdf}
+\caption{Aggregation of \insql{T1} by time with grouping:
+  $W=3~\textsf{months}, G_V=\textsf{school}$.}
+\label{fig:tg_agg4}
 \end{subfigure}
 \caption[]{Aggregation, $Q_V=\insql{all}$, $Q_E=\insql{exists}$,
   $A_V=\insql{first}$, $A_E=\insql{first}.$}
@@ -678,6 +704,11 @@ defined by the user.}
 \eat{An example in Figure~\ref{fig:agg1} shows a small \tg and a result of
 aggregation by 1 month on that graph with $at\ least\ one$ quantifier,
 with group by id.}
+
+\susection{Transitive closure}
+\label{sec:algebra:closure}
+
+TODO
 
 \subsection{Temporal graph intersection}
 \label{sec:algebra:join}
