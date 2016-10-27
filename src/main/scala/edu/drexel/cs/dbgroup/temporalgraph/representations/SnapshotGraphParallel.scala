@@ -476,6 +476,26 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
 
   }
 
+  override def aggregateMessages[A: ClassTag](sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
+    mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): SnapshotGraphParallel[(VD, A), ED] = {
+
+    val send = (ctx: EdgeContext[VD, ED, A]) => {
+      sendMsg(ctx.toEdgeTriplet).foreach { kv =>
+        if (kv._1 == ctx.srcId)
+          ctx.sendToSrc(kv._2)
+        else if (kv._1 == ctx.dstId)
+          ctx.sendToDst(kv._2)
+        else
+          throw new IllegalArgumentException("trying to send message to neither the triplet source or destination")
+      }
+    }
+
+    val newGraphs = graphs.zip(graphs.map(x => x.aggregateMessages(send, mergeMsg, tripletFields))).map{ case (a,b) =>
+      a.outerJoinVertices(b)((vid, attr, agg) => (attr, agg.getOrElse(defVal)))
+    }
+    new SnapshotGraphParallel(intervals, newGraphs, (defaultValue, defVal), storageLevel, coalesced)
+  }
+
   /** Spark-specific */
 
   override def numPartitions(): Int = {

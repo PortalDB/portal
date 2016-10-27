@@ -371,10 +371,10 @@ object Interpreter {
         }
 
         val agg = gbp.vgb match {
-          case i: Id => mpd.aggregate(spec, gbp.vsem.value, gbp.esem.value, fun1, fun2)().partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
+          case i: Id => mpd.createNodes(spec, gbp.vsem.value, gbp.esem.value, fun1, fun2)().partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
           case a: Attr => {
             val vgb = (vid: VertexId, attr: Any) => attr.hashCode().toLong
-            mpd.aggregate(spec, gbp.vsem.value, gbp.esem.value, fun1, fun2)(vgb).partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
+            mpd.createNodes(spec, gbp.vsem.value, gbp.esem.value, fun1, fun2)(vgb).partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
           }
           case _ => throw new IllegalArgumentException("unsupported vgroupby")
         }

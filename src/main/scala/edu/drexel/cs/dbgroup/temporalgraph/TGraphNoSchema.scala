@@ -46,12 +46,12 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
       .reduceByKey((a: Map[Interval, ED], b: Map[Interval, ED]) => a ++ b)
   }
 
-  override def aggregate(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): TGraphNoSchema[VD, ED] = {
-    //aggregateByChange requires coalesced tgraph for correctness
+  override def createNodes(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): TGraphNoSchema[VD, ED] = {
+    //require coalesced tgraph for correctness
     //both produce potentially uncoalesced TGraph
     res match {
       case c : ChangeSpec => coalesce().asInstanceOf[TGraphNoSchema[VD, ED]].aggregateByChange(c, vgroupby, vquant, equant, vAggFunc, eAggFunc)
-      case t : TimeSpec => aggregateByTime(t, vgroupby, vquant, equant, vAggFunc, eAggFunc)
+      case t : TimeSpec => coalesce().asInstanceOf[TGraphNoSchema[VD, ED]].aggregateByTime(t, vgroupby, vquant, equant, vAggFunc, eAggFunc)
       case _ => throw new IllegalArgumentException("unsupported window specification")
     }
   }
@@ -144,6 +144,26 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
    */
   def shortestPaths(uni: Boolean, landmarks: Seq[VertexId]): TGraphNoSchema[(VD,Map[VertexId, Int]), ED]
 
+  /**
+   * Aggregates values from the neighboring edges and vertices of each vertex, for each representative graph. 
+   * Unlike in GraphX, this returns a new graph, not an RDD. The user-supplied
+   * `sendMsg` function is invoked on each edge of the graph, generating 0 or more messages to be
+   * sent to either vertex in the edge. The `mergeMsg` function is then used to combine all messages
+   * destined to the same vertex.
+   *
+   * @tparam A the type of message to be sent to each vertex
+   *
+   * @param sendMsg runs on each edge, sending messages to neighboring vertices using the
+   *   [[EdgeContext]].
+   * @param mergeMsg used to combine messages from `sendMsg` destined to the same vertex. This
+   *   combiner should be commutative and associative.
+   * @param tripletFields which fields should be included in the [[EdgeContext]] passed to the
+   *   `sendMsg` function. If not all fields are needed, specifying this can improve performance.
+   *
+   */
+//TODO: can we have a simpler version where there's a predicate on the vertex and a predicate on the edge and the edge direction and the message and the aggregation function
+  def aggregateMessages[A: ClassTag](sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
+    mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): TGraphNoSchema[(VD, A), ED]
   protected def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): TGraphNoSchema[V, E]
 
 }

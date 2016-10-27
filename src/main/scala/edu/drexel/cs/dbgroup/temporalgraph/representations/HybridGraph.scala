@@ -784,11 +784,11 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
     val runSums = widths.scanLeft(0)(_ + _).tail
 
     val conc = (grp: Graph[BitSet,BitSet], minIndex: Int, maxIndex: Int) => {
-    if (grp.vertices.isEmpty)
-        Graph[HashMap[TimeIndex,VertexId],BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
-      else {
+      //if (grp.vertices.isEmpty)
+      //  Graph[HashMap[TimeIndex,VertexId],BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+      //else {
         ConnectedComponentsXT.runHybrid(grp, minIndex, maxIndex-1)
-      }
+      //}
     }
 
     val allgs = graphs.zipWithIndex.map{ case (g,i) => conc(g, runSums.lift(i-1).getOrElse(0), runSums(i))}
@@ -810,6 +810,56 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
 
   override def shortestPaths(uni: Boolean, landmarks: Seq[VertexId]): HybridGraph[(VD, Map[VertexId, Int]), ED] = {
     throw new UnsupportedOperationException("shortest paths not yet implemented")
+  }
+
+  override def aggregateMessages[A: ClassTag](sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
+    mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): HybridGraph[(VD, A), ED] = {
+    if (graphs.size < 1) computeGraphs()
+
+    val aggMap = (grp: Graph[BitSet,BitSet]) => {
+      grp.aggregateMessages[Int2ObjectOpenHashMap[A]](
+        ctx => {
+          val edge = ctx.toEdgeTriplet
+          val triplet = new EdgeTriplet[VD, ED]
+          triplet.srcId = edge.srcId
+          triplet.dstId = edge.dstId
+          //FIXME: we don't have the src and dst attributes, so this will work only for cases when TripletFields is none.
+          sendMsg(triplet).foreach{x =>
+            val tmp = new Int2ObjectOpenHashMap[A]()
+            ctx.attr.seq.foreach {index => tmp.put(index, x._2)}
+            if (x._1 == edge.srcId)
+              ctx.sendToSrc(tmp)
+            else if (x._1 == edge.dstId)
+              ctx.sendToDst(tmp)
+            else
+              throw new IllegalArgumentException("trying to send message to a vertex that is neither a source nor a destination")
+          }
+        },
+        (a, b) => {
+          val itr = a.iterator
+          while (itr.hasNext) {
+            val (index,vl) = itr.next()
+            b.update(index, mergeMsg(vl, b.getOrElse(index, defVal)))
+          }
+          b
+        }, tripletFields)
+    }
+
+    val allgs = graphs.zipWithIndex.map{ case (g,i) => aggMap(g)}
+
+    //now extract values
+    //TODO: make this work without collect
+    val intvs = ProgramContext.sc.broadcast(collectedIntervals)
+    val vattrs = allgs.map{ g => g.flatMap{ case (vid,vattr) => vattr.asInstanceOf[Map[TimeIndex, A]].toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}}}.reduce(_ union _)
+    //now need to join with the previous value
+    val newverts = allVertices.leftOuterJoin(vattrs)
+      .filter{ case (k, (v, u)) => u.isEmpty || v._1.intersects(u.get._1)}
+      .mapValues{ case (v, u) => if (u.isEmpty) (v._1, (v._2, defVal)) else (v._1.intersection(u.get._1).get, (v._2, u.get._2))}
+
+    if (ProgramContext.eagerCoalesce)
+      fromRDDs(newverts, allEdges, (defaultValue, defVal), storageLevel, false)
+    else
+      new HybridGraph(newverts, allEdges, widths, graphs, (defaultValue, defVal), storageLevel, false)
   }
 
   /** Spark-specific */
