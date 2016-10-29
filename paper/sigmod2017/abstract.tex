@@ -11,10 +11,14 @@ This paper proposes a logical model of an evolving graph which
 captures evolution of graph topology, and of attributes of vertices
 and edges, and a compositional algebra over that model.  It includes
 such operations as temporal selection, subgraph, aggregation,
-set-based operators, and a rich class of analytics.  We introduce
+set-based operators, and a rich class of analytics.  \eat{We introduce
 temporal primitives that allow to reduce temporal operators of our
-algebra into nontemporal ones.  We show that our algebra is
+algebra into nontemporal ones. 
+We show that our algebra is
 relationally complete and is sufficient to express a wide range of
+common use cases.
+} We formally study the properties of our algebra and show that it is 
+sufficient to conveniently and concisely express a wide range of
 common use cases.
 
 \eat{In this paper we address the need to enable {\em systematic support}
@@ -28,7 +32,7 @@ algebra that includes
 We developed several in-memory representations for our model in scope
 of Apache Spark, an open-source distributed data processing framework.
 Experimental results on real datasets demonstrate that no single
-representation is most efficient for all operations, but switching
+representation is most efficient for all operations, but that switching
 between representations in a complex query can lead to good
 performance.
 
