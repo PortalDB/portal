@@ -7,24 +7,37 @@ ask about graphs have to do with their evolution. Which Web pages are
 showing an increasing popularity trend? How does influence propagate
 in social networks? How does knowledge evolve?
 
-\eat{Much research and engineering effort today goes into developing
-sophisticated graph analytics and their efficient implementations,
-both stand-alone and in scope of data processing platforms. Yet, {\em
-  systematic support} for scalable querying and analytics over {\em
-  evolving graphs} still lacks.}
+This paper proposes a logical model of an evolving graph which
+captures evolution of graph topology, and of attributes of vertices
+and edges, and a compositional algebra over that model.  It includes
+such operations as temporal selection, subgraph, aggregation,
+set-based operators, and a rich class of analytics.  We introduce
+temporal primitives that allow to reduce temporal operators of our
+algebra into nontemporal ones.  We show that our algebra is
+relationally complete and is sufficient to express a wide range of
+common use cases.
 
-In this paper we address the need to enable {\em systematic support}
+\eat{In this paper we address the need to enable {\em systematic support}
 for scalable querying and analytics over {\em evolving graphs}.  We
 propose a representation of an evolving graph, called a \tg, which
 captures evolution of graph topology, and of attributes of vertices
 and edges, continuously through time.  We develop a compositional \tg
-algebra that includes such operations as temporal selection, subgraph,
-aggregation, and a rich class of analytics.  We present \ql, a system
-that implements our model and algebra in scope of Apache Spark, an
+algebra that includes
+}
+
+We developed several in-memory representations for our model in scope
+of Apache Spark, an open-source distributed data processing framework.
+Experimental results on real datasets demonstrate that no single
+representation is most efficient for all operations, but switching
+between representations in a complex query can lead to good
+performance.
+
+\eat{We present \ql, a system that
+implements our model and algebra in scope of Apache Spark, an
 open-source distributed data processing framework.  We develop
 multiple physical representations of evolving graphs and study the
 trade-offs between structural and temporal locality.  We provide an
 extensive experimental evaluation on real datasets, demonstrating that
-careful engineering can lead to good performance.
+careful engineering can lead to good performance.}
 
 \end{abstract}
