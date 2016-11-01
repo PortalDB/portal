@@ -1,23 +1,89 @@
 \section{System}
 \label{sec:sys}
 
-Our \ql system implementation builds on Apache Spark with
+We implementated \ql operations in Apache Spark with
 GraphX~\cite{DBLP:conf/osdi/GonzalezXDCFS14}, an open-source in-memory
 distributed framework that combines graph parallel and data parallel
 abstractions.  The data is distributed in partitions across the
 cluster workers, read in from HDFS, and can be viewed both as a graph
 and as a pair of RDDs.  All \tg operations are available through the
 public API of the \ql library, and may be used in an Apache Spark
-application.\eat{ \insql{TGraph} is the main abstract class that all
-  physical representations extend.  An excerpt of the API, where VD is
-  the vertex attribute and ED is the edge attribute type:} \ql code is
-freely available online.
+application.
 
-\eat{\begin{lstlisting}
-def slice(bound: Interval): TGraph[VD, ED]
-def aggregate(window: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId): TGraph[VD, ED]
-def union(other: TGraph[VD, ED]): TGraph[Set[VD], Set[ED]]
-\end{lstlisting}}
+\subsection{Reducing operators}
+\label{sec:sys:reduce}
+
+Spark is not a temporal system.  Following the approach of Dignos et
+al.~\cite{Dignos2012} we reduce our temporal operators into a sequence
+of nontemporal relational operators.  Since our model is using point
+semantics, we do not have the property of change preservation.  We do
+need several primitives, i.e. operators on individual temporal
+relations in \tve: extend, coalesce, normalize, and constrain.
+
+The {\em extend} primitive extends a relation with an additional
+attribute which for each tuple is equivalent to that tuple's
+timestamp.  See~\cite{Dignos2012} for the formal definition.  The
+extend primitive allows references to the timestamps in the temporal
+predicates and join conditions.
+
+The {\em coalesce} primitive merges adjacent and overlapping time
+periods.  This operation, which is similar to duplicate elimination in
+conventional databases, has been extensively studied in the
+literature~\cite{DBLP:conf/vldb/BohlenSS96,DBLP:journals/sigmod/Zimanyi06}.
+Eager coalescing is not desirable since it is expensive and some
+operations may produce correct results (up to coalescing) {\em even
+  when computing over uncoalesced inputs}.  \eat{This was discussed in
+  the context of temporal relational algebra
+  in~\cite{DBLP:conf/vldb/BohlenSS96}.}We will revisit this point in
+Section~\ref{sec:sys:coal}.
+
+The {\em normalize} primitive produces a set of tuples for each tuple
+by splitting its timestamp into non-overlapping periods with respect
+to another relation.  See~\cite{Dignos2012} for the formal definition.
+
+The {\em constrain} primitive constrains one relation in \tve with
+respect to another, such as removing edges from the result that do not
+have associated nodes, or trimming the edge validity period to be
+within the validity periods of associated nodes.
+
+The implementation of each of these primitives is discussed in
+Section~\ref{sec:sys:maint}.
+
+Our reduction rules are as follows:
+
+\eat{
+When computing result of an operator over the \ve representation, we
+do not require that each intermediate state of the data structure
+correspond to a valid \tg, but rather that the final result, which is
+usually derived after several steps, be valid.  To have a useful
+algebra, we do not reject a change that would lead to a violation in
+integrity.  Instead, we compute a consistent result by applying the
+resolve, coalesce, and contrain primitives.
+}
+\eat{
+Algorithm~\ref{alg:op} outlines the evaluation of a unary operation
+\opp(\tve), overloading \opp as appropriate when applying the
+operation to constituent parts of \tve.  Some of the steps in
+Algorithm~\ref{alg:op} may be unnecessary because of the properties of
+the particular operation, as we will see in the remainder of this
+section.  Furthermore, 
+}
+
+%\begin{algorithm}[t]
+%\caption{Evaluation of a unary operation \opp on \tve}
+%\begin{algorithmic}[1]
+%\REQUIRE \tg $\tve (\tv; \te; \tav; \tae)$, operation \insql{op}.\\
+%\STATE  $\tv' = \cl (\opp(\tv))$\\
+%\STATE  $\te' = \cl (\opp(\te))$\\
+%\STATE  $\tav' = \cl (\opp(\tav))$\\
+%\STATE  $\tae' = \cl (\opp(\tae))$\\
+%\STATE  enforce foreign keys on $\te'$ w.r.t. $\tv'$\\
+%\STATE  enforce foreign keys on $\tav'$ w.r.t. $\tv'$\\
+%\STATE  enforce foreign keys on $\tae'$ w.r.t. $\te'$\\
+%\RETURN new $\tve (\tv';\te';\tav';\tae')$\\
+%\end{algorithmic}
+%\label{alg:op}
+%\end{algorithm}
 
 \input{coal}
 

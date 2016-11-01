@@ -90,6 +90,136 @@ result for vertex $v_2$ for $[2/15, 5/15)$, $[5/15, 7/15)$ and $[7/15,
 only \tav and \tae are affected, while the contents of \tv and \te
 remain as in the input.
 
+{\bf Intersection may uncoalesce \tve and \trg.}  While temporal join over
+coalesced temporal relations does not uncoalesce, as shown
+in~\cite{DBLP:conf/vldb/BohlenSS96}, it is followed by a projection,
+which does uncoalesce.  For example, consider a simple \tg $T_2$
+that consists of only 1 vertex $v_1$ with attribute $(name:Alice)$ and
+no edges and exists for the period $[1/14, 5/15)$.  The
+  intersection of $T_2$ with \insql{T} in Figure~\ref{fig:tg_rg}
+  produces the same graph with vertex $v_1$ for each period of
+  intersection $[1/15, 2/15), [2/15, 5/15)$, which must be coalesced.
+
+{\bf Intersection requires FK enforcement for \tav and \tae but not
+  for \te.}  \eat{The proof for this is similar to the one for
+  \insql{slice}. } Consider an edge $\te(v_1, v_2, p^e) \in \te'$ and
+one of the corresponding vertices $\tv(v_1, p^v) \in \tv'$ computed in
+Algorithm~\ref{alg:inter}.  To violate the FK constraint on \te',
+there must exist a time instant $t \in p^e \wedge t \not\in p^v$.  But
+that is not possible, since by definition of temporal join $p^e$
+exists in both $\te_1$ and $\te_2$, and $\tve_1$ and $\tve_2$ are
+valid \tgs.  To see why we need to enforce FK for $\tav'$, consider
+again the example above with $T \cap T_2$.  The temporal outer join of
+$\tav_1$ and $\tav_2$ will produce a tuple for period [1/14, 1/15)
+  with the attribute $(name:Alice)$ from $\tav_2$.  Clearly this tuple
+  violates the FK constraint because we do not have any vertices in
+  $\tv'$ prior to 1/15.  Similarly for $\tae'$.
+
+{\bf Union may uncoalesce \tve and \trg.}  The logic here is similar
+to the case with temporal intersection.  Because we produce a single
+graph for each time period by computing a union of $g_1$ and $g_2$, a
+form of projection, the result may be uncoalesced.  For example,
+consider a simple \tg $T_2$ that consists of a single graph equal to
+the first representative graph of \insql{T} in Figure~\ref{fig:tg_rg}
+valid for a period of $[12/14, 5/15)$.  The same representative graph
+  will be produced for period $[12/14, 1/15)$ and $[1/15, 2/15)$ and
+      must be coalesced.  $\tv'$ and $\te'$ are coalesced since they
+      are computed with a temporal
+      join~\cite{DBLP:conf/vldb/BohlenSS96}.  However, $\tav'$ and
+      $\tae'$ are computed with a join followed by a projection, which
+      does uncoalesce.  Thus we apply the coalescing operation on
+      lines 3 and 4.
+
+{\bf Union does not require FK enforcement for \tve.} Temporal full
+outer join produces a vertex tuple for all periods in $\tv_1$ and
+$\tv_2$.  If $\tve_1$ and $\tve_2$ are valid graphs, then 
+referential integrity holds for $\te'$, $\tav'$ and $\tae'$.
+
+{\bf Difference may uncoalesce \tve and \trg.}  The logic here is
+similar to the temporal union and intersection cases above.  Because
+we produce a single graph for each time period by computing a $g_1
+\setminus g_2$, a form of projection, the result may be uncoalesced.
+For example, consider a simple \tg $T_2$ as above, i.e. equal to the
+first representative graph of \insql{T} in Figure~\ref{fig:tg_rg}
+valid for a period of $[2/15, 7/15)$.  The same representative graph
+  will be produced for period $[5/15, 6/15)$ and $[6/15, 7/15)$ and
+      must be coalesced.  As with union and intersection, $\tv'$ and
+      $\te'$ are coalesced since they are computed with a temporal
+      join~\cite{DBLP:conf/vldb/BohlenSS96}.  However, $\tav'$ and
+      $\tae'$ are computed with a join followed by a projection, which
+      does uncoalesce.  Thus we apply the coalescing operation on
+      lines 3 and 4.
+
+{\bf Difference requires FK enforcement for \tav and \tae but not \te.}
+The proof for this is the same as for intersection and we will not
+repeat it.
+
+{\bf Node creation may uncoalesce \tve and \trg.}  Consider
+\insql{T} that consists of only 1 vertex $v_1$ and no edges, and
+suppose that $v_1$ exists during the odd months of the year.  \tv
+contains $(v_1, [1/16, 2/16)), \ldots,$ $(v_1, [11/16,12/16))$, for
+    which time periods do not meet and so these tuples cannot be
+    coalesced.  Next consider $\tve'$ in the result of
+    $create_{W=2~months, Q_V=exists,Q_E=all}(T)$.  This relation will
+    contain $(v_1, [1/16, 3/16)), \ldots,$ $,(v_1, [11/16,1/17))$ ---
+        one tuple per input tuple, all tuples meet and so \tv' must be
+        coalesced.  A similar argument holds for, \te, \tav, \tae,
+        \trg.
+
+{\bf Node creation requires FK enforcement for \tve.}  As
+illustrated in Figure~\ref{fig:tg_agg1}, $(v_1,v_2,[1/15,4/15))$ is
+  absent from $\te'$ because, although this edge was present in \tv
+  for part of the period, and so meets the condition
+  $Q_E=\insql{exists}$, vertex $(v_2,[1/15,5/15))$ is absent from
+    $\tv'$.
+
+We now give an analysis of whether FK enforcement is required, by
+considering the relationship between vertex and edge aggregation
+quantifiers $Q_V$ and $Q_E$.  Recall that we support quantifiers
+\insql{all}, \insql{most}, \insql{at least} $n$, and \insql{exists},
+and observe that they can be translated to a threshold on the
+percentage of the time during which an entity (vertex or edge)
+existed, relative to the duration of the window specification: $t = 1$
+for \insql{all}, $t > 0.5$ for \insql{most}, $t > 0$ for
+\insql{exists} and $t > n$ for \insql{at least} $n$.  Let us refer to
+the vertex threshold as $t_V$, and to the edge threshold as $t_E$.  If
+an entity's existence meets the threshold, it will be retained in the
+result.
+
+FK enforcement is only required if $t_V > t_E$.  To see why, consider
+an interval $w$ which is one of the windows computed based on
+specification $W$.  We produce an edge $(v_1, v_2, w)$ iff $\exists
+\{(v_1, v_2, p_1),\ldots,(v_1, v_2, p_k)\} \in
+\te~~|~~(\bigcup_{i=1}^k p_i \cap w) / w > t_E$.  According to
+Definition~\ref{def:tg:c1}, if the input graph is valid then we must
+also produce $(v_1, w)$ and $(v_2, w)$ if $t_V \leq t_E$, since vertex
+periods are supersets of edge periods.  However, if $t_V > t_E$, we
+may not produce a vertex that meets $t_E$ but does not meet the
+greater $t_V$, as we showed with the example above.
+
+\eat{FK enforcement is only required if $t_V$ is stricter
+than $t_E$.  To see why, consider 2 cases.  (1) Suppose that $t_V \leq
+t_E$.  To violate FK constraint, we must produce edge $(v_1, v_2, p)
+\in \te'$ and not produce vertex $(v_1, p) \in \tv'$.  This edge
+$(v_1, v_2)$ must have been valid during at least $t_E$ portion of p
+in \te.  If our input is valid, then there must exist both $v_1$ and
+$v_2$ in \tv during at least $t_E$ portion of p to pass the FK
+constraint.  Since $t_E$ is at least as large as $t_V$, we will
+produce both $(v_1, p)$ and $(v_2, p)$.  (2) $t_V > t_E$.  The proof
+here is similar to above.  If we produce edge $(v_1, v_2, p) \in
+\te'$, then there must be both $v_1$ and $v_2$ in \tv that exist
+during at least $t_V$ portion of p.  However, since $t_V$ is larger
+than $t_E$, we may not produce a vertex in \tv' that meets $t_E$ but
+does not meet the greater $t_V$.  In that case the edge is violating
+the FK constraint.}
+
+{\bf Analytics do not uncoalesce.} An analytic adds a new key-value
+pair to the property bag of each vertex $v$ of every representative
+graph $g$, and does not implicitly project out vertex attributes.
+\eat{For this reason}Thus, an analytic cannot cause two temporally
+adjacent graphs \eat{$g_1$ and $g_2$ }that were not equivalent before
+the attribute addition \eat{new attribute was added }to become
+equivalent after it was added.
 
 \section{Additional results.}
 \label{sec:app2}
