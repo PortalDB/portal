@@ -1,8 +1,98 @@
-\appendix \label{sec:app1}
+\appendix 
+\section{Integrity proofs}
+\label{sec:app1}
 
-Coalescing proof sketches here.
+B\"ohlen et al.~\cite{DBLP:conf/vldb/BohlenSS96} show that temporal
+selection, Cartesian product and difference all produce a coalesced
+relation as output if the input was coalesced.  They also show that
+temporal union and temporal projection can give rise to an uncoalesced
+output even if the inputs were coalesced.  Intuitively, this is
+because union and projection can give rise to duplicates in
+traditional relational algebra, and lack of coalescing is the temporal
+analogy to a duplicate.
+%
+These observations also hold in our scenario at the level of
+individual relations, each containing representative graphs, vertices,
+edges, or vertex/edge attributes.
 
-\appendix \label{sec:app2}
+{\bf Slice does not uncoalesce.} Whether evaluated over \trg or \tve,
+slice is guaranteed to return a coalesced relation when evaluated over
+a coalesced input.  This is because, for any relation \insql{R}, there
+will be at most one tuple from \insql{R} in the result of $\tau_c (R)$,
+with a validity period that is either the same as it was in \insql{R},
+or further restricted (trimmed).  Therefore, there is no need to
+coalesce \trg after slice, or on lines 1-4 of Algorithm~\ref{alg:op}
+when operating over \tve.
+
+{\bf Slice does not require FK enforcement for \tve.}  To see why,
+consider an edge $\te(v_1, v_2, p)$ and one of the corresponding
+vertices $\tv(v_1, p_1)$, such that $\pred{p_1}{contains}{p}$ (per
+Definition~\ref{def:tg} condition~\ref{def:tg:c1}).  Suppose now that
+slice was applied to \tv and to \te with condition $c$.  Is it
+possible that edge $(v_1, v_2, p \cap c)$ is in the result of $\tau_c
+(\te)$ (i.e., $p \cap c \neq \emptyset$), while vertex $\tv(v_1, p_1 \cap
+c)$ is not in the result of $\tau_c (\tv)$ (i.e., $p_1 \cap c =
+\emptyset$)?  Clearly, the answer is no, since
+$\pred{p_1}{contains}{p}$, and so it must be the case that
+$\pred{p_1}{contains}{(p \cap c)}$.  A similar argument justifies that
+FK enforcement is not needed for $\tau_c(\tav)$ (w.r.t. $\tau_c (\tv)$) and
+for $\tau_c(\tae)$ (w.r.t. $\tau_c (\te)$).
+
+{\bf Subgraph may uncoalesce \trg.} Consider \insql{T1} in
+Figure~\ref{fig:tg_rg}.  The query
+$\sigma_{C_V:{school='Drexel'},C_E:\top} (\insql{T1})$ matches
+vertices $v_1$ and $v_3$ in every representative graph in which these
+occur.  Since graphs for time periods $[1/15,2/15)$ through
+  $[6/15,7/15)$ are identical, the result will be uncoalesced, and
+    will need to be coalesced explicitly.  The final result will
+    consist of 2 representative graphs, with both $v_1$ and $v_3$ for
+    $[1/15, 7/15)$, and with $v_3$ only for $[7/15, 10/15)$.
+
+{\bf Subgraph does not uncoalesce \tve.}  Consider again the
+computation of $\tv'$ described above, with a query that involves
+projection, selection and join over temporal SQL relations $\tv$ and
+\tav.  While selection and join cannot produce an uncoalesced output
+if the input is coalesced, projection may produce an uncoalesced
+output relation~\cite{DBLP:conf/vldb/BohlenSS96}.  Interestingly,
+projection does not result in an uncoalesced output in this case. To
+see why, suppose that $C_V$ is trivial, i.e., that $\sigma_{C_{V1}}
+(\tv) = \tv$ and $\sigma_{Q_{C2}} (\tav) = \tav$. Then $\tv' =
+\pi_{v,p} (\tv \bowtie \tav)$, and since $\tv \bowtie \tav$ is a
+primary key-foreign key join, then $\tv' = \tv$.  If $C_V$ is
+non-trivial, i.e., $\sigma_{Q_{C1}} (\tv) \subset \tv$ or
+$\sigma_{C_{V2}} (\tav) \subset \tav$, then it will be the case that
+$V' \subset V$.  In both cases, if $\tv$ is coalesced then so is
+$\tv'$.  A similar argument applies to the edges relation $\te'$.
+Finally, since $\tav'$ and $\tae'$ are computed from coalesced input
+relations using only selection, they are guaranteed to be coalesced.
+Thus, it is not necessary to coalesce on lines 1-4 of
+Algorithm~\ref{alg:op}.
+
+{\bf Subgraph requires FK enforcement for \tve.}  A natural query
+specifies a selection condition over the vertices, and computes the
+vertex-induced subgraph.  In this case we cannot compute $\te'$ from
+$\te$ alone, but will need to remove edges for which one or both
+vertices are not present in $\tv'$.  Similarly, we must remove tuples
+from $\tav'$ and $\tae'$ for which no corresponding tuples exist in
+$\tv'$ and $\te'$.
+
+{\bf Map may uncoalesce \tav, \tae and \trg.}  Consider computing
+$\map_{m_V:name, M_E:\emptyset} (\insql{T1})$ over \insql{T1} in
+Figure~\ref{fig:tg_ve}.  There will be three identical tuples in the
+result for vertex $v_2$ for $[2/15, 5/15)$, $[5/15, 7/15)$ and $[7/15,
+      10/15)$, which must be coalesced to return a valid \tav.  A
+      similar argument holds for \tae. This operation will also
+      produce two identical representative graphs in \trg in
+      Figure~\ref{fig:tg_rg} for $[2/15, 5/15)$ and $[5/15, 6/15)$,
+          which will have to be coalesced explicitly.
+
+{\bf Map does not require FK enforcement for \tve.}  This is because
+only \tav and \tae are affected, while the contents of \tv and \te
+remain as in the input.
+
+
+\section{Additional results.}
+\label{sec:app2}
 
 Plots and discussion in this section complement experimental results
 presented in Section~\ref{sec:exp}.
