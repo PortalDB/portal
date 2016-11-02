@@ -1,0 +1,188 @@
+\section{TGraph Algebra}
+\label{sec:lang}
+
+The \ql query language is declarative.  We illustrated the syntax of
+\ql in Section~\ref{sec:example}.  In this section we present
+algebraic operators that implement \ql.  We support unary and binary
+operators that take \tgs as input and produce a \tg as output.  Thus,
+the language is fully compositional.  We will use the graph in
+Figure~\ref{fig:sg} to illustrate query language operators.
+
+\paragraph*{T-Select} The unary operation \tsel{T}{c}, where $T$ is
+ a \tg and $c$ is a {\em temporal predicate}, returns a \tg $T'$
+ containing a subset of the snapshots of $T$.  We adopt SQL 2011
+ temporal predicate definitions for {\em contains}, {\em overlaps},
+ {\em equals}, {\em preceeds}, and {\em succeeds} for time periods.
+ Our use of these predicates will be illustrated as appropriate.  Note
+ that if $c$ matches non-consecutive snapshots in $T$, $T'$ will still
+ cover a consecutive time period, but some of the snapshots in $T'$
+ will be empty.  For example, if $c$ matches months with names
+ containing the letter 'r', then $T'$ will contain the snapshots for
+ $T$ for January through April and September through December, and
+ empty snapshots for May through August.
+
+\paragraph*{S-Select} The unary operation \ssel{T}{c}, where $T$ is a \tg 
+and $c$ is a {\em structural predicate}, returns a \tg $T'$ that has
+the same temporal schema as $T$, and $\forall i \leq T.size, T'.G_i.V
+\subseteq T.G_i.V \wedge T'.G_i.E \subseteq T.G_i.E$.  \julia{What is
+  the right terminology for what I'm calling ``conjunctive structural
+  predicate''?  Is there a standard way to state the obvious condition
+  that vertices are checed first, and if a vertex disappears, then so
+  do its edges?}
+
+\paragraph*{U-Group} The unary operation \andgrp{T}{c}{\gamma_v}{\gamma_e}, 
+where $T$ is a \tg, $c$ is an interval expression, $\gamma_v$ is a
+vertex aggregation function, and $\gamma_e$ is an edge aggregation
+function, groups snapshots of $T$ based on $c$, and then aggregates
+the vertices and edges of snapshots in the same group by performing
+{\em structural union} of the snapshots.  By structural union we mean
+that a vertext will be present in the snapshot for group $g$ if it was
+present in at least one snapshot that maps to $g$.  And edge will be
+present in the aggregate if both vertices of that edge are present,
+and if the edge was present in at least one snapshot that mapts to
+$g$.
+
+Functions $\gamma_v$ and $\gamma_e$ specify how attributes of a
+vertext (resp. edge) that occurs in multiple snapshots in a given
+group are handled.  For example ...
+
+\paragraph*{E-Group}  The unary operation \orgrp{T}{c}{\gamma_v}{\gamma_e}, 
+with the same arguments as {\bf U-Group}, groups snapshots of $T$
+based on $c$, and then aggregates the vertices and edges of snapshots
+in the same group by performing {\em structural intersection} of the
+snapshots.  By structural intersection we mean that a vertext
+(resp. edge) will be present in the snapshot for group $g$ if it is
+present in all snapshots that map to $g$.  If any of the snapshots
+that map to $g$ are empty, then so is the snapshot for $g$.  Functions
+$\gamma_v$ and $\gamma_e$ have the same meaning for {\bf U-Group};
+they specify how attributes of vertices and edges are aggregated.  For
+example...
+
+\paragraph*{Transform} The unary operation \xfrm{T}{map_v}{map_e}, where $T$ 
+is a \tg, $map_v$ is a vertext map function and $map_e$ is an edge map
+function, transforms the structural schema of a \tg, while keeping its
+temporal schema intact.  For example, ...
+
+\paragraph*{Analytic} The unary operation \an{T}{f_v}, where $T$ is a \tg and $f$ 
+is an analytic function, computes the value of an analytic function
+for each vertex of $T$.  \julia{Do we want to say that this is
+  restricted to the Pregel API?  Do we need an edge function as well,
+  or just a vertext function?}  For example, ...
+
+\paragraph*{T-Union} The binary operation \tor{T_1}{T_2}{\gamma_v}{\gamma_e} 
+computes the union of union-compatible \tgs $T_1$ and $T_2$.  The
+result $T$ has temporal schema $T_1.P \cup T_2.P$.  If $T_1.P \cap
+T_2.P$ is non-empty, structural union of the corresponding snapshots
+is taken, and $\gamma_v$ and $\gamma_e$ are applied to the to the
+attributes of the vertices (resp. edges) that are in common.  \julia{I
+  don't like that this is restricted to structural union.  Is there a
+  way to argue for this, or do we want to also support structural
+  intersection as part of T-Union?  The same question for
+  T-Intersect.}  For example...
+
+\paragraph*{T-Intersect} The binary operation \tand{T_1}{T_2}{\gamma_v}{\gamma_e} 
+computes the intersection of union-compatible \tgs $T_1$ and $T_2$.
+The resulting \tg has temporal schema $T_1.P \cap T_2.P$, and each
+snapshot is the result of structural intersection of the corresponding
+snapshots, with $\gamma_v$ and $\gamma_e$ applied to the attributes of
+the vertices (resp. edges).
+
+Our language supports both unary and binary operators. They are:
+\begin{itemize}
+\item T-Select -- select a temporal subset based on a temporal expression.
+\item S-Select -- select a subgraph for every snapshot (selection over V and E).
+\item Aggregation -- change the granularity of the graph based on predefined semantics.
+\item Transform -- modify the structural schema of the graph (similar to a map operation in map-reduce).
+\item Graph analytics -- compute an analytic over all snapshots of the graph.
+\item Union -- compute union of two temporal graphs.
+\item Intersection -- compute intersection of two temporal graphs.
+\end{itemize}
+
+\begin{definition} [T-Select]
+\label{def:tsel}
+A time selection operator $T-\sigma_\phi(T) = (G_x, \ldots, G_y; P')$ is
+a temporal subset operator on $T$ with propositional formula $\phi$
+over $P$, where $1 \leq x,y \leq n$, $P' \subset P$.  The
+propositional formula is a time expression over $P$.
+\end{definition}
+
+Time select operator changes the temporal schema of graph $T$ while
+keeping the structural schema intact.
+
+Similar to ~\cite{Khurana2013}, we support the following types of time expressions:
+
+\begin{itemize}
+
+\item Time iterval.  Any valid time interval $[p.start,p.end)$ can be
+  used for T-Select.  The selected temporal sequence is the interval
+  intersection \ref{def:tseqii} of the input time interval and T's
+  temporal sequence P.  I.e., only the overlapping portion of T's
+  temporal sequence and input period p will be selected.
+
+\item Interval predicate.  A predicate that can be applied to each
+  time interval $p_i \in P$.  Because a temporal sequence does not
+  allow for any gaps, empty snapshots are inserted in each time
+  interval that does not meet the selection criteria.  \vera{I am not
+    sure if I like this...}
+
+\end{itemize}
+
+\vera{Khurana also supports single time point selection, but I don't
+  think this goes well with our model.}
+
+For example, T-Select over graph T with temporal sequence
+$[1,3),\ldots,[9,11)$ with argument [3,12) results in a $T'$ with $P'
+      = [3,11)$.  In contrast, for the same graph T with argument
+        [4,6) results in a null sequence $\emptyset$ because there is
+          no valid overlap.
+
+\begin{definition}
+\label{def:ssel}
+A structure select operator $S-\sigma_\phi(T)$ returns a structural
+subgraph $T'= (G_1', \ldots, G_n'; P)$ on $T$, where $\forall i \in 1
+\ldots n, V'_i \subseteq V_i$, $E'_i \subseteq E_i$. The temporal
+schema of the temporal graph is not affected, i.e. $T.P = T'.P$.
+
+\vera{But what happens if the subgraph operation on the last (or
+  first) snapshot results in an empty snapshot? Should we tighten the
+  interval so that P' is subset of P or keep P as is and have empty
+  snapshots? What we have above is option b which I think is more
+  consistent.}
+\end{definition}
+
+\begin{definition}
+\label{def:agg}
+An aggregation operator $G f(V_i) g(E_i) (T)$ returns a subgraph 
+
+$T' = (G_1', \ldots, G_m', P')$, where $\forall G_i' = \cup(G_{i},
+\cdots, G_{i+r'-1})$ for existential semantics and $\cap(G_{i},
+\cdots, G_{i+r'-1})$ for universal semantics.  $f(V_i)$ is a function
+applied to node attribute values of nodes with the same identity.
+Similarly, $g(E_i)$ is a function applied to edge attribute values
+with the same identity. \vera{We need to express somehow that if |GS|
+  is not evenly divisible by r', we reduce or increase as needed to
+  hold the size/resolution constraint.}
+\end{definition}
+
+Aggregation changes temporal schema of the graph, while keeping the
+snapshot schema.
+
+For example, consider the temporal graph in Figure~\ref{fig:agg}.
+
+\begin{figure}
+\label{fig:agg}
+\caption{...}
+\end{figure}
+
+\begin{definition}
+\label{def:transform}
+A transform operator $map f(V_i) g(E_i) (T)$ is a modification
+function on T which returns $T' = (G_1', \cdots, G_n', P)$ where
+$\forall V_i' = f(V_i), E_i' = g(E_i)$.
+\end{definition}
+
+The transform operator keeps the graph temporal schema, as well as
+snapshot structure, while modifying snapshot schema and/or values,
+computed 1 node at a time.  This is similar to the map operation in
+MapReduce.
+

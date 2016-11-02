@@ -49,7 +49,7 @@ abstract class TGraphWProperties(spec: GraphSpec, storLevel: StorageLevel = Stor
       .reduceByKey((a: Map[Interval, VertexEdgeAttribute], b: Map[Interval, VertexEdgeAttribute]) => a ++ b)
   }
 
-  override def aggregate(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute, eAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute)(vgroupby: (VertexId, VertexEdgeAttribute) => VertexId = vgb): TGraphWProperties = {
+  override def createNodes(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute, eAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute)(vgroupby: (VertexId, VertexEdgeAttribute) => VertexId = vgb): TGraphWProperties = {
     //aggregateByChange requires coalesced tgraph for correctness
     //both produce potentially uncoalesced TGraph
     res match {

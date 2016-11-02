@@ -42,8 +42,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
 
   override def slice(bound: Interval): OneGraphColumn[VD, ED] = {
     if (graphs == null) return super.slice(bound).asInstanceOf[OneGraphColumn[VD,ED]]
-    //VZM: FIXME: this special case is commented out for experimental purposes
-    //if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
+    if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
     if (span.intersects(bound)) {
       if (graphs == null) computeGraph()
       val startBound = maxDate(span.start, bound.start)
@@ -51,7 +50,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       val selectBound:Interval = Interval(startBound, endBound)
 
       //compute indices of start and stop
-      val zipped = intervals.zipWithIndex.filter(intv => intv._1.intersects(selectBound))
+      val zipped = collectedIntervals.zipWithIndex.filter(intv => intv._1.intersects(selectBound))
       val selectStart:Int = zipped.min._2.toInt
       val selectStop:Int = zipped.max._2.toInt
 
@@ -502,8 +501,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
         case (vid, vdata, None) => val tmp = new Int2IntOpenHashMap(); vdata.seq.foreach(x => tmp.put(x,0)); tmp
       }
         .mapTriplets{ e => val tmp = new Int2ObjectOpenHashMap[(Double, Double)](); e.attr.seq.foreach(x => tmp.put(x, (1.0 / e.srcAttr(x), 1.0 / e.dstAttr(x)) )); tmp}
-        .mapVertices( (id,attr) => {var tmp = new Int2ObjectOpenHashMap[(Double, Double)](); attr.foreach(x => tmp.put(x._1, (0.0,0.0))); tmp.map(identity); tmp})
-        .cache()
+        .mapVertices( (id,attr) => new Int2ObjectOpenHashMap[(Double, Double)](attr.keySet().toIntArray(), Array.fill(attr.size)((0.0,0.0)))).cache()
 
       val vertexProgram = (id: VertexId, attr: Int2ObjectOpenHashMap[(Double, Double)], msg: Int2DoubleOpenHashMap) => {
         var vals = attr.clone
@@ -594,10 +592,10 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
         case (vid, vdata, None) => val tmp = new Int2IntOpenHashMap(); vdata.seq.foreach(x => tmp.put(x,0)); tmp
       }
         .mapTriplets{ e => val tmp = new Int2ObjectOpenHashMap[Double](); e.attr.seq.foreach(x => tmp.put(x, (1.0 / e.srcAttr(x)) )); tmp}
-        .mapVertices( (id,attr) => {var tmp = new Int2ObjectOpenHashMap[(Double, Double)](); attr.foreach(x => tmp.put(x._1, (0.0,0.0))); tmp.map(identity); tmp})
-        .cache()
+        .mapVertices( (id,attr) => new Int2ObjectOpenHashMap[(Double, Double)](attr.keySet().toIntArray(), Array.fill(attr.size)((0.0,0.0)))).cache()
 
-      val vertexProgram = (id: VertexId, attr: Int2ObjectOpenHashMap[(Double, Double)], msg: Int2DoubleOpenHashMap) => {
+
+    val vertexProgram = (id: VertexId, attr: Int2ObjectOpenHashMap[(Double, Double)], msg: Int2DoubleOpenHashMap) => {
         var vals = attr.clone
 
         val itr = attr.iterator
@@ -799,8 +797,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
 
       while(itr.hasNext){
         val(index, mp) = itr.next()
-
-        b.put(index, addMaps(mp, b.getOrElse(index, makeMap(Seq[(VertexId,Int)]()))))
+        b.put(index.toInt, addMaps(mp, b.getOrElse(index, makeMap(Seq[(VertexId,Int)]()))))
       }
       b
     }
@@ -872,6 +869,52 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       fromRDDs(newverts, allEdges, (defaultValue, emptym), storageLevel, false)
     else
       new OneGraphColumn[(VD, Map[VertexId,Int]), ED](newverts, allEdges, graphs, (defaultValue, emptym), storageLevel)
+  }
+
+  override def aggregateMessages[A: ClassTag](sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
+    mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): OneGraphColumn[(VD, A), ED] = {
+    if (graphs == null) computeGraph()
+
+    val agg: VertexRDD[Int2ObjectOpenHashMap[A]] = graphs.aggregateMessages[Int2ObjectOpenHashMap[A]](
+      ctx => {
+        val edge = ctx.toEdgeTriplet
+        val triplet = new EdgeTriplet[VD, ED]
+        triplet.srcId = edge.srcId
+        triplet.dstId = edge.dstId
+        //FIXME: we don't have the src and dst attributes, so this will work only for cases when TripletFields is none.
+        sendMsg(triplet).foreach{x =>
+          val tmp = new Int2ObjectOpenHashMap[A]()
+          ctx.attr.seq.foreach {index => tmp.put(index, x._2)}
+          if (x._1 == edge.srcId)
+            ctx.sendToSrc(tmp)
+          else if (x._1 == edge.dstId)
+            ctx.sendToDst(tmp)
+          else
+            throw new IllegalArgumentException("trying to send message to a vertex that is neither a source nor a destination")
+        }
+      },
+      (a, b) => {
+        val itr = a.iterator
+        while (itr.hasNext) {
+          val (index,vl) = itr.next()
+          b.update(index, mergeMsg(vl, b.getOrElse(index, defVal)))
+        }
+        b
+      }, tripletFields)
+
+    //now put back into vertices
+    //TODO: make this work without collect
+    val intvs = ProgramContext.sc.broadcast(collectedIntervals)
+    val vattrs: RDD[(VertexId, (Interval, A))] = agg.flatMap{ case (vid,vattr) => vattr.toSeq.map{ case (k,v) => (vid,(intvs.value(k), v))}}
+    //now need to join with the previous value
+    val newverts: RDD[(VertexId, (Interval, (VD, A)))] = allVertices.leftOuterJoin(vattrs)
+      .filter{ case (k, (v, u)) => u.isEmpty || v._1.intersects(u.get._1)}
+      .mapValues{ case (v, u) => if (u.isEmpty) (v._1, (v._2, defVal)) else (v._1.intersection(u.get._1).get, (v._2, u.get._2))}
+
+    if (ProgramContext.eagerCoalesce)
+      fromRDDs(newverts, allEdges, (defaultValue, defVal), storageLevel, false)
+    else
+      new OneGraphColumn[(VD, A), ED](newverts, allEdges, graphs, (defaultValue, defVal), storageLevel, false)
   }
 
   /** Spark-specific */

@@ -400,6 +400,12 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     throw new UnsupportedOperationException("analytics not supported")
   }
 
+  override def aggregateMessages[A: ClassTag](sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
+    mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): VEGraph[(VD, A), ED] = {
+    throw new UnsupportedOperationException("analytics not supported")
+  }
+
+
   /** Spark-specific */
 
   override def persist(newLevel: StorageLevel = MEMORY_ONLY): VEGraph[VD, ED] = {

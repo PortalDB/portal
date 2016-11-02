@@ -1,0 +1,22 @@
+\subsection{Temporal User-Defined Analytics}
+\label{sec:analytics}
+
+For many types of evolving graph analysis, it is necessary to compute
+some property, such as PageRank of each vertex $v$, or the length of
+the shortest path from a given designated vertex $u$ to each $v$, for
+each representative graph.  This information can then be used to study
+how the graph evolves over time.  \ql supports this type of analysis
+through {\em temporal user-defined analytics}, which conceptually
+execute an aggregation-map operation sequence repeatedly over a set
+number of iterations or until fixpoint.\eat{analytic over each \rg,
+  compute a value for each vertex of the \rg, and then store this
+  value among the attributes of the vertex (adding it to the property
+  bag)}.  We provide an API that allows developers to implement custom
+analytics that can be expressed in the popular Pregel
+API~\cite{DBLP:conf/sigmod/MalewiczABDHLC10}.
+
+An analytic can be computed on each representative graph.  However, we
+will show in Section~\ref{sec:exp} that more efficient methods that
+use batching are possible.  \eat{Analytics cannot be computed directly on
+\tve, because they must, by definition, act over representative
+graphs.}

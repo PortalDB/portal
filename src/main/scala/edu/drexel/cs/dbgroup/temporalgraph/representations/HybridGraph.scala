@@ -51,8 +51,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
   
   override def slice(bound: Interval): HybridGraph[VD, ED] = {
     if (graphs.size < 1) return super.slice(bound).asInstanceOf[HybridGraph[VD,ED]]
-    //VZM: FIXME: this special case is commented out for experimental purposes
-    //if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
+    if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
     
     if (span.intersects(bound)) {
       if (graphs.size < 1) computeGraphs()
@@ -723,22 +722,28 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
           //TODO: replace these foreach with using the arrays constructor
           val degs: VertexRDD[Int2IntOpenHashMap] = grp.aggregateMessages[Int2IntOpenHashMap](
             ctx => {
-              ctx.sendToSrc{val tmp = new Int2IntOpenHashMap(); ctx.attr.seq.foreach(x => tmp.put(x,1)); tmp}
-              ctx.sendToDst{val tmp = new Int2IntOpenHashMap(); ctx.attr.seq.foreach(x => tmp.put(x,1)); tmp}
+              ctx.sendToSrc{new Int2IntOpenHashMap(ctx.attr.toArray, Array.fill(ctx.attr.size)(1))}
+              ctx.sendToDst{new Int2IntOpenHashMap(ctx.attr.toArray, Array.fill(ctx.attr.size)(1))}
             },
             mergeFunc, TripletFields.EdgeOnly)
 
           val joined: Graph[Int2IntOpenHashMap, BitSet] = grp.outerJoinVertices(degs) {
-            case (vid, vdata, Some(deg)) => vdata.filter(x => !deg.contains(x)).seq.foreach(x => deg.put(x,0)); deg
-            case (vid, vdata, None) => val tmp = new Int2IntOpenHashMap(); vdata.seq.foreach(x => tmp.put(x,0)); tmp
+            case (vid, vdata, Some(deg)) => {
+              val filtered = vdata.filter(x => !deg.contains(x))
+              deg.putAll(new Int2IntOpenHashMap(filtered.toArray, Array.fill(filtered.size)(0)))
+              deg
+            }
+            case (vid, vdata, None) => new Int2IntOpenHashMap(vdata.seq.toArray, Array.fill(vdata.seq.size)(0))
           }
 
           val withtrips: Graph[Int2IntOpenHashMap, Int2ObjectOpenHashMap[(Double, Double)]] = joined.mapTriplets{ e:EdgeTriplet[Int2IntOpenHashMap, BitSet] =>
             val tmp = new Int2ObjectOpenHashMap[(Double, Double)](); e.attr.seq.foreach(x => tmp.put(x, (1.0 / e.srcAttr(x), 1.0 / e.dstAttr(x)))); tmp}
 
-          val prankGraph:Graph[Int2ObjectOpenHashMap[(Double, Double)], Int2ObjectOpenHashMap[(Double, Double)]]
+
+
+        val prankGraph:Graph[Int2ObjectOpenHashMap[(Double, Double)], Int2ObjectOpenHashMap[(Double, Double)]]
           = withtrips.mapVertices( (id,attr) =>
-          {val tmp = new Int2ObjectOpenHashMap[(Double, Double)](); attr.foreach(x => tmp.put(x._1, (0.0,0.0))); tmp}).cache()
+          {new Int2ObjectOpenHashMap[(Double, Double)](attr.keySet().toIntArray, Array.fill(attr.size)((0.0,0.0)))}).cache()
 
           val initialMessage: Int2DoubleOpenHashMap = {
             val tmpMap = new Int2DoubleOpenHashMap()
@@ -779,11 +784,11 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
     val runSums = widths.scanLeft(0)(_ + _).tail
 
     val conc = (grp: Graph[BitSet,BitSet], minIndex: Int, maxIndex: Int) => {
-    if (grp.vertices.isEmpty)
-        Graph[HashMap[TimeIndex,VertexId],BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
-      else {
+      //if (grp.vertices.isEmpty)
+      //  Graph[HashMap[TimeIndex,VertexId],BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+      //else {
         ConnectedComponentsXT.runHybrid(grp, minIndex, maxIndex-1)
-      }
+      //}
     }
 
     val allgs = graphs.zipWithIndex.map{ case (g,i) => conc(g, runSums.lift(i-1).getOrElse(0), runSums(i))}
@@ -805,6 +810,56 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
 
   override def shortestPaths(uni: Boolean, landmarks: Seq[VertexId]): HybridGraph[(VD, Map[VertexId, Int]), ED] = {
     throw new UnsupportedOperationException("shortest paths not yet implemented")
+  }
+
+  override def aggregateMessages[A: ClassTag](sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
+    mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): HybridGraph[(VD, A), ED] = {
+    if (graphs.size < 1) computeGraphs()
+
+    val aggMap = (grp: Graph[BitSet,BitSet]) => {
+      grp.aggregateMessages[Int2ObjectOpenHashMap[A]](
+        ctx => {
+          val edge = ctx.toEdgeTriplet
+          val triplet = new EdgeTriplet[VD, ED]
+          triplet.srcId = edge.srcId
+          triplet.dstId = edge.dstId
+          //FIXME: we don't have the src and dst attributes, so this will work only for cases when TripletFields is none.
+          sendMsg(triplet).foreach{x =>
+            val tmp = new Int2ObjectOpenHashMap[A]()
+            ctx.attr.seq.foreach {index => tmp.put(index, x._2)}
+            if (x._1 == edge.srcId)
+              ctx.sendToSrc(tmp)
+            else if (x._1 == edge.dstId)
+              ctx.sendToDst(tmp)
+            else
+              throw new IllegalArgumentException("trying to send message to a vertex that is neither a source nor a destination")
+          }
+        },
+        (a, b) => {
+          val itr = a.iterator
+          while (itr.hasNext) {
+            val (index,vl) = itr.next()
+            b.update(index, mergeMsg(vl, b.getOrElse(index, defVal)))
+          }
+          b
+        }, tripletFields)
+    }
+
+    val allgs = graphs.zipWithIndex.map{ case (g,i) => aggMap(g)}
+
+    //now extract values
+    //TODO: make this work without collect
+    val intvs = ProgramContext.sc.broadcast(collectedIntervals)
+    val vattrs = allgs.map{ g => g.flatMap{ case (vid,vattr) => vattr.asInstanceOf[Map[TimeIndex, A]].toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}}}.reduce(_ union _)
+    //now need to join with the previous value
+    val newverts = allVertices.leftOuterJoin(vattrs)
+      .filter{ case (k, (v, u)) => u.isEmpty || v._1.intersects(u.get._1)}
+      .mapValues{ case (v, u) => if (u.isEmpty) (v._1, (v._2, defVal)) else (v._1.intersection(u.get._1).get, (v._2, u.get._2))}
+
+    if (ProgramContext.eagerCoalesce)
+      fromRDDs(newverts, allEdges, (defaultValue, defVal), storageLevel, false)
+    else
+      new HybridGraph(newverts, allEdges, widths, graphs, (defaultValue, defVal), storageLevel, false)
   }
 
   /** Spark-specific */

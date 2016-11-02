@@ -1,0 +1,123 @@
+\section{Related Work}
+\label{sec:related}
+
+{\bf Temporal data models and languages.} 
+The \tg representation is based on
+interval semantics~\cite{DBLP:reference/db/JensenS09k}, and is
+temporally coalesced~\cite{DBLP:conf/vldb/BohlenSS96}.  \tg algebra is
+based on the principle of snapshot
+reducibility~\cite{DBLP:reference/db/Bohlen092}.  We use insights of
+temporal joins~\cite{Gao2005} to define \tg union and intersection.
+aggregation is inspired by stream aggregation of~\cite{Li2005}.  An
+interval-based model of graph evolution, and a composable algebra for
+evolving graphs based on snapshot reducibility, are among our most
+important contributions.
+
+{\bf Evolving graph models and representations.}\eat{ Representation
+  and querying of evolving graphs has received active interest
+  recently.} Much recent work represents evolving graphs as sequences
+of snapshots in a discrete time domain, and focuses on snaposhot
+retrieval and
+analytics~\cite{Khurana2013,DBLP:journals/tos/MiaoHLWYZPCC15,Ren2011}.
+This approach is in contrast to an interval-based model that we use and has
+several limitations.  First, the state of the graph can be undefined
+at some time $t$ unless a snapshot is associated with each possible
+value in the discrete range $[t_{start}, now)$.  Second, it is not
+  compact: every change to an entity (vertex or edge) requires a new
+  snapshot.\eat{ For large graphs, consecutive snapshots have degree
+    of similarity approaching 1 (on the scale of 0 of no similarity
+    and 1 full similarity).}\eat{  This has motivated work on efficient
+  physical representations that are both compact and support efficient
+  snapshot-based
+  operations~\cite{Khurana2013,DBLP:journals/tos/MiaoHLWYZPCC15,Ren2011}.}
+%
+The G* system~\cite{Labouseur2015} manages graphs that correspond to
+periodic snapshots, with the focus on efficient data layout.  It takes
+advantage of the similarity between successive snapshots by storing
+shared vertices only once and maintaining per-graph indexes.\eat{, which are
+in turn used by per-snapshot graph analysis operators. } \eat{Time is
+  not an intrinsic part of the system, as there is in \ql, and thus no
+  operators to express temporal queries like aggregation and slice.}
+
+Efficient physical representations using deltas are investigted
+in~\cite{Khurana2013}.  Their on-disk representation is compatible
+with the period-based model, but the logical model and the algorithms
+for retrieval are snapshot-based.  Their in-memory GraphPool maintains
+a single representation of all snapshots, and stores only dependencies
+from a materialized snapshot when deltas are small.  Evaluation of
+queries involving multiple snapshots, such as aggregation, requires
+fully materialized views in memory, which makes this approach
+infeasible for our purposes.  
+%Snapshot retrieval is a useful operation
+%for many types of analysis and thus should be supported.  In our model
+%a snapshot at any time $t$ can be retrieved by temporal slice.
+
+Ren et al.~\cite{Ren2011} develop an in-memory representation of
+evolving graphs based on representative graphs for sets of snapshots.
+Their notion of a representative graph differs from ours, in that 
+it indicates a union or an intersection between a set
+of consecutive snapshots rather than being a consistent
+representation of the graph for some period $p$.  Nevertheless, Ren's
+representative graphs can be computed in \ql using temporal
+aggregation.
+
+Semertzidis et al.~\cite{Semertzidis2015} develop a version graph,
+where each node and edge is annotated with the set of time intervals
+in which they exist.  Their model is also a sequence of snapshots with
+the integer time domain.  The version graph can be extended to support
+the period-based model, and is similar to our \og 
+repesentation.
+%
+Boldi et al.~\cite{Boldi2008} present a space-efficient non-delta
+approach for storing a large evolving Web graph that they harvested,
+representing purely topological information, with no vertex or edge
+attributes.\eat{  However, a separate column store could be added for those
+attributes with relative ease.}
+
+Another commonly used graph model is the continuous time model based
+on change streams~\cite{Cheng2012,Ediger2012}, usually to support
+analysis of the latest state of the graph.  Here, stream $S$ emits a
+sequence of graph change events $e$, each associated with a time $t$
+at which it was emitted.\eat{ An event can be of entity creation,
+  deletion, or change in the value of one of the entity attributes.
+  Multiple events may be associated with one time instance and the
+  event emit rate is not constant.}\eat{ Because the stream emits
+  individual entities rather than whole graphs, graph snapshots can
+  only be reconstructed by maintaining the history of changes over
+  time. } A \tg can be constructed from a change stream following the
+conventional temporal database approach of maintaining valid-time
+data.
+
+\eat{
+This approach assumes that no events arrive out of order and there are
+no redundant or duplicate events.  However, it would be a simple
+extension to relax these two assumptions.  We also use a closed world
+assumption -- if no event is recorded, for our purposes it did not
+occur.
+}
+
+{\bf Querying and analytics.} There has been much recent work on
+analytics for evolving graphs,
+see~\cite{DBLP:journals/csur/AggarwalS14} for a survey. This line of
+work is synergistic with ours, since our aim is to provide systematic
+support for scalable querying and analysis of evolving graphs.
+
+Several researchers have proposed individual queries, or classes of
+queries, for evolving graphs, but without a unifying syntax or general
+framework.  Kan et al.~\cite{Kan2009} propose a query model for
+discovering subgraphs that match a specific spatio-temporal pattern.
+Chan et al.~\cite{Chan2008} query evolving graphs for patterns
+represented by waveforms.  Semertzidis et al.~\cite{Semertzidis2015}
+focus on historical reachability queries.
+
+Miao et al.~\cite{DBLP:journals/tos/MiaoHLWYZPCC15} developed ImmortalGraph,
+a proprietary in-memory execution engine for temporal graph analytics.
+Their approach is based on the snapshot model and
+does not provide a query 
+language.% and emphasize in-memory layouts and scheduling.  
+Nonetheless, many insights about temporal vs. structural locality
+by~\cite{DBLP:journals/tos/MiaoHLWYZPCC15} hold in our setting.
+
+%A further difference is that our work is in
+%scope of Apache Spark, a widely-used open source platform, while
+%ImmortalGraph is a proprietary stand-alone prototype.

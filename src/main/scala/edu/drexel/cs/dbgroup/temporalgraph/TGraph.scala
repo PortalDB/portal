@@ -117,7 +117,7 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * @return New tgraph 
     */
   protected val vgb = (vid: VertexId, attr: Any) => vid
-  def aggregate(window: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): TGraph[VD, ED]
+  def createNodes(window: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): TGraph[VD, ED]
 
   /**
     * The analytics methods
