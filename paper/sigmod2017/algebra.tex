@@ -18,45 +18,49 @@ operations~\cite{Dignos2012}.
 \subsection{Maintaining integrity}
 \label{sec:algebra:integrity}
 
-Our algebra operates on \tgs, and so\eat{, in addition to keeping the
-  data structure (and its constituent parts) coalesced,} we must
-ensure that the result is a valid \tg.  One of the requirements of our
-model is that each entity exists only once during any time instant
-$t$.  To maintain this validity we introduce a {\em resolve} function.
+One of the requirements of our model is that each entity exists only
+once during any time instant $t$.  To maintain soundness we introduce
+a {\em resolve} function.
 
 \begin{definition}[Resolve function]
 \eat{Let $((a_1,p_1),$ \\ $\ldots, (a_n,p_n))$ be a list of possible
   values of an attribute of a node or an edge along with their
   associated periods of validity.  A {\em resolve function} produces a
   single attribute value $a = resolve((a_1,p_1), \ldots, (a_n,p_n))$.}
-Let $((a_l,p_l),(a_r,p_r))$ be a tuple of possible values of an
-attribute of a node or an edge along with the associated validity
-periods.  A {\em resolve function} produces a single attribute value
-$a = resolve((a_l,p_l), (a_r,p_r))$.
+Let $((a_l,p_l),(a_r,p_r))$ be a pair of possible values of a property
+of a node or an edge along with the associated validity periods.  A
+{\em resolve function} produces a single property value with its
+validity period $(a,p) = resolve((a_l,p_l), (a_r,p_r))$.
 \end{definition}
 
-A resolve function can pick an arbitrary element, compute an average
-for each property, put the values in a set, etc.  When applied over a
-bag of values in a reduce fashion, a resolve function is an {\em
-  aggregation function}.  We support the standard \{ \insql{count} |
-\insql{min} | \insql{max} | \insql{sum} \}, which have their customary
-meaning.  We also support \{ \insql{any} | \insql{first} |
-\insql{last} | \insql{set} | \insql{bag} \}, which are possible to
-compute because properties being resolved have temporal information.
-\insql{first} and \insql{last} refer to the value of an attribute with
-the earliest/latest timestamp, while \insql{set} and \insql{bag}
-associate a key an unordered collection of values with the set or bag
-semantics (but do not keep the associated validity periods).  Finally,
-we support \{ \insql{left} | \insql{right} \}, which select the
-attribute of the left, resp. right, operand.  Other, more complex,
-functions can be defined by the user.
+A resolve function can pick an arbitrary element, compute an average,
+put the values in a set, etc.  When applied over a bag of values in a
+reduce fashion, a resolve function is an {\em aggregation function}.
+We support the standard \{ \insql{count} | \insql{min} | \insql{max} |
+\insql{sum} \}, which have their customary meaning.  We also support
+\{ \insql{any} | \insql{first} | \insql{last} | \insql{set} |
+\insql{bag} \}, which are possible to compute because properties being
+resolved have temporal information.  \insql{first} and \insql{last}
+refer to the value of an attribute with the earliest/latest timestamp,
+while \insql{set} and \insql{bag} associate a key an unordered
+collection of values with the set or bag semantics (but do not keep
+the associated validity periods).  Finally, we support \{ \insql{left}
+| \insql{right} \}, which select the attribute of the left,
+resp. right, operand.  Other, more complex, functions can be defined
+by the user.
 
 \begin{lemma}
 Let $\psi$ be an n-ary temporal operator on \tg.  If $\psi^T (\ttt)$
 produces multiple possible attribute values for any entity at the same
-time instant, it must also specify a resolve function to compute a
-single valid attribute value.
+time instant, it must also specify a resolve function for each
+property to compute a single valid attribute value.
 \end{lemma}
+
+The property graph model allows for arbitrary properties to be
+associated with the graph entities, so it may be impractical or
+infeasible to have the user specify a resolve function for each
+possible property.  A default resolve function such as a \insql{set}
+can be used for this purpose.
 
 \eat{ This objective informed our design of
   the algebra, e.g., we did not include some flavors of temporal
@@ -66,7 +70,7 @@ single valid attribute value.
 
 Each operator in our algebra produces a valid \tg.  We note which
 operators are known to uncoalesce the output, thus requiring
-coalescing, require FK enforcement, or include the resolve function.
+coalescing, require FK enforcement, or include resolve functions.
 
 \subsection{Unary operators}
 \label{sec:algebra:unary}
@@ -568,8 +572,8 @@ Node creation may uncoalesce and requires FK enforcement.
   that in standard SQL can be achieved with the use of two \insql{NOT
     EXISTS}.}
 
-\subsection{Transitive closure}
-\label{sec:algebra:closure}
+\subsection{Composition}
+\label{sec:algebra:composition}
 
 TODO
 
