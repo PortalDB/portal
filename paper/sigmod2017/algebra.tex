@@ -174,10 +174,10 @@ functions.
 
 \begin{definition}[Set-theoretic operators]
 Let $\oplus$ be a temporal set operator $\in \{ \cap^T, \cup^T,
-\setminus^T \}$.  Then $\tve_1 \oplus \tve_2 = \{ \tv_1 \oplus \tv_2,
-\te_1 \oplus \te_2, map_{resolve}(\tav_1 \fullouterjoin^T \tav_2),$\\
-$map_{resolve}(\tae_1 \fullouterjoin^T \tae_2) \}$, with all FK
-constraints on \tav and \tae enforced.
+\setminus^T \}$ and $r$ be a resolve function.  Then $\tve_1 \oplus_r
+\tve_2 = \{ \tv_1 \oplus \tv_2, \te_1 \oplus \te_2, map_r(\tav_1
+\fullouterjoin^T \tav_2),$\\ $map_r(\tae_1 \fullouterjoin^T \tae_2)
+\}$, with all FK constraints on \tav and \tae enforced.
 \end{definition}
 
 Because the graphs do not have a fixed schema, it may not be desirable
@@ -393,7 +393,7 @@ algebra.  Our approach is inspired by stream aggregation work
 of~\cite{Li2005}, adopted to graphs, and by generalized quantifiers
 of~\cite{Hsu1995}.
 
-Node creation is denoted $_{G_V}create_{W,Q_V,Q_E,A_V,A_E}
+Node creation is denoted $_{G_V}\vartheta_{W,Q_V,Q_E,A_V,A_E}
 (\ttt)$,\\ where $G_V$ are the grouping attributes, $W$ is the window
 specification, $Q_V$ and $Q_E$ are vertex and edge quantifiers, and
 $A_V$ and $A_E$ are the optional aggregation functions.  It produces a
@@ -466,16 +466,16 @@ revisited in Algorithm~\ref{alg:agg_ve}.
 }
 
 We compute group periods based on window specification.  Next, as part
-of $_{G_V}create_{P,Q_V}(\tv)$ computation, we assign each tuple from
+of $_{G_V}\vartheta_{P,Q_V}(\tv)$ computation, we assign each tuple from
 \tv to a period (this requires splitting), group vertices by $G_V$ and
 evaluate $Q_V$ on each group.  Only groups for which $Q_V$ evaluates
 to true are retained.  Edges are processed similarly by
-$_{G_V}create_{P,Q_E}(\te)$.  Note that when $G_V$ is anything besides
+$_{G_V}\vartheta_{P,Q_E}(\te)$.  Note that when $G_V$ is anything besides
 $vid$, we need edge triplets in order to compute new source and
 destination ids of each edge.  As with aggregation above, edge
 triplets can be computed through a three-way temporal outerjoin of
-\tae with \tav.  $_{G_V}create_{P,A_V}(\tav)$ and
-$_{G_V}create_{P,A_E}(\tae)$, respectively, are a result of computing
+\tae with \tav.  $_{G_V}\vartheta_{P,A_V}(\tav)$ and
+$_{G_V}\vartheta_{P,A_E}(\tae)$, respectively, are a result of computing
 a group for each vertex or edge within the period, and applying the
 aggregate functions over each group.
 
@@ -492,10 +492,10 @@ graphs directly.
 quantifier $Q_V$, edge quantifier $Q_E$, vertex aggregate function
 $A_V$, vertex aggregate function $A_E$.\\
 \STATE $P = \textsf{computePeriods}(W, \tv, \te, \tav, \tae)$\\
-\STATE  $\tv' = \cl (_{G_V}create_{P,Q_V}(\tv))$\\
-\STATE  $\te' = \cl (_{G_V}create_{P,Q_E}(\te))$\\
-\STATE  $\tav' = \cl (_{G_V}create_{P,A_V}(\tav))$\\
-\STATE  $\tae' = \cl (_{G_V}create_{P,A_E}(\tae))$\\
+\STATE  $\tv' = \cl (_{G_V}\vartheta_{P,Q_V}(\tv))$\\
+\STATE  $\te' = \cl (_{G_V}\vartheta_{P,Q_E}(\te))$\\
+\STATE  $\tav' = \cl (_{G_V}\vartheta_{P,A_V}(\tav))$\\
+\STATE  $\tae' = \cl (_{G_V}\vartheta_{P,A_E}(\tae))$\\
 \STATE  follow steps 5-7 of Algorithm~\ref{alg:op}\\
 %\STATE  enforce foreign keys on $\te'$ w.r.t. $\tv'$\\
 %\STATE  enforce foreign keys on $\tav'$ w.r.t. $\tv'$\\
@@ -527,29 +527,29 @@ produce a more meaningful final result.
 %\centering
 \begin{subfigure}[b]{0.5\textwidth}
 \includegraphics[width=3.5in]{figs/agg1.pdf}
-\caption{Aggregation of \insql{T1} by time:
+\caption{Node creation from \insql{T1} by time:
   $W=3~\textsf{months}, G_V=\textsf{vid}$.}
 \label{fig:tg_agg1}
 \end{subfigure}
 \begin{subfigure}[b]{0.4\textwidth}
 \includegraphics[width=3in]{figs/agg2.pdf}
-\caption{Aggregation of \insql{T1} by change:
+\caption{Node creation in \insql{T1} by change:
   $W=3~\textsf{changes}, G_V=\textsf{vid}$.}
 \label{fig:tg_agg2}
 \end{subfigure}
 \begin{subfigure}[b]{0.5\textwidth}
 \includegraphics[width=3.5in]{figs/agg3.pdf}
-\caption{Aggregation of \insql{T1} grouped by attribute:
+\caption{Node creation in \insql{T1} grouped by attribute:
   $W=1~\textsf{change}, G_V=\textsf{school}$.}
 \label{fig:tg_agg3}
 \end{subfigure}
 \begin{subfigure}[b]{0.4\textwidth}
 \includegraphics[width=3in]{figs/agg4.pdf}
-\caption{Aggregation of \insql{T1} by time with grouping:
+\caption{Node creation in \insql{T1} by time with grouping:
   $W=3~\textsf{months}, G_V=\textsf{school}$.}
 \label{fig:tg_agg4}
 \end{subfigure}
-\caption[]{Aggregation, $Q_V=\insql{all}$, $Q_E=\insql{exists}$,
+\caption[]{Node creation, $Q_V=\insql{all}$, $Q_E=\insql{exists}$,
   $A_V=\insql{first}$, $A_E=\insql{first}.$}
 \label{fig:tg_agg}
 \vspace{-0.5cm}

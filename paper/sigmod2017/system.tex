@@ -16,15 +16,22 @@ application.
 Spark is not a temporal system.  Following the approach of Dignos et
 al.~\cite{Dignos2012} we reduce our temporal operators into a sequence
 of nontemporal relational operators.  Since our model is using point
-semantics, we do not have the property of change preservation.  We do
-need several primitives, i.e. operators on individual temporal
-relations in \tve: extend, coalesce, normalize, and constrain.
+semantics, we do not support the property of change preservation.  We
+do need several primitives, i.e. operators on individual temporal
+relations in \tve: extend, trim, coalesce, normalize, and constrain, in
+order to support the operators of \ql algebra.
 
 The {\em extend} primitive extends a relation with an additional
 attribute which for each tuple is equivalent to that tuple's
 timestamp.  See~\cite{Dignos2012} for the formal definition.  The
 extend primitive allows references to the timestamps in the temporal
 predicates and join conditions.
+
+The {\em trim} primitive modifies the timestamp of each tuple in a
+relation to the result of its intersection with input period.
+Assuming $A$ is a set of non-temporal attributes of relation {\bf r},
+$z \in trim(\mathbf{r},c) \iff \exists r \in \mathbf{r}(z.A = r.A
+\wedge z.p = r.p \cap c)$.
 
 The {\em coalesce} primitive merges adjacent and overlapping time
 periods.  This operation, which is similar to duplicate elimination in
@@ -37,9 +44,11 @@ operations may produce correct results (up to coalescing) {\em even
   in~\cite{DBLP:conf/vldb/BohlenSS96}.}We will revisit this point in
 Section~\ref{sec:sys:coal}.
 
-The {\em normalize} primitive produces a set of tuples for each tuple
-by splitting its timestamp into non-overlapping periods with respect
-to another relation.  See~\cite{Dignos2012} for the formal definition.
+The {\em normalize} primitive, indicated by $\mathcal{N}_B(r;s)$
+produces a set of tuples for each tuple in {\bf r} by splitting its
+timestamp into non-overlapping periods with respect to another
+relation {\bf s} and attributes {\bf B}.  See~\cite{Dignos2012} for
+the formal definition.
 
 The {\em constrain} primitive constrains one relation in \tve with
 respect to another, such as removing edges from the result that do not
@@ -49,7 +58,25 @@ within the validity periods of associated nodes.
 The implementation of each of these primitives is discussed in
 Section~\ref{sec:sys:maint}.
 
-Our reduction rules are as follows:
+Our reduction rules assume that the four constituent parts of \tve are
+extended and are as follows:
+
+\begin{table*}
+\small
+\begin{tabular}{ | p{1.4cm} p{2.5cm} c L{12.1cm} | }
+\hline
+\multicolumn{1}{|l}{\bfseries Operator} & & & \multicolumn{1}{c|}{\bfseries Reduction} \\ \hline
+Slice & $\tau_c (\ttt)$ & $=$ & $\forall x \in \{\tv,\te,\tav,\tae \}, x' = trim( \sigma_{p \cap c} (x), c)$ \\
+Subgraph & $\sigma_{C_V,C_E} (\ttt)$ & $=$ & $\{ \tv', \te', \tav', \tae' \} ~|~ \tv' = coal(\pi_{v,p} (\sigma_{C_{V1}}(\tv) \bowtie^T \sigma_{C_{V2}}(\tav))), \te' = constrain(coal(\pi_{v_1,v_2,p} (\sigma_{C_{E1}}(\te) \bowtie^T \sigma_{C_{E2}}(\tae)), \tv')), \tav' = constrain(\sigma_{C_{V2}}(\tav), \tv'), \tae' = constrain(\sigma_{C_{E2}}(\tae), \tv')$ \\
+Map & $map_{M_V,M_E}(\ttt)$ & $=$ & $\{ \tv, \te, coal(map_{M_V}(\tav)), coal(map_{M_E}(\tae) \} $ \\
+Intersection & $\ttt_1 \cap^T_r \ttt_2$ & $=$ & $\{ \tv', \te', \tav', \tae' \} ~|~ \tv' = coal(\mathcal{N}_v(\tv_1, \tv_2) \cap \mathcal{N}_{v}(\tv_2, \tv_1)), \te' = coal(\mathcal{N}_{v1,v2}(\te_1, \te_2) \cap \mathcal{N}_{v1,v2}(\te_2, \te_1)), \tav' = constrain(coal(map_r(\mathcal{N}_v(\tav_1, \tav_2) \fullouterjoin_{\tav_1.p=\tav_2.p \wedge \tav_1.v=\tav_2.v} \mathcal{N}_v(\tav_2, \tav_1))), \tv'), \tae' = constrain(coal(map_r(\mathcal{N}_{v1,v2}(\tae_1, \tae_2) \fullouterjoin_{\tae_1.p=\tae_2.p \wedge \tae_1.v1=\tae_2.v1 \wedge \tae_1.v2=\tae_2.v2} \mathcal{N}_v(\tae_2, \tae_1))), \tv')$ \\
+Union & $\ttt_1 \cup^T_r \ttt_2$ & $=$ & $\{ coal(\mathcal{N}_v(\tv_1, \tv_2) \cup \mathcal{N}_{v}(\tv_2, \tv_1)), coal(\mathcal{N}_{v1,v2}(\te_1, \te_2) \cup \mathcal{N}_{v1,v2}(\te_2, \te_1)), coal(map_r(\mathcal{N}_v(\tav_1, \tav_2) \fullouterjoin_{\tav_1.p=\tav_2.p \wedge \tav_1.v=\tav_2.v} \mathcal{N}_v(\tav_2, \tav_1))), coal(map_r(\mathcal{N}_{v1,v2}(\tae_1, \tae_2) \fullouterjoin_{\tae_1.p=\tae_2.p \wedge \tae_1.v1=\tae_2.v1 \wedge \tae_1.v2=\tae_2.v2} \mathcal{N}_v(\tae_2, \tae_1))) \}$ \\
+Difference & $\ttt_1 \setminus^T_r \ttt_2$ & $=$ & $\{ \tv', \te', \tav', \tae' \} ~|~ \tv' = coal(\mathcal{N}_v(\tv_1, \tv_2) \setminus \mathcal{N}_{v}(\tv_2, \tv_1)), \te' = coal(\mathcal{N}_{v1,v2}(\te_1, \te_2) \cap \mathcal{N}_{v1,v2}(\te_2, \te_1)), \tav' = constrain(coal(map_r(\mathcal{N}_v(\tav_1, \tav_2) \fullouterjoin_{\tav_1.p=\tav_2.p \wedge \tav_1.v=\tav_2.v} \mathcal{N}_v(\tav_2, \tav_1))), \tv'), \tae' = constrain(coal(map_r(\mathcal{N}_{v1,v2}(\tae_1, \tae_2) \fullouterjoin_{\tae_1.p=\tae_2.p \wedge \tae_1.v1=\tae_2.v1 \wedge \tae_1.v2=\tae_2.v2} \mathcal{N}_v(\tae_2, \tae_1))), \tv')$ \\
+Aggregation & $\gamma_{C_V,C_E,A_V}(\ttt)$ & $=$ & \\
+Node creation & $\vartheta_{W,Q_V,Q_E,A_V,A_E}(\ttt)$ & $=$ & \\
+\hline
+\end{tabular}
+\end{table*}
 
 \eat{
 When computing result of an operator over the \ve representation, we

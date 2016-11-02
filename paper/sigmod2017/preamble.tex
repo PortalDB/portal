@@ -84,6 +84,8 @@
 \def\rightouterjoin{\mathbin{\Join\mkern-5.8mu\ojoin}}
 \def\fullouterjoin{\mathbin{\ojoin\mkern-5.8mu\Join\mkern-6mu\ojoin}} 
 
+\newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}p{#1}}
+
 %\lstset{frame=tb,
 %  language=scala,
 %  aboveskip=3mm,

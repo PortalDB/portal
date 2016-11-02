@@ -38,7 +38,7 @@ $\pred{p_1}{contains}{(p \cap c)}$.  A similar argument justifies that
 FK enforcement is not needed for $\tau_c(\tav)$ (w.r.t. $\tau_c (\tv)$) and
 for $\tau_c(\tae)$ (w.r.t. $\tau_c (\te)$).
 
-{\bf Subgraph may uncoalesce \trg.} Consider \insql{T1} in
+\eat{{\bf Subgraph may uncoalesce \trg.} Consider \insql{T1} in
 Figure~\ref{fig:tg_rg}.  The query
 $\sigma_{C_V:{school='Drexel'},C_E:\top} (\insql{T1})$ matches
 vertices $v_1$ and $v_3$ in every representative graph in which these
@@ -47,6 +47,7 @@ occur.  Since graphs for time periods $[1/15,2/15)$ through
     will need to be coalesced explicitly.  The final result will
     consist of 2 representative graphs, with both $v_1$ and $v_3$ for
     $[1/15, 7/15)$, and with $v_3$ only for $[7/15, 10/15)$.
+}
 
 {\bf Subgraph does not uncoalesce \tve.}  Consider again the
 computation of $\tv'$ described above, with a query that involves

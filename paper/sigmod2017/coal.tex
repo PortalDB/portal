@@ -35,8 +35,7 @@ lazy coalescing.
 Correctness of many \tg algebra operations does not depend on whether
 their input is coalesced.  Consequently, \ql supports both eager and
 lazy coalescing, with lazy being the default for queries that admit
-it.  We now present useful coalescing rules (\ttt stands for either
-\trg or \tve).
+it.  We now present useful coalescing rules.
 
 \eat{ As with duplicate elimination, if the coalesced output is
   expected to be significantly reduced in size, such as after a
@@ -85,38 +84,37 @@ performed before or after slice: \eat{$\cl(\tau_c(\ttt)) \equiv
 \label{rul:slice}
 \end{equation}
 
-{\bf Temporal subgraph allows lazy coalescing.} It was shown
+{\bf Temporal subgraph may allow lazy coalescing.} It was shown
 in~\cite{DBLP:conf/vldb/BohlenSS96} that coalescing can be deferred
 until after selection if the selection condition is independent of the
-valid time of the input. Since temporal subgraph
-(Section~\ref{sec:algebra:subgraph}) is a time-invariant form of
-select, coalescing can be deferred.  Subgraph does not uncoalesce \tve
-but may uncoalesce \trg (Section~\ref{sec:algebra:subgraph}). For this
-reason it is required to coalesce the final output in
-Rule~\ref{rul:subgraphrg} even if the input was eagerly coalesced, but
-this is not required in Rule~\ref{rul:subgraphve}.
-\begin{equation}
-\cl(\sigma_{C_V,C_E}(\tve)) \equiv \sigma_{C_V,C_E}(\cl(\tve))
+valid time of the input. If temporal subgraph
+(Section~\ref{sec:algebra:subgraph}) is time-invariant, coalescing can
+be deferred.  \eat{Subgraph does not uncoalesce \tve but may
+  uncoalesce \trg (Section~\ref{sec:algebra:subgraph}). For this
+  reason it is required to coalesce the final output in
+  Rule~\ref{rul:subgraphrg} even if the input was eagerly coalesced,
+  but this is not required in Rule~\ref{rul:subgraphve}.}
+\begin{multline}
+\cl(\sigma_{C_V,C_E}(\ttt)) \equiv \sigma_{C_V,C_E}(\cl(\ttt))\\ \text{iff } independent\_of\_p(C_V) \wedge independent\_of\_p(C_E)
 \label{rul:subgraphve}
-\end{equation}
-\begin{equation}
+\end{multline}
+\eat{\begin{equation}
 \cl(\sigma_{C_V,C_E}(\trg)) \equiv \cl(\sigma_{C_V,C_E}(\cl(\trg)))
 \label{rul:subgraphrg}
-\end{equation}
+\end{equation}}
 
-Deferring coalescing can be quite effective for
-Rules~\ref{rul:slice},~\ref{rul:subgraphve} and~\ref{rul:subgraphrg}
-if the selectivity of the predicate is high.
+Deferring coalescing can be quite effective for Rules~\ref{rul:slice}
+and ~\ref{rul:subgraphve} if the selectivity of the predicate is high.
 
-{\bf Temporal map allows lazy coalescing}, since it processes each
-input tuple without modifying the corresponding time intervals, and
-independently of the valid time.  Map destroys coalescing
+{\bf Temporal map may allow lazy coalescing}, since it processes each
+input tuple without modifying the corresponding time intervals, as
+long as it is time-invariant.  Map destroys coalescing
 (Section~\ref{sec:algebra:project}), and requires to coalesce the
 output even if the input was eagerly coalesced.
-\begin{equation}
-\cl(\map_{M_V,M_E}(\ttt)) \equiv \cl(\map_{M_V,M_E}(\cl(\ttt)))
+\begin{multline}
+\cl(\map_{M_V,M_E}(\ttt)) \equiv \cl(\map_{M_V,M_E}(\cl(\ttt)))\\ \text{iff } independent\_of\_p(M_v) \wedge independent\_of\_p(M_E)
 \label{rul:map}
-\end{equation}
+\end{multline}
 
 \eat{Rules in ~\ref{rul:coalr1,rul:coalr2,rul:coalr3} exploit the fact that
 some operations preserve coalescing, as shown in
