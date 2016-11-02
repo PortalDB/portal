@@ -90,6 +90,14 @@ def getDataframesDictionary(configFile):
             columns[0] = xlabel
             allData = list(res.fetchall())
 
+	    #checking for all None values. If the values are all None, do not create a dataframe
+            emptyValues = True
+            for data in allData:
+                if(not all(value is None for value in data[1:])):
+                        emptyValues = False
+            if(emptyValues):
+                continue
+
             df = pd.DataFrame.from_records(allData, columns=columns, index=xlabel)
             df.index = df.index.astype(float)
             chartName = chartName.replace("_", " ")
