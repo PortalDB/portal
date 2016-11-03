@@ -18,7 +18,7 @@ important contributions.
   recently.} Much recent work represents evolving graphs as sequences
 of snapshots in a discrete time domain, and focuses on snaposhot
 retrieval and
-analytics~\cite{Khurana2013,DBLP:journals/tos/MiaoHLWYZPCC15,Ren2011}.
+analytics~\cite{Khurana2013,Miao2015,Ren2011}.
 This approach is in contrast to an interval-based model that we use and has
 several limitations.  First, the state of the graph can be undefined
 at some time $t$ unless a snapshot is associated with each possible
@@ -29,7 +29,7 @@ value in the discrete range $[t_{start}, now)$.  Second, it is not
     and 1 full similarity).}\eat{  This has motivated work on efficient
   physical representations that are both compact and support efficient
   snapshot-based
-  operations~\cite{Khurana2013,DBLP:journals/tos/MiaoHLWYZPCC15,Ren2011}.}
+  operations~\cite{Khurana2013,Miao2015,Ren2011}.}
 %
 The G* system~\cite{Labouseur2015} manages graphs that correspond to
 periodic snapshots, with the focus on efficient data layout.  It takes
@@ -110,13 +110,13 @@ Chan et al.~\cite{Chan2008} query evolving graphs for patterns
 represented by waveforms.  Semertzidis et al.~\cite{Semertzidis2015}
 focus on historical reachability queries.
 
-Miao et al.~\cite{DBLP:journals/tos/MiaoHLWYZPCC15} developed ImmortalGraph,
+Miao et al.~\cite{Miao2015} developed ImmortalGraph,
 a proprietary in-memory execution engine for temporal graph analytics.
 Their approach is based on the snapshot model and
 does not provide a query 
 language.% and emphasize in-memory layouts and scheduling.  
 Nonetheless, many insights about temporal vs. structural locality
-by~\cite{DBLP:journals/tos/MiaoHLWYZPCC15} hold in our setting.
+by~\cite{Miao2015} hold in our setting.
 
 %A further difference is that our work is in
 %scope of Apache Spark, a widely-used open source platform, while
