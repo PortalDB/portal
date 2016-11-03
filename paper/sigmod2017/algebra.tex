@@ -364,20 +364,29 @@ $\tae'$ (lines 5, 6).
 Aggregation is a common graph operation that can be used to compute
 simple properties such as in-degrees of nodes or more complex ones
 such as a set of places that all close friends have visited in the
-past year.  Aggregation is denoted $\gamma_{C_V,C_E,A_V}$, where $C_V$
-is a predicate over the source and destination nodes of the edge,
-$C_E$ is a predicate over the edge itself, and $A_V$ is an aggregation
-function.  The result is a new graph $\gamma_{C_V,C_E,A_V} (\tve) =
-\tve \cup^T \{ \tv, \te, \tav', \tae \}$, where $\tav' =
-A_V(\sigma_{C_V,C_E} (\tae \fullouterjoin^T_{vid1=vid} \tav
-\fullouterjoin^T_{vid2=vid} \tav))$.  The $C_V$ and $C_E$ predicates
-may include temporal clauses.  We show in Section~\ref{sec:sys:impl}
-how this is supported through an expansion operation if implemented
-directly over the \tve representation.  The temporal union is used to
-add the new attribute to the output since it may have different
-periods of validity.  For example, while each node in \tg may remain
-unchanged for the whole duration, aggregating node degrees would
-result in an attribute value for each period of topology change.
+past year.  Aggregation is denoted $\gamma_{C_V,C_E,d,M,A_V}$, where
+$C_V$ is a predicate over the source and destination nodes of the
+edge, $C_E$ is a predicate over the edge itself, $d$ is the target
+node $\in \{src,dst\}$, $M$ is the value (message) per edge, and $A_V$
+is an aggregation function.  The result is a new graph
+$\gamma_{C_V,C_E,d,M,A_V} (\ttt) = \ttt \cup^T \{ \tv, \te, \tav',
+\tae \}$, where $\tav' = A_{V,d}(\sigma_{C_V,C_E} (\tae
+\bowtie^T_{vid1=vid} \tav \bowtie^T_{vid2=vid} \tav))$.  The $C_V$ and
+$C_E$ predicates may include temporal clauses.  We show in
+Section~\ref{sec:sys:impl} how this is supported through an expansion
+operation if implemented directly over the \tve representation.  The
+temporal union is used to add the new attribute to the output since it
+may have different periods of validity.  For example, while each node
+in \tg may remain unchanged for the whole duration, aggregating node
+degrees would result in an attribute value for each period of topology
+change.
+
+As an example, to compute node in-degrees, we can use
+$\gamma_{true,true,dst,1,count}(\ttt)$.  To compute a set of places
+that all close friends have visited in the past year, assuming there
+is a property \insql{places} on friend nodes and closeness of
+friendship property on edges, we can use $\gamma_{p \cap
+  [2015,2016),close > 0.8,dst,places,set}(\ttt)$.
 
 Aggregation does not uncoalesce and does not require FK enforcement.
 
@@ -576,7 +585,6 @@ Node creation may uncoalesce and requires FK enforcement.
 \label{sec:algebra:composition}
 
 TODO
-
 
 \eat{So far we have defined the operations in our temporal graph
   algebra.  Next we define another class of non-algebraic operations
