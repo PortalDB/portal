@@ -99,8 +99,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
   }
 
   override def slice(bound: Interval): VEGraph[VD, ED] = {
-    //VZM: FIXME: this special case is commented out for experimental purposes
-    //if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
+    if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
     if (!span.intersects(bound)) {
       return emptyGraph[VD,ED](defaultValue)
     }
