@@ -7,7 +7,7 @@ import java.sql.Date
 import org.apache.spark.rdd.RDD
 import org.apache.spark.mllib.rdd.RDDFunctions._
 
-import edu.drexel.cs.dbgroup.temporalgraph.{Interval,ProgramContext}
+import edu.drexel.cs.dbgroup.temporalgraph.{Interval,ProgramContext,Resolution}
 
 object TempGraphOps extends Serializable {
   def dateOrdering: Ordering[LocalDate] = Ordering.fromLessThan((a,b) => a.isBefore(b))
@@ -54,5 +54,28 @@ object TempGraphOps extends Serializable {
       case Nil => List(c)
     }}
   }
+
+  /*
+   * Take the map of intervals to values at those intervals and return an ordered list of values at regular
+   * intervals (i.e. monthly or yearly, etc., depending on the resolution of the data),
+   * filling in missing spots with provided fill value. If fillValue is None, then there's essentialy no filling.
+  */
+  def makeSeries[K: ClassTag](map: Map[Interval,K], fillValue: Option[K] = None): IndexedSeq[Option[K]] = {
+    val unit = map.keys.map{ intv => Resolution.between(intv.start, intv.end).unit }
+      .reduce( (x,y) => if (x.compareTo(y) < 0) x else y)
+
+    //get the smallest date as start
+    val st = map.keys.map(ii => ii.start).reduce((x,y) => if (x.isBefore(y)) x else y)
+
+    //now turn intervals into points by unit
+    val remap = map.flatMap{ case (k,v) =>
+      val inst = unit.between(st, k.start).toInt
+      val inen = unit.between(st, k.end).toInt
+      (inst to inen).map(ii => (ii, v))
+    }
+
+    //now we have have a map of indices to values, but it's unordered and may have holes
+    (remap.keys.min to remap.keys.max).map(x => if (remap.contains(x)) remap.get(x) else fillValue)
+  } 
   
 }

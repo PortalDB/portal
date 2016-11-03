@@ -54,7 +54,7 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
   )
 
   lazy val structure = ( "RG" ^^^ RG()
-    | "OG" ^^^ RG()
+    | "OG" ^^^ OG()
     | "HG" ^^^ HG()
     | "VE" ^^^ VE()
   )
