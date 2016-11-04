@@ -15,7 +15,7 @@ operations~\cite{Dignos2012}.
 %\subsection{Preliminaries}
 %\label{sec:algebra:prelim}
 
-\subsection{Maintaining integrity}
+\subsection{Resolve function}
 \label{sec:algebra:integrity}
 
 One of the requirements of our model is that each entity exists only
@@ -23,12 +23,8 @@ once during any time instant $t$.  To maintain soundness we introduce
 a {\em resolve} function.
 
 \begin{definition}[Resolve function]
-\eat{Let $((a_1,p_1),$ \\ $\ldots, (a_n,p_n))$ be a list of possible
-  values of an attribute of a node or an edge along with their
-  associated periods of validity.  A {\em resolve function} produces a
-  single attribute value $a = resolve((a_1,p_1), \ldots, (a_n,p_n))$.}
 Let $((a_l,p_l),(a_r,p_r))$ be a pair of possible values of a property
-of a node or an edge along with the associated validity periods.  A
+of a vertex or an edge along with the associated validity periods.  A
 {\em resolve function} produces a single property value with its
 validity period $(a,p) = resolve((a_l,p_l), (a_r,p_r))$.
 \end{definition}
@@ -48,6 +44,17 @@ the associated validity periods).  Finally, we support \{ \insql{left}
 | \insql{right} \}, which select the attribute of the left,
 resp. right, operand.  Other, more complex, functions can be defined
 by the user.
+
+In temporal relational algebra with point semantics soundness depends
+on maintaining the coalesced state of the relation.  This requirement
+holds in our algebra as well and we discuss it in detail in
+Section~\ref{sec:sys:coal}.  However, because all four relations of
+\tve are keyed temporal relation, we have an additional requirement in
+our model.  Namely, that no entity, vertex or edge, may exist more than
+once during any time point.  If, for example, a union of two \tav
+relations is computed using regular temporal union semantics, it may
+produce two tuples if the attribute values are not value-equivalent.
+This clearly violates part~\ref{def:tg:c4} of Definition~\ref{def:tg}.
 
 \begin{lemma}
 Let $\psi$ be an n-ary temporal operator on \tg.  If $\psi^T (\ttt)$
@@ -81,7 +88,7 @@ We introduce three basic unary operators: slice, subgraph, and map.
 
 {\bf Slice.}  The unary {\em slice} operator, denoted $\tau_c (\ttt)$,
 where $c$ is a time period, cuts a temporal slice from \ttt.  The
-resulting \tg will contain nodes and edges whose period $p$ has a
+resulting \tg will contain vertices and edges whose period $p$ has a
 non-empty intersection with $c$.  To evaluate $\tau_c (\tve)$, we
 apply $\tau_c$ to each of the four constituent relations of \tve:
 $\tau_c (\tv) = \{ (v, p \cap c)~~|~~(v, p) \in \tv \wedge
@@ -102,24 +109,53 @@ Appendix~\ref{sec:app1}.
 
 {\bf Subgraph.}  Temporal subgraph matching is defined analogously to
 subgraph matching in non-temporal graphs: it applies a predicate to
-each node and edge of \tg. \eat{subgraph function $f$ to every
-  representative graph of the input.  To ensure that a valid \tg is
+each vertex and edge of \tg.  We focus on functions that can be
+expressed as a pair of {\em conjunctive queries} $\sigma_{C_V,C_E}
+(\ttt)$, where $C_V$ specifies a predicate over the vertices and $C_E$
+--- over the vertex-edge triplets.  The predicates can be over the
+attributes, ids, and the timestamps of the vertices and edges.  We
+allow predicates over the timestamps to support extended snapshot
+reducibility.  Computing arbitrary subgraphs with path expressions is
+beyond the scope of this paper, and we defer this to future work.
+
+$\sigma_{C_V,C_E} (\ttt) = (\tv',\te',\tav',\tae') ~|~$ \\
+$\tv' = \pi_{v,p} (\sigma_{C_V} ( \tv \bowtie^T_v \tav))$ \\
+$\te' = \pi_{v_1,v_2,p} (\sigma_{C_E} ( \tae \bowtie^T_{v_1} \tav \bowtie^T_{v_2} \tav))$ \\
+$\tav' = \sigma_{C_V} (\tav)$ \\
+$\tae' = \pi_{v_1,v_2,a} (\sigma_{C_E} (\tae \bowtie^T_{v_1} \tav \bowtie^T_{v_2} \tav))$
+
+Note that as B{\"{o}}hlen showed in~\cite{DBLP:reference/db/Bohlen09},
+correctness of a select operator with a temporal predicate depends on
+the coalesced state of the relation.  When composing a triplet, we
+carry the vertex and edge timestamps in their entirety as data to
+produce correct results.
+
+Because we allow predicates over the triplets, interesting conditions
+can be expressed.  For example, we can filter out any edges where the
+value of some property of its two vertices does not match.  Assuming
+vertices have property \insql{group}, we can compute
+$\sigma_{T,v1.a.group=v2.a.group}(\ttt)$.
+
+\eat{To ensure that a valid \tg is
   computed as a result of this operation, we restrict our attention to
   functions that compute a single subgraph of a given representative
   graph as a result: $\sigma_f (\trg) = \{ (g', p)~~|~~(g, p) \in \trg
   \wedge g' = f(g) \wedge$\\$V_{g'} \subseteq V_{g} \wedge E_{g'}
-  \subseteq E_{g} \}$.}  Even more specifically, we focus on functions
+  \subseteq E_{g} \}$.}  
+\eat{Even more specifically, we focus on functions
 that can be expressed as a pair of {\em conjunctive queries}
 $\sigma_{C_V,C_E} (\ttt)$, where $C_V$ specifies predicates over the
 vertices, and $C_E$ --- over the edges.  The predicates can be over
-the attributes and also over the timestamps of the nodes/edges, to
+the attributes and also over the timestamps of the vertices/edges, to
 support the extended snapshot reducibility.  Computing arbitrary
 subgraphs of an evolving graph is beyond the scope of this paper, and
 we defer this to future work.
-
+}
+\eat{
 $\sigma_{C_V,C_E} (\tve) = (\tv',\te',\tav',\tae') ~|~$ \\
 $\tv' = \pi_{v,p} (\sigma_{C_{V1}} (\tv) \bowtie^T \sigma_{C_{V2}} (\tav)) \wedge \tav' = \sigma_{C_{V2}} (\tav)$ \\
 $\te' = \pi_{v_1,v_2,p} (\sigma_{C_{E1}} (\te) \bowtie^T \sigma_{C_{E2}} (\tae)) \wedge \tae' = \sigma_{C_{E2}} (\tae)$.
+}
 
 \eat{Like other unary operators, $\sigma_{C_V, C_E} (\tve)$ follows the
 outline of Algorithm~\ref{alg:op}.  Since $C_V$ and $C_E$ may involve
@@ -131,7 +167,10 @@ push selections:$\tv' = \pi_{v,p} (\sigma_{C_{V1}} (V) \bowtie
 = \sigma_{C_{V2}} (\tav)$ (line 3), $\tae' = \sigma_{C_{V2}} (\tae)$
 (line 4).}
 
-Subgraph does not uncoalesce, but does require FK enforcement for \tve.
+\eat{Subgraph does not uncoalesce, but does require FK enforcement for
+  \tve.}  
+
+Subgraph uncoalesces and requires FK enforcement. (Appendix~\ref{sec:app1})
 
 %\subsection{Temporal map}
 %\label{sec:algebra:project}
@@ -167,14 +206,14 @@ Map may uncoalesce \tav and \tae, but does not require FK enforcement.
 
 We support the temporal versions of the three binary set operators
 intersection ($\cap^T$), union ($\cup^T$), and difference
-($\setminus^T$).  As Dignos et al. showed, these three operators are
-not schema robust~\cite{Dignos2012}.  Schema robust operators are not
-affected if the argument relation is extended by an additional
-attribute.  This presents a problem when executing the set operations
-over the \tav and \tae relations as there is no guarantee that a node
-or an edge with the same identity and at the same time instant has the
-same attribute set.  Thus all three operators require resolve
-functions.
+($\setminus^T$), as well as semi join.  As Dignos et al. showed, the
+three set operators are not schema robust~\cite{Dignos2012}.  Schema
+robust operators are not affected if the argument relation is extended
+by an additional attribute.  This presents a problem when executing
+the set operations over the \tav and \tae relations as there is no
+guarantee that a vertex or an edge with the same identity and at the
+same time instant has the same attribute set.  Thus all three
+operators require resolve functions.
 
 \begin{definition}[Set-theoretic operators]
 Let $\oplus$ be a temporal set operator $\in \{ \cap^T, \cup^T,
@@ -182,6 +221,7 @@ Let $\oplus$ be a temporal set operator $\in \{ \cap^T, \cup^T,
 \tve_2 = \{ \tv_1 \oplus \tv_2, \te_1 \oplus \te_2, map_r(\tav_1
 \fullouterjoin^T \tav_2),$\\ $map_r(\tae_1 \fullouterjoin^T \tae_2)
 \}$, with all FK constraints on \tav and \tae enforced.
+\label{def:sets}
 \end{definition}
 
 Because the graphs do not have a fixed schema, it may not be desirable
@@ -228,45 +268,59 @@ constraints on \te', \tav' and \tae' (lines 5, 6).
 
 \begin{figure*}
 %\centering
-\begin{minipage}{1.4in}
-\includegraphics[width=1.35in]{figs/T2_graphs.pdf}
+\begin{subfigure}{2in}
+\includegraphics[width=1.8in]{figs/T2_graphs.pdf}
 \caption{T2.}
-\vspace{-0.2cm}
 \label{fig:tg_t2}
-\end{minipage}
-\begin{minipage}{2in}
-\includegraphics[width=2in]{figs/T1_inter_T2.pdf}
+\end{subfigure}
+\begin{subfigure}{5in}
+\includegraphics[width=4.9in]{figs/T1_union_T2.pdf}
+\caption{$T1 \cup^T T2.$}
+\label{fig:tg_union}
+\end{subfigure}
+\begin{subfigure}{2.5in}
+\includegraphics[width=2.5in]{figs/T1_inter_T2.pdf}
 \caption{$T1 \cap^T T2$.}
 \vspace{-0.2cm}
 \label{fig:tg_inter}
-\end{minipage}
-\begin{minipage}{3.8in}
-\includegraphics[width=3.8in]{figs/T1_union_T2.pdf}
-\caption{$T1 \cup^T T2.$}
+\end{subfigure}
+\begin{subfigure}{3.3in}
+\includegraphics[width=3.3in]{figs/T1_diff_T2.pdf}
+\caption{$T1 \setminus^T T2$.}
 \vspace{-0.2cm}
-\label{fig:tg_union}
-\end{minipage}
-\caption{Temporal set operators.}
-\label{fig:intersect}
+\label{fig:tg_diff}
+\end{subfigure}
+\begin{subfigure}{1.1in}
+\includegraphics[width=1.1in]{figs/T1_semij_T2.pdf}
+\caption{$T1 \ltimes^T T2$.}
+\vspace{-0.2cm}
+\label{fig:tg_semij}
+\end{subfigure}
+\caption{Binary operators.}
+\label{fig:binary}
 \vspace{-0.2cm}
 \end{figure*}
 
-Figure~\ref{fig:intersect} illustrates temporal intersection of \tg
-T2, shown in Figure~\ref{fig:tg_t2}, with T1 in our running example,
-with a set resolve function for all properties.  Period $[2/15, 4/15)$
-  is computed as a result of the join of $[2/15, 5/15)$ in T1 and
-    [$2/15, 4/15)$ in T2.  Only the vertices and edges present in both
-      \tgs are produced, thus eliminating $v_3$ and $v_4$.  Notice the
+Figure~\ref{fig:tg_inter} illustrates temporal intersection of \tg T2,
+shown in Figure~\ref{fig:tg_t2}, with T1 in our running example, with
+a set resolve function for all properties.  Period $[2/15, 4/15)$ is
+  computed as a result of the join of $[2/15, 5/15)$ in T1 and [$2/15,
+      4/15)$ in T2.  Only the vertices and edges present in both \tgs
+      are produced, thus eliminating $v_3$ and $v_4$.  Notice the
       result of attribute set resolve function.
       Figure~\ref{fig:tg_union} is similar to
-      Figure~\ref{fig:intersect} but using union instead of
+      Figure~\ref{fig:tg_inter} but using union instead of
       intersection.  According to the definition of temporal set
       union, periods are split to coincide so that we have 6 total
-      periods instead of 5.
+      periods instead of 5.  Figure~\ref{fig:tg_diff} is a result of
+      temporal difference of T1 and T2.  The period from $[2/15,
+        6/15)$ is coalesced into one because the graphs are
+        equivalent.  \vera{these examples need to be reworked in \tve
+          so as not to confuse or otherwise explained differently.}
 
-Intersection, union, and difference may uncoalesce.  Intersection and
-difference require FK enforcement for \tav and \tae, while union does
-not.
+Intersection and union may uncoalesce, while difference does not.
+Intersection and difference require FK enforcement for \tav and \tae,
+while union does not.
 
 %\subsection{Temporal graph union}
 %\label{sec:algebra:outerjoin}
@@ -358,16 +412,36 @@ $\tae'$ (lines 5, 6).
 \end{algorithm}
 }
 
+{\bf Semi join.}  The semi join operator $\ttt_1 \ltimes^T \ttt_2$
+produces a subgraph induced by edges shared between \insql{T1} and
+\insql{T2} at any time point.  The induced subgraph is based on
+topology, i.e. $\tv' = \pi_{v,p} ( \te_1 \ltimes^T \te_2), \te' =
+\te_1 \ltimes^T \te_2$ and the foreign key is enforced on \tav and
+\tae.  A semi join of a \ttt with itself produces a graph with all
+vertices having degree of at least 1.
+
+Figure~\ref{fig:tg_semij} demonstrates the result of a semi join of
+our running example \insql{T1} with \insql{T2}.  Only one period
+$[2/15, 4/15)$ is retained because only a single edge during this
+  period is shared between T1 and T2.
+
+For a more complex example, to produce a subgraph of a particular
+vertex $v_i$ and the immediate neighborhood of that vertex, we compute
+$\ttt \ltimes (\sigma_{T,v_1=v_i | v_2=v_i} (\ttt))$.
+
+Semi join does not uncoalesce but requires FK enforcement on \tav and
+\tae.
+
 \subsection{Aggregation}
 \label{sec:algebra:agg}
 
 Aggregation is a common graph operation that can be used to compute
-simple properties such as in-degrees of nodes or more complex ones
+simple properties such as in-degrees of vertices or more complex ones
 such as a set of places that all close friends have visited in the
 past year.  Aggregation is denoted $\gamma_{C_V,C_E,d,M,A_V}$, where
-$C_V$ is a predicate over the source and destination nodes of the
+$C_V$ is a predicate over the source and destination vertices of the
 edge, $C_E$ is a predicate over the edge itself, $d$ is the target
-node $\in \{src,dst\}$, $M$ is the value (message) per edge, and $A_V$
+vertex $\in \{src,dst\}$, $M$ is the value (message) per edge, and $A_V$
 is an aggregation function.  The result is a new graph
 $\gamma_{C_V,C_E,d,M,A_V} (\ttt) = \ttt \cup^T \{ \tv, \te, \tav',
 \tae \}$, where $\tav' = A_{V,d}(\sigma_{C_V,C_E} (\tae
@@ -376,15 +450,15 @@ $C_E$ predicates may include temporal clauses.  We show in
 Section~\ref{sec:sys:impl} how this is supported through an expansion
 operation if implemented directly over the \tve representation.  The
 temporal union is used to add the new attribute to the output since it
-may have different periods of validity.  For example, while each node
-in \tg may remain unchanged for the whole duration, aggregating node
+may have different periods of validity.  For example, while each vertex
+in \tg may remain unchanged for the whole duration, aggregating vertex
 degrees would result in an attribute value for each period of topology
 change.
 
-As an example, to compute node in-degrees, we can use
+As an example, to compute vertex in-degrees, we can use
 $\gamma_{true,true,dst,1,count}(\ttt)$.  To compute a set of places
 that all close friends have visited in the past year, assuming there
-is a property \insql{places} on friend nodes and closeness of
+is a property \insql{places} on friend vertices and closeness of
 friendship property on edges, we can use $\gamma_{p \cap
   [2015,2016),close > 0.8,dst,places,set}(\ttt)$.
 
@@ -584,13 +658,43 @@ Node creation may uncoalesce and requires FK enforcement.
 \subsection{Composition}
 \label{sec:algebra:composition}
 
-TODO
+\eat{In graph theory, a graph join of two undirected unlabeled disjoint
+graphs is defined as the union of the two graphs and additional edges
+connecting every vertex in graph one with each vertex in graph two.}
 
-\eat{So far we have defined the operations in our temporal graph
-  algebra.  Next we define another class of non-algebraic operations
-  on evolving graphs that are nevertheless very useful: analytics.}
+Graph composition operator in our algebra is a temporal extension of
+the composition operator in SocialScope~\cite{Amer-Yahia2009}.  It
+produces a graph induced by edges that are composed from edges in the
+two operands for any time point when they coexisted.  The value of the
+new edge attributes is determined by the resolve function, similar to
+the set based operators.
 
-\eat{\vera{What I think we are leaving out: difference, structural
-  aggregation (new entity creation), graph joins and products (maybe?
-  graph joins are weird), more general select (with time in predicate
-  and/or path predicates), reverse/transpose.}}
+\begin{definition}[Composition]
+Let $\odot_{\delta,r}$ be a composition operator, where $\delta$ is a
+directional condition pair $d_1=v_1|v_2, d_2=v_1|v_2$ and $r$ is a
+resolve function.  Then $\ttt_1 \odot_{\delta,r} \ttt_2 = \{ \tv',
+\te', \tav', \tae' \}$, where $\forall (v_x,v_z,p) \in \te' \exists
+(d_1,v_x,p_1) \in \te_1 \wedge (d_2,v_z,p_2) \in \te_2 \wedge p=p_1
+\cap p_2$, \tv' contains only vertices with edges in \te', with FK
+constraint enforced on \tav' from \tv', and $\forall (v_x,v_z,p,a) \in
+\tae' \exists (d_1,v_x,p_1,a_1) \in \tae_1 \wedge (d_2,v_z,p_2) \in
+\tae_2 \wedge p=p_1 \cap p_2 \wedge a=r((a_1,p_1),(a_2,p_2))$.
+\label{def:composition}
+\end{definition}
+
+For example, to create edges between vertices that have two degrees of
+separation, i.e. friends of friends, we can compose the graph with
+itself with $d_1=v_2$ and $d_2=v_2$.  Note that composition is not
+additive, it produces {\em new} edges.  To add these edges to the
+original graph, a subsequent union must be performed.  
+
+Composition does not uncoalesce \tv, \te, or \tav, but may uncoalesce
+\tae.  FK enforcement is required on \tav.
+
+\eat{
+$\forall (v_x,v_z,p) \in \te' (\exists (v_x,v_y,p_1) \in \te_1 \wedge (v_y,v_z,p_2) \in \te_2 \wedge p = p_1 \cap p_2 \wedge d1=v2 \wedge d2=v1) \vee (\exists (v_y,v_x,p_1) \in \te_1 \wedge (v_y,v_z,p_2) \in \te_2 \wedge p = p_1 \cap p_2 \wedge d1=v1 \wedge d2=v1) \vee (\exists (v_x,v_y,p_1) \in \te_1 \wedge (v_z,v_y,p_2) \in \te_2 \wedge p = p_1 \cap p_2 \wedge d1=v2 \wedge d2=v2) \vee (exists (v_y,v_x,p_1) \in \te_1 \wedge (v_z,v_y,p_2) \in \te_2 \wedge p = p_1 \cap p_2 \wedge d1=v1 \wedge d2=v2)$
+}
+
+\input{analytics}
+
+\input{example}
