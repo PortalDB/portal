@@ -1,6 +1,74 @@
 \section{Motivating use cases}
 \label{sec:cases}
 
-description of interaction graph with properties
+An interaction graph is one typical kind of an evolving graph.  It
+captures people as graph verticesa, along with various information
+about those people.  The edges are the interaction events between the
+people, such as messages, conversations, tags, etc.  One easily
+accessible interaction graph is the wiki-talk dataset
+(\url{http://dx.doi.org/10.5281/zenodo.49561}) containing messaging
+events among 3 million wiki-en users over a 13 year period.
+Information available about the users includes their username, groups
+they are part of, and their edit count, i.e. how many edits they have
+produced on Wikipedia.  The messaging events occur when users post on
+each other's talk pages.
 
-examples of analyses, with callouts of needs
+We are primarily interested in analyses of the evolution of the
+phenomena the graph represents.  However, simpler point queries should
+be supported as well.
+
+{\bf Example 1.}  In interaction graphs node centrality is a measure
+of how important or influential people are.  Over a dozen different
+centrality measures exist, providing indicators of how much
+information ``flows'' through the vertex or how the vertex contributes
+to the overall cohesiveness of the network.  The importance of nodes
+fluctuates with time.  To see whether the wikitalk graph has high
+prominence nodes and how stable importance is over some period of
+time, we can extract the data for the period of interest, compute the
+in-degree (or any other aggregated measure of centrality) for each
+vertex and for each point in time and then calculate a coefficient of
+variation.
+
+This example demonstrates a need to select a subset of the data
+corresponding to the period of interest, compute in-/out-degree for
+each vertex at each point in time, and compute a single measure across
+time for each vertex.
+
+{\bf Example 2.}  Graph centrality is a popular measure to evaluate
+how connected/centralized the community is.  Low centrality may
+indicate that the community is disjointed or communicates poorly.  An
+interesting measure by itself, it is subject to change as
+communication patterns evolve or high influencers appear or disappear.
+In sparse interaction graphs there is an additional question of what
+time scale to consider: if two people communicated on May 16, 2010,
+how long do we consider them connected?
+
+This example demonstrates a need to compute graph centrality at every
+point in its lifetime and to do so at different temporal resolution.
+For most graph centrality measures, the two-step process involves
+first calculating some measure, such as in-degree, for each graph
+vertex, and then accumulating them into one.
+
+{\bf Example 3.}  Interaction networks are sparse because the edges
+are so short-lived.  To see whether communities form and at what time
+scales, we can vary the time scale and compute communities,
+e.g. through connected components detection, group the vertices by the
+community they form and calculate their size.  We can filter out
+vertices that represent communities below a reasonable threshold, for
+example of size smaller than two.
+
+This example demonstrates a need to compute graph-wide analytics such
+as connected components for each point in time, create new vertices
+that represent some aspect of data of existing vertices, and compute
+subgraphs.
+
+Besides the examples above, graph queries commonly include retrieving
+a specific node (which can be accomplished through a subgraph), k-hop
+neighborhood of a node, and local transformations of attributes of a
+node or edge.  If multiple sources of the same graph are available, it
+is useful to combine or compare them, which dictates the need for
+regular set-theoretic operators.
+
+In Section~\ref{sec:algebra} we define the operators of our graph
+algebra and show how our use cases can be expressed using these
+operators.
