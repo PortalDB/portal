@@ -268,30 +268,30 @@ constraints on \te', \tav' and \tae' (lines 5, 6).
 
 \begin{figure*}
 %\centering
-\begin{subfigure}{2in}
-\includegraphics[width=1.8in]{figs/T2_graphs.pdf}
+\begin{subfigure}{2.5in}
+\includegraphics[width=2.5in]{figs/T2_rel.pdf}
 \caption{T2.}
 \label{fig:tg_t2}
 \end{subfigure}
-\begin{subfigure}{5in}
-\includegraphics[width=4.9in]{figs/T1_union_T2.pdf}
+\begin{subfigure}{4.3in}
+\includegraphics[width=4.3in]{figs/T1_union_T2_rel.pdf}
 \caption{$T1 \cup^T T2.$}
 \label{fig:tg_union}
 \end{subfigure}
-\begin{subfigure}{2.5in}
-\includegraphics[width=2.5in]{figs/T1_inter_T2.pdf}
+\begin{subfigure}{2.3in}
+\includegraphics[width=2.3in]{figs/T1_inter_T2_rel.pdf}
 \caption{$T1 \cap^T T2$.}
 \vspace{-0.2cm}
 \label{fig:tg_inter}
 \end{subfigure}
-\begin{subfigure}{3.3in}
-\includegraphics[width=3.3in]{figs/T1_diff_T2.pdf}
+\begin{subfigure}{2.3in}
+\includegraphics[width=2.3in]{figs/T1_diff_T2_rel.pdf}
 \caption{$T1 \setminus^T T2$.}
 \vspace{-0.2cm}
 \label{fig:tg_diff}
 \end{subfigure}
-\begin{subfigure}{1.1in}
-\includegraphics[width=1.1in]{figs/T1_semij_T2.pdf}
+\begin{subfigure}{2.3in}
+\includegraphics[width=2.3in]{figs/T1_semij_T2_rel.pdf}
 \caption{$T1 \ltimes^T T2$.}
 \vspace{-0.2cm}
 \label{fig:tg_semij}
@@ -303,20 +303,20 @@ constraints on \te', \tav' and \tae' (lines 5, 6).
 
 Figure~\ref{fig:tg_inter} illustrates temporal intersection of \tg T2,
 shown in Figure~\ref{fig:tg_t2}, with T1 in our running example, with
-a set resolve function for all properties.  Period $[2/15, 4/15)$ is
-  computed as a result of the join of $[2/15, 5/15)$ in T1 and [$2/15,
-      4/15)$ in T2.  Only the vertices and edges present in both \tgs
-      are produced, thus eliminating $v_3$ and $v_4$.  Notice the
-      result of attribute set resolve function.
+a set resolve function for all properties.  Period $[2/15, 4/15)$ for
+  $v_2$ is computed as a result of the join of $[2/15, 5/15)$ in T1
+    and [$2/15, 4/15)$ in T2.  Only the vertices and edges present in
+      both \tgs are produced, thus eliminating $v_3$ and $v_4$.
+      Notice the result of attribute set resolve function.
       Figure~\ref{fig:tg_union} is similar to
       Figure~\ref{fig:tg_inter} but using union instead of
       intersection.  According to the definition of temporal set
-      union, periods are split to coincide so that we have 6 total
-      periods instead of 5.  Figure~\ref{fig:tg_diff} is a result of
-      temporal difference of T1 and T2.  The period from $[2/15,
-        6/15)$ is coalesced into one because the graphs are
-        equivalent.  \vera{these examples need to be reworked in \tve
-          so as not to confuse or otherwise explained differently.}
+      union, periods are split to coincide for any group and thus the
+      attribute values for e.g. $v_1$ now have three distinct tuples.
+      Figure~\ref{fig:tg_diff} is a result of temporal difference of
+      T1 and T2.  Vertex $v_1$ is now present before $2/15$ and after
+      $6/15$, which splits the a single input tuple into multiple
+      disjoin ones.
 
 Intersection and union may uncoalesce, while difference does not.
 Intersection and difference require FK enforcement for \tav and \tae,
@@ -422,8 +422,8 @@ vertices having degree of at least 1.
 
 Figure~\ref{fig:tg_semij} demonstrates the result of a semi join of
 our running example \insql{T1} with \insql{T2}.  Only one period
-$[2/15, 4/15)$ is retained because only a single edge during this
-  period is shared between T1 and T2.
+$[2/15, 4/15)$ for all entities is retained because only a single edge
+  during this period is shared between T1 and T2.
 
 For a more complex example, to produce a subgraph of a particular
 vertex $v_i$ and the immediate neighborhood of that vertex, we compute
@@ -613,27 +613,23 @@ produce a more meaningful final result.
 \begin{figure*}[t]
 %\centering
 \begin{subfigure}[b]{0.5\textwidth}
-\includegraphics[width=3.5in]{figs/agg1.pdf}
-\caption{Node creation from \insql{T1} by time:
-  $W=3~\textsf{months}, G_V=\textsf{vid}$.}
+\includegraphics[width=3.2in]{figs/agg1.pdf}
+\caption{By time: $W=3~\textsf{months}, G_V=\textsf{vid}$.}
 \label{fig:tg_agg1}
 \end{subfigure}
-\begin{subfigure}[b]{0.4\textwidth}
-\includegraphics[width=3in]{figs/agg2.pdf}
-\caption{Node creation in \insql{T1} by change:
-  $W=3~\textsf{changes}, G_V=\textsf{vid}$.}
+\begin{subfigure}[b]{0.5\textwidth}
+\includegraphics[width=3.2in]{figs/agg3.pdf}
+\caption{Grouped by attribute: $W=1~\textsf{change}, G_V=\textsf{school}$.}
+\label{fig:tg_agg3}
+\end{subfigure}
+\begin{subfigure}[b]{0.5\textwidth}
+\includegraphics[width=3.2in]{figs/agg2.pdf}
+\caption{By change: $W=3~\textsf{changes}, G_V=\textsf{vid}$.}
 \label{fig:tg_agg2}
 \end{subfigure}
 \begin{subfigure}[b]{0.5\textwidth}
-\includegraphics[width=3.5in]{figs/agg3.pdf}
-\caption{Node creation in \insql{T1} grouped by attribute:
-  $W=1~\textsf{change}, G_V=\textsf{school}$.}
-\label{fig:tg_agg3}
-\end{subfigure}
-\begin{subfigure}[b]{0.4\textwidth}
-\includegraphics[width=3in]{figs/agg4.pdf}
-\caption{Node creation in \insql{T1} by time with grouping:
-  $W=3~\textsf{months}, G_V=\textsf{school}$.}
+\includegraphics[width=3.2in]{figs/agg4.pdf}
+\caption{By time with grouping: $W=3~\textsf{months}, G_V=\textsf{school}$.}
 \label{fig:tg_agg4}
 \end{subfigure}
 \caption[]{Node creation, $Q_V=\insql{all}$, $Q_E=\insql{exists}$,

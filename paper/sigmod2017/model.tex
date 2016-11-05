@@ -54,61 +54,76 @@ and $q$ using the following Allen's relations~\cite{allen83}.}
 \item $p finishes q$, defined as $p.start > q.start \wedge p.end = q.end$
 \end{itemize}}
 
-\subsection{Representative graphs of a \tg}
-\label{sec:model:rg}
+%\subsection{Representative graphs of a \tg}
+%\label{sec:model:rg}
 
+\eat{
 The basic building block of our model is a \tg, which represents a
 single graph that evolves continuously over time, and is defined over
 a set of vertices $V$, edges $E\subseteq V \times V$, vertex
 attributes \avv, and edge attributes \aee.
+}
 
+\eat{
 \vspace{-0.2cm}
 \begin{definition}[TGraph]
 A \tg $\tgg(g, p)$ is a valid-time period-based relation that
 associates a state of the graph $g$ with a time period $p$ during
 which the graph is in that state.
+}
 %
-Each $g = (V_g, E_g, \avv_g, \aee_g)$, with $V_g \subseteq V$, $E_g
+\eat{Each $g = (V_g, E_g, \avv_g, \aee_g)$, with $V_g \subseteq V$, $E_g
 \subseteq E$, $\avv_g \subseteq \avv$, $\aee_g \subseteq \aee$.
+}
 %
+\eat{
 \tgg is temporally coalesced:
 \vspace{-0.2cm}
 \begin{multline}
 \forall \tgg(g,p)~\nexists \tgg(g,p')~~| \\
         \pred{p}{meets}{p'}~\lor~\pred{p}{contains}{p'}~\lor~\pred{p}{overlaps}{p'}
 \end{multline}
-
+}
+\eat{
 \tgg represents evolution of a single graph over time:
 \begin{multline}
 \forall \tgg(\_,p)~\nexists \tgg(\_,p')|~\pred{p}{contains}{p'}~\lor~\pred{p}{overlaps}{p'}
 \end{multline}
-
+}
+\eat{
 We refer to each $g$ that appears in some tuple $(g,p)$ of \tgg as a
 representative graph of \tgg during period $p$.
 \label{def:tg_abstract}
 \end{definition}
+}
 
+\eat{
 An example of a \tg is given in Figure~\ref{fig:tg_rg}, where 5
 representative graphs (states) of \insql{T1} are associated with 5
-consecutive periods $p_1=[1/15, 2/15), \ldots, p_5=[7/15, 10/15)$. \eat{ It
+consecutive periods $p_1=[1/15, 2/15), \ldots, p_5=[7/15, 10/15)$.} \eat{ It
     is not required that time periods of a \tg be consecutive and with
     no gaps.}
 
+\eat{
     Vertices and edges of a \tg are not required to be homogeneous in
     terms of their schemas.  In line with several popular graph
     databases, we use the property graph model~\cite{GraphDB} to
     represent vertex and edge attributes.  Each vertex and edge of $g$
-    during period $p$ is associated with a (possibly empty) {\em bag}
+    during period $p$ is associated with a (possibly empty) {\em set}
     of properties, and each property is represented by a key-value pair.
     Values are not restricted to be of atomic types, and may, e.g., be
     maps or tuples.
+}
 
+\eat{
 As is typical in interval-based models, each representative graph is
 assumed to exists continuously, and remains unchanged, during the
 associated period.  By this we mean that graph topology (identities of
 its vertices and edges), and properties of each vertex and edge remain
 unchanged.
+}
 %
+\eat{
 The statement that \tgg is temporally coalesced means that each fact
 (unchanging state of the graph) is represented exactly once for each
 time period of maximal length when it
@@ -118,19 +133,26 @@ holds~\cite{DBLP:conf/vldb/BohlenSS96}.\eat{ This is the standard
 requiring that relations be coalesced is both space-efficient and
 avoids semantic ambiguity (see~\cite{DBLP:reference/db/JensenS09k}
 Fig. 2 and its description).
+}
 
-\subsection{Vertex-edge representation of a \tg}
-\label{sec:model:ve}
+%\subsection{Vertex-edge representation of a \tg}
+%\label{sec:model:ve}
 
-We now give an alternative representation of a \tg that uses
-valid-time temporal SQL relations~\cite{DBLP:conf/vldb/BohlenSS96},
+\eat{
+We now give an alternative representation of a \tg that uses}
+
+We use valid-time temporal SQL relations~\cite{DBLP:conf/vldb/BohlenSS96},
 with nesting, to represent evolution of graph topology and of its
 vertex and edge attributes.  We term this logical representation the
 {\em \ve \tg}.  An example \eat{of a \ve \tg }is given in
-Figure~\ref{fig:tg_ve}.  We will refer to the \rgs
+Figure~\ref{fig:tg_ve}.  
+
+\eat{
+We will refer to the \rgs
 (Definition~\ref{def:tg_abstract}) and \ve (Definition~\ref{def:tg})
 representations of a \tg jointly as \insql{T}, and will disambiguate
 between the two representations with \trg and \tve when necessary.
+}
 
 \eat{ Following notation in~\ref{DBLP:conf/vldb/BohlenSS96}, we will
   make use of $value\_equivalent(x,y) = (x[A] = y[A])$ --- a Boolean
@@ -171,7 +193,7 @@ An edge connects a pair of vertices that exist at the time when the edge exists:
 \vspace{-0.5cm}
 
 \tve optionally includes vertex and edge attribute relations \tav
-and \tae.  Both are coalesced, and associate bags of properties with
+and \tae.  Both are coalesced, and associate sets of properties with
 existing vertices and edges.
 \vspace{-0.3cm}
 \begin{multline}
@@ -199,9 +221,20 @@ existing vertices and edges.
 \label{def:tg}
 \end{definition}
 \vspace{-0.3cm}
+
+Vertices and edges of a \tg are not required to be homogeneous in
+terms of their schemas.  In line with several popular graph databases,
+we use the property graph model~\cite{GraphDB} to represent vertex and
+edge attributes.  Each vertex and edge during period $p$ is
+associated with a (possibly empty) {\em set} of properties, and each
+property is represented by a key-value pair.  Values are not
+restricted to be of atomic types, and may, e.g., be maps or tuples.
+
 Graphs may be directed or undirected.  For undirected graphs we choose
 a canonical representation of an edge, with $v_1 \leq v_2$ (self-loops
-are allowed).
+are allowed).  Because we use the source and destination vertex id
+pair as the identifier for the edges, only two edges can exist between
+any two vertices (one in each direction) at any time point.
 
 Conditions~\ref{def:tg:c2} and~\ref{def:tg:c3} in
 Definition~\ref{def:tg} state that \tv and \te are
@@ -212,12 +245,23 @@ and~\ref{def:tg:c6} state that all attribute relations are coalesced,
 i.e., that an attribute is represented exactly once for each time
 period of maximal length in which its value did not change.  Consider
 Figure~\ref{fig:tg_ve} and note that there is a single tuple for $v_2$
-in \tv, but three tuples for $v_2$ in \tav, because $school=CMU$ was
-added at time 5/15, and $school=MIT$ at 7/15.  It is not required that
-a vertex or an edge be represented in \tav and \tae --- a vertex or
-edge that never had any associated properties will have no
-corresponding tuples in \tav or \tae.
+in \tv, but two tuples for $v_2$ in \tav, because $school=CMU$ was
+added at time 5/15.  It is not required that a vertex or an edge be
+represented in \tav and \tae --- a vertex or edge that never had any
+associated properties will have no corresponding tuples in \tav or
+\tae.
 
+The statement that \tg is temporally coalesced means that each fact
+(unchanging state of a vertex or edge) is represented exactly once for
+each time period of maximal length when it
+holds~\cite{DBLP:conf/vldb/BohlenSS96}.\eat{ This is the standard
+  meaning of the term ``coalesce'' in temporal databases, and is
+  unrelated to the SQL coalesce function.}  For interval-based models,
+requiring that relations be coalesced is both space-efficient and
+avoids semantic ambiguity (see~\cite{DBLP:reference/db/JensenS09k}
+Fig. 2 and its description).
+
+\eat{
 Definitions~\ref{def:tg_abstract} and~\ref{def:tg} give two
 alternative views of graph evolution.  In
 Definition~\ref{def:tg_abstract} the graph is represented in its
@@ -228,6 +272,7 @@ contrast, Definition~\ref{def:tg} decouples evolution of graph
 vertices, edges and attribute values, coalescing each relation
 independently of the others.  This makes graph maintenance and
 manipulation more manageable.
+}
 
 \eat{The \tv and \te relations of Definition~\ref{def:tg}, although only
 partially enforcing the constraints, can be implemented as follows (as
@@ -365,9 +410,10 @@ important abstraction that will be useful to us in the next section,
 where we present \tg algebra.
 }
 
-\subsection{Switching between representations}  
-\label{sec:model:switch}
+%\subsection{Switching between representations}  
+%\label{sec:model:switch}
 
+\eat{
 \trg and \tve are equivalent in terms of the information they contain.
 \trg can be computed from \tve by (1) enumerating all time points
 during which some change occurred, i.e., those that appear as either
@@ -376,12 +422,15 @@ the start or the end of some time period in \tv, \te, \tav, and \tae;
 from step 1, and sorting them by $start$; (3) constructing a graph $g$
 for each time period $p$ by selecting tuples from \tv, \te, \tav, and
 \tae that overlap with $p$.
+}
 
+\eat{
 To compute \tve from \trg, we iterate over $\trg (g,p)$, computing
 $\tv_g(v,p)$ (similarly for $\te_g$, $\tav_g$, $\tav_g$) for each
 tuple, collecting $\tv_g \rightarrow \tv$, $\te_g \rightarrow \te$,
 $\tav_g \rightarrow \tav$, $\tae_g \rightarrow \tae$, and coalescing
 each \tv, \te, \tav, \tae.
+}
 
 \eat{Next, we will present operators of \tg algebra, stating their
 semantics over both\trg and \tve.}  \eat{We will then discuss how each
