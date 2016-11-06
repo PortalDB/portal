@@ -55,7 +55,8 @@ We use valid-time temporal SQL
 relations~\cite{DBLP:conf/vldb/BohlenSS96} to model evolution of graph
 topology and of vertex and edge attributes.  We term this logical
 representation a \tg.  An example of a \tg that shows evolution of a
-co-authorship network is given in Figure~\ref{fig:tg_ve}.
+co-authorship network is given in Figure~\ref{fig:tg_ve}.  Note that
+\tg represents evolution of a {\em single graph} over time.
 %
 We use the property graph model~\cite{GraphDB} to represent vertex and
 edge attributes: each vertex and edge during period $p$ is associated
@@ -299,12 +300,15 @@ sufficient.
   expense of missed performance optimization opportunities afforded by
   a structured representation.}
 
-\eat{
-To conclude this section, let us revisit \tg \insql{T1} in
-Figure~\ref{fig:tg_ve}.  Figure~\ref{fig:tg_rg} represents \insql{T1} as a
-continuous sequence of graph states, each corresponding to a time
-period during which no change occurred to the graph, in terms of
-either topology or attribute values.}
+A snapshot of a \tg at any point in time can be obtained from \tve by
+a simple selection from all constituent relations on $p$.  Sometimes
+for the purposes of analysis it is useful to refer to a sequence of
+snapshots that are equivalent.  We use the term {\em representative
+  graph} for this purpose since it {\em represents} a perod.
+Figure~\ref{fig:tg_rg} shows \insql{T1} as a continuous sequence of
+representative graphs, each corresponding to a time period during
+which no change occurred to the graph, in terms of either topology or
+attribute values.
 
 \eat{\begin{definition}[\rgs]
 A {\em representative graphs} view of a \tg is a sequence of
