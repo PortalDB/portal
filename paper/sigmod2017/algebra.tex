@@ -2,18 +2,57 @@
 \label{sec:algebra}
 \setlength{\textfloatsep}{5pt}% Remove \textfloatsep
 
-In this section we describe the operators of \tg algebra.  The algebra
-is compositional: all operators take a \tg or a pair of \tgs as input,
-and produce a \tg.  Our algebra is based on the principles of snapshot
-reducibility, which states that an operation should yield the same
-result when applied to the temporal representation as it would if it
-non-temporal version was applied separately to every snapshot state of
-the temporal representation, and extended snapshot reducibility, which
-requires that references to time can be used in the
-operations~\cite{Dignos2012}.
+\tg algebra is compositional: operators take a \tg or a pair of \tgs
+as input, and output a \tg.  As is appropriate for a point-based
+temporal data model (Section~\ref{sec:model}), our algebra has the
+properties of snapshot reducibility and extended snapshot
+reducibility~\cite{DBLP:reference/db/Bohlen092}.  Both principles
+relate a temporal query language to a non-temporal query language that
+it extends. In Section~\ref{sec:algebra:prelim} we state our design
+choices and present two intuitive notions of completeness for a
+non-temporal graph query language w.r.t. which we will evaluate
+expressiveness of \tg algebra.  Then, in
+Sections~\ref{sec:algebra:integrity}
+through~\ref{sec:algebra:composition} we present the algebraic
+opearators.  We show formal properties of \tg algebra in
+Section~\ref{sec:formal}.  All non-trivial proofs are listed in the
+Appendix.
 
-%\subsection{Preliminaries}
-%\label{sec:algebra:prelim}
+\subsection{Design choices}
+\label{sec:algebra:prelim}
+
+Our goal in developing \tg algebra is to give users an ability to
+concisely express a wide range of common analysis tasks, while at the
+same time preserving inter-operability with standard SQL.  For this
+reason our data model is based on the temporal relational model, and
+our algebra corresponds to temporal relational calculus, a two-sorted
+logic with variables and quantifiers explicitly ranging over the time
+domain~\cite{DBLP:reference/db/Toman09}, for graphs.  We will make
+this relationship precise in Section~\ref{sec:formal}.
+
+In consequence, our data structure and algebraic operations can be
+implemented on top of a relational engine.  Implementing
+(non-temporal) graph querying and analytics in an RDBMS has been
+receiving renewed
+attention~\cite{DBLP:conf/sigmod/AbergerTOR16,DBLP:conf/sigmod/SunFSKHX15,DBLP:journals/pvldb/Xirogiannopoulos15},
+and our work is in-line with this trend. 
+
+We do not support general recursion or transitive closure
+computation in our algebra. (Although, as we will see in
+Section~\ref{sec:analytics}, Pregel-style graph analytics such as
+PageRank are supported as an extension.)  For this reason, we also do
+not support regular path queries (RPQ) or the more general path query
+classes (CRPQ and ECRPQ).  Extending our formalism with recursion and
+path queries is non-trivial, and we leave this to future work, see
+Section~\ref{sec:conc} for a discussion.
+
+Rather than focusing on path computation and graph traversal, we
+stress tasks that perform whole-graph analysis over time.  Several
+such tasks were described in Section~\ref{sec:cases}.  Additional
+examples can be found in SocialScope~\cite{Amer-Yahia2009} --- a
+closed graph algebra motivated by information discovery in social
+content sites.  All operations of SocialScope can be expressed in
+\ql. \julia{Let's confirm this.}
 
 \subsection{Resolve function}
 \label{sec:algebra:integrity}
@@ -86,13 +125,13 @@ We introduce three basic unary operators: slice, subgraph, and map.
 %\subsection{Slice}
 %\label{sec:algebra:slice}
 
-{\bf Slice.}  The unary {\em slice} operator, denoted $\tau_c (\ttt)$,
-where $c$ is a time period, cuts a temporal slice from \ttt.  The
-resulting \tg will contain vertices and edges whose period $p$ has a
-non-empty intersection with $c$.  To evaluate $\tau_c (\tve)$, we
-apply $\tau_c$ to each of the four constituent relations of \tve:
-$\tau_c (\tv) = \{ (v, p \cap c)~~|~~(v, p) \in \tv \wedge
-(\pred{c}{overlaps}{p} \vee \pred{c}{contains}{p}) \}$, and
+{\bf Slice.}  The unary {\em slice} operator, denoted $\tau_{\bc} (\ttt)$,
+where $\bc$ is a time period, cuts a temporal slice from \ttt.  The
+resulting \tg will contain vertices and edges whose period $\bp$ has a
+non-empty intersection with $\bc$.  To evaluate $\tau_{\bc} (\tve)$, we
+apply $\tau_{\bc}$ to each of the four constituent relations of \tve:
+$\tau_{\bc} (\tv) = \{ (v, \bp \cap \bc)~~|~~(v, \bp) \in \tv \wedge
+(\pred{\bc}{overlaps}{\bp} \vee \pred{\bc}{contains}{\bp}) \}$, and
 analogously for each \te, \tav and \tae.
 
 \eat{If $p.start < c.start$ or $p.end > c.end$ for some tuple $(g,
