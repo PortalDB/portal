@@ -68,19 +68,17 @@
 \newcommand{\tpymd}[3]{\ensuremath{\mathsf #1/#2/#3}}
 
 % Query langauge operations
-\newcommand*{\tsel}[2]{\ensuremath{\sigma^{t}(#1,#2)}}
-\newcommand*{\ssel}[2]{\ensuremath{\sigma^{s}(#1,#2)}}
-
-\newcommand*{\andgrp}[4]{\ensuremath{\gamma^{\cap}(#1,#2,#3,#4)}}
-\newcommand*{\orgrp}[4]{\ensuremath{\gamma^{\cup}(#1,#2,#3,#4)}}
-
-\newcommand*{\xfrm}[3]{\ensuremath{\chi(#1,#2,#3)}}
-\newcommand*{\an}[2]{\ensuremath{\alpha(#1,#2)}}
-
-%\newcommand*{\tor}[4]{\ensuremath{\bigcup({#1},{#2},{#3},{#4})}}
-\newcommand*{\tor}[4]{\ensuremath{#1 \cup_{#3, #4} #2}}
-%\newcommand*{\tand}[4]{\ensuremath{\bigcap(#1,#2,#3,#4)}}
-\newcommand*{\tand}[4]{\ensuremath{#1 \cap_{#3, #4} #2}}
+\newcommand*{\slice}[2]{\ensuremath{\tau_#1(#2)}}
+\newcommand*{\subg}[3]{\ensuremath{\sigma_{#1, #2}(#3)}}
+\newcommand*{\mapp}[3]{\ensuremath{map_{#1, #2}(#3)}}
+\newcommand*{\agg}[4]{\ensuremath{\gamma_{#1, #2, #3}(#4)}}
+\newcommand*{\nodecr}[6]{\ensuremath{\vartheta_{#1, #2, #3, #4, #5}(#6)}}
+\newcommand*{\compose}[4]{\ensuremath{#1 \odot_{#2,#3} #4}}
+\newcommand*{\extend}[1]{\ensuremath{\epsilon(\mathbf{#1})}}
+\newcommand*{\trim}[2]{\ensuremath{\mathcal{I}(\mathbf{#1},#2)}}
+\newcommand*{\coal}[1]{\ensuremath{\mathcal{C}(\mathbf{#1})}}
+\newcommand*{\norm}[3]{\ensuremath{\mathcal{N}_{#1}(\mathbf{#2},\mathbf{#3})}}
+\newcommand*{\constr}[3]{\ensuremath{\mathcal{K}_{#1}(\mathbf{#2},\mathbf{#3})}}
 
 \newcommand{\insql}[1]{\textsf{#1}}
 
