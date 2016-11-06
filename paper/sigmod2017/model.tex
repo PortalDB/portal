@@ -6,14 +6,14 @@
 
 Following the SQL:2011
 standard~\cite{DBLP:journals/sigmod/KulkarniM12}, a period (or
-interval) $p = [start, end)$ represents a discrete set of time
-  instances, starting from and including the start time, continuing to
-  but excluding the end time.  Time instances contained within the
+interval) $\bp = [s, e)$ represents a discrete set of time instances,
+  starting from and including the start time $s$, continuing to but
+  excluding the end time $e$.  Time instances contained within the
   period have limited precision, and the time domain has total order.
 
 \eat{\begin{definition}[Time period]
-A {\em time period} \\$p = [start, end)$ is an interval of the time
-  domain, subject to the constraint $start < end$.
+A {\em time period} \\$\bp = [s, e)$ is an interval of the time
+  domain, subject to the constraint $s < e$.
 \label{def:period} 
 \end{definition}}
 
@@ -21,13 +21,10 @@ We quantify relationships between time periods using the following
 Allen's relations~\cite{allen83} with equality: \predName{meets},
 \predName{overlaps}, \predName{starts}, \predName{finishes},
 \predName{during}, and \predName{equals}.  We will use
-$\pred{p}{contains}{q}$ as a shorthand for $\pred{p}{starts}{q} \vee
-\pred{p}{finishes}{q} \vee \pred{p}{during}{q} \vee
-\pred{p}{equal}{q}$.  We denote by $p \cap q$ the intersection of $p$
-and $q$. \eat{$$to denote $[\predName{max}(p.start,q.start),
-    \predName{min}(p.end, q.end))$.}\eat{ If
-    $\predName{max}(p.start,q.start) \geq \predName{min}(p.end,
-    q.end)$, then $p \cap q = \emptyset$.}
+$\pred{\bp}{contains}{\bq}$ as a shorthand for
+$\pred{\bp}{starts}{\bq} \vee \pred{\bp}{finishes}{\bq} \vee
+\pred{\bp}{during}{\bq} \vee \pred{\bp}{equal}{\bq}$.  We denote by
+$\bp \cap \bq$ the intersection of $\bp$ and $\bq$.
 
 \begin{figure}[t!]
 \centering
@@ -36,6 +33,16 @@ and $q$. \eat{$$to denote $[\predName{max}(p.start,q.start),
 \caption{\tg \insql{T1}.}
 \label{fig:tg_ve}
 \end{figure}
+
+\begin{figure}[t!]
+%\centering
+\includegraphics[width=3.4in]{figs/T1_graphs.pdf}
+\vspace{-0.5cm}
+\caption{Representative graphs of \tg \insql{T1}.}
+\vspace{-0.4cm}
+\label{fig:tg_rg}
+\end{figure}
+
 
 \eat{It will be useful to quantify relationships between time periods $p$
 and $q$ using the following Allen's relations~\cite{allen83}.}
@@ -59,12 +66,12 @@ co-authorship network is given in Figure~\ref{fig:tg_ve}.  Note that
 \tg represents evolution of a {\em single graph} over time.
 %
 We use the property graph model~\cite{GraphDB} to represent vertex and
-edge attributes: each vertex and edge during period $p$ is associated
+edge attributes: each vertex and edge during period $\bp$ is associated
 with a (possibly empty) {\em set} of properties, and each property is
 represented by a key-value pair.  Property values are not restricted
 to be of atomic types, and may, e.g., be maps or tuples.
 
-A \tg uses the point-stamped temporal
+\tg uses the point-stamped temporal
 model~\cite{DBLP:reference/db/Toman09}, associating a fact (existence
 of a vertex or edge, or an assignment of a value to a vertex or edge
 attribute) with a time instant.  We use intervals to compactly
@@ -136,7 +143,7 @@ existing vertices and edges.
 \eat{Vertices and edges of a \tg are not required to be homogeneous in
 terms of their schemas.  In line with several popular graph databases,
 we use the property graph model~\cite{GraphDB} to represent vertex and
-edge attributes.  Each vertex and edge during period $p$ is
+edge attributes.  Each vertex and edge during period $\bp$ is
 associated with a (possibly empty) {\em set} of properties, and each
 property is represented by a key-value pair.  Values are not
 restricted to be of atomic types, and may, e.g., be maps or tuples.}
@@ -148,17 +155,24 @@ pair as the identifier for the edges, at most two edges can exist
 between any two vertices (one in each direction) at any time point.
 That is, we do not support multigraphs.
 
-Conditions~\ref{def:tg:c2} and~\ref{def:tg:c3} in
+\eat{Conditions~\ref{def:tg:c2} and~\ref{def:tg:c3} in
 Definition~\ref{def:tg} state that \tv and \te are
 coalesced~\cite{DBLP:conf/vldb/BohlenSS96}, i.e., that each vertex and
 edge is represented exactly once for each time period of maximal
 length when it is present.  Conditions~\ref{def:tg:c4}
 and~\ref{def:tg:c6} state that the attribute relations are coalesced,
 i.e., that an attribute is represented exactly once for each time
-period of maximal length in which its value did not change.  Consider
+period of maximal length in which its value did not change.}
+
+Conditions~\ref{def:tg:c2},~\ref{def:tg:c3},~\ref{def:tg:c4},
+and~\ref{def:tg:c6} in Definition~\ref{def:tg} state that all
+relations of \tve are coalesced~\cite{DBLP:conf/vldb/BohlenSS96} ---
+each fact (existence of a vertex or edge, or an assignment of a value
+to a vertex or edge attribute) is represented exactly once for each
+time period of maximal length during which it holds.  Consider
 Figure~\ref{fig:tg_ve} and note that there is a single tuple for $v_2$
 in \tv, but two tuples for $v_2$ in \tav, because $school=CMU$ was
-added at time 5/15.  
+added at time 5/15.
 %
 \eat{The statement that \tg is temporally coalesced means that each
   fact (unchanging state of a vertex or edge, or unchanging value of a
@@ -194,8 +208,8 @@ per SQL:2011):}
   natural integrity constraint that an edge linking two vertices can
   only exist during a time when both vertices exist. Here,
   $\pred{p}{contains}{q}$ is the Allen \predName{contains} relation
-  with equality~\cite{allen83}, defined as $p.start \leq q.start
-  \wedge p.end \geq q.end$.  Consider the vertex-edge representation
+  with equality~\cite{allen83}, defined as $\bp.start \leq \bq.start
+  \wedge \bp.end \geq \bq.end$.  Consider the vertex-edge representation
   of \tg \insql{T1} in Figure~\ref{fig:tg_ve}, where edge $e(v_1,v_2)$
   exists during the entire period when both $v_1$ and $v_2$ exist,
   while edge $e(v_2,v_3)$ exists only for a portion of the period when
@@ -228,8 +242,8 @@ standard. Unfortunately, an implementation will not guarantee that \tv
 and \te are coalesced.  It is possible to ensure that time periods
 corresponding to a vertex (resp. edge) do not overlap or contain each
 other, but it is not possible to prevent the existence of two adjacent
-time periods for a vertex or edge, i.e., periods $p$ and $q$ for which
-$\pred{p}{meets}{q}$.  That is, there may well be two tuples in \tv
+time periods for a vertex or edge, i.e., periods $\bp$ and $\bq$ for which
+$\pred{\bp}{meets}{\bq}$.  That is, there may well be two tuples in \tv
 for $v_1$ in Figure~\ref{fig:tg_ve}, one associated with $[1/15,
   2/15)$ and the other with $[2/15, 7/15)$.}
 
@@ -253,11 +267,11 @@ In the \tg representation of Definition~\ref{def:tg}, vertex and edges
 attributes are stored as collections of properties.  That said,
 Definition~\ref{def:tg} presents a logical data structure and may be
 implemented, e.g., by a columnar representation of properties (each
-property in a separate relation), by 1NF relations with property key
-and value as columns, or by a hash-based representation
-of~\cite{DBLP:conf/sigmod/SunFSKHX15}.  We leave an experimental
-comparison of different physical representations of vertex and egde
-attributes to future work.
+property in a separate relation, supporting different change rates),
+by a hash-based representation of~\cite{DBLP:conf/sigmod/SunFSKHX15},
+or in some other way.  We leave an experimental comparison of
+different physical representations of vertex and egde attributes to
+future work.
 
 \eat{
 Definition~\ref{def:tg} gives a columnar representation of vertex and
@@ -300,15 +314,15 @@ sufficient.
   expense of missed performance optimization opportunities afforded by
   a structured representation.}
 
-A snapshot of a \tg at any point in time can be obtained from \tve by
-a simple selection from all constituent relations on $p$.  Sometimes
-for the purposes of analysis it is useful to refer to a sequence of
-snapshots that are equivalent.  We use the term {\em representative
-  graph} for this purpose since it {\em represents} a perod.
-Figure~\ref{fig:tg_rg} shows \insql{T1} as a continuous sequence of
-representative graphs, each corresponding to a time period during
-which no change occurred to the graph, in terms of either topology or
-attribute values.
+A snapshot of a \tg, denoted $\tau_c (\tve)$, is the state of \tve at
+time point $c$. It can be obtained by taking a timeslice at $c$ from
+all constituent relations of \tve.  It is sometimes convenient to use
+intervals to compactly represent consecutive value-equivalent
+snapshots of \tve --- timeslices in which no change occurred in graph
+topology, or in vertex and edge attributes.  We use the term {\em
+  representative graph} to refer to such snapshots, since they
+represent an interval.  Figure~\ref{fig:tg_rg} shows \insql{T1} as a
+sequence of representative graphs.
 
 \eat{\begin{definition}[\rgs]
 A {\em representative graphs} view of a \tg is a sequence of
@@ -336,8 +350,8 @@ during which some change occurred, i.e., those that appear as either
 the start or the end of some time period in \tv, \te, \tav, and \tae;
 (2) computing \trg periods by generating pairs of adjacent time points
 from step 1, and sorting them by $start$; (3) constructing a graph $g$
-for each time period $p$ by selecting tuples from \tv, \te, \tav, and
-\tae that overlap with $p$.
+for each time period $\bp$ by selecting tuples from \tv, \te, \tav, and
+\tae that overlap with $\bp$.
 }
 
 \eat{
