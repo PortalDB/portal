@@ -1,0 +1,93 @@
+\section{Expressive power}
+\label{sec:formal}
+
+In this section we study expressiveness of the \tg model, which
+consists of the \tg data structure (Definition~\ref{def:tg}) and of
+\tg algebra for querying the data structure
+(Sections~\ref{sec:algebra:unary}-~\ref{sec:algebra:composition}).  We
+stress that ours is a {\em valid-time data model} that does not have
+transaction-time and bitemporal support.  We start by proposing two
+natural notions of completeness for a temporal graph query language.
+
+\begin{definition}
+  Let $L$ be a temporal relational language and $\tve$ --- a
+  relational vertex-edge representation of a temporal graph.  An
+  \edgeq $q^t_e$ in $L$ takes a graph $\tve (\tv, \te, \tav, \tae)$ as
+  input, and outputs another graph $\tve'$ on the vertices of $\tve$
+  such that the edges of $\tve'$ are defined by $q_e$.  A language is
+  $L$-\edgec if it can express each $q_e$ in $L$.
+  \label{def:edgecomplete}
+\end{definition}
+
+Note that the query $q_e$ is not restricted to act on \te alone, and
+may refer to the other constituent relations \tve.
+
+\julia{Serge, in Definition~\ref{def:edgecomplete}, does it matter
+  whether $q^t_e$ can use additional non-graph relations in the
+  schema (temporal or not), or does expressiveness stay the same?}
+
+\begin{definition}
+  Let $L$ be a temporal relational language, and let $\tve$ be a
+  relational vertex-edge representation of a temporal graph.  An
+  \vertexq $q^t_v$ in $L$ takes a graph $\tve (\tv, \te)$ as input,
+  and outputs another graph $\tve'$ such that the vertices of $\tve'$
+  are defined by $q_v$. A language is $L$-\vertexc if it can express
+  each $q_v$ in $L$.
+\label{def:vertexcomplete}
+\end{definition}
+
+We now refer to definitions~\ref{def:edgecomplete}
+and~\ref{def:vertexcomplete} and show that \ql algebra is \edgec and
+\vertexc, with respect to the valid-time fragment of temporal
+relational algebra (TRA).  TRA is an algebra that corresponds to
+temporal relational calculus
+(TRC)~\cite{DBLP:reference/db/ChomickiT09b}, a first-order logic that
+extends relational calculus and supports variables and quantifiers
+over both the data domain and time domain.
+
+\begin{theorem}
+\ql algebra is TRA-\edgec.
+\label{th:edgecomplete}
+\end{theorem}
+
+\begin{proof}  Forthcoming.
+\end{proof}
+
+\begin{theorem}
+\ql algebra is TRA-\vertexc.
+\label{th:vertexcomplete}
+\end{theorem}
+
+\begin{proof}  Forthcoming.
+\end{proof}
+
+We showed in Theorems~\ref{th:edgecomplete}
+and~\ref{th:vertexcomplete} that \ql can compute vertices and edges of
+a \tg based on arbitrary TRA queries.  We also showed in
+Section~\ref{sec:algebra} that every \ql operator can be implemented
+by a sequence of TRA queries.
+
+% S-reducibility and exteded S-reducibility
+Consider a non-temporal query langauge $L$ and its temporal extension
+$L^t$.  For a point-based model, it is customary to interrogate two
+properties --- snapshot reducibility (S-reducibility) and extended
+snapshot reducibility (extended S-reducibility).
+
+S-reducibility states that for every query $q$ in $L$, there must
+exist a syntactically similar query $q^t$ in $L^t$ that generalizes
+$q$.  Specifically the following relationship should hold when $q^t$
+is evaluated over a temporal database $D^t$ (recall that $\tau$ is the
+temporal slice operator): $q(\tau_c(D^t)) = \tau_c(q^t(D^t))$, for all
+time points $c$.  Extended S-reducibility requires that $L^t$ provide
+an ability to make explicit references to timestamps alongside
+non-temporal predicates.
+
+We showed above that \ql algebra is TRC-\edgec and TRC-\vertexc.
+Since TRC is known to be S-reducible and extended S-reducible with
+respect to (non-temporal) relational calculus, then these properties
+also hold over the \edgeq and \vertexq of \ql.
+
+% Make a connection to sequenced semantics - we don't support change
+% preservation.
+
+
