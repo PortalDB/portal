@@ -6,13 +6,10 @@
 as input, and output a \tg.  As is appropriate for a point-based
 temporal data model (Section~\ref{sec:model}), our algebra has the
 properties of snapshot reducibility and extended snapshot
-reducibility~\cite{DBLP:reference/db/Bohlen092}.  Both principles
-relate a temporal query language to a non-temporal query language that
-it extends. In Section~\ref{sec:algebra:prelim} we state our design
-choices and present two intuitive notions of completeness for a
-non-temporal graph query language w.r.t. which we will evaluate
-expressiveness of \tg algebra.  Then, in
-Sections~\ref{sec:algebra:integrity}
+reducibility~\cite{DBLP:reference/db/Bohlen092}.
+
+In Section~\ref{sec:algebra:prelim} we state our design choices.
+Then, in Sections~\ref{sec:algebra:integrity}
 through~\ref{sec:algebra:composition} we present the algebraic
 opearators.  We show formal properties of \tg algebra in
 Section~\ref{sec:formal}.  All non-trivial proofs are listed in the
@@ -30,12 +27,12 @@ logic with variables and quantifiers explicitly ranging over the time
 domain~\cite{DBLP:reference/db/Toman09}, for graphs.  We will make
 this relationship precise in Section~\ref{sec:formal}.
 
-In consequence, our data structure and algebraic operations can be
+As a consequence, our data structure and algebraic operations can be
 implemented on top of a relational engine.  Implementing
 (non-temporal) graph querying and analytics in an RDBMS has been
 receiving renewed
 attention~\cite{DBLP:conf/sigmod/AbergerTOR16,DBLP:conf/sigmod/SunFSKHX15,DBLP:journals/pvldb/Xirogiannopoulos15},
-and our work is in-line with this trend. 
+and our work is in-line with this trend.
 
 We do not support general recursion or transitive closure
 computation in our algebra. (Although, as we will see in
@@ -63,7 +60,7 @@ a {\em resolve} function.
 
 \begin{definition}[Resolve function]
 Let $((a_l,p_l),(a_r,p_r))$ be a pair of possible values of a property
-of a vertex or an edge along with the associated validity periods.  A
+of a vertex or an edge, along with the associated validity periods.  A
 {\em resolve function} produces a single property value with its
 validity period $(a,p) = resolve((a_l,p_l), (a_r,p_r))$.
 \end{definition}
