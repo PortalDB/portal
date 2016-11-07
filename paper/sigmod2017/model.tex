@@ -82,30 +82,30 @@ definition of a \tg.
 
 \begin{definition}[TGraph]
 A \tg is a pair $\tve=(\tv, \te)$. \tv is a valid-time temporal SQL
-relation with schema $\tv(\underline{v}, \underline{p})$ that
+relation with schema $\tv(\underline{v}, \underline{\bp})$ that
 associates a vertex with the time period during which it is
 present. \te is a valid-time temporal SQL relation with schema
-$\te(\underline{v_1}, \underline{v_2}, \underline{p})$, connecting
+$\te(\underline{v_1}, \underline{v_2}, \underline{\bp})$, connecting
 pairs of vertices from \tv.  \tv and \te are temporally coalesced:
 \vspace{-0.3cm}
 \begin{multline}
 \vspace{-0.3cm}
-\forall \tv(v, p)~~\nexists \tv(v, p')~~| \\
-                       \pred{p}{meets}{p'}~\lor~\pred{p}{contains}{p'}~\lor~\pred{p}{overlaps}{p'}
+\forall \tv(v, \bp)~~\nexists \tv(v, \bq)~~| \\
+                       \pred{\bp}{meets}{\bq'}~\lor~\pred{\bp}{contains}{\bq}~\lor~\pred{\bp}{overlaps}{\bq}
 \label{def:tg:c2}
 \end{multline}
 \vspace{-0.7cm}
 \begin{multline}
-\forall \te(v_1, v_2, p)~~\nexists \te(v_1,v_2, p')~~| \\
-                       \pred{p}{meets}{p'}~\lor~\pred{p}{contains}{p'}~\lor~\pred{p}{overlaps}{p'}
+\forall \te(v_1, v_2, \bp)~~\nexists \te(v_1,v_2, \bq)~~| \\
+                       \pred{\bp}{meets}{\bq}~\lor~\pred{\bp}{contains}{\bq}~\lor~\pred{\bp}{overlaps}{\bq}
 \label{def:tg:c3}
 \end{multline}
 
 An edge connects a pair of vertices that exist at the time when the edge exists:
 \vspace{-0.3cm}
 \begin{multline}
-\forall \te(v_1, v_2, p)~~\exists \tv(v_1, p_1), \tv(v_2, p_2)~~| \\
-                       \pred{p_1}{contains}{p}~\wedge~\pred{p_2}{contains}{p}
+\forall \te(v_1, v_2, \bp)~~\exists \tv(v_1, \bp_1), \tv(v_2, \bp_2)~~| \\
+                       \pred{\bp_1}{contains}{\bp}~\wedge~\pred{\bp_2}{contains}{\bp}
 \label{def:tg:c1}
 \end{multline}
 \vspace{-0.5cm}
@@ -314,15 +314,16 @@ sufficient.
   expense of missed performance optimization opportunities afforded by
   a structured representation.}
 
-A snapshot of a \tg, denoted $\tau_c (\tve)$, is the state of \tve at
-time point $c$. It can be obtained by taking a timeslice at $c$ from
-all constituent relations of \tve.  It is sometimes convenient to use
-intervals to compactly represent consecutive value-equivalent
-snapshots of \tve --- timeslices in which no change occurred in graph
-topology, or in vertex and edge attributes.  We use the term {\em
-  representative graph} to refer to such snapshots, since they
-represent an interval.  Figure~\ref{fig:tg_rg} shows \insql{T1} as a
-sequence of representative graphs.
+A snapshot of a \tg, denoted $\tau^s_c (\tve)$ (``s'' stands for
+``snapshot''), is the state of \tve at time point $c$. It can be
+obtained by taking a timeslice at $c$ from all constituent relations
+of \tve.  It is sometimes convenient to use intervals to compactly
+represent consecutive value-equivalent snapshots of \tve ---
+timeslices in which no change occurred in graph topology, or in vertex
+and edge attributes.  We use the term {\em representative graph} to
+refer to such snapshots, since they represent an interval.
+Figure~\ref{fig:tg_rg} shows \insql{T1} as a sequence of
+representative graphs.
 
 \eat{\begin{definition}[\rgs]
 A {\em representative graphs} view of a \tg is a sequence of

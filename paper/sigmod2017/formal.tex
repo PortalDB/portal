@@ -10,16 +10,16 @@ transaction-time and bitemporal support.  We start by proposing two
 natural notions of completeness for a temporal graph query language.
 
 \begin{definition}
-  Let $L$ be a temporal relational language and $\tve$ --- a
-  relational vertex-edge representation of a temporal graph.  An
-  \edgeq $q^t_e$ in $L$ takes a graph $\tve (\tv, \te, \tav, \tae)$ as
-  input, and outputs another graph $\tve'$ on the vertices of $\tve$
-  such that the edges of $\tve'$ are defined by $q_e$.  A language is
-  $L$-\edgec if it can express each $q_e$ in $L$.
+  Let $L^t$ be a temporal relational language and $\tve$ --- a
+  relational representation of a temporal graph.  An \edgeq $q^t_e$ in
+  $L$ takes a graph $\tve (\tv, \te, \tav, \tae)$ as input, and
+  outputs another graph $\tve'$ on the vertices of $\tve$ such that
+  the edges of $\tve'$ are defined by $q^t_e$.  A language is
+  $L^t$-\edgec if it can express each $q^t_e$ in $L^t$.
   \label{def:edgecomplete}
 \end{definition}
 
-Note that the query $q_e$ is not restricted to act on \te alone, and
+Note that the query $q^t_e$ is not restricted to act on \te alone, and
 may refer to the other constituent relations \tve.
 
 \julia{Serge, in Definition~\ref{def:edgecomplete}, does it matter
@@ -27,12 +27,12 @@ may refer to the other constituent relations \tve.
   schema (temporal or not), or does expressiveness stay the same?}
 
 \begin{definition}
-  Let $L$ be a temporal relational language, and let $\tve$ be a
-  relational vertex-edge representation of a temporal graph.  An
-  \vertexq $q^t_v$ in $L$ takes a graph $\tve (\tv, \te)$ as input,
-  and outputs another graph $\tve'$ such that the vertices of $\tve'$
-  are defined by $q_v$. A language is $L$-\vertexc if it can express
-  each $q_v$ in $L$.
+  Let $L^t$ be a temporal relational language, and let $\tve$ be a
+  relational representation of a temporal graph.  A \vertexq $q^t_v$
+  in $L^t$ takes a graph $\tve (\tv, \te, \tav, \tae)$ as input, and
+  outputs another graph $\tve'$ such that the vertices of $\tve'$ are
+  defined by $q^t_v$. A language is $L^t$-\vertexc if it can express
+  each $q^t_v$ in $L^t$.
 \label{def:vertexcomplete}
 \end{definition}
 
@@ -40,10 +40,9 @@ We now refer to definitions~\ref{def:edgecomplete}
 and~\ref{def:vertexcomplete} and show that \ql algebra is \edgec and
 \vertexc, with respect to the valid-time fragment of temporal
 relational algebra (TRA).  TRA is an algebra that corresponds to
-temporal relational calculus
-(TRC)~\cite{DBLP:reference/db/ChomickiT09b}, a first-order logic that
-extends relational calculus and supports variables and quantifiers
-over both the data domain and time domain.
+temporal relational calculus~\cite{DBLP:reference/db/ChomickiT09b}, a
+first-order logic that extends relational calculus, supporting
+variables and quantifiers over both the data domain and time domain.
 
 \begin{theorem}
 \ql algebra is TRA-\edgec.
@@ -68,7 +67,7 @@ Section~\ref{sec:algebra} that every \ql operator can be implemented
 by a sequence of TRA queries.
 
 % S-reducibility and exteded S-reducibility
-Consider a non-temporal query langauge $L$ and its temporal extension
+Consider a non-temporal query language $L$ and its temporal extension
 $L^t$.  For a point-based model, it is customary to interrogate two
 properties --- snapshot reducibility (S-reducibility) and extended
 snapshot reducibility (extended S-reducibility).
@@ -82,10 +81,12 @@ time points $c$.  Extended S-reducibility requires that $L^t$ provide
 an ability to make explicit references to timestamps alongside
 non-temporal predicates.
 
-We showed above that \ql algebra is TRC-\edgec and TRC-\vertexc.
-Since TRC is known to be S-reducible and extended S-reducible with
-respect to (non-temporal) relational calculus, then these properties
-also hold over the \edgeq and \vertexq of \ql.
+\julia{Is this a correct statement?} We showed above that \ql algebra
+is TRA-\edgec and TRA-\vertexc.  Further, we showed that every
+operation on \ql algebra is expressible by a sequence of TRA
+queries. Since TRA is known to be S-reducible and extended S-reducible
+with respect to relational algebra~\cite{}, then these properties also
+hold over the queries that produce vertices and edges in \ql.
 
 % Make a connection to sequenced semantics - we don't support change
 % preservation.

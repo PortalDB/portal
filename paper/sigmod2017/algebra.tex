@@ -51,8 +51,20 @@ closed graph algebra motivated by information discovery in social
 content sites.  All operations of SocialScope can be expressed in
 \ql. \julia{Let's confirm this.}
 
-\subsection{Resolve function}
+%\subsection{Resolve function}
+\subsection{Soundness}
 \label{sec:algebra:integrity}
+
+\julia{Vera will revise this section to spell out the details of how
+  we ensure that each algebraic operation produces a valid \tg per
+  Definition~\ref{def:tg}.  This requires specifying that a snapshot
+  $\tau_c{\tve}$ for all time points $c$ is a valid graph --- a vertex
+  appears at most once, an edge appears in each direction at most
+  once, no dangling edges; that attributes of vertices and edges refer
+  to existing vertices and edges, that each attribute takes on 1 value
+  (resolve), that all relations are temporally coalesced.  State
+  what's new compared to temporal relational algebra
+  w.r.t. coalescing.}
 
 One of the requirements of our model is that each entity exists only
 once during any time instant $t$.  To maintain soundness we introduce
@@ -118,103 +130,98 @@ coalescing, require FK enforcement, or include resolve functions.
 \subsection{Unary operators}
 \label{sec:algebra:unary}
 
-We introduce three basic unary operators: slice, subgraph, and map.
-%\subsection{Slice}
-%\label{sec:algebra:slice}
+%We now introduce unary operators slice, subgraph and map.
 
-{\bf Slice.}  The unary {\em slice} operator, denoted $\tau_{\bc} (\ttt)$,
-where $\bc$ is a time period, cuts a temporal slice from \ttt.  The
+{\bf Slice.}  The slice operator, denoted $\tau_{\bc} (\ttt)$, where
+$\bc$ is a time interval, cuts a temporal slice from \ttt. The
 resulting \tg will contain vertices and edges whose period $\bp$ has a
-non-empty intersection with $\bc$.  To evaluate $\tau_{\bc} (\tve)$, we
-apply $\tau_{\bc}$ to each of the four constituent relations of \tve:
-$\tau_{\bc} (\tv) = \{ (v, \bp \cap \bc)~~|~~(v, \bp) \in \tv \wedge
-(\pred{\bc}{overlaps}{\bp} \vee \pred{\bc}{contains}{\bp}) \}$, and
-analogously for each \te, \tav and \tae.
+non-empty intersection with $\bc$.  To evaluate $\tau_{\bc} (\tve)$,
+we apply $\tau_{\bc}$ to each of the four constituent relations of
+\tve: $\tau_{\bc} (\tv) = \{ (v, \bp \cap \bc)~~|~~(v, \bp) \in \tv
+\wedge (\pred{\bc}{overlaps}{\bp} \vee \pred{\bc}{contains}{\bp}) \}$,
+and analogously for each \te, \tav and \tae.
 
 \eat{If $p.start < c.start$ or $p.end > c.end$ for some tuple $(g,
   p)$, then $p$ is trimmed to be within the boundaries of $c$: $\tau_c
   (\trg) = \{ (g, p \cap c)~~|~~(g, p) \in \trg \wedge
   (\pred{c}{overlaps}{p} \vee \pred{c}{contains}{p})\}$.  }
 
-Slice does not uncoalesce and does not require FK enforcement.  The
-proofs for this and similar statements below are included in
-Appendix~\ref{sec:app1}.
+\eat{ Slice does not uncoalesce and does not require FK enforcement.
+  The proofs for this and similar statements below are included in }
+\julia{Soundness info goes here: what needs to be checked and
+  enforced.}  Proofs are included in Appendix~\ref{sec:app1}.
 
 %\subsection{Temporal subgraph matching}
 %\label{sec:algebra:subgraph}
 
-{\bf Subgraph.}  Temporal subgraph matching is defined analogously to
-subgraph matching in non-temporal graphs: it applies a predicate to
-each vertex and edge of \tg.  We focus on functions that can be
-expressed as a pair of {\em conjunctive queries} $\sigma_{C_V,C_E}
-(\ttt)$, where $C_V$ specifies a predicate over the vertices and $C_E$
---- over the vertex-edge triplets.  The predicates can be over the
-attributes, ids, and the timestamps of the vertices and edges.  We
-allow predicates over the timestamps to support extended snapshot
-reducibility.  Computing arbitrary subgraphs with path expressions is
-beyond the scope of this paper, and we defer this to future work.
+{\bf Subgraph.}  Temporal subgraph matching is a generalization of
+subgraph matching for non-temporal graphs~\cite{Wood2012}.  This query
+comes in two variants.
 
+A temporal vertex-subgraph query $q^t_v(\tve)$ is a conjunctive query
+that takes $\tve (\tv, \te, \tav, \tae)$ as input, and outputs
+$\tve'$, an induced temporal subgraph of \tve in which vertices are
+defined by $q^t_v$.  Note that this is a subgraph query, and so no new
+vertices are created, i.e., $\tv' \subseteq \tv$.
+
+A temporal edge-sugraph query $q^t_e(\tve)$ is a conjunctive query
+that takes a graph $\tve (\tv, \te, \tav, \tae)$ as input, and outputs
+a \tg $\tve'$ on the vertices of $\tve$ such that the edges of $\tve'$
+are defined by $q^t_e$. Since this is a subgraph query, no new edges
+are created, i.e., $\te' \subseteq \te$.
+
+Queries $q^t_v$ and $q^t_e$ may include predicates over any of the
+consitutent relations of \tve to compute the vertex (resp. edge) sets.
+Further, these queries may explicitly reference temporal information,
+and so require that all temporal relations over which they operate be
+coalesced~\cite{DBLP:reference/db/Bohlen09}.
+
+\eat{We focus on functions that can be expressed as a pair of {\em
+  conjunctive queries} $\sigma_{C_V,C_E} (\ttt)$, where $C_V$
+specifies a predicate over the vertices and $C_E$ --- over the
+vertex-edge triplets.  The predicates can be over the attributes, ids,
+and the timestamps of the vertices and edges.  We allow predicates
+over the timestamps to support extended snapshot reducibility.
+Computing arbitrary subgraphs with path expressions is beyond the
+scope of this paper, and we defer this to future work.}
+
+\eat{
 $\sigma_{C_V,C_E} (\ttt) = (\tv',\te',\tav',\tae') ~|~$ \\
 $\tv' = \pi_{v,p} (\sigma_{C_V} ( \tv \bowtie^T_v \tav))$ \\
 $\te' = \pi_{v_1,v_2,p} (\sigma_{C_E} ( \tae \bowtie^T_{v_1} \tav \bowtie^T_{v_2} \tav))$ \\
 $\tav' = \sigma_{C_V} (\tav)$ \\
-$\tae' = \pi_{v_1,v_2,a} (\sigma_{C_E} (\tae \bowtie^T_{v_1} \tav \bowtie^T_{v_2} \tav))$
+$\tae' = \pi_{v_1,v_2,a} (\sigma_{C_E} (\tae \bowtie^T_{v_1} \tav \bowtie^T_{v_2} \tav))$}
 
-Note that as B{\"{o}}hlen showed in~\cite{DBLP:reference/db/Bohlen09},
-correctness of a select operator with a temporal predicate depends on
-the coalesced state of the relation.  When composing a triplet, we
-carry the vertex and edge timestamps in their entirety as data to
-produce correct results.
+\eat{ Note that as B{\"{o}}hlen showed
+  in~\cite{DBLP:reference/db/Bohlen09}, correctness of a select
+  operator with a temporal predicate depends on the coalesced state of
+  the relation.  When composing a triplet, we carry the vertex and
+  edge timestamps in their entirety as data to produce correct
+  results.}
 
-Because we allow predicates over the triplets, interesting conditions
+% There is no need for an example here, it is clear what these queries
+% compute.
+
+\eat{Because we allow predicates over the triplets, interesting conditions
 can be expressed.  For example, we can filter out any edges where the
 value of some property of its two vertices does not match.  Assuming
 vertices have property \insql{group}, we can compute
-$\sigma_{T,v1.a.group=v2.a.group}(\ttt)$.
+$\sigma_{T,v1.a.group=v2.a.group}(\ttt)$.}
 
-\eat{To ensure that a valid \tg is
-  computed as a result of this operation, we restrict our attention to
-  functions that compute a single subgraph of a given representative
-  graph as a result: $\sigma_f (\trg) = \{ (g', p)~~|~~(g, p) \in \trg
-  \wedge g' = f(g) \wedge$\\$V_{g'} \subseteq V_{g} \wedge E_{g'}
-  \subseteq E_{g} \}$.}  
-\eat{Even more specifically, we focus on functions
-that can be expressed as a pair of {\em conjunctive queries}
-$\sigma_{C_V,C_E} (\ttt)$, where $C_V$ specifies predicates over the
-vertices, and $C_E$ --- over the edges.  The predicates can be over
-the attributes and also over the timestamps of the vertices/edges, to
-support the extended snapshot reducibility.  Computing arbitrary
-subgraphs of an evolving graph is beyond the scope of this paper, and
-we defer this to future work.
-}
-\eat{
-$\sigma_{C_V,C_E} (\tve) = (\tv',\te',\tav',\tae') ~|~$ \\
-$\tv' = \pi_{v,p} (\sigma_{C_{V1}} (\tv) \bowtie^T \sigma_{C_{V2}} (\tav)) \wedge \tav' = \sigma_{C_{V2}} (\tav)$ \\
-$\te' = \pi_{v_1,v_2,p} (\sigma_{C_{E1}} (\te) \bowtie^T \sigma_{C_{E2}} (\tae)) \wedge \tae' = \sigma_{C_{E2}} (\tae)$.
-}
-
-\eat{Like other unary operators, $\sigma_{C_V, C_E} (\tve)$ follows the
-outline of Algorithm~\ref{alg:op}.  Since $C_V$ and $C_E$ may involve
-predicates over the attributes, we compute the join of the vertex
-(resp. edge) relation with the corresponding attribute relation and
-push selections:$\tv' = \pi_{v,p} (\sigma_{C_{V1}} (V) \bowtie
-\sigma_{C_{V2}} (\tav))$ (line 1),$\te' = \pi_{v_1,v_2,p}
-(\sigma_{C_{E1}} (E) \bowtie \sigma_{C_{E2}} (\tae))$ (line 2), $\tav'
-= \sigma_{C_{V2}} (\tav)$ (line 3), $\tae' = \sigma_{C_{V2}} (\tae)$
-(line 4).}
-
-\eat{Subgraph does not uncoalesce, but does require FK enforcement for
-  \tve.}  
-
-Subgraph uncoalesces and requires FK enforcement. (Appendix~\ref{sec:app1})
+\julia{Soundness info goes here: what needs to be checked and
+  enforced.}  (See Appendix~\ref{sec:app1}).
 
 %\subsection{Temporal map}
 %\label{sec:algebra:project}
 
-{\bf Map.}  The map operation applies user-defined map functions $M_V$
-and $M_E$ to the vertices and edges of \tg.  To evaluate
-$\map_{M_V,M_E} (\tve)$, we set $\tv'=\tv$ and $\te'=\te$, and compute
-$\tav' = \map_{M_V}(\tav)$ and $\tae' = \map_{M_E}(\tae)$.
+{\bf Map.}  Temporal vertex-map and edge-map operations apply
+user-defined map functions to vertex or edge attributes.  Temporal
+vertex-map $\map^t_v(\tve)$ outputs $\tve'$ in which $\tv'=\tv$,
+$\te'=\te$, $\tae' = \tae$, and $\tav' = \map^t_v(\tav)$.  Temporal
+edge-map is defined analogously.
+
+\eat{To evaluate $\map_{M_V,M_E} (\tve)$, we set $\tv'=\tv$ and $\te'=\te$,
+and compute $\tav' = \map_{M_V}(\tav)$ and $\tae' = \map_{M_E}(\tae)$.}
 
 \eat{Temporal map iterates over the tuples of \trg, and applies the
 user-specified map functions $M_V$ and $M_E$ to the vertices and edges
@@ -222,9 +229,17 @@ of each $g$: $\map_{M_V,M_E} (\trg) = \{(g', p)~~|~~(g,p) \in \trg
 \wedge g'= \map_{M_V,M_E}(g)\}$.
 }  
 
-While map is an arbitrary user-specified function, there are some
-common use cases.  Map can be used to remove vertex and edge
-properties, as in projection.  In such cases we will use short-hand
+While temporal map is an arbitrary user-specified function, there are
+some common cases.  Map may be used to specify the set of attributes
+to project out or retain, to aggregate (e.g., \insql{COUNT}) or
+deduplicate values in a bag of a property, or to flatten a nested
+property value.
+
+% because this is an arbitrary operation, we don't need to invent
+% syntax here.  it's also clear what this operation does, I don't
+% think there is a need for an example.
+
+\eat{In such cases we will use short-hand
 notation similar to projection, listing the properties that we wish to
 retain. For example, $\map_{M_V:{school},M_E:\emptyset} (\insql{T1})$
 will keep only the school property of the vertices, and no properties
@@ -233,9 +248,12 @@ the bag of a particular vertex or edge property.  \eat{It may also be
 useful to flatten nested bags or aggregate multiple values of the same
 property of a vertex or edge, e.g., compute a sum or an average
 following temporal intersection or union
-(Section~\ref{sec:algebra:join}).}
+(Section~\ref{sec:algebra:join}).}}
 
-Map may uncoalesce \tav and \tae, but does not require FK enforcement.
+\julia{Soundness info goes here: what needs to be checked and
+  enforced.}  (See Appendix~\ref{sec:app1}).
+
+% Map may uncoalesce \tav and \tae, but does not require FK enforcement.
 
 \subsection{Binary operators}
 \label{sec:algebra:binary}
@@ -729,4 +747,4 @@ $\forall (v_x,v_z,p) \in \te' (\exists (v_x,v_y,p_1) \in \te_1 \wedge (v_y,v_z,p
 
 \input{analytics}
 
-\input{example}
+%\input{example}
