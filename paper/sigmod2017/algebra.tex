@@ -2,26 +2,26 @@
 \label{sec:algebra}
 \setlength{\textfloatsep}{5pt}% Remove \textfloatsep
 
-\tg algebra is compositional: operators take a \tg or a pair of \tgs
-as input, and output a \tg.  As is appropriate for a point-based
-temporal data model (Section~\ref{sec:model}), our algebra has the
-properties of snapshot reducibility and extended snapshot
+\tg algebra, or \tga for short, is compositional: operators take a \tg
+or a pair of \tgs as input, and output a \tg.  As is appropriate for a
+point-based temporal data model (Section~\ref{sec:model}), our algebra
+has the properties of snapshot reducibility and extended snapshot
 reducibility~\cite{DBLP:reference/db/Bohlen092}.
 
 In Section~\ref{sec:algebra:prelim} we state our design choices.
 Then, in Sections~\ref{sec:algebra:integrity}
-through~\ref{sec:algebra:ecreate} we present the algebraic opearators.
-We show formal properties of \tg algebra in Section~\ref{sec:formal}.
+through~\ref{sec:algebra:ecreate} we present the operators of \tga.
+We show formal properties of \tga in Section~\ref{sec:formal}.
 
 \subsection{Design choices}
 \label{sec:algebra:prelim}
 
-Our goal in developing \tg algebra is to give users an ability to
-concisely express a wide range of common analysis tasks, while at the
-same time preserving inter-operability with standard SQL.  For this
-reason our data model is based on the temporal relational model, and
-our algebra corresponds to temporal relational calculus, a two-sorted
-logic with variables and quantifiers explicitly ranging over the time
+Our goal in developing \tga is to give users an ability to concisely
+express a wide range of common analysis tasks, while at the same time
+preserving inter-operability with standard SQL.  For this reason our
+data model is based on the temporal relational model, and our algebra
+corresponds to temporal relational calculus, a two-sorted logic with
+variables and quantifiers explicitly ranging over the time
 domain~\cite{DBLP:reference/db/Toman09}, for graphs.  We will make
 this relationship precise in Section~\ref{sec:formal}.
 
@@ -38,23 +38,23 @@ and our work is in-line with this trend.
   objective informs the rewriting of applicable operations over the
   \ve representation.}  
 
-We do not support general recursion or transitive closure
-computation in our algebra. (Although, as we will see in
-Section~\ref{sec:analytics}, Pregel-style graph analytics such as
-PageRank are supported as an extension.)  For this reason, we also do
-not support regular path queries (RPQ) or the more general path query
-classes (CRPQ and ECRPQ).  Extending our formalism with recursion and
-path queries is non-trivial, and we leave this to future work, see
+\tga does not support general recursion or transitive closure
+computation. (Although, as we will see in Section~\ref{sec:analytics},
+Pregel-style graph analytics such as PageRank are supported as an
+extension.)  For this reason, we also do not support regular path
+queries (RPQ) or the more general path query classes (CRPQ and ECRPQ).
+Extending our formalism with recursion and path queries is
+non-trivial, and we leave this to future work, see
 Section~\ref{sec:conc} for a discussion.
 
 Rather than focusing on path computation and graph traversal, we
 stress tasks that perform whole-graph analysis over time.  Several
 such tasks were described in Section~\ref{sec:cases}.  Additional
 examples can be found in SocialScope~\cite{Amer-Yahia2009} --- a
-closed graph algebra motivated by information discovery in social
-content sites.  All operations of SocialScope can be expressed in
-\ql. \vera{yes with the exception of edge aggregation because we do
-  not have multigraphs}
+closed non-temporal algebra for multigraphs that is motivated by
+information discovery in social content sites.  All graph (rather than
+multi-graph) versions of SocialScope operations can be expressed, and
+augmented with the temporal dimension, in \tga.
 
 \subsection{Soundness}
 \label{sec:algebra:integrity}
@@ -782,6 +782,8 @@ evolving graph with non-decreasing time
 edges~\cite{Ferreira2004,Casteigts2011}.  By adding a temporal
 condition to the theta-join of $\tae_1$ and $\tae_2$ we can obtain
 journeys similar to time-concurrent paths.
+
+\julia{Example of edge transpose goes here.}
 
 Note that edge creation is not additive, it produces {\em new} edges.
 To add these edges to the original graph, a subsequent union must be
