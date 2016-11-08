@@ -192,17 +192,26 @@ vertex or edge attribute.
 subgraph matching for non-temporal graphs~\cite{Wood2012}.  This query
 comes in two variants.
 
-A temporal vertex-subgraph query $q^t_v(\tve)$ is a conjunctive query
+\eat{A temporal vertex-subgraph query $q^T_v(\tve)$ is a conjunctive query
 that takes $\tve (\tv, \te, \tav, \tae)$ as input, and outputs
 $\tve'$, an induced temporal subgraph of \tve in which vertices are
-defined by $q^t_v$.  Note that this is a subgraph query, and so no new
-vertices are created, i.e., $\tv' \subseteq \tv$.
+defined by $q^T_v$.}
 
-A temporal edge-sugraph query $q^t_e(\tve)$ is a conjunctive query
+A temporal vertex-subgraph operator \subv{q}{\ttt} outputs an induced
+subgraph of \ttt where vertices are defined by a temporal conjunctive
+query (TCQ) $q$.  Note that this is a subgraph query, and so no new
+vertices are created, i.e., $\tv' \subseteq \tv$.  As long as $q$ is a
+valid temporal conjunctive query over the four relations of \tve and
+returns vids, the output is guaranteed to be a valid subset of \tv.
+
+\eat{A temporal edge-sugraph query $q^t_e(\tve)$ is a conjunctive query
 that takes a graph $\tve (\tv, \te, \tav, \tae)$ as input, and outputs
 a \tg $\tve'$ on the vertices of $\tve$ such that the edges of $\tve'$
-are defined by $q^t_e$. Since this is a subgraph query, no new edges
-are created, i.e., $\te' \subseteq \te$.
+are defined by $q^t_e$. }
+
+A temporal edge-subgraph operator \sube{q}{\ttt} outputs a subgraph of
+\ttt where edges are defined by TCQ $q$.  Since this is a subgraph
+query, no new edges are created, i.e., $\te' \subseteq \te$.
 
 Queries $q^t_v$ and $q^t_e$ may include predicates over any of the
 consitutent relations of \tve to compute the vertex (resp. edge) sets.
@@ -244,7 +253,7 @@ $\sigma_{T,v1.a.group=v2.a.group}(\ttt)$.}
 
 Vertex-subgraph: {\bf R1,R2}: coalesce $\tv'$; {\bf R3}: enforce FK on
 $\tav', \te', \tae'$. Edge-subgraph: {\bf R1,R2}: coalesce $\te'$;
-{\bf R3}: enforce FK on $\tae'$.
+{\bf R3}: enforce FK on $\te'$ and $\tae'$.
 
 \eat{Vertex-subgraph requires coalescing of $\tv'$ and FK enforcement on
 \tav', \te', and \tae'. Edge-subgraph requires coalescing of $\te'$ and
@@ -301,12 +310,12 @@ $\tae'$.
 Aggregation is a common graph operation that can be used to compute
 simple properties such as in-degrees of vertices or more complex ones
 such as a set of places that all close friends have visited in the
-past year.  Aggregation is denoted $\agg{cond}{msg}{red}{\ttt}$, where
+past year.  Aggregation is denoted $\agg{cond,msg,red}{\ttt}$, where
 $cond$ is a predicate over the edge triplet, i.e. over the attributes
 of the edge and its two vertices, $msg$ is a function that takes in a
 triplet and produces a $(v,p,m)$ key-value message $m$ to vertex $v$
 at triplet time $p$, and $red$ is a reduce function.  The result is a
-new isomorphic graph $\ttt'$: $\agg{cond}{msg}{red}{\ttt} = \{ \tv,
+new isomorphic graph $\ttt'$: $\agg{cond,msg,red}{\ttt} = \{ \tv,
 \te, \tav', \tae \}$, where $\tav' = \pi^T_{v,a_1+a_2}(\tav
 \bowtie^T_v$ \\ $_v\vartheta^T_{red} (msg (\sigma_{cond} (\tae
 \bowtie^T_{v_1=v} \tav \bowtie^T_{v_2=v} \tav))))$.  The temporal join
@@ -329,11 +338,11 @@ periods).  Other, more complex, functions can be defined by the user.
 \insql{set} is the default reduce function.
 
 As an example, to compute vertex in-degrees, we can use
-$agg_{msg=(dst,p,1),red=count}(\ttt)$.  To compute a set of places
+$\agg{msg=(dst,p,1),red=count}{\ttt}$.  To compute a set of places
 that all close friends have visited in the past year, assuming there
 is a property \insql{places} on friend vertices and closeness of
-friendship property on edges:\\ $agg_{cond=dst.p \cap [2015,2016) \&
-    a.close > 0.8,msg=(src,p,dst.places)}(\ttt)$.
+friendship property on edges:\\ $\agg{cond=dst.p \cap [2015,2016) \&
+    a.close > 0.8,msg=(src,p,dst.places)}{\ttt}$.
 
 {\bf R2}: coalesce $\tav'$; {\bf R4}: require reduce function.
 
@@ -563,11 +572,11 @@ algebra.  Our approach is inspired by stream aggregation work
 of~\cite{Li2005}, adopted to graphs, and by generalized quantifiers
 of~\cite{Hsu1995}.
 
-Node creation is denoted $_{G_V}\vartheta_{W,Q_V,Q_E,red}
-(\ttt)$,\\ where $G_V$ are the grouping attributes, $W$ is the window
-specification, $Q_V$ and $Q_E$ are vertex and edge quantifiers, and
-$red$ is the set of reduce functions.  It produces a consolidated
-evolving graph with specific temporal granularity.
+Node creation is denoted $\ncr{G_V}{W,Q_V,Q_E,red}{\ttt}$,\\ where
+$G_V$ are the grouping attributes, $W$ is the window specification,
+$Q_V$ and $Q_E$ are vertex and edge quantifiers, and $red$ is the set
+of reduce functions.  It produces a consolidated evolving graph with
+specific temporal granularity.
 
 {\em Grouping attributes} $G_V$ are vertex properties by which
 vertices are grouped into new entities, similar to \insql{GROUP BY}
@@ -739,20 +748,53 @@ on $\tav', \te', \tae'$; {\bf R4}: require reduce function.
 \subsection{Edge creation}
 \label{sec:algebra:ecreate}
 
-\vera{STOPPED HERE}
+Edge creation operator outputs a new graph with edges based on the two
+input \tgs.  Let $\ecr{\ttt_1}{q,red}{\ttt_2}$ be an edge creation
+operator, where $q$ is a conjunctive query over constituent relations
+of $\tve_1$ and $\tve_2$ and $red$ is a reduce function. $q$ must
+return a valid temporal relation $(v_1, v_2, a_1, a_2)$.  The reduce
+function is used to compute the final $\tae'$ relation.
+$\ecr{\ttt_1}{q,red}{\ttt_2} = \{ \tv', \te', \tav', \tae' \}$, where
+$\tae' = \sigma^T_{v_1,v_2,red(a_1,a_2)}(q(\ttt_1, \ttt_2))$ subject
+to FK constraint from $\tv_1 \cup^T \tv_2$, $\te' =
+\sigma^T_{v_1,v_2}(\tae')$, \tv' is a subset of $\tv_1 \cup^T \tv_2$
+such that it contains only vertices with edges in $\te'$, and $\tav'$
+is an empty relation.  Intuitively, edge creation returns a new \tg
+from nodes of $\ttt_1$ and $\ttt_2$ with no attributes, connected by
+edges determined by $q$.
 
-\eat{In graph theory, a graph join of two undirected unlabeled disjoint
-graphs is defined as the union of the two graphs and additional edges
-connecting every vertex in graph one with each vertex in graph two.}
+Edge creation has several important applications.  In graph theory, a
+graph join of two undirected unlabeled disjoint graphs is defined as
+the union of the two graphs and additional edges connecting every
+vertex in graph one with each vertex in graph two.  We can obtain a
+graph join by the application of edge creation with $q = $ a temporal
+cartesian product of $\tv_1$ and $\tv_2$.
+SocialScope~\cite{Amer-Yahia2009} defines a nontemporal graph
+composition operator which produces a graph induced by edges that are
+composed from edges in the two operands connected by a common vertex
+with a directional condition.  In \ql temporal graph composition can
+be computed using node creation of \ttt with itself and a $q = $ a
+temporal theta-join of $\tae$ and $\tae_2$.  This allows computation
+of friend-of-friend edges, which, if applied k times, can answer k-hop
+queries.  Since $q$ can include predicates over the timestamps, edge
+creation can also compute journeys.  A journey is a path in the
+evolving graph with non-decreasing time
+edges~\cite{Ferreira2004,Casteigts2011}.  By adding a temporal
+condition to the theta-join of $\tae_1$ and $\tae_2$ we can obtain
+journeys similar to time-concurrent paths.
 
-Graph composition operator in our algebra is a temporal extension of
+Note that edge creation is not additive, it produces {\em new} edges.
+To add these edges to the original graph, a subsequent union must be
+performed.
+
+\eat{Graph composition operator in our algebra is a temporal extension of
 the composition operator in SocialScope~\cite{Amer-Yahia2009}.  It
 produces a graph induced by edges that are composed from edges in the
 two operands for any time point when they coexisted.  The value of the
 new edge attributes is determined by the resolve function, similar to
-the set based operators.
+the set based operators.}
 
-\begin{definition}[Composition]
+\eat{
 Let $\odot_{\delta,r}$ be a composition operator, where $\delta$ is a
 directional condition pair $d_1=v_1|v_2, d_2=v_1|v_2$ and $r$ is a
 resolve function.  Then $\ttt_1 \odot_{\delta,r} \ttt_2 = \{ \tv',
@@ -762,21 +804,15 @@ resolve function.  Then $\ttt_1 \odot_{\delta,r} \ttt_2 = \{ \tv',
 constraint enforced on \tav' from \tv', and $\forall (v_x,v_z,p,a) \in
 \tae' \exists (d_1,v_x,p_1,a_1) \in \tae_1 \wedge (d_2,v_z,p_2) \in
 \tae_2 \wedge p=p_1 \cap p_2 \wedge a=r((a_1,p_1),(a_2,p_2))$.
-\label{def:composition}
-\end{definition}
-
-For example, to create edges between vertices that have two degrees of
-separation, i.e. friends of friends, we can compose the graph with
-itself with $d_1=v_2$ and $d_2=v_2$.  Note that composition is not
-additive, it produces {\em new} edges.  To add these edges to the
-original graph, a subsequent union must be performed.  
-
-Composition does not uncoalesce \tv, \te, or \tav, but may uncoalesce
-\tae.  FK enforcement is required on \tav.
-
-\eat{
-$\forall (v_x,v_z,p) \in \te' (\exists (v_x,v_y,p_1) \in \te_1 \wedge (v_y,v_z,p_2) \in \te_2 \wedge p = p_1 \cap p_2 \wedge d1=v2 \wedge d2=v1) \vee (\exists (v_y,v_x,p_1) \in \te_1 \wedge (v_y,v_z,p_2) \in \te_2 \wedge p = p_1 \cap p_2 \wedge d1=v1 \wedge d2=v1) \vee (\exists (v_x,v_y,p_1) \in \te_1 \wedge (v_z,v_y,p_2) \in \te_2 \wedge p = p_1 \cap p_2 \wedge d1=v2 \wedge d2=v2) \vee (exists (v_y,v_x,p_1) \in \te_1 \wedge (v_z,v_y,p_2) \in \te_2 \wedge p = p_1 \cap p_2 \wedge d1=v1 \wedge d2=v2)$
 }
+
+\eat{For example, to create edges between vertices that have two degrees of
+separation, i.e. friends of friends, we can compose the graph with
+itself with $d_1=v_2$ and $d_2=v_2$.  }
+
+{\bf R1, R2}: coalesce $\te'$ and $\tae'$; {\bf R3}: constraint $\te'$
+on $\tv'$, $\tv'$ on $\te'$ (to remove nodes with no edges), and
+$\tae'$ on $\te'$; {\bf R4}: require reduce function.
 
 \input{analytics}
 
