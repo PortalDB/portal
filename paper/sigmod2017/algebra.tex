@@ -12,8 +12,7 @@ In Section~\ref{sec:algebra:prelim} we state our design choices.
 Then, in Sections~\ref{sec:algebra:integrity}
 through~\ref{sec:algebra:composition} we present the algebraic
 opearators.  We show formal properties of \tg algebra in
-Section~\ref{sec:formal}.  All non-trivial proofs are listed in the
-Appendix.
+Section~\ref{sec:formal}.  
 
 \subsection{Design choices}
 \label{sec:algebra:prelim}
@@ -34,6 +33,12 @@ receiving renewed
 attention~\cite{DBLP:conf/sigmod/AbergerTOR16,DBLP:conf/sigmod/SunFSKHX15,DBLP:journals/pvldb/Xirogiannopoulos15},
 and our work is in-line with this trend.
 
+\eat{ This objective informed our design of
+  the algebra, e.g., we did not include some flavors of temporal
+  aggregation because the result would be invalid.  Further, this
+  objective informs the rewriting of applicable operations over the
+  \ve representation.}  
+
 We do not support general recursion or transitive closure
 computation in our algebra. (Although, as we will see in
 Section~\ref{sec:analytics}, Pregel-style graph analytics such as
@@ -49,13 +54,13 @@ such tasks were described in Section~\ref{sec:cases}.  Additional
 examples can be found in SocialScope~\cite{Amer-Yahia2009} --- a
 closed graph algebra motivated by information discovery in social
 content sites.  All operations of SocialScope can be expressed in
-\ql. \julia{Let's confirm this.}
+\ql. \vera{yes with the exception of edge aggregation because we do
+  not have multigraphs}
 
-%\subsection{Resolve function}
 \subsection{Soundness}
 \label{sec:algebra:integrity}
 
-\julia{Vera will revise this section to spell out the details of how
+\eat{\julia{Vera will revise this section to spell out the details of how
   we ensure that each algebraic operation produces a valid \tg per
   Definition~\ref{def:tg}.  This requires specifying that a snapshot
   $\tau_c{\tve}$ for all time points $c$ is a valid graph --- a vertex
@@ -64,68 +69,99 @@ content sites.  All operations of SocialScope can be expressed in
   to existing vertices and edges, that each attribute takes on 1 value
   (resolve), that all relations are temporally coalesced.  State
   what's new compared to temporal relational algebra
-  w.r.t. coalescing.}
+  w.r.t. coalescing.}}
 
-One of the requirements of our model is that each entity exists only
-once during any time instant $t$.  To maintain soundness we introduce
-a {\em resolve} function.
+Soundess requires that every operator in our temporal graph algebra
+(TGA) produce a valid \tg.  Clauses~\ref{def:tg:c2}
+and~\ref{def:tg:c3} of Definition~\ref{def:tg} state that every tuple
+in \tv and \te is coalesced.  We can break this into two separate
+conditions: a) that any snapshot $\tau^s_c (\tv)$ and $\tau^s_c (\te)$
+has no duplicates, and b) that value-equivalent tuples with
+consecutive or overlapping time periods are merged.  The same
+conditions hold for \tav and \tae in clauses~\ref{def:tg:c4} and
+~\ref{def:tg:c6}.  Another way to restate condition a is that no
+entity, vertex or edge, may exist more than once during any time
+point.  Condition c refers to the foreign key constraints from \tav to
+\tv, \tae to \te, and \te to \tv
+(clauses~\ref{def:tg:c1},~\ref{def:tg:c5}, and~\ref{def:tg:c7}).
 
-\begin{definition}[Resolve function]
+We provide translations of each of \ql operators into TRA.  The
+application of TRA operators on \tve relations in some cases violates
+some or all of the three soundess conditions.  We enforce each of
+these conditions in the following manner: for condition a we require
+that every operator that may produce multiple possible values for the
+same vertex or edge property at any time point $t$ accept a
+user-specified {\em reduce} function. For condition b we introduce a
+{\em coalesce} primitive, and for condition c we introduce a {\em
+  constrain} primitive.  The coalesce and constrain primitives are
+applied as needed to individual relations of \tve when the
+transformations are known to violate the model integrity.  That is, if
+an operation is known to produce, for example, an uncoalesced
+relation, we apply the coalesce primitive as the last step.
+
+\begin{definition}[Reduce function]
 Let $((a_l,p_l),(a_r,p_r))$ be a pair of possible values of a property
 of a vertex or an edge, along with the associated validity periods.  A
-{\em resolve function} produces a single property value with its
-validity period $(a,p) = resolve((a_l,p_l), (a_r,p_r))$.
+{\em reduce function} produces a single property value with its
+validity period $(a,p) = red((a_l,p_l), (a_r,p_r))$.
 \end{definition}
 
-A resolve function can pick an arbitrary element, compute an average,
-put the values in a set, etc.  When applied over a bag of values in a
-reduce fashion, a resolve function is an {\em aggregation function}.
-We support the standard \{ \insql{count} | \insql{min} | \insql{max} |
-\insql{sum} \}, which have their customary meaning.  We also support
-\{ \insql{any} | \insql{first} | \insql{last} | \insql{set} |
-\insql{bag} \}, which are possible to compute because properties being
-resolved have temporal information.  \insql{first} and \insql{last}
-refer to the value of an attribute with the earliest/latest timestamp,
-while \insql{set} and \insql{bag} associate a key an unordered
-collection of values with the set or bag semantics (but do not keep
-the associated validity periods).  Finally, we support \{ \insql{left}
-| \insql{right} \}, which select the attribute of the left,
-resp. right, operand.  Other, more complex, functions can be defined
-by the user.
+A reduce function can pick an arbitrary element, compute an average,
+put the values in a set, pick the left one or the right one, etc.  A
+reduce function can be repeatedly applied to an unordered collection
+of values to compute a single value, as is done in the map-reduce
+model.  The property graph model allows for arbitrary properties to be
+associated with the graph entities, so it may be impractical or
+infeasible to have the user specify a reduce function for each
+possible property.  In \ql a default reduce function \insql{set} is
+used for any property without an explicitly stated reduction.
 
-In temporal relational algebra with point semantics soundness depends
-on maintaining the coalesced state of the relation.  This requirement
-holds in our algebra as well and we discuss it in detail in
-Section~\ref{sec:sys:coal}.  However, because all four relations of
-\tve are keyed temporal relation, we have an additional requirement in
-our model.  Namely, that no entity, vertex or edge, may exist more than
-once during any time point.  If, for example, a union of two \tav
-relations is computed using regular temporal union semantics, it may
-produce two tuples if the attribute values are not value-equivalent.
-This clearly violates part~\ref{def:tg:c4} of Definition~\ref{def:tg}.
+\eat{When applied over a bag of values in a reduce fashion, a resolve
+function is an {\em aggregation function}. We support the standard \{
+\insql{count} | \insql{min} | \insql{max} | \insql{sum} \}, which have
+their customary meaning.  We also support \{ \insql{any} |
+\insql{first} | \insql{last} | \insql{set} | \insql{list} \}, which
+are possible to compute because properties being resolved have
+temporal information.  \insql{first} and \insql{last} refer to the
+value of an attribute with the earliest/latest timestamp, while
+\insql{set} and \insql{list} associate a key an unordered collection
+of values with the set or bag semantics (but do not keep the
+associated validity periods).  Finally, we support \{ \insql{left} |
+\insql{right} \}, which select the attribute of the left, resp. right,
+operand.  Other, more complex, functions can be defined by the user.}
 
-\begin{lemma}
+\eat{\begin{lemma}
 Let $\psi$ be an n-ary temporal operator on \tg.  If $\psi^T (\ttt)$
 produces multiple possible attribute values for any entity at the same
 time instant, it must also specify a resolve function for each
 property to compute a single valid attribute value.
-\end{lemma}
+\end{lemma}}
 
-The property graph model allows for arbitrary properties to be
-associated with the graph entities, so it may be impractical or
-infeasible to have the user specify a resolve function for each
-possible property.  A default resolve function such as a \insql{set}
-can be used for this purpose.
+The coalesce primitive $\coal{r}$ merges adjacent or overlapping time
+periods for value-equivalent tuples.  This operation, which is similar
+to duplicate elimination in conventional databases, has been
+extensively studied in the
+literature~\cite{DBLP:conf/vldb/BohlenSS96,DBLP:journals/sigmod/Zimanyi06}.
+For each of the relations of \tve, when the transformations
+uncoalesce, we apply the coalesce primitive.  If a DBMS supports
+automatic coalescing, this primitive is not necessary.  However, eager
+coalescing is not always desirable since it is expensive and some
+operations may produce correct results (up to coalescing) {\em even
+  when computing over uncoalesced inputs}.  \eat{This was discussed in
+  the context of temporal relational algebra
+  in~\cite{DBLP:conf/vldb/BohlenSS96}.}We will revisit this point in
+Section~\ref{sec:sys:coal}.
 
-\eat{ This objective informed our design of
-  the algebra, e.g., we did not include some flavors of temporal
-  aggregation because the result would be invalid.  Further, this
-  objective informs the rewriting of applicable operations over the
-  \ve representation.}  
+The {\em constrain} primitive $\constr{k}{r}{s}$ constrains relation
+$\mathbf{r}$ with respect to relation $\mathbf{s}$ by key mapping $k$,
+such as removing edges from the result that do not have associated
+nodes, or trimming the edge validity period to be within the validity
+periods of associated nodes.
 
-Each operator in our algebra produces a valid \tg.  We note which
-operators are known to uncoalesce the output, thus requiring
-coalescing, require FK enforcement, or include resolve functions.
+In operator definitions below we note which operators are known to
+uncoalesce the output, thus requiring coalescing, require FK
+enforcement, or include reduce functions.  All non-trivial proofs are
+listed in Appendix~\ref{sec:app1}.
 
 \subsection{Unary operators}
 \label{sec:algebra:unary}
@@ -135,21 +171,23 @@ coalescing, require FK enforcement, or include resolve functions.
 {\bf Slice.}  The slice operator, denoted $\tau_{\bc} (\ttt)$, where
 $\bc$ is a time interval, cuts a temporal slice from \ttt. The
 resulting \tg will contain vertices and edges whose period $\bp$ has a
-non-empty intersection with $\bc$.  To evaluate $\tau_{\bc} (\tve)$,
-we apply $\tau_{\bc}$ to each of the four constituent relations of
-\tve: $\tau_{\bc} (\tv) = \{ (v, \bp \cap \bc)~~|~~(v, \bp) \in \tv
-\wedge (\pred{\bc}{overlaps}{\bp} \vee \pred{\bc}{contains}{\bp}) \}$,
-and analogously for each \te, \tav and \tae.
+non-empty intersection with $\bc$: $\tau_{\bc} (\tv) = \{ (v, \bp \cap
+\bc)~~|~~(v, \bp) \in \tv \wedge (\pred{\bc}{overlaps}{\bp} \vee
+\pred{\bc}{contains}{\bp}) \}$, and analogously for each \te, \tav and
+\tae.  To evaluate $\tau_{\bc} (\tve)$, we apply select operator to
+each of the four constituent relations of \tve: $\forall x \in
+\{\tv,\te,\tav,\tae \}, x' = \pi_{A,p \cap c}(\sigma_{p \cap c} (x))$,
+where $A$ is the non-temporal schema of $x$.
 
 \eat{If $p.start < c.start$ or $p.end > c.end$ for some tuple $(g,
   p)$, then $p$ is trimmed to be within the boundaries of $c$: $\tau_c
   (\trg) = \{ (g, p \cap c)~~|~~(g, p) \in \trg \wedge
   (\pred{c}{overlaps}{p} \vee \pred{c}{contains}{p})\}$.  }
 
-\eat{ Slice does not uncoalesce and does not require FK enforcement.
-  The proofs for this and similar statements below are included in }
-\julia{Soundness info goes here: what needs to be checked and
-  enforced.}  Proofs are included in Appendix~\ref{sec:app1}.
+Slice does not violate any of the three conditions: it does not
+produce multiple values for a vertex or edge attribute, does not
+uncoalesce any of the \tve relations, and does not violate FK
+enforcement.
 
 %\subsection{Temporal subgraph matching}
 %\label{sec:algebra:subgraph}
