@@ -1,18 +1,13 @@
 \subsection{Motivating use cases and Portal algebra by example}
 \label{sec:cases}
 
-\julia{Vera: There is a way to write this that will make it easy to
-  follow the syntax: interleave algebraic operations the the
-  exposition, and explain what the arguments mean.  See algebra
-  section for a suggestion of alternative syntax.}
-  
-An interaction graph is one typical kind of an evolving graph.  It
-captures people as graph verticesa, along with various information
+An interaction network is one typical kind of an evolving graph.  It
+captures people as graph vertices, along with various information
 about those people.  The edges are the interaction events between the
 people, such as messages, conversations, tags, etc.  One easily
-accessible interaction graph is the wiki-talk dataset
+accessible interaction network is the wiki-talk dataset
 (\url{http://dx.doi.org/10.5281/zenodo.49561}) containing messaging
-events among 3 million wiki-en users over a 13 year period.
+events among different language Wikipedia users over a 13 year period.
 Information available about the users includes their username, groups
 they are part of, and their edit count, i.e. how many edits they have
 produced on Wikipedia.  The messaging events occur when users post on
@@ -23,19 +18,19 @@ phenomena the graph represents.  However, simpler point queries should
 be supported as well.  The following examples motivate the operators
 of our algebra.
 
-{\bf Example 1.}  In interaction graphs node centrality is a measure
+{\bf Example 1.}  In interaction graph node centrality is a measure
 of how important or influential people are.  Over a dozen different
 centrality measures exist, providing indicators of how much
 information ``flows'' through the vertex or how the vertex contributes
 to the overall cohesiveness of the network.  The importance of nodes
-fluctuates with time.  To see whether the wikitalk graph has high
+fluctuates with time.  To see whether the wiki-talk graph has high
 prominence nodes and how stable importance is over some period of
 time, we can extract the data for the period of interest, compute the
 in-degree (or any other aggregated measure of centrality) for each
 vertex and for each point in time and then calculate a coefficient of
 variation.
 
-This example demonstrates a need to select a subset of the data
+\eat{This example demonstrates a need to select a subset of the data
 corresponding to the period of interest, compute in-/out-degree for
 each vertex at each point in time, and compute a single measure across
 time for each vertex.  Computation of degree is a simple example of a
@@ -44,31 +39,53 @@ Wood~\cite{Wood2012}.  Aggregation computes a value for each vertex
 based on its neighbors and can be used for a wide variety of analyses.
 SocialScope~\cite{Amer-Yahia2009} is one of the languages that proposes
 an aggregation operation and demonstrates its many uses.  We introduce
-a temporal version of aggregation.
+a temporal version of aggregation.}
 
 {\bf Question:} Are there high influence nodes for the past 5 years
 and is that behavior persistent in time?
 
-{\bf Process:}
-\begin{enumerate}[noitemsep]
-\item Slice a subset of the data representing the 5 years of interest:
+\begin{enumerate}[noitemsep,itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=0pt]
+\item Use slice, common temporal operator, to select a subset of the
+  data representing the 5 years of interest:
 
-$T_1 = \tau_{[2010,2015)}( \ttt)$
+\begin{center}
+\vspace{-0.2cm}
+$\ttt_1 = \slice{[2010,2015)}{wikitalk}$
+\vspace{-0.2cm}
+\end{center}
 
 \item Compute in-degree (prominence) of each vertex for each time
-interval it changed:
+interval it changed.  Computation of degree is a simple example of a
+non-temporal {\em aggregation} operation as defined by the taxonomy of
+Wood~\cite{Wood2012}.  Aggregation computes a value for each vertex
+based on its neighbors and can be used for a wide variety of analyses.
+SocialScope~\cite{Amer-Yahia2009} is one of the languages that proposes
+an aggregation operation and demonstrates its many uses.  We introduce
+a temporal version of aggregation:
 
-$T_2 = \gamma_{true,true,dst,1,count}(T_1)$
+\begin{center}
+\vspace{-0.2cm}
+$\ttt_2 = \agg{msg=(dst,p,1),red=count}{\ttt_1}$
+\vspace{-0.2cm}
+\end{center}
 
 \item Compute new vertices with temporal window equal to the overall
   timespan, collecting degree data into a map:
 
-$T_3 = _v\vartheta_{lifetime,exists,exists,map(degree),any}(T_2)$
+\begin{center}
+\vspace{-0.2cm}
+$\ttt_3 = \ncr{v}{W=lifetime,red=map(degree)}{\ttt_2}$
+\vspace{-0.2cm}
+\end{center}
 
 \item Transform the attributes of each vertex to compute the
   coefficient of variation from the interval-degree map:
 
-$T_4 = map_{stdev(degree)/mean(degree)*100}(T_3)$
+\begin{center}
+\vspace{-0.2cm}
+$\ttt_4 = \map_{\mathsf{stdev(degree)/mean(degree)*100}}(\ttt_3)$
+\vspace{-0.2cm}
+\end{center}
 
 \end{enumerate}
 
@@ -81,7 +98,7 @@ In sparse interaction graphs there is an additional question of what
 time scale to consider: if two people communicated on May 16, 2010,
 how long do we consider them connected?
 
-This example demonstrates a need to compute graph centrality at every
+\eat{This example demonstrates a need to compute graph centrality at every
 point in its lifetime and to do so at different temporal resolution.
 For most graph centrality measures, the two-step process involves
 first calculating some measure, such as in-degree, for each graph
@@ -96,28 +113,61 @@ show below, node creation is useful for other types of analyses.  Use
 of temporal windows is also important here to consider different
 temporal resolution, which is similar to temporal aggregation in
 temporal relational databases.  Our temporal node creation operator
-can create new nodes from structure or temporal information or both.
+can create new nodes from structure or temporal information or both.}
 
 {\bf Question:} How has graph in-degree centrality changed over time?
 
-{\bf Process:}
-\begin{enumerate}[noitemsep]
-\item Compute new vertices with temporal windows of a set size:
+\begin{enumerate}[noitemsep,,itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=0pt]
+\item Compute new vertices with temporal windows of a set size.  Use
+  of temporal windows is used here to consider different temporal
+  resolution, which is similar to temporal aggregation in temporal
+  relational databases.  Our temporal node creation operator can
+  create new nodes from structure or temporal information or both.  In
+  the example above, we created new nodes to represent all of each
+  node's history.  Here we use smaller temporal window, e.g. 2 months,
+  and can vary that to investigate the effect of temporal resolution:
 
-$T_1 = _v\vartheta_{2 months,exists,always,any,any}( \ttt)$
+\begin{center}
+\vspace{-0.2cm}
+$\ttt_1 = \ncr{v}{W=2 months,Q_E=always}{wikitalk}$
+\vspace{-0.2cm}
+\end{center}
 
 \item Compute in-degree of each vertex:
 
-$T_2 = \gamma_{true,true,dst,1,count}(T_1)$
+\begin{center}
+\vspace{-0.2cm}
+$\ttt_2 = \agg{msg=(dst,p,1),red=count}{\ttt_1}$
+\vspace{-0.2cm}
+\end{center}
 
 \item Compute new vertex grouping all vertices co-existing in time
-  into one, computing the sum, count, and max of degree:
+  into one, computing the sum, count, and max of degree.  For most
+  graph centrality measures, the two-step process involves first
+  calculating some measure, such as in-degree, for each graph vertex,
+  and then accumulating them into one.  This calls for an operation
+  that can group multiple vertices, in this case all of them, into a
+  new vertex.  Wood terms this operation {\em node creation} and shows
+  that many graph languages such as GraphQL~\cite{He2008} support it
+  if there is a need to output new nodes that were not part of the
+  input.  Creating a single vertex to represent the whole graph is one
+  way to support computation of some whole-graph measure, but, as we
+  show throughout, node creation is useful for other types of
+  analyses.  
 
-$T_3 = _1\vartheta_{1 change,exists,exists,max(deg)\&sum(deg)\&count(deg),any}(T_2)$
+\begin{center}
+\vspace{-0.2cm}
+$\ttt_3 = \ncr{1}{red=max(deg)\&sum(deg)\&count(deg)}{\ttt_2}$
+\vspace{-0.2cm}
+\end{center}
 
 \item Apply map to compute the degree centrality:
 
-$T_4 = map_{(max*count-sum)/(count^2-3*count+2)}(T_3)$
+\begin{center}
+\vspace{-0.2cm}
+$\ttt_4 = \map_{\mathsf{(max*count-sum)/(count^2-3*count+2)}}(\ttt_3)$
+\vspace{-0.2cm}
+\end{center}
 
 \end{enumerate}
 
@@ -129,41 +179,58 @@ community they form and calculate their size.  We can filter out
 vertices that represent communities below a reasonable threshold, for
 example of size smaller than two.
 
-This example demonstrates a need to compute graph-wide analytics such
-as connected components for each point in time, create new vertices
-that represent some aspect of data of existing vertices, and compute
-subgraphs.  Graph-wide analytics on evolving graphs have been proposed
-previously in ImmortalGraph~\cite{Miao2015} and
-G*~\cite{Labouseur2015}, including PageRank, weakly connected
-components, and source-source shortest path.
+\eat{This example demonstrates a need to compute graph-wide analytics
+  such as connected components for each point in time, create new
+  vertices that represent some aspect of data of existing vertices,
+  and compute subgraphs.  Graph-wide analytics on evolving graphs have
+  been proposed previously in ImmortalGraph~\cite{Miao2015} and
+  G*~\cite{Labouseur2015}, including PageRank, weakly connected
+  components, and source-source shortest path.}
 
 {\bf Question:} In a sparse communication network, on what time scale can we
 detect communities?
 
-{\bf Process:} 
-\begin{enumerate}[noitemsep]
+\begin{enumerate}[noitemsep,itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=0pt]
 \item Compute new vertices with temporal windows of a set size:
 
-$T_1 = _v\vartheta_{6 months,exists,always,first(name),any}( \ttt)$
+\begin{center}
+\vspace{-0.2cm}
+$\ttt_1 = \ncr{v}{W=6 months,Q_E=always,red=first(name)}{wikitalk}$
+\vspace{-0.2cm}
+\end{center}
 
-\item Compute connected components analytic:
+\item Compute connected components.  We need to compute graph-wide
+  analytics such as connected components for each point in time.
+  Graph-wide analytics on evolving graphs have been proposed
+  previously in ImmortalGraph~\cite{Miao2015} and
+  G*~\cite{Labouseur2015}, including PageRank, weakly connected
+  components, and source-source shortest path.
 
-$T_2 = pregel_{cc} (T_1)$
+\begin{center}
+\vspace{-0.2cm}
+$\ttt_2 = pregel_{cc} (\ttt_1)$
+\vspace{-0.2cm}
+\end{center}
 
 \item Compute new vertices grouping vertices by their component,
   accumulating total group size:
 
-$T_3 = _{component}\vartheta_{1 change,exists,exists,count(name),any}(T_2)$
+\begin{center}
+\vspace{-0.2cm}
+$\ttt_3 = \ncr{component}{W=1 change,red=count(name)}{\ttt_2}$
+\vspace{-0.2cm}
+\end{center}
 
 \item Filter out vertices that represent communities too small to be
-  useful (e.g., of 1-2 people):
+  useful (e.g., of 1-2 people).  This is an example of vertex subgraph:
 
-$T_4 = \sigma_{size > 2,true}(T_3)$
+\begin{center}
+\vspace{-0.2cm}
+$\ttt_4 = \subv{v.a.size > 2}{\ttt_3}$
+\vspace{-0.2cm}
+\end{center}
 
 \end{enumerate}
-
-We can now examine the output and repeat the process with a different
-window in step 1.
 
 Besides the examples above, graph queries commonly include retrieving
 a specific node (which can be accomplished through a subgraph) and
@@ -171,10 +238,12 @@ k-hop neighborhood of a node.  While general transitive closure
 requires recursion, which we do not support, k-hop neighborhoods can
 be computed using composition operations like the one defined in
 SocialScope~\cite{Amer-Yahia2009}.  We provide temporal versions of
-subgraph and composition.  Additionally, if multiple sources of the
-same graph are available, it is useful to combine or compare them,
-which dictates the need for temporal set-theoretic operators.
+subgraph and generalized edge creation.  Additionally, if multiple
+sources of the same graph are available, it is useful to combine or
+compare them, which dictates the need for temporal set-theoretic
+operators.
 
 In Section~\ref{sec:algebra} we formally define the operators of our
-graph algebra. \eat{and show how our use cases can be expressed using
-  these operators.}
+graph algebra.  In Section~\ref{sec:exp} we return to these three use
+cases.  \eat{and show how our use cases can be expressed using these
+  operators.}
