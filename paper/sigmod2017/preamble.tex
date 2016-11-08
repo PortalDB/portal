@@ -68,10 +68,12 @@
 \newcommand{\tpymd}[3]{\ensuremath{\mathsf #1/#2/#3}}
 
 % Query langauge operations
-\newcommand*{\slice}[2]{\ensuremath{\tau_#1(#2)}}
-\newcommand*{\subg}[3]{\ensuremath{\sigma_{#1, #2}(#3)}}
+\newcommand*{\slice}[2]{\ensuremath{\tau_{#1}(#2)}}
+%\newcommand*{\subg}[3]{\ensuremath{\sigma_{#1, #2}(#3)}}
+\newcommand*{\vmap}[1]{\ensuremath{map^t_v(#1)}}
+\newcommand*{\emap}[3]{\ensuremath{map_{#1, #2}(#3)}}
 \newcommand*{\mapp}[3]{\ensuremath{map_{#1, #2}(#3)}}
-\newcommand*{\agg}[4]{\ensuremath{\gamma_{#1, #2, #3}(#4)}}
+\newcommand*{\agg}[4]{\ensuremath{agg_{#1, #2, #3}(#4)}}
 \newcommand*{\nodecr}[6]{\ensuremath{\vartheta_{#1, #2, #3, #4, #5}(#6)}}
 \newcommand*{\compose}[4]{\ensuremath{#1 \odot_{#2,#3} #4}}
 \newcommand*{\extend}[1]{\ensuremath{\epsilon(\mathbf{#1})}}

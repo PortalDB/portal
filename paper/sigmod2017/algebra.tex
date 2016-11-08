@@ -10,9 +10,8 @@ reducibility~\cite{DBLP:reference/db/Bohlen092}.
 
 In Section~\ref{sec:algebra:prelim} we state our design choices.
 Then, in Sections~\ref{sec:algebra:integrity}
-through~\ref{sec:algebra:composition} we present the algebraic
-opearators.  We show formal properties of \tg algebra in
-Section~\ref{sec:formal}.  
+through~\ref{sec:algebra:ecreate} we present the algebraic opearators.
+We show formal properties of \tg algebra in Section~\ref{sec:formal}.
 
 \subsection{Design choices}
 \label{sec:algebra:prelim}
@@ -72,70 +71,43 @@ content sites.  All operations of SocialScope can be expressed in
   w.r.t. coalescing.}}
 
 Soundess requires that every operator in our temporal graph algebra
-(TGA) produce a valid \tg.  Clauses~\ref{def:tg:c2}
-and~\ref{def:tg:c3} of Definition~\ref{def:tg} state that every tuple
-in \tv and \te is coalesced.  We can break this into two separate
-conditions: a) that any snapshot $\tau^s_c (\tv)$ and $\tau^s_c (\te)$
-has no duplicates, and b) that value-equivalent tuples with
-consecutive or overlapping time periods are merged.  The same
-conditions hold for \tav and \tae in clauses~\ref{def:tg:c4} and
-~\ref{def:tg:c6}.  Another way to restate condition a is that no
-entity, vertex or edge, may exist more than once during any time
-point.  Condition c refers to the foreign key constraints from \tav to
-\tv, \tae to \te, and \te to \tv
-(clauses~\ref{def:tg:c1},~\ref{def:tg:c5}, and~\ref{def:tg:c7}).
+(TGA) produce a valid \tg.  This can be decomposed into:
+
+\begin{description}[noitemsep]
+
+\item [R1: Duplicates] Any snapshot $\tau^s_c (\tv)$ and $\tau^s_c
+  (\te)$ has no duplicates.  Another way to state this is that no
+  entity, vertex or edge, may exist more than once during any time
+  point. (Clauses~\ref{def:tg:c2} and~\ref{def:tg:c3} of
+  Definition~\ref{def:tg}.)
+
+\item [R2: Coalesced] Value-equivalent tuples with
+  consecutive or overlapping time periods are merged.
+
+\item [R3: Foreign key constraint] Foreign key constraints from \tav
+  to \tv, \tae to \te, and \te to \tv must
+  hold. (Clauses~\ref{def:tg:c1},~\ref{def:tg:c5},
+  and~\ref{def:tg:c7}.)
+
+\item [R4: Single attribute] Every vertex/edge must have only a single
+  attribute (property set) at any time. (Clauses~\ref{def:tg:c4} and
+  ~\ref{def:tg:c6}).
+\end{description}
+\vspace{-1ex}
 
 We provide translations of each of \ql operators into TRA.  The
 application of TRA operators on \tve relations in some cases violates
-some or all of the three soundess conditions.  We enforce each of
-these conditions in the following manner: for condition a we require
-that every operator that may produce multiple possible values for the
-same vertex or edge property at any time point $t$ accept a
-user-specified {\em reduce} function. For condition b we introduce a
-{\em coalesce} primitive, and for condition c we introduce a {\em
-  constrain} primitive.  The coalesce and constrain primitives are
+some or all of the four soundess conditions.  We enforce each of these
+conditions in the following manner: for {\bf R1} and {\bf R2} we
+introduce a {\em coalesce} primitive, and for {\bf R3} we introduce a
+{\em constrain} primitive.  The coalesce and constrain primitives are
 applied as needed to individual relations of \tve when the
 transformations are known to violate the model integrity.  That is, if
 an operation is known to produce, for example, an uncoalesced
-relation, we apply the coalesce primitive as the last step.
-
-\begin{definition}[Reduce function]
-Let $((a_l,p_l),(a_r,p_r))$ be a pair of possible values of a property
-of a vertex or an edge, along with the associated validity periods.  A
-{\em reduce function} produces a single property value with its
-validity period $(a,p) = red((a_l,p_l), (a_r,p_r))$.
-\end{definition}
-
-A reduce function can pick an arbitrary element, compute an average,
-put the values in a set, pick the left one or the right one, etc.  A
-reduce function can be repeatedly applied to an unordered collection
-of values to compute a single value, as is done in the map-reduce
-model.  The property graph model allows for arbitrary properties to be
-associated with the graph entities, so it may be impractical or
-infeasible to have the user specify a reduce function for each
-possible property.  In \ql a default reduce function \insql{set} is
-used for any property without an explicitly stated reduction.
-
-\eat{When applied over a bag of values in a reduce fashion, a resolve
-function is an {\em aggregation function}. We support the standard \{
-\insql{count} | \insql{min} | \insql{max} | \insql{sum} \}, which have
-their customary meaning.  We also support \{ \insql{any} |
-\insql{first} | \insql{last} | \insql{set} | \insql{list} \}, which
-are possible to compute because properties being resolved have
-temporal information.  \insql{first} and \insql{last} refer to the
-value of an attribute with the earliest/latest timestamp, while
-\insql{set} and \insql{list} associate a key an unordered collection
-of values with the set or bag semantics (but do not keep the
-associated validity periods).  Finally, we support \{ \insql{left} |
-\insql{right} \}, which select the attribute of the left, resp. right,
-operand.  Other, more complex, functions can be defined by the user.}
-
-\eat{\begin{lemma}
-Let $\psi$ be an n-ary temporal operator on \tg.  If $\psi^T (\ttt)$
-produces multiple possible attribute values for any entity at the same
-time instant, it must also specify a resolve function for each
-property to compute a single valid attribute value.
-\end{lemma}}
+relation, we apply the coalesce primitive as the last step.  For {\bf
+  R4} we require that every operator that may produce multiple
+possible values for the same vertex or edge property at any time point
+$t$ accept a user-specified {\em reduce} function.
 
 The coalesce primitive $\coal{r}$ merges adjacent or overlapping time
 periods for value-equivalent tuples.  This operation, which is similar
@@ -158,6 +130,30 @@ such as removing edges from the result that do not have associated
 nodes, or trimming the edge validity period to be within the validity
 periods of associated nodes.
 
+\begin{definition}[Reduce function]
+Let $((a_l,p_l),(a_r,p_r))$ be a pair of possible values of a property
+of a vertex or an edge, along with the associated validity periods.  A
+{\em reduce function} produces a single property value with its
+validity period $(a,p) = red((a_l,p_l), (a_r,p_r))$.
+\end{definition}
+
+A reduce function can pick an arbitrary element, compute an average,
+put the values in a set, pick the left one or the right one, etc.  A
+reduce function can be repeatedly applied to an unordered collection
+of values to compute a single value, as is done in the map-reduce
+model.  The property graph model allows for arbitrary properties to be
+associated with the graph entities, so it may be impractical or
+infeasible to have the user specify a reduce function for each
+possible property.  In \ql a default reduce function \insql{set} is
+used for any property without an explicitly stated reduction.
+
+\eat{\begin{lemma}
+Let $\psi$ be an n-ary temporal operator on \tg.  If $\psi^T (\ttt)$
+produces multiple possible attribute values for any entity at the same
+time instant, it must also specify a resolve function for each
+property to compute a single valid attribute value.
+\end{lemma}}
+
 In operator definitions below we note which operators are known to
 uncoalesce the output, thus requiring coalescing, require FK
 enforcement, or include reduce functions.  All non-trivial proofs are
@@ -168,13 +164,13 @@ listed in Appendix~\ref{sec:app1}.
 
 %We now introduce unary operators slice, subgraph and map.
 
-{\bf Slice.}  The slice operator, denoted $\tau_{\bc} (\ttt)$, where
+{\bf Slice.}  The slice operator, denoted $\slice{\bc}{\ttt}$, where
 $\bc$ is a time interval, cuts a temporal slice from \ttt. The
 resulting \tg will contain vertices and edges whose period $\bp$ has a
-non-empty intersection with $\bc$: $\tau_{\bc} (\tv) = \{ (v, \bp \cap
+non-empty intersection with $\bc$: $\slice{\bc}{\tv} = \{ (v, \bp \cap
 \bc)~~|~~(v, \bp) \in \tv \wedge (\pred{\bc}{overlaps}{\bp} \vee
 \pred{\bc}{contains}{\bp}) \}$, and analogously for each \te, \tav and
-\tae.  To evaluate $\tau_{\bc} (\tve)$, we apply select operator to
+\tae.  To evaluate $\slice{\bc}{\ttt}$, we apply select operator to
 each of the four constituent relations of \tve: $\forall x \in
 \{\tv,\te,\tav,\tae \}, x' = \pi_{A,p \cap c}(\sigma_{p \cap c} (x))$,
 where $A$ is the non-temporal schema of $x$.
@@ -184,10 +180,10 @@ where $A$ is the non-temporal schema of $x$.
   (\trg) = \{ (g, p \cap c)~~|~~(g, p) \in \trg \wedge
   (\pred{c}{overlaps}{p} \vee \pred{c}{contains}{p})\}$.  }
 
-Slice does not violate any of the three conditions: it does not
-produce multiple values for a vertex or edge attribute, does not
-uncoalesce any of the \tve relations, and does not violate FK
-enforcement.
+Slice does not violate any of the four conditions: it does not produce
+duplicates, does not uncoalesce any of the \tve relations, does not
+violate FK enforcement, and does not produce multiple values for a
+vertex or edge attribute.
 
 %\subsection{Temporal subgraph matching}
 %\label{sec:algebra:subgraph}
@@ -212,7 +208,7 @@ Queries $q^t_v$ and $q^t_e$ may include predicates over any of the
 consitutent relations of \tve to compute the vertex (resp. edge) sets.
 Further, these queries may explicitly reference temporal information,
 and so require that all temporal relations over which they operate be
-coalesced~\cite{DBLP:reference/db/Bohlen09}.
+coalesced~\cite{DBLP:reference/db/Bohlen09}. 
 
 \eat{We focus on functions that can be expressed as a pair of {\em
   conjunctive queries} $\sigma_{C_V,C_E} (\ttt)$, where $C_V$
@@ -246,16 +242,21 @@ value of some property of its two vertices does not match.  Assuming
 vertices have property \insql{group}, we can compute
 $\sigma_{T,v1.a.group=v2.a.group}(\ttt)$.}
 
-\julia{Soundness info goes here: what needs to be checked and
-  enforced.}  (See Appendix~\ref{sec:app1}).
+Vertex-subgraph: {\bf R1,R2}: coalesce $\tv'$; {\bf R3}: enforce FK on
+$\tav', \te', \tae'$. Edge-subgraph: {\bf R1,R2}: coalesce $\te'$;
+{\bf R3}: enforce FK on $\tae'$.
+
+\eat{Vertex-subgraph requires coalescing of $\tv'$ and FK enforcement on
+\tav', \te', and \tae'. Edge-subgraph requires coalescing of $\te'$ and
+FK enforcement on \tae'.}
 
 %\subsection{Temporal map}
 %\label{sec:algebra:project}
 
 {\bf Map.}  Temporal vertex-map and edge-map operations apply
 user-defined map functions to vertex or edge attributes.  Temporal
-vertex-map $\map^t_v(\tve)$ outputs $\tve'$ in which $\tv'=\tv$,
-$\te'=\te$, $\tae' = \tae$, and $\tav' = \map^t_v(\tav)$.  Temporal
+vertex-map $\vmap{\tve}$ outputs $\tve'$ in which $\tv'=\tv$,
+$\te'=\te$, $\tae' = \tae$, and $\tav' = \vmap{\tav}$.  Temporal
 edge-map is defined analogously.
 
 \eat{To evaluate $\map_{M_V,M_E} (\tve)$, we set $\tv'=\tv$ and $\te'=\te$,
@@ -268,9 +269,9 @@ of each $g$: $\map_{M_V,M_E} (\trg) = \{(g', p)~~|~~(g,p) \in \trg
 }  
 
 While temporal map is an arbitrary user-specified function, there are
-some common cases.  Map may be used to specify the set of attributes
+some common cases.  Map may be used to specify the set of properties
 to project out or retain, to aggregate (e.g., \insql{COUNT}) or
-deduplicate values in a bag of a property, or to flatten a nested
+deduplicate values in a list property, or to flatten a nested
 property value.
 
 % because this is an arbitrary operation, we don't need to invent
@@ -288,37 +289,82 @@ property of a vertex or edge, e.g., compute a sum or an average
 following temporal intersection or union
 (Section~\ref{sec:algebra:join}).}}
 
-\julia{Soundness info goes here: what needs to be checked and
-  enforced.}  (See Appendix~\ref{sec:app1}).
+Vertex-map: {\bf R2}: coalesce $\tav'$.  Edge-map: {\bf R2}: coalesce
+$\tae'$.
 
-% Map may uncoalesce \tav and \tae, but does not require FK enforcement.
+\eat{Vertex-map requires only coalescing of $\tav'$. Edge-map requires
+  only coalescing of $\tae'$.}
 
-\subsection{Binary operators}
+\subsection{Aggregation}
+\label{sec:algebra:agg}
+
+Aggregation is a common graph operation that can be used to compute
+simple properties such as in-degrees of vertices or more complex ones
+such as a set of places that all close friends have visited in the
+past year.  Aggregation is denoted $\agg{cond}{msg}{red}{\ttt}$, where
+$cond$ is a predicate over the edge triplet, i.e. over the attributes
+of the edge and its two vertices, $msg$ is a function that takes in a
+triplet and produces a $(v,p,m)$ key-value message $m$ to vertex $v$
+at triplet time $p$, and $red$ is a reduce function.  The result is a
+new isomorphic graph $\ttt'$: $\agg{cond}{msg}{red}{\ttt} = \{ \tv,
+\te, \tav', \tae \}$, where $\tav' = \pi^T_{v,a_1+a_2}(\tav
+\bowtie^T_v$ \\ $_v\vartheta^T_{red} (msg (\sigma_{cond} (\tae
+\bowtie^T_{v_1=v} \tav \bowtie^T_{v_2=v} \tav))))$.  The temporal join
+is used to add the new properties to the output since it may have
+different periods of validity.  For example, while each vertex in \tg
+may remain unchanged for the whole duration, aggregating vertex
+degrees would result in an attribute value for each period of topology
+change.
+
+We support various reduce functions, including the standard \{
+\insql{count} | \insql{min} | \insql{max} | \insql{sum} \}, which have
+their customary meaning.  We also support \{ \insql{any} |
+\insql{first} | \insql{last} | \insql{set} | \insql{list} \}, which
+are possible to compute because properties being reduced have temporal
+information.  \insql{first} and \insql{last} refer to the value of an
+property with the earliest/latest timestamp, while \insql{set} and
+\insql{list} associate a key with an unordered collection of values
+with the set or bag semantics (but do not keep the associated validity
+periods).  Other, more complex, functions can be defined by the user.
+\insql{set} is the default reduce function.
+
+As an example, to compute vertex in-degrees, we can use
+$agg_{msg=(dst,p,1),red=count}(\ttt)$.  To compute a set of places
+that all close friends have visited in the past year, assuming there
+is a property \insql{places} on friend vertices and closeness of
+friendship property on edges:\\ $agg_{cond=dst.p \cap [2015,2016) \&
+    a.close > 0.8,msg=(src,p,dst.places)}(\ttt)$.
+
+{\bf R2}: coalesce $\tav'$; {\bf R4}: require reduce function.
+
+\eat{Aggregation requires coalescing of $\tav'$.}
+
+\subsection{Binary set operators}
 \label{sec:algebra:binary}
 
 We support the temporal versions of the three binary set operators
 intersection ($\cap^T$), union ($\cup^T$), and difference
-($\setminus^T$), as well as semi join.  As Dignos et al. showed, the
-three set operators are not schema robust~\cite{Dignos2012}.  Schema
-robust operators are not affected if the argument relation is extended
-by an additional attribute.  This presents a problem when executing
-the set operations over the \tav and \tae relations as there is no
-guarantee that a vertex or an edge with the same identity and at the
-same time instant has the same attribute set.  Thus all three
-operators require resolve functions.
+($\setminus^T$).  As Dignos et al. showed, the three set operators are
+not schema robust~\cite{Dignos2012}.  Schema robust operators are not
+affected if the argument relation is extended by an additional
+attribute.  This presents a problem when executing the set operations
+over the \tav and \tae relations as there is no guarantee that a
+vertex or an edge with the same identity and at the same time instant
+has the same attribute set.  Thus all three operators require reduce
+functions.
 
-\begin{definition}[Set-theoretic operators]
 Let $\oplus$ be a temporal set operator $\in \{ \cap^T, \cup^T,
-\setminus^T \}$ and $r$ be a resolve function.  Then $\tve_1 \oplus_r
-\tve_2 = \{ \tv_1 \oplus \tv_2, \te_1 \oplus \te_2, map_r(\tav_1
-\fullouterjoin^T \tav_2),$\\ $map_r(\tae_1 \fullouterjoin^T \tae_2)
-\}$, with all FK constraints on \tav and \tae enforced.
-\label{def:sets}
-\end{definition}
+\setminus^T \}$ and $red$ be a set of reduce functions.  Then $\tve_1
+\oplus_{red} \tve_2 = \{ \tv_1 \oplus \tv_2, \te_1 \oplus \te_2,
+\pi^T_{v,red(a_1,a_2)}(\tav_1 \fullouterjoin^T_{v}
+\tav_2),$\\ $\pi^T_{v_1,v_2,red(a_1,a_2)}(\tae_1
+\fullouterjoin^T_{v_1,v_2} \tae_2) \}$, with all FK constraints on
+\tav and \tae enforced.
 
-Because the graphs do not have a fixed schema, it may not be desirable
-to specify a resolve function for every possible property.  A default
-resolve function is \insql{set}.
+As elsewhere, the default reduce function is \insql{set}.  In addition
+to the functions defined in Section~\ref{sec:algebra:agg} we also
+support \{ \insql{left} | \insql{right} \}, which select the attribute
+of the left, resp. right, operand.
 
 %\subsection{Temporal graph intersection}
 %\label{sec:algebra:join}
@@ -382,12 +428,6 @@ constraints on \te', \tav' and \tae' (lines 5, 6).
 \vspace{-0.2cm}
 \label{fig:tg_diff}
 \end{subfigure}
-\begin{subfigure}{2.3in}
-\includegraphics[width=2.3in]{figs/T1_semij_T2_rel.pdf}
-\caption{$T1 \ltimes^T T2$.}
-\vspace{-0.2cm}
-\label{fig:tg_semij}
-\end{subfigure}
 \caption{Binary operators.}
 \label{fig:binary}
 \vspace{-0.2cm}
@@ -395,11 +435,10 @@ constraints on \te', \tav' and \tae' (lines 5, 6).
 
 Figure~\ref{fig:tg_inter} illustrates temporal intersection of \tg T2,
 shown in Figure~\ref{fig:tg_t2}, with T1 in our running example, with
-a set resolve function for all properties.  Period $[2/15, 4/15)$ for
+a set reduce function for all properties.  Period $[2/15, 4/15)$ for
   $v_2$ is computed as a result of the join of $[2/15, 5/15)$ in T1
     and [$2/15, 4/15)$ in T2.  Only the vertices and edges present in
       both \tgs are produced, thus eliminating $v_3$ and $v_4$.
-      Notice the result of attribute set resolve function.
       Figure~\ref{fig:tg_union} is similar to
       Figure~\ref{fig:tg_inter} but using union instead of
       intersection.  According to the definition of temporal set
@@ -408,11 +447,15 @@ a set resolve function for all properties.  Period $[2/15, 4/15)$ for
       Figure~\ref{fig:tg_diff} is a result of temporal difference of
       T1 and T2.  Vertex $v_1$ is now present before $2/15$ and after
       $6/15$, which splits the a single input tuple into multiple
-      disjoin ones.
+      disjoint ones.
 
-Intersection and union may uncoalesce, while difference does not.
-Intersection and difference require FK enforcement for \tav and \tae,
-while union does not.
+{\bf R1, R2}: for all set operators coalesce every relation in
+$\ttt'$; {\bf R3}: enforce FK on $\tav'$ and $\tae'$ for difference,
+intersection. {\bf R4}: require reduce function.
+
+\eat{Intersection and union may uncoalesce, while difference does not.
+  Intersection and difference require FK enforcement for \tav and
+  \tae, while union does not.}
 
 %\subsection{Temporal graph union}
 %\label{sec:algebra:outerjoin}
@@ -504,60 +547,8 @@ $\tae'$ (lines 5, 6).
 \end{algorithm}
 }
 
-{\bf Semi join.}  The semi join operator $\ttt_1 \ltimes^T \ttt_2$
-produces a subgraph induced by edges shared between \insql{T1} and
-\insql{T2} at any time point.  The induced subgraph is based on
-topology, i.e. $\tv' = \pi_{v,p} ( \te_1 \ltimes^T \te_2), \te' =
-\te_1 \ltimes^T \te_2$ and the foreign key is enforced on \tav and
-\tae.  A semi join of a \ttt with itself produces a graph with all
-vertices having degree of at least 1.
-
-Figure~\ref{fig:tg_semij} demonstrates the result of a semi join of
-our running example \insql{T1} with \insql{T2}.  Only one period
-$[2/15, 4/15)$ for all entities is retained because only a single edge
-  during this period is shared between T1 and T2.
-
-For a more complex example, to produce a subgraph of a particular
-vertex $v_i$ and the immediate neighborhood of that vertex, we compute
-$\ttt \ltimes (\sigma_{T,v_1=v_i | v_2=v_i} (\ttt))$.
-
-Semi join does not uncoalesce but requires FK enforcement on \tav and
-\tae.
-
-\subsection{Aggregation}
-\label{sec:algebra:agg}
-
-Aggregation is a common graph operation that can be used to compute
-simple properties such as in-degrees of vertices or more complex ones
-such as a set of places that all close friends have visited in the
-past year.  Aggregation is denoted $\gamma_{C_V,C_E,d,M,A_V}$, where
-$C_V$ is a predicate over the source and destination vertices of the
-edge, $C_E$ is a predicate over the edge itself, $d$ is the target
-vertex $\in \{src,dst\}$, $M$ is the value (message) per edge, and $A_V$
-is an aggregation function.  The result is a new graph
-$\gamma_{C_V,C_E,d,M,A_V} (\ttt) = \ttt \cup^T \{ \tv, \te, \tav',
-\tae \}$, where $\tav' = A_{V,d}(\sigma_{C_V,C_E} (\tae
-\bowtie^T_{vid1=vid} \tav \bowtie^T_{vid2=vid} \tav))$.  The $C_V$ and
-$C_E$ predicates may include temporal clauses.  We show in
-Section~\ref{sec:sys:impl} how this is supported through an expansion
-operation if implemented directly over the \tve representation.  The
-temporal union is used to add the new attribute to the output since it
-may have different periods of validity.  For example, while each vertex
-in \tg may remain unchanged for the whole duration, aggregating vertex
-degrees would result in an attribute value for each period of topology
-change.
-
-As an example, to compute vertex in-degrees, we can use
-$\gamma_{true,true,dst,1,count}(\ttt)$.  To compute a set of places
-that all close friends have visited in the past year, assuming there
-is a property \insql{places} on friend vertices and closeness of
-friendship property on edges, we can use $\gamma_{p \cap
-  [2015,2016),close > 0.8,dst,places,set}(\ttt)$.
-
-Aggregation does not uncoalesce and does not require FK enforcement.
-
 \subsection{Node creation}
-\label{sec:algebra:create}
+\label{sec:algebra:ncreate}
 
 We argued in the introduction that it is interesting and insightful to
 analyze an evolving graph at different levels of granularity.  For
@@ -572,11 +563,11 @@ algebra.  Our approach is inspired by stream aggregation work
 of~\cite{Li2005}, adopted to graphs, and by generalized quantifiers
 of~\cite{Hsu1995}.
 
-Node creation is denoted $_{G_V}\vartheta_{W,Q_V,Q_E,A_V,A_E}
+Node creation is denoted $_{G_V}\vartheta_{W,Q_V,Q_E,red}
 (\ttt)$,\\ where $G_V$ are the grouping attributes, $W$ is the window
 specification, $Q_V$ and $Q_E$ are vertex and edge quantifiers, and
-$A_V$ and $A_E$ are the optional aggregation functions.  It produces a
-consolidated evolving graph with specific temporal granularity.
+$red$ is the set of reduce functions.  It produces a consolidated
+evolving graph with specific temporal granularity.
 
 {\em Grouping attributes} $G_V$ are vertex properties by which
 vertices are grouped into new entities, similar to \insql{GROUP BY}
@@ -599,14 +590,14 @@ fewer than $n$ representative graphs from the input.
 %
 Our window specification by change is similar to slide-by-row window
 in stream aggregation~\cite{Li2005}.  Note that, because \tg algebra
-is compositional, we do not support node creation with
-overlapping windows, because it does not produce a valid \tg.  To see
-why this is so, consider applying a sliding window of 3 months range
-with 1 month slide to graph \insql{T} in Figure~\ref{fig:tg_rg}.  We
-would produce the following set $(g_1, [1/15, 4/15)), (g_2, [4/15,
-    7/15)), (g_3, [7/15, 10/15))$, which clearly violates the
-      temporally coalesced requirement in
-      definition~\ref{tg_abstract}.  
+is compositional, we do not support node creation with overlapping
+windows, because it does not produce a valid \tg.  To see why this is
+so, consider applying a sliding window of 3 months range with 1 month
+slide to graph \insql{T} in Figure~\ref{fig:tg_rg}.  We would produce
+the following tuples for $v_1$: $(v_1, [1/15, 4/15), a_1)$, $(v_1,
+  [2/15, 5/15), a_2)$, $(v_1, [3/15, 6/15))$, and so on, which clearly
+      violates the temporally coalesced requirement in
+      definition~\ref{tg}.
 
 Similar to~\cite{Li2005} we support creation simultaneously by time
 and by non-temporal attributes (e.g., vertex properties).  If the
@@ -626,16 +617,15 @@ want to only include vertices that span the entire time window
 ($Q_V=\insql{all}$), and edges that span a large portion of the window
 ($Q_E=\insql{most}$).
  
-The optional {\em aggregation functions} $A_V$ and $A_E$ compute new
+The optional reduce functions compute new
 values for vertex and edge properties representative of
-the whole window, e.g., $A_V=\insql{any}(name), \insql{last}(school)$
-and $A_E=\insql{sum}(cnt)$.
+the whole window, e.g., $any(name), last(school), sum(cnt)$.
 %
  
-Key-value pairs for vertex and edge properties for which no
+\eat{Key-value pairs for vertex and edge properties for which no
 aggregation functions are specified, are collected into a bag
 corresponding to the entity in the result.  These can be subsequently
-transformed with $map^T$ (Section~\ref{sec:algebra:project}).
+transformed with $map^T$ (Section~\ref{sec:algebra:project}).}
 
 \eat{ 
 Temporal aggregation over \tve follows the outline of
@@ -644,19 +634,19 @@ revisited in Algorithm~\ref{alg:agg_ve}.
 %
 }
 
-We compute group periods based on window specification.  Next, as part
-of $_{G_V}\vartheta_{P,Q_V}(\tv)$ computation, we assign each tuple from
-\tv to a period (this requires splitting), group vertices by $G_V$ and
-evaluate $Q_V$ on each group.  Only groups for which $Q_V$ evaluates
-to true are retained.  Edges are processed similarly by
-$_{G_V}\vartheta_{P,Q_E}(\te)$.  Note that when $G_V$ is anything besides
-$vid$, we need edge triplets in order to compute new source and
-destination ids of each edge.  As with aggregation above, edge
-triplets can be computed through a three-way temporal outerjoin of
-\tae with \tav.  $_{G_V}\vartheta_{P,A_V}(\tav)$ and
-$_{G_V}\vartheta_{P,A_E}(\tae)$, respectively, are a result of computing
-a group for each vertex or edge within the period, and applying the
-aggregate functions over each group.
+We compute group periods based on window specification: $P =
+\textsf{computePeriods}(W, \tv, \te, \tav, \tae)$.  We use temporal
+aggregation and selection to evaluate $Q_V$ on each group in $\tv$:
+$\tv' = \sigma_{P,Q_V}( _{G_V}\vartheta^T (\tv \leftouterjoin^T
+\tav))$ and similarly for $\te$: $\te' = \sigma_{P,Q_E}(
+_{G_V}\vartheta^T (\te \bowtie^T_{v_1=v} \tav \bowtie^T_{v_2=v}
+\tav))$.  The edge triplets, obtained through three-way temporal join
+of \tae with \tav are required to aggregate edges by $G_V$.  To
+compute attribute relations we compute temporal aggregation with the
+reduce functions and enforce FK constraints: $\tav' =
+~_{G_V}\vartheta^T_{red}(\tav)$, $\tae' =
+~_{G_V}\vartheta^T_{red}(\tae \leftouterjoin^T_{v_1=v} \tav
+\leftouterjoin^T_{v_2=v})$.
 
 \eat{
 Node creation over \trg is computed by first calculating time periods
@@ -692,7 +682,7 @@ structural reduce only ($W=1~\textsf{change}$), and
 Figure~\ref{fig:tg_agg4} both structural and temporal
 ($G_V=\textsf{school}, W=3~\textsf{months}$).  All four are applied to
 \insql{T1} in our running example, and list the same quantifiers
-(\insql{all} for vertices and \insql{exists} for edges) and aggregate
+(\insql{all} for vertices and \insql{exists} for edges) and reduce
 functions (\insql{first} for vertex and edge properties).  $v_2$ is
 present in the result in Figure~\ref{fig:tg_agg1} starting at $4/15$
 because it did not exist for the entirety of the first window, while
@@ -730,7 +720,10 @@ produce a more meaningful final result.
 \vspace{-0.5cm}
 \end{figure*}
 
-Node creation may uncoalesce and requires FK enforcement.
+\eat{Node creation may uncoalesce and requires FK enforcement.}
+
+{\bf R1, R2}: coalesce every relation in $\ttt'$; {\bf R3}: enforce FK
+on $\tav', \te', \tae'$; {\bf R4}: require reduce function.
 
 \eat{ Our aggregation quantifiers are inspired by generalized
   quantifiers of~\cite{Hsu1995} with n-place delimiters.  $Q(R)$ as a
@@ -743,8 +736,10 @@ Node creation may uncoalesce and requires FK enforcement.
   that in standard SQL can be achieved with the use of two \insql{NOT
     EXISTS}.}
 
-\subsection{Composition}
-\label{sec:algebra:composition}
+\subsection{Edge creation}
+\label{sec:algebra:ecreate}
+
+\vera{STOPPED HERE}
 
 \eat{In graph theory, a graph join of two undirected unlabeled disjoint
 graphs is defined as the union of the two graphs and additional edges
