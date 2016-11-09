@@ -27,7 +27,7 @@ relational algebra (TRA).  Since TRA is applied to individual
 relations of \tve, we must ensure that the combined state of these
 relations in the result corresponds to a valid \tg, i.e., that the
 translation is sound.  Returning to Definition~\ref{def:tg}, we
-observe that relations of \tve must meet the following requirements;
+observe that relations of \tve must meet the following requirements:
 
 \begin{description}[noitemsep]
 
@@ -36,14 +36,14 @@ observe that relations of \tve must meet the following requirements;
   point. (Clauses~\ref{def:tg:c2} and~\ref{def:tg:c3} of
   Definition~\ref{def:tg}.)
 
-\item [R2: Coalesced] Value-equivalent tuples in all relations of \tv
+\item [R2: Coalesced] Value-equivalent tuples in all relations of \tve
   with consecutive or overlapping time periods are
   merged. (Clauses~\ref{def:tg:c2} and~\ref{def:tg:c3} of
   Definition~\ref{def:tg}.)
 
 \item [R3: Referential integrity] Foreign key constraints hold from
   \te and \tav to \tv, and from \tae to \te.
-  (Clauses\\~\ref{def:tg:c1},~\ref{def:tg:c5}, and~\ref{def:tg:c7} of
+  (Clauses~\ref{def:tg:c1},~\ref{def:tg:c5}, and~\ref{def:tg:c7} of
   Definition~\ref{def:tg}.)
 
 \item [R4: Single attribute] Every vertex/edge has at most one
@@ -67,29 +67,29 @@ expensive and some operations may produce correct results (up to
 coalescing) even when computing over uncoalesced inputs.  We will
 revisit this point in Section~\ref{sec:sys:coal}.
 
-\julia{Refrentian integrity is always by key.  There is not need to
+\julia{Referential integrity is always by key.  There is not need to
   give $k$ as an argument.}
 
 To enforce {\bf R3} we introduce the constrain primitive
 $\constr{k}{r}{s}$, which enforces referential integrity on relation
-$\mathbf{r}$ with respect to relation $\mathbf{s}$.% by key mapping
-$k$.  For example, this primitive is used to remove edges from \te for
-which one or both vertices are absent from \tv, and to trim he edge
-validity period to be within the validity periods of associated
-vertices. \julia{Does this latter case arise?}
+$\mathbf{r}$ with respect to relation $\mathbf{s}$.  For example, this
+primitive is used to remove edges from \te for which one or both
+vertices are absent from \tv, and to trim edge validity period to be
+within the validity periods of the associated vertices. \julia{Does
+  this latter case arise?}
 
 To enforce {\bf R4} we require that every operator that may produce
 multiple possible values for the same vertex or edge property at a
-time point $c$ accept a user-specified {\em reduce} function
-$\mathbf{red}$, defined below.
+time point $c$ accept a user-specified reduce function $\mathbf{red}$.
 
-\julia{Do we need period to be part of the resolve function?  If so,
-  what is the default behavior?  And how does one compute, e.g., a
-  union of the periods if they are not adjacent?  Generally, it's not
-  clean to allow explicit manipulation of timestamps in a temporal
-  model - it's OK to refer to them in the where clause, but not to
-  compute them, because that changes model expressiveness drastically
-  --- you can specify an arbitrary function that ``creates time''.}
+\julia{No need for a definition.  Do we need period to be part of the
+  resolve function?  If so, what is the default behavior?  And how
+  does one compute, e.g., a union of the periods if they are not
+  adjacent?  Generally, it's not clean to allow explicit manipulation
+  of timestamps in a temporal model - it's OK to refer to them in the
+  where clause, but not to compute them, because that changes model
+  expressiveness drastically --- you can specify an arbitrary function
+  that ``creates time''.}
 
 \begin{definition}[Reduce function]
 Let $((a_l,p_l),(a_r,p_r))$ be a pair of possible values of a property
