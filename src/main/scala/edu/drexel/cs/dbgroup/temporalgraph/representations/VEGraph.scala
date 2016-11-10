@@ -401,7 +401,34 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
 
   override def aggregateMessages[A: ClassTag](sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
     mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): VEGraph[(VD, A), ED] = {
-    throw new UnsupportedOperationException("analytics not supported")
+    if (tripletFields == TripletFields.None) {
+      //for each edge get a message
+      val res: RDD[(VertexId, (Interval, A))] = allEdges.flatMap{e =>
+        val et = new EdgeTriplet[VD,ED]
+        et.srcId = e._1._1
+        et.dstId = e._1._2
+        et.attr = e._2._2
+        sendMsg(et).map(x => (x._1, List[(Interval,A)]((e._2._1, x._2)))).toSeq
+      }.reduceByKey{(a,b) => //group by destination with the merge
+        //we have two lists. for each period of intersection, we apply the merge
+        val res = for {
+          x <- a; y <- b
+          if x._1.intersects(y._1)
+        } yield x._1.difference(y._1).map((_, x._2)) ++ List[(Interval,A)]((x._1.intersection(y._1).get, mergeMsg(x._2, y._2))) ++ y._1.difference(x._1).map((_, y._2))
+          res.flatten
+      }.flatMap{vl =>
+        vl._2.map(x => (vl._1, x))
+      }
+
+      //now join with the old values
+      //FIXME: this assumes that there is a new value generated for each possible old interval of an attribute, which is not a given - this potentially throws away values!
+      val newverts: RDD[(VertexId, (Interval, (VD, A)))] = allVertices.leftOuterJoin(TGraphNoSchema.coalesce(res)).filter{ case (k, (v,u)) => u.isEmpty || v._1.intersects(u.get._1)}
+        .mapValues{ case (v, u) => if (u.isEmpty) (v._1, (v._2, defVal)) else (v._1.intersection(u.get._1).get, (v._2, u.get._2))}
+
+      fromRDDs(newverts, allEdges, (defaultValue, defVal), storageLevel, coalesced)
+
+    } else
+      throw new UnsupportedOperationException("aggregateMsg not supported")
   }
 
 

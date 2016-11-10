@@ -74,6 +74,18 @@ class Interval(st: LocalDate, en: LocalDate) extends Serializable {
       Some(Interval(rest, ree))
   }
 
+  /*
+   * Return the portions of this interval that are not included in the other
+   */
+  def difference(other: Interval): List[Interval] = {
+    if (intersects(other)) {
+      var res = List[Interval]()
+      if (start.isBefore(other.start)) res = res :+ Interval(start, other.start)
+      if (end.isAfter(other.end)) res = res :+ Interval(other.end, end)
+      res
+    } else List(this)
+  }
+
   def isEmpty():Boolean = start == end
 
   /*

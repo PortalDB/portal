@@ -907,6 +907,8 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
     val intvs = ProgramContext.sc.broadcast(collectedIntervals)
     val vattrs: RDD[(VertexId, (Interval, A))] = agg.flatMap{ case (vid,vattr) => vattr.toSeq.map{ case (k,v) => (vid,(intvs.value(k), v))}}
     //now need to join with the previous value
+    //FIXME: this does not produce correct results when a single attribute tuple
+    //over a long interval in allVertices has multiple tuples in the new vattrs for smaller subintervals which do not fully cover it
     val newverts: RDD[(VertexId, (Interval, (VD, A)))] = allVertices.leftOuterJoin(vattrs)
       .filter{ case (k, (v, u)) => u.isEmpty || v._1.intersects(u.get._1)}
       .mapValues{ case (v, u) => if (u.isEmpty) (v._1, (v._2, defVal)) else (v._1.intersection(u.get._1).get, (v._2, u.get._2))}
