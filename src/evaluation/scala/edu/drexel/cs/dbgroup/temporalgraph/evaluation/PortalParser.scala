@@ -8,7 +8,7 @@ import org.apache.spark.storage.StorageLevel._
 import java.time.LocalDate
 
 import org.apache.spark.graphx.Edge
-import org.apache.spark.graphx.VertexId
+import org.apache.spark.graphx.{VertexId,TripletFields}
 
 import edu.drexel.cs.dbgroup.temporalgraph._
 import edu.drexel.cs.dbgroup.temporalgraph.util.{LinearTrendEstimate, GraphLoader}
@@ -536,14 +536,13 @@ object Interpreter {
         result
       }
       case Degrees() => {
-        throw new UnsupportedOperationException("degree not currently supported")
-//        val degStart = System.currentTimeMillis()
-//        val result = grin.degree()
-//        val degEnd = System.currentTimeMillis()
-//        val total = degEnd - degStart
-//        println(f"Degree Runtime: $total%dms ($argNum%d)")
-//        argNum += 1
-//        result
+        val degStart = System.currentTimeMillis()
+        val result = grin.aggregateMessages[Int](triplet => { Iterator((triplet.dstId, 1), (triplet.srcId, 1))}, (a, b) => {a + b}, 0, TripletFields.None).asInstanceOf[TGraphNoSchema[Any,Any]]
+        val degEnd = System.currentTimeMillis()
+        val total = degEnd - degStart
+        println(f"Degree Runtime: $total%dms ($argNum%d)")
+        argNum += 1
+        result
       }
       case ConnectedComponents() => {
         val conStart = System.currentTimeMillis()
