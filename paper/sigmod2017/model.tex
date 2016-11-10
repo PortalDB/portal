@@ -46,9 +46,8 @@ compactly represent their constituent time points.  This is a common
 representation technique, which does not add expressive power to the
 data model~\cite{DBLP:conf/ictl/Chomicki94}.
 
-A snapshot of a temporal relation $\mathbf{R}$, denoted $\tau^s_c(R)$
-(``s'' stands for ``snapshot''), is the state of $\mathbf{R}$ at time
-point $c$.
+A snapshot of a temporal relation $R$, denoted $\tau^s_c(R)$ (``s''
+stands for ``snapshot''), is the state of $R$ at time point $c$.
 
 We use the property graph model~\cite{GraphDB} to represent vertex and
 edge attributes: each vertex and edge during period $\bp$ is
@@ -102,8 +101,8 @@ Requirement {\bf R4} avoids semantic ambiguity and ensures correctness
 of algebraic operations in point-stamped temporal models such as ours
 (see~\cite{DBLP:reference/db/JensenS09k} Fig. 2 and its description).
 
-Requirement {\bf R4} states that is, a fact --- existence of a vertex
-or edge, and unchanging value of a vertex or edge attribute --- is
+Requirement {\bf R4} states that a fact --- existence of a vertex or
+edge, and unchanging value of a vertex or edge attribute --- is
 represented exactly once for each time period of maximal length when
 it holds. As an example, consider Figure~\ref{fig:tg_ve} and note that
 there is a single tuple for $v_2$ in \tv, but two tuples for $v_2$ in
