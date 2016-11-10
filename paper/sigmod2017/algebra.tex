@@ -5,7 +5,7 @@
 \tg algebra, or \tga for short, is compositional: operators take a \tg
 or a pair of \tgs as input, and output a \tg.  We specify the
 semantics of \tga by showing a translation of each operator into a
-sequence of temporal relational algebra (TRA) expressions.  Using this
+sequence of temporal relational algebra (\tra) expressions.  Using this
 translation one can implement \tga in a temporal RDBMS, guranteeing
 snapshot reducibility and extended snapshot
 reducibility~\cite{DBLP:reference/db/Bohlen092} --- two properties
@@ -28,17 +28,15 @@ showing expressiveness of \tga in Section~\ref{sec:algebra:formal}.
 \subsection{Soundness}
 \label{sec:algebra:integrity}
 
-In the remainder of this setion, we will present a translation of
-every \tga operator into a sequence of expressions in temporal
-relational algebra (TRA).  Since TRA is applied to individual
-relations of \tve, we must ensure that the combined state of these
-relations in the result corresponds to a valid \tg, i.e., that the
-translation is sound.  Recall from Definition~\ref{def:tg} that a
-valid \tg must satisfy four requirements: {\bf R1}: Unique vertices
-and edges, {\bf R2}: Unique attribute values, {\bf R3}: Referential
-integrity, and {\bf R4}: Coalesced.  We now describe three primitives
-that will be used together with temporal relational algebra operations
-to ensure soundness of \tga.
+\tga operators are translated into a sequence of expressions in
+temporal relational algebra (\tra).  Since TRA is applied to
+individual relations of \tve, we must ensure that the combined state
+of these relations in the result corresponds to a valid \tg, i.e.,
+that the translation is sound.  Recall from Definition~\ref{def:tg}
+that a valid \tg must satisfy four requirements: {\bf R1}: Unique
+vertices and edges, {\bf R2}: Unique attribute values, {\bf R3}:
+Referential integrity, and {\bf R4}: Coalesced.  We now describe three
+primitives that will ensure soundness of \tga.
 
 {\bf Coalesce.} To enforce requirements {\bf R1} and {\bf R4}, we
 introduce the coalesce primitive $\coal{r}$, which merges adjacent or
@@ -53,14 +51,13 @@ of which TRA is a superset.  Note also that if a DBMS supports
 automatic coalescing, this primitive is not necessary.  Finally, eager
 coalescing is not always desirable, since it is expensive and some
 operations may produce correct results (up to coalescing) even when
-computing over uncoalesced inputs.  We will revisit this point in
-Section~\ref{sec:sys:coal}.
+computing over uncoalesced inputs~\cite{DBLP:reference/db/Bohlen09}.
 
 {\bf Resolve.} To enforce {\bf R2} we introduce the resolve primitive
-$\resolve{f_1(k_1), \ldots, f_n(k_n)}{r}$, which is invoked by
+$\resolve{f_1(k_1), \ldots, f_n(k_n)}{R}$, which is invoked by
 operations that produce attribute relations with duplicates.  Resolve
-computes a temporal group-by of an attribute relation $\mathbf{r}$ by
-key (e.g., by $v$ if $\mathbf{r}$ represents vertex attributes).  It
+computes a temporal group-by of an attribute relation $\mathbf{R}$ by
+key (e.g., by $v$ if $\mathbf{R}$ represents vertex attributes).  It
 then computes a bag-union of the properties occurring in each group,
 groups together key-value pairs that correspond to the same property
 name $\mathbf{k_i}$, and aggregates values within each graoup using

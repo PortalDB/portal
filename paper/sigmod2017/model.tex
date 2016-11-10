@@ -75,7 +75,7 @@ Relations of \tve must meet the following requirements:
 
 \begin{description}[noitemsep]
 
-\item [R1: Unique vertices and edges] In every snapshot $\tau^s_c
+\item [R1: Unique vertices/ edges] In every snapshot $\tau^s_c
   (\tav)$ and $\tau^s_c (\tae)$, where $c$ is a single time point, a
   vertex/edge exists at most once.
 
@@ -90,13 +90,7 @@ Relations of \tve must meet the following requirements:
   $\tau^s_c (\tv)$, and from $\tau^s_c (\tae)$ to $\tau^s_c (\te)$.
 
 \item [R4: Coalesced] Value-equivalent tuples in all relations of \tve
-  with consecutive or overlapping time periods are merged.  That is, a
-  fact (existence of a vertex or edge, and unchanging value of a
-  vertex or edge attribute) is represented exactly once for each time
-  period of maximal length when it holds. As an example, consider
-  Figure~\ref{fig:tg_ve} and note that there is a single tuple for
-  $v_2$ in \tv, but two tuples for $v_2$ in \tav, because $school=CMU$
-  was added at time 5/15.
+  with consecutive or overlapping time periods are merged.  
 
 \end{description}
 \label{def:tg}
@@ -108,6 +102,13 @@ Requirement {\bf R4} avoids semantic ambiguity and ensures correctness
 of algebraic operations in point-stamped temporal models such as ours
 (see~\cite{DBLP:reference/db/JensenS09k} Fig. 2 and its description).
 
+Requirement {\bf R4} states that is, a fact --- existence of a vertex
+or edge, and unchanging value of a vertex or edge attribute --- is
+represented exactly once for each time period of maximal length when
+it holds. As an example, consider Figure~\ref{fig:tg_ve} and note that
+there is a single tuple for $v_2$ in \tv, but two tuples for $v_2$ in
+\tav, because $school=CMU$ was added at time 5/15.
+  
 \eat{\tv and \te are temporally coalesced:
 \vspace{-0.3cm}
 \begin{multline}
@@ -238,13 +239,12 @@ cases we are interested in applying operations (e.g., analytics) only
 to graph topology, and in that case \tv and \te are sufficient.
 %
 
-It is sometimes convenient to use intervals to compactly represent
-consecutive value-equivalent snapshots of \tve --- timeslices in which
-no change occurred in graph topology, or in vertex and edge
-attributes.  We use the term {\em representative graph} to refer to
-such snapshots, since they represent an interval.
-Figure~\ref{fig:tg_rg} shows \insql{T1} as a sequence of
-representative graphs.
+It is convenient to use intervals to compactly represent consecutive
+value-equivalent snapshots of \tve --- timeslices in which no change
+occurred in graph topology, or in vertex and edge attributes.  We use
+the term {\em representative graph} to refer to such snapshots, since
+they represent an interval.  Figure~\ref{fig:tg_rg} shows \insql{T1}
+as a sequence of representative graphs.
 
 \eat{
 \trg and \tve are equivalent in terms of the information they contain.

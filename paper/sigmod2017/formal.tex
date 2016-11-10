@@ -39,7 +39,7 @@ may refer to the other constituent relations \tve.
 We now refer to definitions~\ref{def:edgecomplete}
 and~\ref{def:vertexcomplete} and show that \ql algebra is \edgec and
 \vertexc, with respect to the valid-time fragment of temporal
-relational algebra (TRA).  TRA is an algebra that corresponds to
+relational algebra (\tra).  \tra is an algebra that corresponds to
 temporal relational calculus~\cite{DBLP:reference/db/ChomickiT09b}, a
 first-order logic that extends relational calculus, supporting
 variables and quantifiers over both the data domain and time domain.
@@ -62,9 +62,9 @@ variables and quantifiers over both the data domain and time domain.
 
 We showed in Theorems~\ref{th:edgecomplete}
 and~\ref{th:vertexcomplete} that \ql can compute vertices and edges of
-a \tg based on arbitrary TRA queries.  We also showed in
+a \tg based on arbitrary \tra queries.  We also showed in
 Section~\ref{sec:algebra} that every \ql operator can be implemented
-by a sequence of TRA queries.
+by a sequence of \tra queries.
 
 % S-reducibility and exteded S-reducibility
 Consider a non-temporal query language $L$ and its temporal extension
@@ -83,8 +83,8 @@ non-temporal predicates.
 
 \julia{Is this a correct statement?} We showed above that \ql algebra
 is TRA-\edgec and TRA-\vertexc.  Further, we showed that every
-operation on \ql algebra is expressible by a sequence of TRA
-queries. Since TRA is known to be S-reducible and extended S-reducible
+operation on \ql algebra is expressible by a sequence of \tra
+queries. Since \tra is known to be S-reducible and extended S-reducible
 with respect to relational algebra~\cite{}, then these properties also
 hold over the queries that produce vertices and edges in \ql.
 

@@ -93,28 +93,27 @@ analysis of evolving graphs.
 \begin{enumerate}[noitemsep,leftmargin=*]
 %\begin{description}[noitemsep]
 
-\item We propose a flexible representation of an evolving graph,
-  called a \tg, which captures the evolution of both graph topology
-  and vertex and edge attributes (Section~\ref{sec:model}), and
-  develop a fully compositional \tg algebra, \tga for short
-  (Section~\ref{sec:algebra}).
+\item We propose a representation of an evolving graph, called a \tg,
+  which captures the evolution of both graph topology and vertex and
+  edge attributes (Section~\ref{sec:model}), and develop a
+  compositional \tg algebra, \tga (Section~\ref{sec:algebra}).
 
 \item We show a reduction from \tga to temporal relational algebra
-  (TRA), using a combination of standard operators and \tg-specific
-  primitives. 
+  \tra, using a combination of standard operators and \tg-specific
+  primitives, and present formal properties of \tga
+  (Section~\ref{sec:formal}).
 
-\item We present an implementation of the \tg model and of the
-  operators of \tga in scope of the \ql system, built on top of Apache
-  Spark / GraphX~\cite{DBLP:conf/osdi/GonzalezXDCFS14}.  Our
-  implementation supports different access methods that correspond to
-  different trade-offs in temporal and structural locality
-  (Section~\ref{sec:system}).  
+\item We present an implementation in scope of the \ql system, built
+  on Apache Spark / GraphX~\cite{DBLP:conf/osdi/GonzalezXDCFS14}. \ql
+  supports several access methods that correspond to different
+  trade-offs in temporal and structural locality
+  (Section~\ref{sec:sys}).
 
 \item We conduct an extensive experimental evaluation with real
   datasets, demonstrating that \ql scales (Section~\ref{sec:exp}).  We
-  also illustrate the usability of \tga throughout the paper, by
-  presenting a variety of real-life analysis tasks that can be
-  concisely expressed in our algebra.
+  also illustrate the usability throughout the paper, with a variety
+  of real-life analysis tasks that can be concisely expressed in our
+  algebra.
 
 \end{enumerate}
 
