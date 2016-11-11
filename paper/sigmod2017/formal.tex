@@ -3,11 +3,19 @@
 
 In this section we study expressiveness of the \tg model, which
 consists of the \tg data structure (Definition~\ref{def:tg}) and of
-\tg algebra for querying the data structure
-(Sections~\ref{sec:algebra:unary}-~\ref{sec:algebra:composition}).  We
-stress that ours is a {\em valid-time data model} that does not have
-transaction-time and bitemporal support.  We start by proposing two
-natural notions of completeness for a temporal graph query language.
+\tga, an algebra for querying the data structure
+(Section~\ref{sec:algebra}). We stress that ours is a valid-time data
+model that does not provide transaction-time and bitemporal support.
+
+{\bf Important note:} We restrict our attention to a subset of \tga
+operations, excluding window-based node creation
+(Section~\ref{sec:algebra:ncreate}) from our analysis.  Window-based
+node creation requires the split $\wsplit{s}{w}{R}$ primitive, which
+cannot be naturally expressed in \tra.  We defer an investigation of
+the node creation operator to future work.
+
+We start by proposing two natural notions of completeness for a
+temporal graph query language.
 
 \begin{definition}
   Let $L^t$ be a temporal relational language and $\tve$ --- a
@@ -22,10 +30,6 @@ natural notions of completeness for a temporal graph query language.
 Note that the query $q^t_e$ is not restricted to act on \te alone, and
 may refer to the other constituent relations \tve.
 
-\julia{Serge, in Definition~\ref{def:edgecomplete}, does it matter
-  whether $q^t_e$ can use additional non-graph relations in the
-  schema (temporal or not), or does expressiveness stay the same?}
-
 \begin{definition}
   Let $L^t$ be a temporal relational language, and let $\tve$ be a
   relational representation of a temporal graph.  A \vertexq $q^t_v$
@@ -37,7 +41,7 @@ may refer to the other constituent relations \tve.
 \end{definition}
 
 We now refer to definitions~\ref{def:edgecomplete}
-and~\ref{def:vertexcomplete} and show that \ql algebra is \edgec and
+and~\ref{def:vertexcomplete} and show that \tga is \edgec and
 \vertexc, with respect to the valid-time fragment of temporal
 relational algebra (\tra).  \tra is an algebra that corresponds to
 temporal relational calculus~\cite{DBLP:reference/db/ChomickiT09b}, a
@@ -45,15 +49,30 @@ first-order logic that extends relational calculus, supporting
 variables and quantifiers over both the data domain and time domain.
 
 \begin{theorem}
-\ql algebra is TRA-\edgec.
+\tga is TRA-\edgec.
 \label{th:edgecomplete}
 \end{theorem}
 
-\begin{proof}  Forthcoming.
+\begin{proof}
+  The result of every conjunctive edge-query over the vertices of \ttt
+  can be expressed by $\sigma_{c} (\tv \times^T \tv)$.  Queries of
+  this kind can be expressed by the edge creation operator of \tga
+  (Section~\ref{sec:algebra:ecreate}), invoked as:
+\begin{center}
+  $\insql{edge}^T(q=\sigma_{c} (\ttt_1.\tv \times^T \ttt_2.\tv),\ttt_1   = \ttt,\ttt_2=\ttt)$
+\end{center}
 \end{proof}
 
+ \eat{ An edge-query over \tve that computes a subset of $\tv$ can be
+  computed by the edge-subgraph operator of \tga
+  (Section~\ref{sec:algebra:unary}).  More general queries --- those
+  that output edges not in $\te$, can be computed by the edge creation
+  operator (Section~\ref{sec:algebra:ecreate}), invoked on \tve as
+  both arguments.}
+
+
 \begin{theorem}
-\ql algebra is TRA-\vertexc.
+\tga is TRA-\vertexc.
 \label{th:vertexcomplete}
 \end{theorem}
 
@@ -81,12 +100,18 @@ time points $c$.  Extended S-reducibility requires that $L^t$ provide
 an ability to make explicit references to timestamps alongside
 non-temporal predicates.
 
+It is the case that \tga is s-reducible and extended s-reducible.
+This is because, as we showed in Section~\ref{sec:algebra}, every \tra
+operation can be rewritten into \tra, which is s-reducibleand extended
+s-reducible w.r.t. relational algebra.
+
+\eat{
 \julia{Is this a correct statement?} We showed above that \ql algebra
 is TRA-\edgec and TRA-\vertexc.  Further, we showed that every
 operation on \ql algebra is expressible by a sequence of \tra
 queries. Since \tra is known to be S-reducible and extended S-reducible
 with respect to relational algebra~\cite{}, then these properties also
-hold over the queries that produce vertices and edges in \ql.
+hold over the queries that produce vertices and edges in \ql.}
 
 % Make a connection to sequenced semantics - we don't support change
 % preservation.
