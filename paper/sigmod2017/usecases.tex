@@ -18,14 +18,13 @@ our algebra, \tga. \eat{ We are primarily interested in analyses of
   the evolution of the phenomena the graph represents, while also
   supporting simpler point queries.}
 
-\paragraph*{Vertex influence over time}
-In an interaction graph, vertex centrality is a measure of how
-important or influential people are.  Over a dozen different
-centrality measures exist, providing indicators of how much
-information ``flows'' through the vertex or how the vertex contributes
-to the overall cohesiveness of the network.  Vertex importance
-fluctuates over time.  To see whether the wiki-talk graph has
-high-importance vertices, and how stable vertex importance is over
+{\bf Vertex influence over time.} In an interaction graph, vertex
+centrality is a measure of how important or influential people are.
+Over a dozen different centrality measures exist, providing indicators
+of how much information ``flows'' through the vertex or how the vertex
+contributes to the overall cohesiveness of the network.  Vertex
+importance fluctuates over time.  To see whether the wiki-talk graph
+has high-importance vertices, and how stable vertex importance is over
 time during a particular period of interest, we can look at a subset
 of the graph that corresponds to the period of interest, compute an
 importance measure, such as in-degree, for each vertex and for each
@@ -48,13 +47,13 @@ years, and is their influence persistent over time?
 
 \begin{enumerate}[noitemsep,itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=0pt]
 \item Select a subset of the data representing the 5 years of
-  interest, using a common temporal operator slice($\tau$):
-
-\begin{center}
+  interest, using a common temporal operator slice($\tau$):\\
+%
+%\begin{center}
 %\vspace{-0.2cm}
 $\ttt_1 = \slice{[2010,2015)}{wikitalk}$
 %\vspace{-0.2cm}
-\end{center}
+%\end{center}
 
 \item Compute in-degree (prominence) of each vertex during each time
   point.  This is an example of the {\em aggregation} operation, a
@@ -64,51 +63,47 @@ $\ttt_1 = \slice{[2010,2015)}{wikitalk}$
   one of the languages that proposes an aggregation operation and
   demonstrates its many uses.  We introduce a temporal version of
   aggregation (listed here with default arguments omitted for
-  readability):
-
-\begin{center}
+  readability):\\
+%
+%\begin{center}
 %\vspace{-0.2cm}
 %$\ttt_2 = \agg{msg=(dst,p,1),red=count}{\ttt_1}$
 $\ttt_2 = \insql{agg}^T(\mathsf{dir=right},\mathsf{f_m=1},\mathsf{f_a=count},\mathsf{pname=deg},\ttt_1)$
 %\vspace{-0.2cm}
-\end{center}
+%\end{center}
 
 \item Aggregate degree information per vertex across the timespan
   of $\ttt_2$, collecting values into a map.  This is an example of
   aggregation based on temporal window, which we implement with the
-  temporal node creation operator:
-
-\begin{center}
+  temporal node creation operator:\\
+%\begin{center}
 %\vspace{-0.2cm}
 $\ttt_3 =\insql{node}^T_w(\mathsf{w=lifetime},\mathsf{f_v=\{map(deg)\}},\ttt_2)$
 %$\ttt_3 = \ncr{v}{W=lifetime,red=map(degree)}{\ttt_2}$
 %\vspace{-0.2cm}
-\end{center}
+%\end{center}
 
 \item Transform the attributes of each vertex to compute the
   coefficient of variation from the map of degree values, using the
-  temporal vertex-map operator:
-
-\begin{center}
+  temporal vertex-map operator:\\
+%\begin{center}
 %\vspace{-0.2cm}
 %$\ttt_4 = \map_{\mathsf{stdev(deg)/mean(deg)*100}}(\ttt_3)$
 $\ttt_4 = \vmap{\mathsf{f_v=stdev(deg)/mean(deg)*100}, \ttt_3}$
 %\vspace{-0.2cm}
-\end{center}
-
+%\end{center}
 \end{enumerate}
 
-\paragraph*{Graph centrality over time}
-Graph centrality is a popular measure that is used to evaluate how
-connected or centralized the community is.  This measure is computed
-by aggregating in-degree values of graph vertices%~\cite{}.
-Interestingly, centrality of a graph may change as communication
-patterns evolve, or as high influencers appear or disappear. In sparse
-interaction graphs there is an additional question of temporal
-resolution to consider: if two people communicated on May 16, 2010,
-how long do we consider them to be connected?  We now show how graph
-centrality can be computed over time, with control for temporal
-resolution.
+{\bf Graph centrality over time.} Graph centrality is a popular
+measure that is used to evaluate how connected or centralized the
+community is.  This measure is computed by aggregating in-degree
+values of graph vertices%~\cite{}.  Interestingly, centrality of a
+graph may change as communication patterns evolve, or as high
+influencers appear or disappear. In sparse interaction graphs there is
+an additional question of temporal resolution to consider: if two
+people communicated on May 16, 2010, how long do we consider them to
+be connected?  We now show how graph centrality can be computed over
+time, with control for temporal resolution.
 
 \eat{This example demonstrates a need to compute graph centrality at every
 point in its lifetime and to do so at different temporal resolution.
@@ -134,10 +129,10 @@ can create new nodes from structure or temporal information or both.}
   windows.  Each window will include vertices and edges that
   communicate frequently: a vertex and an edge are each present during
   a 2-month window if they exist in every snapshot during that period.
-  We use the window-based node creation operation ($w=2~months$), with
-  vertex and edge existence quantifiers $q_v$ and $q_e$ set to
-  ``always''.
-
+  We use the window-based node creation operation.\\
+  % ($w=2~months$)%, with
+%  vertex and edge existence quantifiers $q_v$ and $q_e$ set to
+%  ``always''.
 \eat{  Compute new vertices with temporal windows of a set size.  Use
   of temporal windows is used here to consider different temporal
   resolution, which is similar to temporal aggregation in temporal
@@ -146,22 +141,20 @@ can create new nodes from structure or temporal information or both.}
   the example above, we created new nodes to represent all of each
   node's history.  Here we use smaller temporal window, e.g. 2 months,
   and can vary that to investigate the effect of temporal resolution:}
-
-\begin{center}
+%\begin{center}
 %\vspace{-0.2cm}
 %$\ttt_1 = \ncr{v}{W=2 months,Q_E=always}{wikitalk}$
 $\ttt_1 = \insql{node}^T_w(\mathsf{w=2~mon},\mathsf{q_v=always},\mathsf{q_e=always},wikitalk)$
 %\vspace{-0.2cm}
-\end{center}
+%\end{center}
 
-\item Compute in-degree of each vertex:
-
-\begin{center}
+\item Compute in-degree of each vertex:\\
+%\begin{center}
 %\vspace{-0.2cm}
 %$\ttt_2 = \agg{msg=(dst,p,1),red=count}{\ttt_1}$
 $\ttt_2 = \insql{agg}^T(\mathsf{dir=right},\mathsf{f_m=1},\mathsf{f_a=count},\mathsf{pname=deg},\ttt_1)$
 %\vspace{-0.2cm}
-\end{center}
+%\end{center}
 
 \item Create a new graph, in which all vertices that are present at a
   given time point (snapshot) are grouped into a single vertex.
@@ -169,8 +162,7 @@ $\ttt_2 = \insql{agg}^T(\mathsf{dir=right},\mathsf{f_m=1},\mathsf{f_a=count},\ma
   properties at that vertex.  We implement this with the
   attribute-based node creation operation.  Creating a single vertex
   to represent the whole graph is one use of node creation.  We will
-  show that node creation is useful for other types of analysis.
-
+  show that node creation is useful for other types of analysis. $\ttt_3 =$\\
 \eat{  Compute new vertex grouping all vertices co-existing in time
   into one, computing the sum, count, and max of degree.  For most
   graph centrality measures, the two-step process involves first
@@ -184,31 +176,29 @@ $\ttt_2 = \insql{agg}^T(\mathsf{dir=right},\mathsf{f_m=1},\mathsf{f_a=count},\ma
   way to support computation of some whole-graph measure, but, as we
   show throughout, node creation is useful for other types of
   analyses.  }
-
-\begin{center}
+%\begin{center}
 %  \vspace{-0.2cm}
   %$\ttt_3 = \ncr{1}{red=max(deg)\&sum(deg)\&count(deg)}{\ttt_2}$
-  $\ttt_3 = \insql{node}^T_a(\mathsf{g=1,f_v=\{max(deg),~sum(deg),~count(deg)\}},\ttt_2)$
+  $\insql{node}^T_a(\mathsf{g=1,f_v=\{max(deg),~sum(deg),~count(deg)\}},\ttt_2)$
 %\vspace{-0.2cm}
-\end{center}
+%\end{center}
 
-\item Compute degree centrality at each time point.  
-
-\begin{center}
+\item Compute degree centrality at each time point.\\
+%\begin{center}
 %\vspace{-0.2cm}
 %$\ttt_4 = \map_{\mathsf{(max*count-sum)/(count^2-3*count+2)}}(\ttt_3)$
 $\ttt_4 = \vmap{\mathsf{f_v=(max*cnt-sum)/(cnt^2-3*cnt+2)}, \ttt_3}$
 %\vspace{-0.2cm}
-\end{center}
+%\end{center}
 
 \end{enumerate}
 
-\paragraph*{Communities over time}
-Interaction networks are sparse because the edges are so short-lived.
-As part of exploratory analysis, we can consider the network at
-different temporal resolutions, run a community detection algorithm,
-e.g., compute the connected components of the network, and then
-consider the number of and size of the connected components.
+{\bf Communities over time.} Interaction networks are sparse because
+edges are so short-lived.  As part of exploratory analysis, we can
+consider the network at different temporal resolutions, run a
+community detection algorithm, e.g., compute the connected components
+of the network, and then consider the number of and size of connected
+components.
 
 \eat{To see whether communities form and at what time scale, we can
   vary the time scale and compute communities, e.g. through connected
@@ -229,20 +219,18 @@ consider the number of and size of the connected components.
 can we detect communities?
 
 \begin{enumerate}[noitemsep,itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=0pt]
-\item Temporally aggregate the graph into 6-month windows.
-
+\item Aggregate the graph into 6-month windows.\\
 %  Compute new vertices with temporal windows of a set size:
-
-\begin{center}
+%\begin{center}
 %\vspace{-0.2cm}
 %$\ttt_1 = \ncr{v}{W=6 months,Q_E=always,red=first(name)}{wikitalk}$
 $\ttt_1 = \insql{node}^T_w(\mathsf{w=6~mon},\mathsf{q_v=always},\mathsf{q_e=always},wikitalk)$
 %\vspace{-0.2cm}
-\end{center}
+%\end{center}
 
 \item Compute connected components at each time point.  This is an
   example of a Pregel-style analytic invocation over an evolving
-  graph.
+  graph. $\ttt_2 = \insql{pregel}^T_{cc} (\mathsf{pname=comp}, \ttt_1)$
 
   \eat{ We need to compute graph-wide analytics such as connected
     components for each point in time.  Graph-wide analytics on
@@ -251,31 +239,32 @@ $\ttt_1 = \insql{node}^T_w(\mathsf{w=6~mon},\mathsf{q_v=always},\mathsf{q_e=alwa
     including PageRank, weakly connected components, and source-source
     shortest path.}
 
-\begin{center}
+%\begin{center}
 %\vspace{-0.2cm}
-$\ttt_2 = \insql{pregel}^T_{cc} (\mathsf{pname=comp}, \ttt_1)$
+%$\ttt_2 = \insql{pregel}^T_{cc} (\mathsf{pname=comp}, \ttt_1)$
 %\vspace{-0.2cm}
-\end{center}
+%\end{center}
 
 \item Generate a new graph, in which a vertex correspond to a
   connected component, and compute the size of the connected
-  component.
+  component. $\ttt_3 =
+  \insql{node}^T_a(\mathsf{g=comp,f_v=count(1)},\ttt_2)$
 
-\begin{center}
+%\begin{center}
 %\vspace{-0.2cm}
 %$\ttt_3 = \ncr{component}{W=1 change,red=count(name)}{\ttt_2}$
-$\ttt_3 = \insql{node}^T_a(\mathsf{g=comp,f_v=count(1)},\ttt_2)$
+%$\ttt_3 = \insql{node}^T_a(\mathsf{g=comp,f_v=count(1)},\ttt_2)$
 %\vspace{-0.2cm}
-\end{center}
+%\end{center}
 
 \item Filter out vertices that represent communities too small to be
-  useful (e.g., of 1-2 people).  This is an example of vertex subgraph:
-
-\begin{center}
+  useful (e.g., of 1-2 people).  This is an example of vertex
+  subgraph.  $\ttt_4 = \subv{\mathsf{v.a.count > 2}}{\ttt_3}$
+%\begin{center}
 %\vspace{-0.2cm}
-$\ttt_4 = \subv{\mathsf{v.a.count > 2}}{\ttt_3}$
+%$\ttt_4 = \subv{\mathsf{v.a.count > 2}}{\ttt_3}$
 %\vspace{-0.2cm}
-\end{center}
+%\end{center}
 
 \end{enumerate}
 
