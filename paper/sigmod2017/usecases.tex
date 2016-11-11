@@ -2,7 +2,7 @@
 \label{sec:cases}
 
 An interaction network is one typical kind of an evolving graph.  It
-repesents people as vertices, and interactions between them such as
+represents people as vertices, and interactions between them such as
 messages, conversations and endorsements, as edges.  Information
 describing people and their interactions is represented by vertex and
 edge attributes.  One easily accessible interaction network is the
@@ -165,7 +165,7 @@ $\ttt_2 = \insql{agg}^T(\mathsf{f_m=1},\mathsf{f_a=count},\mathsf{pname=deg},\tt
 
 \item Create a new graph, in which all vertices that are present at a
   given time point (snapshot) are grouped into a single vertex.
-  Accummulate maximum, sum and count of the values of $deg$ as
+  Accumulate maximum, sum and count of the values of $deg$ as
   properties at that vertex.  We implement this with the
   attribute-based node creation operation.  Creating a single vertex
   to represent the whole graph is one use of node creation.  We will
@@ -241,7 +241,7 @@ $\ttt_1 = \insql{node}^T_w(\mathsf{w=6~mon},\mathsf{q_v=always},\mathsf{q_e=alwa
 \end{center}
 
 \item Compute connected components at each time point.  This is an
-  example of a Pregel-style analytic invokation over an evolving
+  example of a Pregel-style analytic invocation over an evolving
   graph.
 
   \eat{ We need to compute graph-wide analytics such as connected
