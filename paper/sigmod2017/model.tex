@@ -20,6 +20,7 @@ $\bp \cap \bq$ the intersection of $\bp$ and $\bq$.}
 \begin{figure}[t!]
 \centering
 \includegraphics[width=3in]{figs/T1_rel.pdf}
+%\vspace{-0.5cm}
 \caption{\tg \insql{T1}.}
 \vspace{-0.5cm}
 \label{fig:tg_ve}
@@ -69,22 +70,21 @@ Relations of \tve must meet the following requirements:
 \begin{description}[noitemsep]
 
 \item [R1: Unique vertices/ edges] In every snapshot $\tau^s_c
-  (\tav)$ and $\tau^s_c (\tae)$, where $c$ is a single time point, a
+  (\tav)$ and $\tau^s_c (\tae)$, where $c$ is a time point, a
   vertex/edge exists at most once.
 
 \item [R2: Unique attribute values] In every snapshot $\tau^s_c
-  (\tav)$ and $\tau^s_c (\tae)$, where $c$ is a single time point, a
-  vertex/edge is associated with at most one attribute (which is
-  itself a set of key-value pairs representing properties).
+  (\tav)$ and $\tau^s_c (\tae)$, a vertex/edge is associated with at
+  most one attribute (which is itself a set of key-value pairs
+  representing properties).
 
 \item [R3: Referential integrity] In every snapshot $\tau^s_c (\tve)$,
-  where $c$ is a single time point, foreign key constraints hold from
-  $\tau^s_c (\te)$ (on both $v_1$ and $v_2$) and $\tau^s_c (\tav)$ to
-  $\tau^s_c (\tv)$, and from $\tau^s_c (\tae)$ to $\tau^s_c (\te)$.
+  foreign key constraints hold from $\tau^s_c (\te)$ (on both $v_1$
+  and $v_2$) and $\tau^s_c (\tav)$ to $\tau^s_c (\tv)$, and from
+  $\tau^s_c (\tae)$ to $\tau^s_c (\te)$.
 
 \item [R4: Coalesced] Value-equivalent tuples in all relations of \tve
   with consecutive or overlapping time periods are merged.  
-
 \end{description}
 \label{def:tg}
 \end{definition}
@@ -92,16 +92,16 @@ Relations of \tve must meet the following requirements:
 Requirements {\bf R1, R2, R3} guarantee soundness of the \tg data
 structure, ensuring that every snapshot of a \tg is a valid graph.
 Requirement {\bf R4} avoids semantic ambiguity and ensures correctness
-of algebraic operations in point-stamped temporal models such as ours
-(see~\cite{DBLP:reference/db/JensenS09k} Fig. 2 and its description).
+of algebraic operations in point-stamped temporal models such as
+ours~\cite{DBLP:reference/db/JensenS09k}.
 
-Requirement {\bf R4} states that a fact --- existence of a vertex or
-edge, and unchanging value of a vertex or edge attribute --- is
-represented exactly once for each time period of maximal length when
-it holds. As an example, consider Figure~\ref{fig:tg_ve} and note that
-there is a single tuple for $v_2$ in \tv, but two tuples for $v_2$ in
-\tav, because $school=CMU$ was added at time 5/15.
-  
+\eat{Requirement {\bf R4} states that existence of a vertex or edge, and
+unchanging value of a vertex or edge attribute is represented exactly
+once for each time period of maximal length. Consider
+Figure~\ref{fig:tg_ve} and note that there is a single tuple for $v_2$
+in \tv, but two tuples for $v_2$ in \tav, because $school=CMU$ was
+added at time 5/15.}
+ 
 \eat{\tv and \te are temporally coalesced:
 \vspace{-0.3cm}
 \begin{multline}
