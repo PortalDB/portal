@@ -12,7 +12,7 @@ operations, excluding window-based node creation
 (Section~\ref{sec:algebra:ncreate}) from our analysis.  Window-based
 node creation requires the split $\wsplit{s}{w}{R}$ primitive, which
 cannot be naturally expressed in \tra.  We defer an investigation of
-the node creation operator to future work.
+expressiveness of \tga with window-based node creation to future work.
 
 We start by proposing two natural notions of completeness for a
 temporal graph query language.
@@ -54,14 +54,13 @@ variables and quantifiers over both the data domain and time domain.
 \end{theorem}
 
 \begin{proof}
+%  \mathsf{(sketch)}
   The result of every conjunctive edge-query over the vertices of \ttt
   can be expressed by $\sigma_{c} (\tv \times^T \tv)$.  Queries of
   this kind can be expressed by the edge creation operator of \tga
-  (Section~\ref{sec:algebra:ecreate}), invoked as:
-\begin{center}
-  $\insql{edge}^T(q=\sigma_{c} (\ttt_1.\tv \times^T \ttt_2.\tv),\ttt_1   = \ttt,\ttt_2=\ttt)$
-\end{center}
-\end{proof}
+  (Section~\ref{sec:algebra:ecreate}), invoked as:\\
+  $\insql{edge}^T(q=\sigma_{c} (\ttt_1.\tv \times^T \ttt_2.\tv),\ttt_1
+  = \ttt,\ttt_2=\ttt)$\end{proof}
 
  \eat{ An edge-query over \tve that computes a subset of $\tv$ can be
   computed by the edge-subgraph operator of \tga
@@ -76,14 +75,21 @@ variables and quantifiers over both the data domain and time domain.
 \label{th:vertexcomplete}
 \end{theorem}
 
-\begin{proof}  Forthcoming.
+\begin{proof}
+%  \mathsf{(sketch)}
+  Every \tra vertex-query can be expressed in \tga
+  by a sequence of vertex-subgraph $q^T_v(\tve)$
+  (Section~\ref{sec:algebra:unary}) and attribute-based node creation
+  $\insql{node}^T_a$ (Section~\ref{sec:algebra:ncreate}).
+  Attribute-based node creation supports Skolem functions, and is
+  necessary to handle queries that introduce vertex identifiers.  
 \end{proof}
 
-We showed in Theorems~\ref{th:edgecomplete}
-and~\ref{th:vertexcomplete} that \ql can compute vertices and edges of
-a \tg based on arbitrary \tra queries.  We also showed in
+\eat{We showed in Theorems~\ref{th:edgecomplete}
+and~\ref{th:vertexcomplete} that \tga can compute vertices and edges
+of a \tg based on arbitrary \tra queries.  We also showed in
 Section~\ref{sec:algebra} that every \ql operator can be implemented
-by a sequence of \tra queries.
+by a sequence of \tra queries.}
 
 % S-reducibility and exteded S-reducibility
 Consider a non-temporal query language $L$ and its temporal extension
@@ -100,10 +106,10 @@ time points $c$.  Extended S-reducibility requires that $L^t$ provide
 an ability to make explicit references to timestamps alongside
 non-temporal predicates.
 
-It is the case that \tga is s-reducible and extended s-reducible.
-This is because, as we showed in Section~\ref{sec:algebra}, every \tra
-operation can be rewritten into \tra, which is s-reducibleand extended
-s-reducible w.r.t. relational algebra.
+\tga is s-reducible and extended s-reducible because, as we showed in
+Section~\ref{sec:algebra}, every \tra operation can be rewritten into
+\tra, which is s-reducible and extended s-reducible w.r.t. relational
+algebra.
 
 \eat{
 \julia{Is this a correct statement?} We showed above that \ql algebra
