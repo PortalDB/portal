@@ -2,33 +2,34 @@
 \label{sec:cases}
 
 An interaction network is one typical kind of an evolving graph.  It
-captures people as graph vertices, along with various information
-about those people.  The edges are the interaction events between the
-people, such as messages, conversations, tags, etc.  One easily
-accessible interaction network is the wiki-talk dataset
-(\url{http://dx.doi.org/10.5281/zenodo.49561}) containing messaging
-events among different language Wikipedia users over a 13 year period.
-Information available about the users includes their username, groups
-they are part of, and their edit count, i.e. how many edits they have
-produced on Wikipedia.  The messaging events occur when users post on
-each other's talk pages.
+repesents people as vertices, and interactions between them such as
+messages, conversations and endorsements, as edges.  Information
+describing people and their interactions is represented by vertex and
+edge attributes.  One easily accessible interaction network is the
+wiki-talk dataset (\url{http://dx.doi.org/10.5281/zenodo.49561}),
+containing messaging events among Wikipedia contributors over a
+13-year period.  Information available about the users includes their
+username, group membership, and the number of Wikipedia edits they
+made.  Messaging events occur when users post on each other's talk
+pages.
 
-We are primarily interested in analyses of the evolution of the
-phenomena the graph represents.  However, simpler point queries should
-be supported as well.  The following examples motivate the operators
-of our algebra.
+We now present common analysis tasks that motivate the operators of
+our algebra, \tga.  We are primarily interested in analyses of the
+evolution of the phenomena the graph represents, while also supporting
+simpler point queries.
 
-{\bf Example 1.}  In interaction graph node centrality is a measure
-of how important or influential people are.  Over a dozen different
-centrality measures exist, providing indicators of how much
+{\bf Example 1.}  In an interaction graph, vertex centrality is a
+measure of how important or influential people are.  Over a dozen
+different centrality measures exist, providing indicators of how much
 information ``flows'' through the vertex or how the vertex contributes
-to the overall cohesiveness of the network.  The importance of nodes
-fluctuates with time.  To see whether the wiki-talk graph has high
-prominence nodes and how stable importance is over some period of
-time, we can extract the data for the period of interest, compute the
-in-degree (or any other aggregated measure of centrality) for each
-vertex and for each point in time and then calculate a coefficient of
-variation.
+to the overall cohesiveness of the network.  Vertex importance
+fluctuates over time.  To see whether the wiki-talk graph has
+high-importance vertices, and how stable vertex importance is over
+time during a particular period of interest, we can look at a subset
+of the graph that corresponds to the period of interest, compute an
+importance measure, such as in-degree, for each vertex and for each
+point in time, and finally calculate the coefficient of variation per
+vertex.
 
 \eat{This example demonstrates a need to select a subset of the data
 corresponding to the period of interest, compute in-/out-degree for
@@ -41,12 +42,12 @@ SocialScope~\cite{Amer-Yahia2009} is one of the languages that proposes
 an aggregation operation and demonstrates its many uses.  We introduce
 a temporal version of aggregation.}
 
-{\bf Question:} Are there high influence nodes for the past 5 years
-and is that behavior persistent in time?
+{\bf Question:} What are the high-influence nodes over the past 5
+years, and is their influence persistent over time?
 
 \begin{enumerate}[noitemsep,itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=0pt]
-\item Use slice, common temporal operator, to select a subset of the
-  data representing the 5 years of interest:
+\item Select a subset of the data representing the 5 years of
+  interest, using a common temporal operator slice($\tau$):
 
 \begin{center}
 \vspace{-0.2cm}
@@ -54,36 +55,43 @@ $\ttt_1 = \slice{[2010,2015)}{wikitalk}$
 \vspace{-0.2cm}
 \end{center}
 
-\item Compute in-degree (prominence) of each vertex for each time
-interval it changed.  Computation of degree is a simple example of a
-non-temporal {\em aggregation} operation as defined by the taxonomy of
-Wood~\cite{Wood2012}.  Aggregation computes a value for each vertex
-based on its neighbors and can be used for a wide variety of analyses.
-SocialScope~\cite{Amer-Yahia2009} is one of the languages that proposes
-an aggregation operation and demonstrates its many uses.  We introduce
-a temporal version of aggregation:
+\item Compute in-degree (prominence) of each vertex during each time
+  point.  This is an example of the {\em aggregation} operation, a
+  common operation on non-temporal graphs, as defined by the taxonomy
+  of Wood~\cite{Wood2012}.  Aggregation computes a value for each
+  vertex based on its neighbors.  SocialScope~\cite{Amer-Yahia2009} is
+  one of the languages that proposes an aggregation operation and
+  demonstrates its many uses.  We introduce a temporal version of
+  aggregation (listed here with default arguments omitted for
+  readability):
 
 \begin{center}
 \vspace{-0.2cm}
-$\ttt_2 = \agg{msg=(dst,p,1),red=count}{\ttt_1}$
+%$\ttt_2 = \agg{msg=(dst,p,1),red=count}{\ttt_1}$
+$\ttt_2 = \insql{agg}^T(\mathsf{f_m=1},\mathsf{f_a=count},\mathsf{pname=degree},\ttt_1)$
 \vspace{-0.2cm}
 \end{center}
 
-\item Compute new vertices with temporal window equal to the overall
-  timespan, collecting degree data into a map:
+\item Aggregate degree information per vertex across the timespan
+  of $\ttt_2$, collecting values into a map.  This is an example of
+  aggregation based on temporal window, which we implement with the
+  temporal node creation operator:
 
 \begin{center}
 \vspace{-0.2cm}
-$\ttt_3 = \ncr{v}{W=lifetime,red=map(degree)}{\ttt_2}$
+$\ttt_3 =\insql{node}^T_w(\mathsf{w=lifetime},\mathsf{f_v=map(degree)},\ttt_2)$
+%$\ttt_3 = \ncr{v}{W=lifetime,red=map(degree)}{\ttt_2}$
 \vspace{-0.2cm}
 \end{center}
 
 \item Transform the attributes of each vertex to compute the
-  coefficient of variation from the interval-degree map:
+  coefficient of variation from the map of degree values, using the
+  temporal vertex-map operator:
 
 \begin{center}
 \vspace{-0.2cm}
-$\ttt_4 = \map_{\mathsf{stdev(degree)/mean(degree)*100}}(\ttt_3)$
+%$\ttt_4 = \map_{\mathsf{stdev(degree)/mean(degree)*100}}(\ttt_3)$
+$\ttt_4 = \vmap{\mathsf{f_v=stdev(degree)/mean(degree)*100}, \ttt_3}$
 \vspace{-0.2cm}
 \end{center}
 
