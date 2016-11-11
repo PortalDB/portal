@@ -57,15 +57,14 @@ DBMS supports automatic coalescing, this primitive is not necessary.
 {\bf Resolve.} To enforce {\bf R2} we introduce the resolve primitive
 $\resolve{f_1(k_1), \ldots, f_n(k_n)}{R}$, which is invoked by
 operations that produce attribute relations with duplicates.  Resolve
-computes a temporal group-by of the attribute relation $\mathbf{R}$ by
-key (e.g., by $v$ if $\mathbf{R}$ represents vertex attributes).  It
-then computes a bag-union of the properties occurring in each group,
-groups together key-value pairs that correspond to the same property
-name $\mathbf{k_i}$, and aggregates values within each group using
-the specified aggregation function $\mathbf{f_i}$.  If no aggregation
-function is specified for a particular property name, \insql{set} is
-used as the default.  For example, \julia{example: text or small
-  figure}.
+computes a temporal group-by of the attribute relation $R$ by key
+(e.g., by $v$ if $R$ represents vertex attributes).  It then computes
+a bag-union of the properties occurring in each group, groups together
+key-value pairs that correspond to the same property name $k_i$, and
+aggregates values within each group using the specified aggregation
+function $f_i$.  If no aggregation function is specified for a
+particular property name, \insql{set} is used as the default.  For
+example, \julia{example: text or small figure}.
 
 {\bf Constrain.} To enforce {\bf R3} we introduce the constrain
 primitive $\constr{r}{s}$, which enforces referential integrity on
@@ -261,9 +260,9 @@ following temporal intersection or union
 Aggregation is a common graph operation that computes the value of a
 vertex property $pname$ based on information available at the vertex
 itself, at the edges associated with the vertex, and at its immediate
-neighbors.  Aggregation that can be used to compute simple properties
-such as in-degree of a vertex, or more complex ones such as the set of
-countries in which the friends of $v_1$ live.
+neighbors.  Aggregation can be used to compute simple properties such
+as in-degree of a vertex, or more complex ones such as the set of
+countries in which the friends of $v$ live.
 
 It is convenient to think of aggregation as operating over a temporal
 view $L(v_1,v_2,v_1.a,v_2.a,e.a,p)$, where $v_1$ refers to the vertex
@@ -272,26 +271,28 @@ vertex from which information is gathered, $v_1.a$, $v_2.a$ and $e.a$
 are attributes of the vertices and of the edge, and $p$ is the
 associated time period.  $L$ is computed with a temporal join of \te
 with two copies of \tv, one for each side of the edge, and with $\tav$
-and $\tae$ outer-joined with the corresponding relations.  The
-outer-join is needed because a vertex / edge is not required to
-specify an attribute.  When \tve represents a directed graph, and
-direction of the edge is important for aggregation, it can be
-accounted for in the way the join is set up (e.g., mapping $v_2$ in
-\tae to $v_1$ in $L$ if the goal is to aggregate information on
-incoming edges).
+and $\tae$ outer-joined with the corresponding relations.  Outer-joins
+are needed because a vertex / edge is not required to specify an
+attribute.  When \tve represents a directed graph, and direction of
+the edge is important for aggregation, it can be accounted for in the
+way the join is set up (e.g., mapping $v_2$ in \te to $v_1$ in $L$ if
+the goal is to aggregate information on incoming edges).
 
-Aggregation is denoted $\insql{agg}^T(dir,cond,f_m,f_a,\ttt)$, where
-$dir$ is the direction of the edge (one of 'right', 'left' or 'both')
-that determines how $L$ is computed, $cond$ is a predicate over $L$,
-$f_m$ is a map function that emits a value for each tuple in the
-result of $\sigma^T_{cond}(L)$ (e.g., 1 for computung degree of $v_1$,
-or $v_2.a.country$ for computing the set of countries in which the
-friends of $v_1$ live).  Finally, $f_a$ is the function that
-aggregates values computed by $f_m$.  Putting everything together, and
-omitting the computation of $L$ for clarity: we compute a temporal
-relation $R = v_1 \gamma^T_{f_a} (\pi_{v_1,f_m} (\sigma^T_{cond} L))$.
-As the final step, $\tav' = \coal{\pi_{v, \tav.a \cup R.a} (\tav
-  \rightouterjoin^T_{v=v_1} R)}$.
+Aggregation is denoted $\insql{agg}^T(dir,cond,f_m,f_a,pname,\ttt)$,
+where $dir$ is the direction of the edge (one of 'right', 'left' or
+'both') that determines how $L$ is computed, $cond$ is a predicate
+over $L$, $f_m$ is a map function that emits a value for each tuple in
+the result of $\sigma^T_{cond}(L)$ (e.g., 1 for computing degree of
+$v_1$, or $v_2.a.country$ for computing the set of countries in which
+the friends of $v_1$ live).  Finally, $f_a$ is the function that
+aggregates values computed by $f_m$, and $pname$ is the name of the
+property to which the computed value is assigned.  Putting everything
+together, and omitting the computation of $L$ for clarity: we compute
+a temporal relation $R = v_1 \gamma^T_{f_a} (\pi_{v_1,f_m}
+(\sigma^T_{cond} L))$.  We then compute an outer join of \tav with
+$R$, and invoke the resolve primitive to reconcile the newly-computed
+property stored in $R.a$ with $\tav.a$: $\tav' =
+\resolve{\insql{set}(pname)}{\tav \rightouterjoin^T_{v=v_1} R}$.
 
 \eat{The result is a new isomorphic graph $\ttt'$:
 $\agg{cond,msg,red}{\ttt} = \{ \tv, \te, \tav', \tae \}$, where $\tav'
@@ -303,10 +304,9 @@ each vertex in \tg may remain unchanged for the whole duration,
 aggregating vertex degrees would result in an attribute value for each
 period of topology change.}
 
-The default aggregation functions $f_a$ is \insql{set}.  We support
-various aggregation functions $f_a$, including the standard \{
-\insql{count} | \insql{min} | \insql{max} | \insql{sum} \}, which have
-their customary meaning.  We also support \{ \insql{any} |
+We support various aggregation functions $f_a$, including the standard
+\{ \insql{count} | \insql{min} | \insql{max} | \insql{sum} \}, which
+have their customary meaning.  We also support \{ \insql{any} |
 \insql{first} | \insql{last} | \insql{set} | \insql{list} \}, which
 are possible to compute because properties being reduced have temporal
 information.  \insql{first} and \insql{last} refer to the value of a
@@ -321,7 +321,7 @@ property with the earliest/latest timestamp, while \insql{set} and
       a.close > 0.8,msg=(src,p,dst.places)}{\ttt}$.}
 
 %To produce a valid \tg, \insql{agg} must invoke \coal{\tav'}.
-\julia{I don't think so: {\bf R2}: require reduce function.}
+%\julia{I don't think so: {\bf R2}: require reduce function.}
 
 \subsection{Binary set operators}
 \label{sec:algebra:binary}
