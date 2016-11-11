@@ -266,30 +266,32 @@ such as in-degree of a vertex, or more complex ones such as the set of
 countries in which the friends of $v_1$ live.
 
 It is convenient to think of aggregation as operating over a temporal
-view $L(v_1,v_2,v_1.a,v_2,e.a,p)$, where $v_1$ refers to the vertex
+view $L(v_1,v_2,v_1.a,v_2.a,e.a,p)$, where $v_1$ refers to the vertex
 for which the new property is being computed, $v_2$ refers to the
 vertex from which information is gathered, $v_1.a$, $v_2.a$ and $e.a$
 are attributes of the vertices and of the edge, and $p$ is the
-associated time period.  $L$ is computed in an obvious way with a
-temporal join, with $\tav$ and $\tae$ being outer-joined, since a
-vertex / edge is not required to specify an attribute.  When \tve is
-directed, and direction of the edge is important, it can be accounted
-for in the way the join is set up (e.g., mapping $v_2$ in \tae to
-$v_1$ in $L$ if the goal is to aggregate information on incoming
-edges).
+associated time period.  $L$ is computed with a temporal join of \te
+with two copies of \tv, one for each side of the edge, and with $\tav$
+and $\tae$ outer-joined with the corresponding relations.  The
+outer-join is needed because a vertex / edge is not required to
+specify an attribute.  When \tve represents a directed graph, and
+direction of the edge is important for aggregation, it can be
+accounted for in the way the join is set up (e.g., mapping $v_2$ in
+\tae to $v_1$ in $L$ if the goal is to aggregate information on
+incoming edges).
 
-Aggregation is denoted $\agg{dir,cond,f_m,f_a}{\ttt}$, where $dir$ is
-the direction of the edge (one of 'right', 'left' or 'both') that
-determines how $L$ is computed, $cond$ is a temporal predicate over
-$L$, $f_m$ is a map function that emits a value for each tuple in the
-result of $\sigma^T_{cond}(L)$ (e.g., 1 for computung degree of $v_1$
-or $v_2.a.get(country)$ for computing the set of countries in which
-the friends of $v_1$ live).  Finally, $f_a$ is the function that
+Aggregation is denoted $\insql{agg}^T(dir,cond,f_m,f_a,\ttt)$, where
+$dir$ is the direction of the edge (one of 'right', 'left' or 'both')
+that determines how $L$ is computed, $cond$ is a predicate over $L$,
+$f_m$ is a map function that emits a value for each tuple in the
+result of $\sigma^T_{cond}(L)$ (e.g., 1 for computung degree of $v_1$,
+or $v_2.a.country$ for computing the set of countries in which the
+friends of $v_1$ live).  Finally, $f_a$ is the function that
 aggregates values computed by $f_m$.  Putting everything together, and
-omitting the computation of $L$ (for clarity): we compute a temporal
+omitting the computation of $L$ for clarity: we compute a temporal
 relation $R = v_1 \gamma^T_{f_a} (\pi_{v_1,f_m} (\sigma^T_{cond} L))$.
-As the final step, $\tav' = \pi_{v, \tav.a \cup R.a} (\tav
-\rightouterjoin^T_{v=v_1} R)$.
+As the final step, $\tav' = \coal{\pi_{v, \tav.a \cup R.a} (\tav
+  \rightouterjoin^T_{v=v_1} R)}$.
 
 \eat{The result is a new isomorphic graph $\ttt'$:
 $\agg{cond,msg,red}{\ttt} = \{ \tv, \te, \tav', \tae \}$, where $\tav'
@@ -318,7 +320,7 @@ property with the earliest/latest timestamp, while \insql{set} and
   friendship property on edges:\\ $\agg{cond=dst.p \cap [2015,2016) \&
       a.close > 0.8,msg=(src,p,dst.places)}{\ttt}$.}
 
-To produce a valid \tg, \insql{agg} must invoke \coal(\tav').
+%To produce a valid \tg, \insql{agg} must invoke \coal{\tav'}.
 \julia{I don't think so: {\bf R2}: require reduce function.}
 
 \subsection{Binary set operators}
