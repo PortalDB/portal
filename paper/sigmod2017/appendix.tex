@@ -39,55 +39,46 @@ tuples in the result.
 Plots and discussion in this section complement experimental results
 presented in Section~\ref{sec:exp}.
 
-\begin{figure*}[th]
-\centering
-\begin{minipage}{2.1in}
+\begin{figure*}
+%\centering
+\begin{minipage}[b]{2.2in}
 \centering
 \includegraphics[width=2.1in]{figs/slice_wikitalk_build13.png}
-\vspace{-0.2in}
 \caption{Slice on wiki-talk.}
 \label{fig:slicewiki}
-\vspace{-0.1in}
 \end{minipage}
-\begin{minipage}{2.2in}
+\begin{minipage}[b]{2.2in}
 \centering
 \includegraphics[width=2.2in]{figs/subgraph_wikitalk_build13.png}
 \caption{Subgraph on wiki-talk.}
-\vspace{-0.1in}
 \label{fig:subgraphwiki}
-\vspace{-0.1in}
+\end{minipage}
+\begin{minipage}[b]{2.2in}
+\centering
+\includegraphics[width=2.2in]{figs/slice_wikitalk_scale_build13.png}
+\caption{Scaling slice on wiki-talk.}
+\label{fig:slicescale}
 \end{minipage}
 \end{figure*}
 
-\begin{figure*}[t]
-\vspace{-0.2in}
-\centering
-\begin{minipage}{2.2in}
-\centering
-\includegraphics[width=2.1in]{figs/slice_wikitalk_scale_build13.png}
-%\vspace{-0.2in}
-\caption{Slice on wiki-talk.}
-\label{fig:slicescale}
-\vspace{-0.1in}
-\end{minipage}
-\begin{minipage}{2.2in}
+Figure~\ref{fig:slicewiki} shows performance of VE and \sg
+on \insql{slice} over wiki-talk.  It exhibits the same trend as on the
+nGrams dataset in Figure~\ref{fig:slicengrams} but on a smaller scale.
+
+Figure~\ref{fig:subgraphwiki} shows performance of VE and \sg
+on \insql{vertex subgraph} over wiki-talk.  Wiki-talk dataset is small
+enough that broadcast join can be used for constraining the edges, so
+the sudden worsening of performance is not observed, as it is in
+Figure~\ref{fig:subgraphngrams}.
+
+\begin{figure}
 \centering
 \includegraphics[width=2.1in]{figs/select_wikitalk_scale_build13.png}
 %\vspace{-0.2in}
 \caption{V-subgraph on wiki-talk.}
 \label{fig:selectscale}
 \vspace{-0.1in}
-\end{minipage}
-\eat{
-\begin{minipage}{2.2in}
-\centering
-\includegraphics[width=2.1in]{figs/cc_wikitalk_scale_build13.png}
-%\vspace{-0.2in}
-\caption{Components on wiki-talk.}
-\label{fig:ccscale}
-\vspace{-0.1in}
-\end{minipage}}
-\end{figure*}
+\end{figure}
 
 We next examine how the different access methods scale with the size
 of the cluster.  We varied the number of cluster workers while
