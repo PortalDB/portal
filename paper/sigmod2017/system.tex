@@ -14,20 +14,15 @@ Apache Spark is not a temporal DBMS but rather an open-source
 in-memory distributed framework that combines graph parallel and data
 parallel abstractions.  Following the approach of Dignos et
 al.~\cite{Dignos2012} we reduce our temporal operators into a sequence
-of nontemporal relational operators, maintaining point semantics.
-This allows our algebra to be implemented in any nontemporal
-relational database.  In addition to the regular algebra operators, we
-need several operators on individual temporal relations in \tve.  We
-term these {\em primitives} to distinguish them from the \ql algebraic
-operators.  They are extend, coalesce, normalize, and constrain.
-
-The {\em extend} primitive extends a relation with an additional
-attribute which for each tuple is equivalent to that tuple's
-timestamp.  See~\cite{Dignos2012} for the formal definition.  The
-extend primitive allows references to the timestamps in the temporal
-predicates and join conditions, transforming time information into
-data.  We define an Interval class and every RDD has an Interval as a
-field.
+of nontemporal relational operators or their equivalents for Spark
+RDDs, maintaining point semantics.  This allows our algebra to be
+implemented in any nontemporal relational database.  In total, we need
+the three temporal primitives we introduced in
+section~\ref{sec:algebra:integrity} (coalesce, resolve, and
+constrain), as well as the primitives described in~\cite{Dignos2012}:
+extend and normalize.  Because our model uses point semantics and does
+not require change preservation, we do not need the align primitive
+and can use the normalize primitive in its place.
 
 The {\em coalesce} primitive merges adjacent and overlapping time
 periods for value-equivalent tuples.  This operation, which is similar
@@ -59,6 +54,33 @@ in~\cite{DBLP:conf/vldb/BohlenSS96}.
 \eat{This was discussed in the context of temporal relational algebra
   in~\cite{DBLP:conf/vldb/BohlenSS96}.}
 
+The {\em resolve} primitive is implemented using a group by key
+operation in Spark and convenience methods on the property set class.
+The property set class supports adding all properties from another set
+such that they are combined by key, and applying aggregation functions
+one at a time for each property name.
+
+The {\em constrain} primitive constrains one relation with respect to
+another, such as removing edges from the result that do not have
+associated nodes, or trimming the edge validity period to be within
+the validity periods of associated nodes.  It is introduced here
+because Spark does not have a built-in way to express foreign key
+constraints.  We do this by executing a join of the two relations ---
+either a broadcast join or a hash join --- and then adjusting time
+periods as necessary.  This is an expensive operation and is only
+performed when necessary as determined by the soundness analysis,
+e.g., when vertex-subgraph has a non-trivial predicate on $C_V$, and
+when node creation has a more restrictive vertex quantifier $Q_V$ than
+edge quantifier $Q_E$.
+
+The {\em extend} primitive extends a relation with an additional
+attribute which for each tuple is equivalent to that tuple's
+timestamp.  See~\cite{Dignos2012} for the formal definition.  The
+extend primitive allows references to the timestamps in the temporal
+predicates and join conditions, transforming time information into
+data.  We define an Interval class and every RDD has an Interval as a
+field.
+
 The {\em normalize} primitive, indicated by $\norm{B}{r}{s}$ produces
 a set of tuples for each tuple in {\bf r} by splitting its timestamp
 into non-overlapping periods with respect to another relation {\bf s}
@@ -80,19 +102,6 @@ for a pair of relations $\mathbf{r}$ with single tuple $(vid1,
         implementation splits each tuple based on the change periods
         over the whole graph.  This approach avoids costly joins but
         may split some tuples unnecessarily.
-
-The {\em constrain} primitive constrains one relation with respect to
-another, such as removing edges from the result that do not have
-associated nodes, or trimming the edge validity period to be within
-the validity periods of associated nodes.  It is introduced here
-because Spark does not have a built-in way to express foreign key
-constraints.  We do this by executing a join of the two relations ---
-either a broadcast join or a hash join --- and then adjusting time
-periods as necessary.  This is an expensive operation and is only
-performed when necessary as determined by the soundness analysis,
-e.g., when vertex-subgraph has a non-trivial predicate on $C_V$, and
-when node creation has a more restrictive vertex quantifier $Q_V$ than
-edge quantifier $Q_E$.
 
 \subsection{Physical Representations}
 \label{sec:sys:datastructs}
