@@ -13,14 +13,8 @@ attributes.  We present a compositional temporal graph algebra \tga,
 and show a reduction of \tga to temporal relational algebra with
 graph-specific primitives.  We formally study the properties of \tga,
 and also show that it is sufficient to concisely express a wide range
-of common use cases.
-
-We developed an implementation of our model and algebra in scope of
-\ql, built on top of Apache Spark / GraphX.  We developed several
-in-memory representations that correspond to different trade-offs in
-temporal and structural locality.  An extensive experimental
-evaluation on real datasets shows that \ql scales, and that switching
-between representations in a multi-operator query can improve
-performance.
+of common use cases.  We describe an implementation of our model and
+algebra in \ql, built on top of Apache Spark / GraphX.  We conduct
+extensive experiments on real datasets, and show that \ql scales.
 
 \end{abstract}

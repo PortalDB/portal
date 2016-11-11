@@ -23,98 +23,88 @@ urgently needed, due first and foremost to the scalability and
 efficiency challenges inherent in evolving graph analysis, but also to
 considerations of usability and ease of dissemination.  The goal of
 our work is to fill this gap.  In this paper, we present an algebraic
-query language for exploratory analysis of evolving graph, and its
-scalable implementation in \ql, an open-source distributed framework
-built on top of Apache Spark.
+query language called \tg algebra, or \tga, and its scalable
+implementation in \ql, an open-source distributed framework on top of
+Apache Spark.
 
 Our goal in developing \tga is to give users an ability to concisely
-express a wide range of common analysis tasks, while at the same time
-preserving inter-operability with standard SQL.  Further, we aim to
-enable an implementation of our algebraic framework on top of a
-relational engine. \julia{this is still not convincing}
-
-Implementing (non-temporal) graph querying and analytics in an RDBMS
-has been receiving renewed
+express a wide range of common analysis tasks over evolving graphs,
+while at the same time preserving inter-operability with temporal
+relational algebra (\tra).  Implementing (non-temporal) graph querying
+and analytics in an RDBMS has been receiving renewed
 attention~\cite{DBLP:conf/sigmod/AbergerTOR16,DBLP:conf/sigmod/SunFSKHX15,DBLP:journals/pvldb/Xirogiannopoulos15},
 and our work is in-line with this trend. Our data model is based on
 the temporal relational model, and our algebra corresponds to temporal
 relational algebra, but is designed specifically for evolving graphs.
-We give a translation of our operators in relational algebra, and, as
-consequence, can implement our algebraic framework on top of a
-relational engine.  Th eadvantages of incorporating graph querying
+
+\eat{We give a translation of our operators in relational algebra, and, as
+a consequence, can implement our algebraic framework on top of a
+relational engine.  Th advantages of incorporating graph querying
 into a general-purpose relational system are two-fold: usability and
 access to the relational data modeling and query processing
-infrastructure. 
+infrastructure.}
 
-For this reason our data model is based on the temporal relational
+\eat{For this reason our data model is based on the temporal relational
 model, and our query language corresponds to temporal relational
 calculus, a two-sorted logic with variables and quantifiers explicitly
 ranging over the time domain~\cite{DBLP:reference/db/Toman09}, for
-graphs.
+graphs.}
 
-Specifically, we represent graph evolution, including changes in
-topology or attribute values of vertices and edges, using the \tg
-abstraction --- a collection of temporal SQL relations with
-appropriate integrity constraints.  An example of a \tg is given in
-Figure~\ref{fig:tg_ve}, where we show evolution of a co-authorship
-network.  
+We represent graph evolution, including changes in topology and in
+attribute values of vertices and edges, using the \tg abstraction ---
+a collection of temporal SQL relations with appropriate integrity
+constraints.  An example of a \tg is given in Figure~\ref{fig:tg_ve},
+where we show evolution of a co-authorship network.
 
-\tga does not support general recursion or transitive closure
-computation. (Although, as we will see in Section~\ref{sec:analytics},
-Pregel-style graph analytics such as PageRank are supported as an
-extension.)  For this reason, we also do not support regular path
-queries (RPQ) or the more general path query classes (CRPQ and ECRPQ).
-Extending our formalism with recursion and path queries is
-non-trivial, and we leave this to future work, see
-Section~\ref{sec:conc} for a discussion.
+\tga can be viewed as \tra for graphs, and so does not support general
+recursion or transitive closure computation. (Although, as we will see
+in Section~\ref{sec:analytics}, Pregel-style graph analytics such as
+PageRank are supported as an extension.)  For this reason, we also do
+not support regular path queries (RPQ) or the more general path query
+classes (CRPQ and ECRPQ).  Extending our formalism with recursion and
+path queries is non-trivial, and we leave this to future work.
 
 Rather than focusing on path computation and graph traversal, we
-stress tasks that perform whole-graph analysis over time.  Several
-such tasks were described next, in Section~\ref{sec:cases}.
-Additional examples can be found in SocialScope~\cite{Amer-Yahia2009}
---- a closed non-temporal algebra for multigraphs that is motivated by
-information discovery in social content sites.  It is not difficult to
-show that the graph (rather than multi-graph) versions of all
-SocialScope operations can be expressed, and augmented with the
-temporal dimension, in \tga.
-
-We now present several motivating scenarios that highlight
-the features of \ql algebra.
+stress the tasks that perform whole-graph analysis over time.  Several
+such tasks are described next.  Additional examples can be found in
+SocialScope~\cite{Amer-Yahia2009} --- a closed non-temporal algebra
+for multigraphs that is motivated by information discovery in social
+content sites.  It is not difficult to show that the graph (rather
+than multigraph) versions of all SocialScope operations can be
+expressed, and augmented with the temporal dimension, in \tga.
 
 \input{usecases}
-
-%\input{design}
 
 \subsection{Contributions and roadmap}
 
 We make the following contributions to support efficient and usable
 analysis of evolving graphs.
-
-\begin{enumerate}[noitemsep,leftmargin=*]
+%
+%\begin{enumerate}[noitemsep,leftmargin=*]
 %\begin{description}[noitemsep]
-
-\item We propose a representation of an evolving graph, called a \tg,
-  which captures the evolution of both graph topology and vertex and
-  edge attributes (Section~\ref{sec:model}), and develop a
-  compositional \tg algebra, \tga (Section~\ref{sec:algebra}).
-
-\item We show a reduction from \tga to temporal relational algebra
+%
+ We propose a representation of an evolving graph, called a \tg, which
+ captures the evolution of both graph topology and vertex and edge
+ attributes (Section~\ref{sec:model}), and develop a compositional \tg
+ algebra, \tga (Section~\ref{sec:algebra}).
+%
+We show a reduction from \tga to temporal relational algebra
   \tra, using a combination of standard operators and \tg-specific
   primitives, and present formal properties of \tga
   (Section~\ref{sec:formal}).
-
-\item We present an implementation in scope of the \ql system, built
+%
+We present an implementation in scope of the \ql system, built
   on Apache Spark / GraphX~\cite{DBLP:conf/osdi/GonzalezXDCFS14}. \ql
   supports several access methods that correspond to different
   trade-offs in temporal and structural locality
   (Section~\ref{sec:sys}).
-
-\item We conduct an extensive experimental evaluation with real
+%
+We conduct an extensive experimental evaluation with real
   datasets, demonstrating that \ql scales (Section~\ref{sec:exp}).  We
   also illustrate the usability throughout the paper, with a variety
   of real-life analysis tasks that can be concisely expressed in our
   algebra.
 
-\end{enumerate}
+%\end{enumerate}
 
 
