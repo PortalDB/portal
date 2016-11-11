@@ -36,7 +36,7 @@
 %\begin{minipage}{2.2in}
 %\centering
 \includegraphics[width=2.2in]{figs/agg_allall_wikitalk_build13.png}
-\caption{$Q_V=\insql{all}$, $Q_E=\insql{all}$, wiki-talk}
+\caption{$q_v=\insql{always}$, $q_e=\insql{always}$, wiki-talk}
 \label{fig:agg1}
 %\end{minipage}
 \end{subfigure}
@@ -44,7 +44,7 @@
 %\begin{minipage}{2.2in}
 %\centering
 \includegraphics[width=2.2in]{figs/agg_allexists_ngrams_build13.png}
-\caption{$Q_V=\insql{all}$, $Q_E=\insql{exists}$, nGrams}
+\caption{$q_v=\insql{always}$, $q_e=\insql{exists}$, nGrams}
 \label{fig:agg2}
 %\end{minipage}
 \end{subfigure}
@@ -52,7 +52,7 @@
 %\begin{minipage}{2.5in}
 %\centering
 \includegraphics[width=2.5in]{figs/agg_allexists_wikitalk_build13.png}
-\caption{$Q_V=\insql{all}$, $Q_E=\insql{exists}$, wiki-talk}
+\caption{$q_v=\insql{always}$, $q_e=\insql{exists}$, wiki-talk}
 \label{fig:agg4}
 %\end{minipage}
 \end{subfigure}
@@ -128,7 +128,7 @@ this in our experiments.  This is because multiple passes over the
 data are required for \sg to compute each representative graph,
 leading to linear growth in running times for file formats and systems
 without filter pushdown, as is the case here.  Slice over VE simply
-execute temporal selection and has constant running times (29 sec for
+executes temporal selection and has constant running times (29 sec for
 wiki-talk, about 1.5 min for nGrams).\eat{Recall that in VE
   \insql{slice} performs temporal selection, and method when data on
   disk is coalesced.  \sg, in contrast, does multiple passes of select
@@ -139,10 +139,10 @@ wiki-talk, about 1.5 min for nGrams).\eat{Recall that in VE
   locality (Figure~\ref{fig:slicewiki}, Figure~\ref{fig:slicengrams}
   -- about 1.5 minutes for VE).  \sg behavior is linear in the slice
   size. } This experiment essentially measures the cost of
-materializing \sg from a \ve on-disk representation.  We observed the
+materializing \sg from its on-disk representation. \eat{ We observed the
 same linear trend in our preliminary work, when the data was stored as
 individual snapshots on disk, although less redundant work is needed
-in that case.
+in that case.}
 
 {\bf Vertex subgraph} performance was evaluated by specifying a
 condition on the $length(a.attr)<t$ of the vertex attribute, with
@@ -284,13 +284,13 @@ on the other hand, splits the coalesced vertices/edges of each of the
 two operands into intervals first, takes a union, and then reduces by
 key.  When evolution rate is low and duration of an entity is high,
 such as in wiki-talk for vertices, the split produces a lot of tuples
-to then reduce, and the performance suffers
-(Figure~\ref{fig:union1}). \sg only has good performance on
-\insql{intersection} when few representative graphs overlap, and never
-on \insql{union} (Figure~\ref{fig:intersectngrams}). \hg performance
-is generally worse than \og, by a constant amount in \insql{union},
-and diverges in \insql{intersection}.  \eat{\insql{difference} performance
-is similar to \insql{intersection}.}
+to then reduce, and performance suffers (Figure~\ref{fig:union1}). \sg
+only has good performance on \insql{intersection} when few
+representative graphs overlap, and never on \insql{union}
+(Figure~\ref{fig:intersectngrams}). \hg performance is worse than \og,
+by a constant amount in \insql{union}, and diverges in
+\insql{intersection}.  \eat{\insql{difference} performance is similar
+  to \insql{intersection}.}
 
 {\bf Analytics.}  We implemented PageRank (PR) and Connected
 Components (CC) analytics for the three graph-based representations
@@ -322,7 +322,9 @@ coalesced structure-only V and E, and ignoring attributes.
 {\bf In summary,} no one data structure is most efficient across all
 operations.  This opens the door to query optimization based on the
 characteristics of the data such as graph evolution rate and on the
-type of operation being performed.  \eat{VE provides the best
+type of operation being performed.  
+
+\eat{VE provides the best
   performance for slice, map, and subgraph.  \og is efficient for
   aggregation under most conditions, and \hg for analytics.  The graph
   evolution rate is an important factor in selecting the more suitable
@@ -363,7 +365,7 @@ type of operation being performed.  \eat{VE provides the best
 \centering
 \includegraphics[width=2.1in]{figs/switch_cc.png}
 %\vspace{-0.2in}
-\caption{\insql{ncr} followed by Components.}
+\caption{$\insql{node}^T_a$ followed by components.}
 \label{fig:ncrtocc}
 \vspace{-0.1in}
 \end{minipage}
@@ -413,16 +415,14 @@ operators.  The query is based on the first two steps of example three
 in our motivating use cases: node creation over temporal windows in
 wiki-talk, followed by the connected components analytic.
 Figure~\ref{fig:ncrtocc} shows the result of varying the size of the
-temporal window.  Recollect that \og is the best performing
+temporal window.  Recall that \og is the best performing
 representation for node creation at small windows and \hg for
 components over this dataset.  The benefits of \hg are substantially
 consumed by switching: the performance of \og-\og and and \og-\hg are
 similar.  If the cost of switching was negligable, then \og-\hg should
 have exhibited notably better performance than all other combinations.
-However, the result of switching is not negative in the total, which
-indicates that switching is feasible and may be desirable under some
-circumstances.  We intend to generate a cost model to enable query
-optimization with switching.
+However, the \og-\hg still performs best over-all, indicating that
+switching is feasible.
 
 \eat{{\bf Cluster Size.}  We next examine how the system performance scales
 with the size of the cluster.  We execute
@@ -578,5 +578,5 @@ the large communities and what caused the size shifts.
 
 {\bf In summary,} complex analyses can be expressed as queries in \ql
 and lead to interesting insights about the evolution of the underlying
-phenomena.  We leave the question of usability of the language for the
-target audience to future work.
+phenomena.\eat{  We leave the question of usability of the language for the
+target audience to future work.}
