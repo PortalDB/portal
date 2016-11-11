@@ -122,6 +122,20 @@ for a pair of relations $\mathbf{r}$ with single tuple $(vid1,
 \subsection{Physical Representations}
 \label{sec:sys:datastructs}
 
+\begin{figure}[t!]
+\centering
+\includegraphics[width=3.4in]{figs/T1_graphs.pdf}
+\caption{Representative graphs of \tg \insql{T1}.}
+\label{fig:tg_rg}
+\end{figure}
+
+It is convenient to use intervals to compactly represent consecutive
+value-equivalent snapshots of \tve --- timeslices in which no change
+occurred in graph topology, or in vertex and edge attributes.  We use
+the term {\em representative graph} to refer to such snapshots, since
+they represent an interval.  Figure~\ref{fig:tg_rg} shows \insql{T1}
+as a sequence of representative graphs.
+
 We considered four in-memory \tg representations that differ both in
 compactness and in the kind of locality they prioritize. With {\em
   structural locality}, neighboring vertices (resp. edges) of the same

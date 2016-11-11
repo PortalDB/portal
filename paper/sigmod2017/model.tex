@@ -21,14 +21,8 @@ $\bp \cap \bq$ the intersection of $\bp$ and $\bq$.}
 \centering
 \includegraphics[width=3in]{figs/T1_rel.pdf}
 \caption{\tg \insql{T1}.}
+\vspace{-0.5cm}
 \label{fig:tg_ve}
-\end{figure}
-
-\begin{figure}[t!]
-\centering
-\includegraphics[width=3.4in]{figs/T1_graphs.pdf}
-\caption{Representative graphs of \tg \insql{T1}.}
-\label{fig:tg_rg}
 \end{figure}
 
 We now describe the logical representation of an evolving graph,
@@ -67,7 +61,7 @@ $\te(\underline{v_1}, \underline{v_2}, \underline{\bp})$, connecting
 pairs of vertices from \tv.  
 %
 \tve optionally includes vertex and edge attribute relations
-$\tav(\underline{v}, \underline{\bp}, a)$ and $\tav(\underline{v_1},
+$\tav(\underline{v}, \underline{\bp}, a)$ and $\tae(\underline{v_1},
 \underline{v_2}, \underline{\bp}, a)$.  
 %
 Relations of \tve must meet the following requirements:
@@ -81,7 +75,7 @@ Relations of \tve must meet the following requirements:
 \item [R2: Unique attribute values] In every snapshot $\tau^s_c
   (\tav)$ and $\tau^s_c (\tae)$, where $c$ is a single time point, a
   vertex/edge is associated with at most one attribute (which is
-  itself a set of key-value pairs reprsenting properties).
+  itself a set of key-value pairs representing properties).
 
 \item [R3: Referential integrity] In every snapshot $\tau^s_c (\tve)$,
   where $c$ is a single time point, foreign key constraints hold from
@@ -237,13 +231,6 @@ Another reason for storing \tav and \tae separately is that in many
 cases we are interested in applying operations (e.g., analytics) only
 to graph topology, and in that case \tv and \te are sufficient.
 %
-
-It is convenient to use intervals to compactly represent consecutive
-value-equivalent snapshots of \tve --- timeslices in which no change
-occurred in graph topology, or in vertex and edge attributes.  We use
-the term {\em representative graph} to refer to such snapshots, since
-they represent an interval.  Figure~\ref{fig:tg_rg} shows \insql{T1}
-as a sequence of representative graphs.
 
 \eat{
 \trg and \tve are equivalent in terms of the information they contain.
