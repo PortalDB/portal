@@ -588,7 +588,7 @@ The node creation operator enables the user to analyze an evolving
 graph at different levels of granularity.  This operator comes in two
 variants --- based on vertex attributes or based on temporal window.
 
-\paragraph*{Attribute-based node creation.} This operation is denoted
+\paragraph*{Attribute-based node creation} This operation is denoted
 $\insql{node}^T_a(g_1,\ldots,g_i,f_1(k_1),\ldots,f_n(k_n),\tve)$,
 where $g_1,\ldots,g_i$ are the grouping attributes, and each
 $f_i(k_i)$ specifies an aggregation function $f_i$ to be applied to a
@@ -602,21 +602,24 @@ contribute to the result for the corresponding snapshot.
 
 To compute $\tve' =
 \insql{node}^T_a(g_1,\ldots,g_i,f_1(k_1),\ldots,f_n(k_n),\tve)$, we
-first execute $R = g_1,\ldots,g_i \gamma^T (\tv \rightouterjoin^T_v
+first execute $L = g_1,\ldots,g_i \gamma^T (\tv \rightouterjoin^T_v
 \tav)$, computing an intermediate temporal relation for each group.
 Next, we generate the new vertex relation \tv', by generating an id
 for each group with a Skolem function: $\tv' =
-\sigma^T_{skolem(g_1,\ldots,g_i)}R$.  Vertex attributes in $\tav'$ are
-computed as follows: $\tav' = \sigma^T_{skolem(g_1,\ldots,g_i), a}
-(\resolve{f_1(k_1), \ldots, f_n(k_n)}{R})$.  Note the use of the
-resolve primitive to reconcile attribute values within a group.
+\sigma^T_{skolem(g_1,\ldots,g_i)}L$.  Then, $\tav' =
+\sigma^T_{skolem(g_1,\ldots,g_i), a} (\resolve{f_1(k_1), \ldots,
+  f_n(k_n)}{L})$.  Note the use of the resolve primitive to reconcile
+attribute values within a group.
 
 Vertices of the input are partitioned on their values of the grouping
 attributes.  Partitioning of the vertices also induces a partitioning
 of the edges. To compute the new edges $\te'$, we generate a temporal
-conjunctive query over $\tve$ that returns the set of edges induced by
-the partitioning, and then invoke edge creation. \julia{describe how
-  edges are created}
+conjunctive query that computes $E(v_1,v_2,p,v_1',v_2')$, where $v_1'$
+and $v_2'$ are the identifiers of the vertices in \tv' to which $v_1$
+and $v_2$ are mapped.  Finally, we compute $\te' =
+\coal{\pi_{v_1',v_2',p}E}$ and\\ $\tae' =
+\resolve{f_1(k_1),\ldots,f_n(k_n)}{v_1',v_2' \gamma^T (E
+  \bowtie^T_{v_1,v_2} \tae)}$.
 
 \paragraph*{Window-based node creation} This operation is denoted
 $\insql{node}^T_w(w,q_v,q_e,f_1(k_1),\ldots,f_n(k_n),\tve)$, where $w$
@@ -686,14 +689,11 @@ Vertex and edge quantifiers $q_v$ and $q_e$ are of the form \{
 where $n$ is a decimal representing the percentage of the time during
 which a vertex or an edge existed, relative to the duration of the
 window (\insql{exists} is the default).  Quantifiers are useful for
-observing different kinds of temporal evolution.  For example, to
-observe only strong connections over a volatile evolving graph, we may
-want to only include vertices that span the entire window
-($q_v=\insql{all}$), and edges that span a large portion of the window
-($q_e=\insql{most}$).
+observing different kinds of temporal evolution, e.g., to observe only
+strong connections over a volatile evolving graph, we may want to only
+include vertices that span the entire window ($q_v=\insql{all}$), and
+edges that span a large portion of the window ($q_e=\insql{most}$).
  
-\julia{stopped here}
-
 \eat{The optional reduce functions compute new values for vertex and
   edge properties representative of the whole window, e.g.,
   $any(name), last(school), sum(cnt)$.}
@@ -711,17 +711,22 @@ revisited in Algorithm~\ref{alg:agg_ve}.
 %
 }
 
-We compute group periods based on window specification: $P =
-\textsf{computePeriods}(W, \tv, \te, \tav, \tae)$.  We use temporal
-aggregation and selection to evaluate $Q_V$ on each group in $\tv$:
-$\tv' = \sigma_{P,Q_V}( _{G_V}\vartheta^T (\tv \leftouterjoin^T
-\tav))$ and similarly for $\te$: $\te' = \sigma_{P,Q_E}(
-_{G_V}\vartheta^T (\te \bowtie^T_{v_1=v} \tav \bowtie^T_{v_2=v}
-\tav))$.  The edge triplets, obtained through three-way temporal join
-of \tae with \tav are required to aggregate edges by $G_V$.  To
-compute attribute relations we compute temporal aggregation with the
-reduce functions and enforce FK constraints: $\tav' =
-~_{G_V}\vartheta^T_{red}(\tav)$, $\tae' =
+For both kinds of window specification (by unit or by number of
+changes), we must (1) compute a mapping from a tuple in a temporal
+relation to one or multiple windows, and (2) map a tuple to the
+appropriate windows.
+
+\julia{Revise this paragraph.} We compute group periods based on window
+specification: $P = \textsf{computePeriods}(W, \tv, \te, \tav, \tae)$.
+We use temporal aggregation and selection to evaluate $Q_V$ on each
+group in $\tv$: $\tv' = \sigma_{P,Q_V}( _{G_V}\vartheta^T (\tv
+\leftouterjoin^T \tav))$ and similarly for $\te$: $\te' =
+\sigma_{P,Q_E}( _{G_V}\vartheta^T (\te \bowtie^T_{v_1=v} \tav
+\bowtie^T_{v_2=v} \tav))$.  The edge triplets, obtained through
+three-way temporal join of \tae with \tav are required to aggregate
+edges by $G_V$.  To compute attribute relations we compute temporal
+aggregation with the reduce functions and enforce FK constraints:
+$\tav' = ~_{G_V}\vartheta^T_{red}(\tav)$, $\tae' =
 ~_{G_V}\vartheta^T_{red}(\tae \leftouterjoin^T_{v_1=v} \tav
 \leftouterjoin^T_{v_2=v})$.
 
@@ -799,8 +804,9 @@ produce a more meaningful final result.
 
 \eat{Node creation may uncoalesce and requires FK enforcement.}
 
-{\bf R1, R2}: coalesce every relation in $\ttt'$; {\bf R3}: enforce FK
-on $\tav', \te', \tae'$; {\bf R4}: require reduce function.
+\eat{{\bf R1, R2}: coalesce every relation in $\ttt'$; {\bf R3}:
+  enforce FK on $\tav', \te', \tae'$; {\bf R4}: require reduce
+  function.}
 
 \eat{ Our aggregation quantifiers are inspired by generalized
   quantifiers of~\cite{Hsu1995} with n-place delimiters.  $Q(R)$ as a
@@ -820,10 +826,10 @@ Edge creation
 $\insql{edge}^T(q,f_1(k_1),\ldots,f_n(k_n),\ttt_1,\ttt_2)$ is a binary
 operator that computes a \tg on the vertices $\tv = \tv_1 \cup^T
 \tv_2$, with edges and edge attributes computed by a conjunctive query
-over the constituent relations of $\ttt_1$ and $\ttt_2$.
-Specifically, we compute $L(v_1,v_2,a,p) = q(\ttt_1, \ttt_2)$, and
-then set $\te' = \coal{\pi_{v1,v2,p} L}$, and $\tae' =
-\sigma_{a~is~not~null} L$.  We then compute $\tav =
+over the constituent relations of $\ttt_1$ and $\ttt_2$.  We compute
+$L(v_1,v_2,a,p) = \resolve{f_1(k_1),\ldots,f_n(k_n)}{q(\ttt_1,
+  \ttt_2)}$, and then set $\te' = \coal{\pi_{v1,v2,p} L}$, and $\tae'
+= \sigma_{a~is~not~null} L$.  We then compute $\tav =
 \resolve{f_1(k_1),\ldots,f_n(k_n)}{\tv_1 \cup^T \tv_2}$.
 
 \eat{$\ecr{\ttt_1}{q,red}{\ttt_2}$ be an edge creation operator, where $q$
@@ -857,8 +863,7 @@ We can obtain a graph join by computing $\te' = \tv_1 \times^T \tv_2$.
 SocialScope~\cite{Amer-Yahia2009} defines (non-temporal) graph
 composition: compose the edge of the two operands, with a directional
 condition, and return an edge-indiced subgraph.  TGA can express this
-operator by a combinatin of node creation
-(Section~\ref{sec:algebra:ncreate} and edge creation.
+operator by a combinatin of node creation and edge creation.
 
 \eat{In \ql temporal graph composition can be computed using node
   creation of \ttt with itself and a $q = $ a temporal theta-join of
@@ -866,9 +871,8 @@ operator by a combinatin of node creation
 
 %\julia{Example of edge transpose goes here.}
 
-Note that edge creation is not additive, it produces {\em new} edges.
-To add these edges to the original graph, a subsequent union must be
-performed.
+\eat{Note that edge creation produces new edges.  To add these edges to the
+original graph, a subsequent union must be performed.}
 
 \eat{Graph composition operator in our algebra is a temporal extension of
 the composition operator in SocialScope~\cite{Amer-Yahia2009}.  It
