@@ -17,9 +17,9 @@ al.~\cite{Dignos2012} we reduce our temporal operators into a sequence
 of nontemporal relational operators or their equivalents for Spark
 RDDs, maintaining point semantics.  This allows our algebra to be
 implemented in any nontemporal relational database.  In total, we need
-the three temporal primitives we introduced in
-section~\ref{sec:algebra:integrity} (coalesce, resolve, and
-constrain), as well as the primitives described in~\cite{Dignos2012}:
+the four temporal primitives we introduced in
+section~\ref{sec:algebra:integrity} (coalesce, resolve, constrain, and
+split), as well as the primitives described in~\cite{Dignos2012}:
 extend and normalize.  Because our model uses point semantics and does
 not require change preservation, we do not need the align primitive
 and can use the normalize primitive in its place.
@@ -72,6 +72,22 @@ performed when necessary as determined by the soundness analysis,
 e.g., when vertex-subgraph has a non-trivial predicate on $C_V$, and
 when node creation has a more restrictive vertex quantifier $Q_V$ than
 edge quantifier $Q_E$.
+
+The {\em split} primitive maps each tuple in relation {\bf r} into one
+or more tuples based on a temporal window expression such as
+\insql{3months}.  Purely relational iplementation of this primitive is
+possible with the use of a special Chron relation which stores all
+possible time points of the temporal universe. and supports
+computation without materialization.  Another approach is to introduce
+fold and unfold functions which can split each interval into all its
+constituent time points.  Both of these approaches have strong
+efficiency concerns.  See~\cite{DBLP:conf/time/BohlenGJ06} for an
+in-depth discussion of the different possible implementation
+approaches.  In Spark we are not limited to relational operators only
+and can use functional programming constructs like \insql{map} and
+\insql{flatMap}.  Split can be efficiently implemented with a
+\insql{flatMap}, which emits multiple tuples as necessary by applying
+a lambda function and flattening the result.
 
 The {\em extend} primitive extends a relation with an additional
 attribute which for each tuple is equivalent to that tuple's
@@ -222,10 +238,20 @@ operations are supported through inheritance from an abstract parent,
 and are carried out on the VE data structure.  Thus \og and \hg,
 below, can be thought of as indixes on VE.
 
-{\bf HybridGraph (HG)} trades compactness of \og for better structural
-locality of \rg, by aggregating together several consecutive
-representative graphs, computing a single \og for each graph group,
-and storing these as a parallel sequence.  In our current
+In our preliminary experiments we observed that \og exhibited worse
+than expected performance, especially for large graphs with long
+lifetimes.  The reason this is so is because good graph partitioning
+becomes difficult as topology changes over time.  Communication cost
+is the main contributor to analytics performance over distributed
+graphs, so poor partitioning leads to increased communication costs.
+When the whole graph can fit into memory of a single worker,
+communication cost goes away and the batching method used by \og
+becomes the most efficient, as has been previously shown
+in~\cite{Miao2015}.  To provide better performance on analytics, we
+introduce {\bf HybridGraph (HG)}.  \hg trades compactness of \og for
+better structural locality of \rg, by aggregating together several
+consecutive representative graphs, computing a single \og for each
+graph group, and storing these as a parallel sequence.  In our current
 implementation each \og in the sequence corresponds to the same number
 of temporally adjacent graphs.
 %

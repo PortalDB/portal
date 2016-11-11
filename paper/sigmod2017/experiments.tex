@@ -242,9 +242,15 @@ twitter & 505.4M & 23B & 2006--2012 & 88 \\ \hline
 \end{minipage}
 \end{figure*}
 
-{\bf Aggregation} performance was evaluated on all representations
-with a computation of vertex degrees, varying the size of the temporal
-window obtained with slice.  MORE HERE once the experiment is done.
+{\bf Aggregation} performance was evaluated on the graph-based
+representations with a computation of vertex degrees, varying the size
+of the temporal window obtained with slice.  The results in
+Figure~\ref{fig:degtwitter} indicate that materialization of each
+representative graph required for \sg makes it not a viable candidate
+for this operation, especially over large datasets.  Both \og and \hg
+exhibit linear increase in performance as the slice size is increased,
+with a small slope.  Similar performance was observed in the other
+datasets.
 
 {\bf Node creation} performance was evaluated on all representations,
 since all have different implementations of this operator.  We
@@ -296,20 +302,22 @@ with best results achieved where cross-partition communication is
 small~\cite{MoffittTempWeb16}.  For this reason, we evaluated only
 with the E2D strategy.
 %
-Performance was evaluated on time slices of varying size.  For a very
-small number of graphs (1-2), \sg provides good performance, but slows
-down linearly as the number of graphs increases.  \hg provides the
-best performance on analytics under most conditions, with a linear
-increase but a significantly slower rate of growth.  The tradeoff
-between \og and \hg depends on graph evolution characteristics.  If
-the graph is a growth-only evolution (such as in Twitter), \og is not
-denser than \hg and computes everything in a single batch, which leads
-to the fastest performance, as can be seen in
-Figure~\ref{fig:pranktwitter}.  If the edge evolution represents more
-transient connections, then \hg is less dense and scales better
-(Figure~\ref{fig:ccwiki}).  Note that \og and \hg performance could be
-further improved by computing them over coalesced structure-only V and
-E, and ignoring attributes.
+Performance was evaluated on time slices of varying size.  Recollect
+that analytics are essentially multiple rounds of aggregate
+operations, so the performance we observe is an amplified version of
+aggregate performance.  For a very small number of graphs (1-2), \sg
+provides good performance, but slows down linearly as the number of
+graphs increases.  \hg provides the best performance on analytics
+under most conditions, with a linear increase but a significantly
+slower rate of growth.  The tradeoff between \og and \hg depends on
+graph evolution characteristics.  If the graph is a growth-only
+evolution (such as in Twitter), \og is not denser than \hg and
+computes everything in a single batch, which leads to the fastest
+performance, as can be seen in Figure~\ref{fig:pranktwitter}.  If the
+edge evolution represents more transient connections, then \hg is less
+dense and scales better (Figure~\ref{fig:ccwiki}).  Note that \og and
+\hg performance could be further improved by computing them over
+coalesced structure-only V and E, and ignoring attributes.
 
 {\bf In summary,} no one data structure is most efficient across all
 operations.  This opens the door to query optimization based on the
