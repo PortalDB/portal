@@ -12,10 +12,16 @@ snapshot reducibility and extended snapshot
 reducibility~\cite{DBLP:reference/db/Bohlen092} --- two properties
 that are appropriate for a point-based temporal data model.
 
-\julia{TRA refresher: time as data, RA operations implicitly handle
-  time (snapshot reducibility), explicit reference to time are
-  supported in the predicates (extended snapshot reducibility), but
-  time cannot be ``created''.}
+\tra algebra extends relational algebra by specifying how operators
+are applied to temporal relations such that snapshot reducibility
+property is guaranteed.  Additionally, explicit references to time are
+supported in operator predicates (extended snapshot reducibility), but
+the time stamps are not manipulated by the user queries directly.
+
+%\julia{TRA refresher: time as data, RA operations implicitly handle
+%  time (snapshot reducibility), explicit reference to time are
+%  supported in the predicates (extended snapshot reducibility), but
+%  time cannot be ``created''.}
 
 %\julia{Explain temporal subset}
 
@@ -361,20 +367,22 @@ property with the earliest/latest timestamp, while \insql{set} and
 \label{sec:algebra:binary}
 
 \begin{figure*}[t]
-\begin{minipage}{2.5in}
+\begin{minipage}[b]{2.5in}
 \includegraphics[width=2.5in]{figs/T2_rel.pdf}
+\vspace{-0.2cm}
 \caption{T2.}
+\vspace{-0.4cm}
 \label{fig:tg_t2}
 \end{minipage}
-\vspace{-0.2cm}
-\begin{minipage}{4.3in}
+\begin{minipage}[b]{4.3in}
 \includegraphics[width=4.3in]{figs/T1_union_T2_rel.pdf}
+\vspace{-0.2cm}
 \caption{$T1 \cup^T T2.$}
 \label{fig:tg_union}
+\vspace{-0.4cm}
 \end{minipage}
 %\caption{Binary operators.}
 %\label{fig:binary}
-\vspace{-0.2cm}
 \end{figure*}
 
 We support temporal versions of the three binary set operators
@@ -574,7 +582,9 @@ $\tae'$ (lines 5, 6).
 
 \begin{figure}[b]
 \includegraphics[width=3in]{figs/agg3.pdf}
+\vspace{-0.2cm}
 \caption{\insql{node}$^T_a(school, set(school), max(cnt).)$}
+\vspace{-0.4cm}
 \label{fig:tg_agg3}
 \end{figure}
 
@@ -753,6 +763,7 @@ graphs directly.
 \includegraphics[width=3.2in]{figs/agg1.pdf}
 \caption{By time: $w=3~\textsf{months}$.}
 \label{fig:tg_agg1}
+\vspace{-0.2cm}
 \end{subfigure}
 \begin{subfigure}[b]{0.5\textwidth}
 \includegraphics[width=3.2in]{figs/agg2.pdf}
@@ -761,8 +772,9 @@ graphs directly.
 \end{subfigure}
 \caption[]{Node creation,
   $\insql{node}^T_w(\mathsf{q_v=always},\mathsf{q_e=exists,f_v=\{first(name),~first(school)\}},\ttt)$.}
+\vspace{-0.2cm}
 \label{fig:tg_agg}
-\vspace{-0.5cm}
+\vspace{-0.2cm}
 \end{figure*}
 
 \eat{\begin{algorithm}[t!]
