@@ -26,7 +26,7 @@ present \tga operators.  Section~\ref{sec:analytics} presents an
 extension of \tga to support Pregel-style analytics.  We conclude by
 showing expressiveness of \tga in Section~\ref{sec:algebra:formal}.
 
-\subsection{Soundness}
+\subsection{Primitives and Soundness}
 \label{sec:algebra:integrity}
 
 \tga operators are translated into a sequence of expressions in
@@ -86,17 +86,17 @@ relation $R$ in a particular way.  For each tuple $t \in R$ with time
 period $p$, it emits a set of tuples, with the same values for
 non-temporal attributes as in $t$, but with time periods split into
 windows of width $w$ with respect to start time $s$.  For example,
-$\wsplit{2/15}{3 months}{\te}$ for \insql{T1} in
+$\wsplit{2/15}{3~\textsf{months}}{\te}$ for \insql{T1} in
 Figure~\ref{fig:tg_ve} produces an uncoalesced relation with 2 tuples
-for $(v_1, v_2)$, with periods $[2/15, 5/15)$ and $[5/15, 6/15)$. and
+for $(v_1, v_2)$, with periods $[2/15, 5/15)$ and $[5/15, 6/15)$, and
     2 tuples for $(v_2, v_3)$, with validity periods $[7/15, 8/15)$
       and $[8/15, 10/15)$.  This primitive will be necessary to
-        express the temporal variant of note creation
+        express the temporal variant of node creation
         (Section~\ref{sec:algebra:ncreate}), and is essentially a
         temporal normalization
         method~\cite{DBLP:conf/time/BohlenGJ06}.  It will be used at
-        an intermediate step in the computation.  All final results
-        will be coalesced.
+        an intermediate step in the computation, all final results
+        will be coalesced as needed, enforcing {\bf R4}.
 
 \eat{The reduce function may, for example, pick the left, the right,
   or an arbitrary element, compute the value of an aggregate function
@@ -584,45 +584,85 @@ $\tae'$ (lines 5, 6).
 \subsection{Node creation}
 \label{sec:algebra:ncreate}
 
-We argued in the introduction that it is interesting and insightful to
-analyze an evolving graph at different levels of granularity.  For
-example, the user may want to aggregate multiple consecutive
-representative graphs into a single representative graph, coarsening
-the granularity, or to predefine temporal resolution and look at the
-graph at that scale, irrespective of whether this resolution happens
-to be finer or coarse than the natural evolution rate of the graph.
-For this, we introduce a node creation operator which is similar to
-the {\em moving window temporal aggregation} in temporal relational
-algebra.  Our approach is inspired by stream aggregation work
-of~\cite{Li2005}, adopted to graphs, and by generalized quantifiers
-of~\cite{Hsu1995}.
+The node creation operator enables the user to analyze an evolving
+graph at different levels of granularity.  This operator comes in two
+variants --- based on vertex attributes or based on temporal window.
 
-Node creation is denoted $\ncr{G_V}{W,Q_V,Q_E,red}{\ttt}$,\\ where
+\paragraph*{Attribute-based node creation.} This operation is denoted
+$\insql{node}^T_a(g_1,\ldots,g_i,f_1(k_1),\ldots,f_n(k_n),\tve)$,
+where $g_1,\ldots,g_i$ are the grouping attributes, and each
+$f_i(k_i)$ specifies an aggregation function $f_i$ to be applied to a
+vertex property $k_i$.  This operation allows the user to generate a
+\tg in which vertices correspond to disjoint groups of vertices in the
+input that agree on the values of all grouping attributes.  For
+example, $\insql{node}^T_a(school,\tve)$ will compute a vertex for
+each value of $\tav.a.school$.  Vertices that do not specify a value
+for one or several grouping attributes at a given time, will not
+contribute to the result for the corresponding snapshot.
+
+To compute $\tve' =
+\insql{node}^T_a(g_1,\ldots,g_i,f_1(k_1),\ldots,f_n(k_n),\tve)$, we
+first execute $R = g_1,\ldots,g_i \gamma^T (\tv \rightouterjoin^T_v
+\tav)$, computing an intermediate temporal relation for each group.
+Next, we generate the new vertex relation \tv', by generating an id
+for each group with a Skolem function: $\tv' =
+\sigma^T_{skolem(g_1,\ldots,g_i)}R$.  Vertex attributes in $\tav'$ are
+computed as follows: $\tav' = \sigma^T_{skolem(g_1,\ldots,g_i), a}
+(\resolve{f_1(k_1), \ldots, f_n(k_n)}{R})$.  Note the use of the
+resolve primitive to reconcile attribute values within a group.
+
+Vertices of the input are partitioned on their values of the grouping
+attributes.  Partitioning of the vertices also induces a partitioning
+of the edges. To compute the new edges $\te'$, we generate a temporal
+conjunctive query over $\tve$ that returns the set of edges induced by
+the partitioning, and then invoke edge creation. \julia{describe how
+  edges are created}
+
+\paragraph*{Window-based node creation} This operation is denoted
+$\insql{node}^T_w(w,q_v,q_e,f_1(k_1),\ldots,f_n(k_n),\tve)$, where $w$
+is the window specification, $q_v$ and $q_e$ are vertex and edge
+quantifiers, and each $f_i(k_i)$ specifies an aggregation function
+$f_i$ to be applied to a property name $k_i$.  This operation
+corresponds to moving window temporal aggregation, and is inspired by
+the stream aggregation work of~\cite{Li2005} and by generalized
+quantifiers of~\cite{Hsu1995}, both adopted to graphs.
+
+\eat{We argued in the introduction that it is interesting and
+  insightful to analyze an evolving graph at different levels of
+  granularity.  For example, the user may want to aggregate multiple
+  consecutive representative graphs into a single representative
+  graph, coarsening the granularity, or to predefine temporal
+  resolution and look at the graph at that scale, irrespective of
+  whether this resolution happens to be finer or coarse than the
+  natural evolution rate of the graph.  For this, we introduce a node
+  creation operator which is similar to the {\em moving window
+    temporal aggregation} in temporal relational algebra.  Our
+  approach is inspired by stream aggregation work of~\cite{Li2005},
+  adopted to graphs, and by generalized quantifiers
+  of~\cite{Hsu1995}.}
+
+\eat{Node creation is denoted $\ncr{G_V}{W,Q_V,Q_E,red}{\ttt}$,\\ where
 $G_V$ are the grouping attributes, $W$ is the window specification,
 $Q_V$ and $Q_E$ are vertex and edge quantifiers, and $red$ is the set
 of reduce functions.  It produces a consolidated evolving graph with
-specific temporal granularity.
+specific temporal granularity.}
 
-{\em Grouping attributes} $G_V$ are vertex properties by which
+\eat{{\em Grouping attributes} $G_V$ are vertex properties by which
 vertices are grouped into new entities, similar to \insql{GROUP BY}
 clause in SQL.  Since node creation requires new identifiers, the
 combination of the grouping properties can be used in a mechanism
 equivalent to a Skolem function.  The simplest, default grouping
-attribute is the $vid$ of the vertex.
+attribute is the $vid$ of the vertex.}
 
-{\em Window specification} $W$ is of the form
-$n~\{unit|\insql{changes}\}$, where $n$ is an integer, and $unit$ is a
-time unit, e.g., $10~min$, $3~years$, or any multiple of the usual
-time units.  Window specification of the form $n~\insql{changes}$
-defines the window in terms of change over \trg.\eat{ (which may be
-  computed from the \tve representation, see
-  Section~\ref{sec:model:switch}).}  For example,
-$W=3~\insql{changes}$ will aggregate sequences of 3 representative
-graphs into 1.  Window boundaries are computed left-to-right, i.e.,
-from least to most recent.  The right-most window may correspond to
-fewer than $n$ representative graphs from the input.
-%
-Our window specification by change is similar to slide-by-row window
+Window specification $w$ is of the form $n~\{unit|\insql{changes}\}$,
+where $n$ is an integer, and $unit$ is a time unit, e.g., $10~min$,
+$3~years$, or any multiple of the usual time units.  When $w$ is the
+form $n~\insql{changes}$, it defines the window by the number of
+changes that occured in \tve (affecting any of its constituent
+relations). Window boundaries are computed left-to-right, i.e., from
+least to most recent.  
+
+\eat{Our window specification by change is similar to slide-by-row window
 in stream aggregation~\cite{Li2005}.  Note that, because \tg algebra
 is compositional, we do not support node creation with overlapping
 windows, because it does not produce a valid \tg.  To see why this is
@@ -631,30 +671,32 @@ slide to graph \insql{T} in Figure~\ref{fig:tg_rg}.  We would produce
 the following tuples for $v_1$: $(v_1, [1/15, 4/15), a_1)$, $(v_1,
   [2/15, 5/15), a_2)$, $(v_1, [3/15, 6/15))$, and so on, which clearly
       violates the temporally coalesced requirement in
-      definition~\ref{tg}.
+      definition~\ref{tg}.}
 
-Similar to~\cite{Li2005} we support creation simultaneously by time
-and by non-temporal attributes (e.g., vertex properties).  If the
-window specification is one change, then the operation devolves into
-pure structural reduce or node creation, as classified by
-Wood~\cite{Wood2012}.  If the grouping attribute is the vertex $vid$,
-then the operation is purely temporal, with no structural aspect.
+\eat{Similar to~\cite{Li2005} we support creation simultaneously by
+  time and by non-temporal attributes (e.g., vertex properties).  If
+  the window specification is one change, then the operation devolves
+  into pure structural reduce or node creation, as classified by
+  Wood~\cite{Wood2012}.  If the grouping attribute is the vertex
+  $vid$, then the operation is purely temporal, with no structural
+  aspect.}
 
-{\em Quantifiers} $Q_V$ and $Q_E$ are of the form \{ \insql{all} |
-\insql{most} | \insql{at least} $n$ | \insql{exists} \}, where $n$ is
-a decimal representing the percentage of the time during which an
-entity (vertex or edge) existed, relative to the duration of the
-window. Note that \insql{exists} is the default quantifier for
-vertices and edges.  Quantifiers are useful for producing different
-kinds of representative graphs.  For example, to produce
-representative graphs with only strong connections over a volatile
-evolving graph, we may want to only include vertices that span the
-entire time window ($Q_V=\insql{all}$), and edges that span a large
-portion of the window ($Q_E=\insql{most}$).
+Vertex and edge quantifiers $q_v$ and $q_e$ are of the form \{
+\insql{all} | \insql{most} | \insql{at least} $n$ | \insql{exists} \},
+where $n$ is a decimal representing the percentage of the time during
+which a vertex or an edge existed, relative to the duration of the
+window (\insql{exists} is the default).  Quantifiers are useful for
+observing different kinds of temporal evolution.  For example, to
+observe only strong connections over a volatile evolving graph, we may
+want to only include vertices that span the entire window
+($q_v=\insql{all}$), and edges that span a large portion of the window
+($q_e=\insql{most}$).
  
-The optional reduce functions compute new
-values for vertex and edge properties representative of
-the whole window, e.g., $any(name), last(school), sum(cnt)$.
+\julia{stopped here}
+
+\eat{The optional reduce functions compute new values for vertex and
+  edge properties representative of the whole window, e.g.,
+  $any(name), last(school), sum(cnt)$.}
 %
  
 \eat{Key-value pairs for vertex and edge properties for which no
@@ -774,42 +816,55 @@ on $\tav', \te', \tae'$; {\bf R4}: require reduce function.
 \subsection{Edge creation}
 \label{sec:algebra:ecreate}
 
-Edge creation operator outputs a new graph with edges based on the two
-input \tgs.  Let $\ecr{\ttt_1}{q,red}{\ttt_2}$ be an edge creation
-operator, where $q$ is a conjunctive query over constituent relations
-of $\tve_1$ and $\tve_2$ and $red$ is a reduce function. $q$ must
-return a valid temporal relation $(v_1, v_2, a_1, a_2)$.  The reduce
-function is used to compute the final $\tae'$ relation.
-$\ecr{\ttt_1}{q,red}{\ttt_2} = \{ \tv', \te', \tav', \tae' \}$, where
-$\tae' = \sigma^T_{v_1,v_2,red(a_1,a_2)}(q(\ttt_1, \ttt_2))$ subject
-to FK constraint from $\tv_1 \cup^T \tv_2$, $\te' =
+Edge creation
+$\insql{edge}^T(q,f_1(k_1),\ldots,f_n(k_n),\ttt_1,\ttt_2)$ is a binary
+operator that computes a \tg on the vertices $\tv = \tv_1 \cup^T
+\tv_2$, with edges and edge attributes computed by a conjunctive query
+over the constituent relations of $\ttt_1$ and $\ttt_2$.
+Specifically, we compute $L(v_1,v_2,a,p) = q(\ttt_1, \ttt_2)$, and
+then set $\te' = \coal{\pi_{v1,v2,p} L}$, and $\tae' =
+\sigma_{a~is~not~null} L$.  We then compute $\tav =
+\resolve{f_1(k_1),\ldots,f_n(k_n)}{\tv_1 \cup^T \tv_2}$.
+
+\eat{$\ecr{\ttt_1}{q,red}{\ttt_2}$ be an edge creation operator, where $q$
+is a conjunctive query over constituent relations of $\tve_1$ and
+$\tve_2$ and $red$ is a reduce function. $q$ must return a valid
+temporal relation $(v_1, v_2, a_1, a_2)$.  The reduce function is used
+to compute the final $\tae'$ relation.  $\ecr{\ttt_1}{q,red}{\ttt_2} =
+\{ \tv', \te', \tav', \tae' \}$, where $\tae' =
+\sigma^T_{v_1,v_2,red(a_1,a_2)}(q(\ttt_1, \ttt_2))$ subject to FK
+constraint from $\tv_1 \cup^T \tv_2$, $\te' =
 \sigma^T_{v_1,v_2}(\tae')$, \tv' is a subset of $\tv_1 \cup^T \tv_2$
 such that it contains only vertices with edges in $\te'$, and $\tav'$
 is an empty relation.  Intuitively, edge creation returns a new \tg
 from nodes of $\ttt_1$ and $\ttt_2$ with no attributes, connected by
-edges determined by $q$.
+edges determined by $q$.}
 
-Edge creation has several important applications.  In graph theory, a
-graph join of two undirected unlabeled disjoint graphs is defined as
-the union of the two graphs and additional edges connecting every
-vertex in graph one with each vertex in graph two.  We can obtain a
-graph join by the application of edge creation with $q = $ a temporal
-cartesian product of $\tv_1$ and $\tv_2$.
-SocialScope~\cite{Amer-Yahia2009} defines a nontemporal graph
-composition operator which produces a graph induced by edges that are
-composed from edges in the two operands connected by a common vertex
-with a directional condition.  In \ql temporal graph composition can
-be computed using node creation of \ttt with itself and a $q = $ a
-temporal theta-join of $\tae$ and $\tae_2$.  This allows computation
-of friend-of-friend edges, which, if applied k times, can answer k-hop
-queries.  Since $q$ can include predicates over the timestamps, edge
-creation can also compute journeys.  A journey is a path in the
+Edge creation has several important applications.  It can be used to
+compute friend-of-friend edges (passing in the same \tg as both
+arguments).  Since $q$ can include predicates over the timestamps,
+$\insql{edge}^T$ can compute journeys.  A journey is a path in the
 evolving graph with non-decreasing time
-edges~\cite{Ferreira2004,Casteigts2011}.  By adding a temporal
-condition to the theta-join of $\tae_1$ and $\tae_2$ we can obtain
-journeys similar to time-concurrent paths.
+edges~\cite{Casteigts2011,Ferreira2004}.  By adding a temporal
+condition to $q$, we can obtain journeys similar to time-concurrent
+paths.
 
-\julia{Example of edge transpose goes here.}
+In graph theory, a graph join of two undirected unlabeled disjoint
+graphs is defined as the union of the two graphs and additional edges
+connecting every vertex in graph one with each vertex in graph two.
+We can obtain a graph join by computing $\te' = \tv_1 \times^T \tv_2$.
+
+SocialScope~\cite{Amer-Yahia2009} defines (non-temporal) graph
+composition: compose the edge of the two operands, with a directional
+condition, and return an edge-indiced subgraph.  TGA can express this
+operator by a combinatin of node creation
+(Section~\ref{sec:algebra:ncreate} and edge creation.
+
+\eat{In \ql temporal graph composition can be computed using node
+  creation of \ttt with itself and a $q = $ a temporal theta-join of
+  $\tae$ and $\tae_2$. }
+
+%\julia{Example of edge transpose goes here.}
 
 Note that edge creation is not additive, it produces {\em new} edges.
 To add these edges to the original graph, a subsequent union must be
@@ -834,13 +889,10 @@ constraint enforced on \tav' from \tv', and $\forall (v_x,v_z,p,a) \in
 \tae_2 \wedge p=p_1 \cap p_2 \wedge a=r((a_1,p_1),(a_2,p_2))$.
 }
 
-\eat{For example, to create edges between vertices that have two degrees of
-separation, i.e. friends of friends, we can compose the graph with
-itself with $d_1=v_2$ and $d_2=v_2$.  }
-
-{\bf R1, R2}: coalesce $\te'$ and $\tae'$; {\bf R3}: constraint $\te'$
+\eat{{\bf R1, R2}: coalesce $\te'$ and $\tae'$; {\bf R3}: constraint $\te'$
 on $\tv'$, $\tv'$ on $\te'$ (to remove nodes with no edges), and
-$\tae'$ on $\te'$; {\bf R4}: require reduce function.
+$\tae'$ on $\te'$; {\bf R4}: require reduce function.}
+
 
 \input{analytics}
 
