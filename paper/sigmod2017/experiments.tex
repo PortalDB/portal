@@ -330,37 +330,11 @@ type of operation being performed.
   evolution rate is an important factor in selecting the more suitable
   representation.}
 
-\subsection{Scaling and switching}
+\subsection{Switching between representations}
 \label{sec:exp:scale}
 
 \begin{figure*}[t]
-\vspace{-0.2in}
 \centering
-\begin{minipage}{2.2in}
-\centering
-\includegraphics[width=2.1in]{figs/slice_wikitalk_scale_build13.png}
-%\vspace{-0.2in}
-\caption{Slice on wiki-talk.}
-\label{fig:slicescale}
-\vspace{-0.1in}
-\end{minipage}
-\begin{minipage}{2.2in}
-\centering
-\includegraphics[width=2.1in]{figs/select_wikitalk_scale_build13.png}
-%\vspace{-0.2in}
-\caption{V-subgraph on wiki-talk.}
-\label{fig:selectscale}
-\vspace{-0.1in}
-\end{minipage}
-\eat{
-\begin{minipage}{2.2in}
-\centering
-\includegraphics[width=2.1in]{figs/cc_wikitalk_scale_build13.png}
-%\vspace{-0.2in}
-\caption{Components on wiki-talk.}
-\label{fig:ccscale}
-\vspace{-0.1in}
-\end{minipage}}
 \begin{minipage}{2.2in}
 \centering
 \includegraphics[width=2.1in]{figs/switch_cc.png}
@@ -369,42 +343,17 @@ type of operation being performed.
 \label{fig:ncrtocc}
 \vspace{-0.1in}
 \end{minipage}
+\begin{minipage}{2.2in}
+\includegraphics[width=2.2in]{figs/centrality.png}
+\caption{In-degree centrality with 1 year resolution.}
+\label{fig:central}
+\end{minipage}
+\begin{minipage}{2.2in}
+\includegraphics[width=2.2in]{figs/communities.png}
+\caption{Communities with 1 year resolution.}
+\label{fig:commun}
+\end{minipage}
 \end{figure*}
-
-We next examine how the different access methods scale with the size
-of the cluster.  We varied the number of cluster workers while
-executing individual operations.
-
-To examine the performance on slice, we fixed the slice interval size
-to be 4, 8, and 14 years (series -1, -2, and -3, respectively).  As
-can be seen in Figure~\ref{fig:slicescale}, the performance of VE did
-not change with the cluster size or the size of the interval.  Our
-cluster stores the graph files on HDFS with no replication, and Spark
-does not currently support filter pushdown on dates (this is being
-addressed in one of the upcoming releases), so these results are
-expected as the operation is essentially just a file scan.  \rg
-performance did improve as the cluster grew, with the biggest
-reduction occuring by 8 slaves and diminishing returns thereafter. 
-
-Similar trends can be seen on vertex subgraph in
-Figure~\ref{fig:selectscale}, where we fixed the query selectivity to
-be 20, 57, and 100\%.  There is no observable difference between
-different selectivity for \rg, which is consistent with the subgraph
-experiment results.
-
-We do not include results for every operation here as they all show
-the same trends -- performance rapidly improves with increased cluster
-size up to a point and adding additional slaves is not beneficial
-thereafter.  \eat{The final result in Figure~\ref{fig:ccscale} shows
-  the performance on connected components analytic with 2, 5, and 8
-  years.  The very small cluster sizes led to executions that were
-  stopped due to taking too long.}
-
-\eat{For analytics, which are most computationally and
-network traffic expensive, small cluster sizes lead to failed runs
-with out of memory errors (this is a persistent problem in Spark
-GraphX) or executions that were stopped due to taking longer than 2
-hours.}
 
 To treat the four representations as access methods, we need to be
 able to switch between them.  The data structures can be created from
@@ -518,12 +467,13 @@ network.
 \end{verbatim}
 }
 
+\eat{
 \begin{figure}
 \centering
 \includegraphics[width=2.2in]{figs/centrality.png}
 \caption{In-degree centrality with 1 year resolution.}
 \label{fig:central}
-\end{figure}
+\end{figure}}
 
 Example 2 examines how the graph centrality changes over time.  The
 program is 6 lines of Scala code iterating with temporal windows of 1,
@@ -553,12 +503,12 @@ disjointed to have any centrality.
 \end{table}
 }
 
-\begin{figure}
+\eat{\begin{figure}
 \centering
 \includegraphics[width=2.2in]{figs/communities.png}
 \caption{Communities with 1 year resolution.}
 \label{fig:commun}
-\end{figure}
+\end{figure}}
 
 Finally, example 3 examines whether communities can be detected in the
 wiki-talk network at different temporal resolution.  The program,
