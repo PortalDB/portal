@@ -685,7 +685,7 @@ in stream aggregation~\cite{Li2005}.  Note that, because \tg algebra
 is compositional, we do not support node creation with overlapping
 windows, because it does not produce a valid \tg.  To see why this is
 so, consider applying a sliding window of 3 months range with 1 month
-slide to graph \insql{T} in Figure~\ref{fig:tg_rg}.  We would produce
+slide to graph \insql{T} in Figure~\ref{fig:tg_ve}.  We would produce
 the following tuples for $v_1$: $(v_1, [1/15, 4/15), a_1)$, $(v_1,
   [2/15, 5/15), a_2)$, $(v_1, [3/15, 6/15))$, and so on, which clearly
       violates the temporally coalesced requirement in

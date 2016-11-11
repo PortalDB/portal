@@ -100,39 +100,38 @@ a set of tuples for each tuple in {\bf r} by splitting its timestamp
 into non-overlapping periods with respect to another relation {\bf s}
 and attributes {\bf B}.  See~\cite{Dignos2012} for the formal
 definition.  Intuitively, normalize creates tuples in corresponding
-groups such that their timestamps are also equivalent.  For example,
-for a pair of relations $\mathbf{r}$ with single tuple $(v_1,
-[2016-05-01, 2016-08-01))$ and $\mathbf{s}$ with single tuple $(v_1,
-  [2016-07-01, 2016-09-01))$, it splits the intervals to
-    non-overlapping fragments. $\norm{A}{r}{s} = (v_1, [2016-05-01,
-      2016-07-01)),(v_1, [2016-07-01, 2016-08-01))$.  This primitive
-        is necessary for node creation, set operators like union, and
-        joins.  Note that Dignos et al. do not use $\norm{B}{r}{s}$
-        for joins, and instead use an align operator.  This is
-        necessary for the change preservation property of sequenced
-        semantics supported by~\cite{Dignos2012} and does not apply to
-        point-based semantics that we use.  The normalize primitive
-        relies on an efficient implementation of the tuple splitter.
-        Our current implementation splits each tuple based on the
-        change periods over the whole graph.  This approach avoids
-        costly joins but may split some tuples unnecessarily.
+groups such that their timestamps are also equivalent.  \eat{For
+  example, for a pair of relations $\mathbf{r}$ with single tuple
+  $(v_1, [2016-05-01, 2016-08-01))$ and $\mathbf{s}$ with single tuple
+    $(v_1, [2016-07-01, 2016-09-01))$, it splits the intervals to
+      non-overlapping fragments. $\norm{A}{r}{s} = (v_1, [2016-05-01,
+        2016-07-01)),(v_1, [2016-07-01, 2016-08-01))$.  }This
+        primitive is necessary for node creation, set operators like
+        union, and joins.  Note that Dignos et al. do not use
+        $\norm{B}{r}{s}$ for joins, and instead use an align operator
+        to support the change preservation property of sequenced
+        semantics.  The normalize primitive relies on an efficient
+        implementation of the tuple splitter.  Our current
+        implementation splits each tuple based on the change periods
+        over the whole graph.  This approach avoids costly joins but
+        may split some tuples unnecessarily.
 
 \subsection{Physical Representations}
 \label{sec:sys:datastructs}
 
-\begin{figure}[t!]
+\eat{\begin{figure}[t!]
 \centering
 \includegraphics[width=3.4in]{figs/T1_graphs.pdf}
 \caption{Representative graphs of \tg \insql{T1}.}
 \label{fig:tg_rg}
-\end{figure}
+\end{figure}}
 
 It is convenient to use intervals to compactly represent consecutive
 value-equivalent snapshots of \tve --- timeslices in which no change
 occurred in graph topology, or in vertex and edge attributes.  We use
 the term {\em representative graph} to refer to such snapshots, since
-they represent an interval.  Figure~\ref{fig:tg_rg} shows \insql{T1}
-as a sequence of representative graphs.
+they represent an interval.  \eat{Figure~\ref{fig:tg_rg} shows \insql{T1}
+as a sequence of representative graphs.}
 
 We considered four in-memory \tg representations that differ both in
 compactness and in the kind of locality they prioritize. With {\em
@@ -233,7 +232,7 @@ only about graph topology, far fewer periods must be represented and
 computed for \og than for \rg.  The actual reduction depends on the
 rate and nature of graph evolution.  Information about time validity
 is stored together with each vertex and edge.  Figure~\ref{fig:ogc}
-shows the OG for \insql{T1} from Figure~\ref{fig:tg_rg}.
+shows the OG for \insql{T1} from Figure~\ref{fig:tg_ve}.
 
 Analytics are supported using a batching method over the Pregel API.
 Similar to ImmortalGraph~\cite{Miao2015}, the analytics are computed
