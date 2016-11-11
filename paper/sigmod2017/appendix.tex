@@ -1,226 +1,37 @@
 \appendix 
-\section{Integrity proofs}
-\label{sec:app1}
 
-B\"ohlen et al.~\cite{DBLP:conf/vldb/BohlenSS96} show that temporal
-selection, Cartesian product and difference all produce a coalesced
-relation as output if the input was coalesced.  They also show that
-temporal union and temporal projection can give rise to an uncoalesced
-output even if the inputs were coalesced.  Intuitively, this is
-because union and projection can give rise to duplicates in
-traditional relational algebra, and lack of coalescing is the temporal
-analogy to a duplicate.
-%
-These observations also hold in our scenario at the level of
-individual relations, each containing representative graphs, vertices,
-edges, or vertex/edge attributes.
+\section{Additional examples.}
+\label{sec:app:examples}
 
-{\bf Slice does not uncoalesce.} Whether evaluated over \trg or \tve,
-slice is guaranteed to return a coalesced relation when evaluated over
-a coalesced input.  This is because, for any relation \insql{R}, there
-will be at most one tuple from \insql{R} in the result of $\tau_c (R)$,
-with a validity period that is either the same as it was in \insql{R},
-or further restricted (trimmed).  Therefore, there is no need to
-coalesce \trg after slice, or on lines 1-4 of Algorithm~\ref{alg:op}
-when operating over \tve.
+\begin{figure*}
+\centering
+\begin{subfigure}{3in}
+\includegraphics[width=2.8in]{figs/T1_inter_T2_rel.pdf}
+\caption{$T1 \cap^T T2$.}
+\vspace{-0.2cm}
+\label{fig:tg_inter}
+\end{subfigure}
+\begin{subfigure}{3in}
+\includegraphics[width=2.8in]{figs/T1_diff_T2_rel.pdf}
+\caption{$T1 \setminus^T T2$.}
+\vspace{-0.2cm}
+\label{fig:tg_diff}
+\end{subfigure}
+\caption{Binary operators.}
+\label{fig:binary}
+\vspace{-0.2cm}
+\end{figure*}
 
-{\bf Slice does not require FK enforcement for \tve.}  To see why,
-consider an edge $\te(v_1, v_2, p)$ and one of the corresponding
-vertices $\tv(v_1, p_1)$, such that $\pred{p_1}{contains}{p}$ (per
-Definition~\ref{def:tg} condition~\ref{def:tg:c1}).  Suppose now that
-slice was applied to \tv and to \te with condition $c$.  Is it
-possible that edge $(v_1, v_2, p \cap c)$ is in the result of $\tau_c
-(\te)$ (i.e., $p \cap c \neq \emptyset$), while vertex $\tv(v_1, p_1 \cap
-c)$ is not in the result of $\tau_c (\tv)$ (i.e., $p_1 \cap c =
-\emptyset$)?  Clearly, the answer is no, since
-$\pred{p_1}{contains}{p}$, and so it must be the case that
-$\pred{p_1}{contains}{(p \cap c)}$.  A similar argument justifies that
-FK enforcement is not needed for $\tau_c(\tav)$ (w.r.t. $\tau_c (\tv)$) and
-for $\tau_c(\tae)$ (w.r.t. $\tau_c (\te)$).
+Figure~\ref{fig:tg_inter} shows the result of temporal intersection
+of \insql{T1} with \insql{T2}.  Only the vertices and edges present in
+both \tgs are produced, thus eliminating $v_3$ and $v_4$.  Period
+$[2/15, 4/15)$ for $v_2$ is computed as a result of the join of
+$[2/15, 5/15)$ in \insql{T1} and [$2/15, 4/15)$ in \insql{T2}.
 
-\eat{{\bf Subgraph may uncoalesce \trg.} Consider \insql{T1} in
-Figure~\ref{fig:tg_rg}.  The query
-$\sigma_{C_V:{school='Drexel'},C_E:\top} (\insql{T1})$ matches
-vertices $v_1$ and $v_3$ in every representative graph in which these
-occur.  Since graphs for time periods $[1/15,2/15)$ through
-  $[6/15,7/15)$ are identical, the result will be uncoalesced, and
-    will need to be coalesced explicitly.  The final result will
-    consist of 2 representative graphs, with both $v_1$ and $v_3$ for
-    $[1/15, 7/15)$, and with $v_3$ only for $[7/15, 10/15)$.
-}
-
-{\bf Subgraph does not uncoalesce \tve.}  Consider again the
-computation of $\tv'$ described above, with a query that involves
-projection, selection and join over temporal SQL relations $\tv$ and
-\tav.  While selection and join cannot produce an uncoalesced output
-if the input is coalesced, projection may produce an uncoalesced
-output relation~\cite{DBLP:conf/vldb/BohlenSS96}.  Interestingly,
-projection does not result in an uncoalesced output in this case. To
-see why, suppose that $C_V$ is trivial, i.e., that $\sigma_{C_{V1}}
-(\tv) = \tv$ and $\sigma_{Q_{C2}} (\tav) = \tav$. Then $\tv' =
-\pi_{v,p} (\tv \bowtie \tav)$, and since $\tv \bowtie \tav$ is a
-primary key-foreign key join, then $\tv' = \tv$.  If $C_V$ is
-non-trivial, i.e., $\sigma_{Q_{C1}} (\tv) \subset \tv$ or
-$\sigma_{C_{V2}} (\tav) \subset \tav$, then it will be the case that
-$V' \subset V$.  In both cases, if $\tv$ is coalesced then so is
-$\tv'$.  A similar argument applies to the edges relation $\te'$.
-Finally, since $\tav'$ and $\tae'$ are computed from coalesced input
-relations using only selection, they are guaranteed to be coalesced.
-Thus, it is not necessary to coalesce on lines 1-4 of
-Algorithm~\ref{alg:op}.
-
-{\bf Subgraph requires FK enforcement for \tve.}  A natural query
-specifies a selection condition over the vertices, and computes the
-vertex-induced subgraph.  In this case we cannot compute $\te'$ from
-$\te$ alone, but will need to remove edges for which one or both
-vertices are not present in $\tv'$.  Similarly, we must remove tuples
-from $\tav'$ and $\tae'$ for which no corresponding tuples exist in
-$\tv'$ and $\te'$.
-
-{\bf Map may uncoalesce \tav, \tae and \trg.}  Consider computing
-$\map_{m_V:name, M_E:\emptyset} (\insql{T1})$ over \insql{T1} in
-Figure~\ref{fig:tg_ve}.  There will be three identical tuples in the
-result for vertex $v_2$ for $[2/15, 5/15)$, $[5/15, 7/15)$ and $[7/15,
-      10/15)$, which must be coalesced to return a valid \tav.  A
-      similar argument holds for \tae. This operation will also
-      produce two identical representative graphs in \trg in
-      Figure~\ref{fig:tg_rg} for $[2/15, 5/15)$ and $[5/15, 6/15)$,
-          which will have to be coalesced explicitly.
-
-{\bf Map does not require FK enforcement for \tve.}  This is because
-only \tav and \tae are affected, while the contents of \tv and \te
-remain as in the input.
-
-{\bf Intersection may uncoalesce \tve and \trg.}  While temporal join over
-coalesced temporal relations does not uncoalesce, as shown
-in~\cite{DBLP:conf/vldb/BohlenSS96}, it is followed by a projection,
-which does uncoalesce.  For example, consider a simple \tg $T_2$
-that consists of only 1 vertex $v_1$ with attribute $(name:Alice)$ and
-no edges and exists for the period $[1/14, 5/15)$.  The
-  intersection of $T_2$ with \insql{T} in Figure~\ref{fig:tg_rg}
-  produces the same graph with vertex $v_1$ for each period of
-  intersection $[1/15, 2/15), [2/15, 5/15)$, which must be coalesced.
-
-{\bf Intersection requires FK enforcement for \tav and \tae but not
-  for \te.}  \eat{The proof for this is similar to the one for
-  \insql{slice}. } Consider an edge $\te(v_1, v_2, p^e) \in \te'$ and
-one of the corresponding vertices $\tv(v_1, p^v) \in \tv'$ computed in
-Algorithm~\ref{alg:inter}.  To violate the FK constraint on \te',
-there must exist a time instant $t \in p^e \wedge t \not\in p^v$.  But
-that is not possible, since by definition of temporal join $p^e$
-exists in both $\te_1$ and $\te_2$, and $\tve_1$ and $\tve_2$ are
-valid \tgs.  To see why we need to enforce FK for $\tav'$, consider
-again the example above with $T \cap T_2$.  The temporal outer join of
-$\tav_1$ and $\tav_2$ will produce a tuple for period [1/14, 1/15)
-  with the attribute $(name:Alice)$ from $\tav_2$.  Clearly this tuple
-  violates the FK constraint because we do not have any vertices in
-  $\tv'$ prior to 1/15.  Similarly for $\tae'$.
-
-{\bf Union may uncoalesce \tve and \trg.}  The logic here is similar
-to the case with temporal intersection.  Because we produce a single
-graph for each time period by computing a union of $g_1$ and $g_2$, a
-form of projection, the result may be uncoalesced.  For example,
-consider a simple \tg $T_2$ that consists of a single graph equal to
-the first representative graph of \insql{T} in Figure~\ref{fig:tg_rg}
-valid for a period of $[12/14, 5/15)$.  The same representative graph
-  will be produced for period $[12/14, 1/15)$ and $[1/15, 2/15)$ and
-      must be coalesced.  $\tv'$ and $\te'$ are coalesced since they
-      are computed with a temporal
-      join~\cite{DBLP:conf/vldb/BohlenSS96}.  However, $\tav'$ and
-      $\tae'$ are computed with a join followed by a projection, which
-      does uncoalesce.  Thus we apply the coalescing operation on
-      lines 3 and 4.
-
-{\bf Union does not require FK enforcement for \tve.} Temporal full
-outer join produces a vertex tuple for all periods in $\tv_1$ and
-$\tv_2$.  If $\tve_1$ and $\tve_2$ are valid graphs, then 
-referential integrity holds for $\te'$, $\tav'$ and $\tae'$.
-
-{\bf Difference may uncoalesce \tve and \trg.}  The logic here is
-similar to the temporal union and intersection cases above.  Because
-we produce a single graph for each time period by computing a $g_1
-\setminus g_2$, a form of projection, the result may be uncoalesced.
-For example, consider a simple \tg $T_2$ as above, i.e. equal to the
-first representative graph of \insql{T} in Figure~\ref{fig:tg_rg}
-valid for a period of $[2/15, 7/15)$.  The same representative graph
-  will be produced for period $[5/15, 6/15)$ and $[6/15, 7/15)$ and
-      must be coalesced.  As with union and intersection, $\tv'$ and
-      $\te'$ are coalesced since they are computed with a temporal
-      join~\cite{DBLP:conf/vldb/BohlenSS96}.  However, $\tav'$ and
-      $\tae'$ are computed with a join followed by a projection, which
-      does uncoalesce.  Thus we apply the coalescing operation on
-      lines 3 and 4.
-
-{\bf Difference requires FK enforcement for \tav and \tae but not \te.}
-The proof for this is the same as for intersection and we will not
-repeat it.
-
-{\bf Node creation may uncoalesce \tve and \trg.}  Consider
-\insql{T} that consists of only 1 vertex $v_1$ and no edges, and
-suppose that $v_1$ exists during the odd months of the year.  \tv
-contains $(v_1, [1/16, 2/16)), \ldots,$ $(v_1, [11/16,12/16))$, for
-    which time periods do not meet and so these tuples cannot be
-    coalesced.  Next consider $\tve'$ in the result of
-    $create_{W=2~months, Q_V=exists,Q_E=all}(T)$.  This relation will
-    contain $(v_1, [1/16, 3/16)), \ldots,$ $,(v_1, [11/16,1/17))$ ---
-        one tuple per input tuple, all tuples meet and so \tv' must be
-        coalesced.  A similar argument holds for, \te, \tav, \tae,
-        \trg.
-
-{\bf Node creation requires FK enforcement for \tve.}  As
-illustrated in Figure~\ref{fig:tg_agg1}, $(v_1,v_2,[1/15,4/15))$ is
-  absent from $\te'$ because, although this edge was present in \tv
-  for part of the period, and so meets the condition
-  $Q_E=\insql{exists}$, vertex $(v_2,[1/15,5/15))$ is absent from
-    $\tv'$.
-
-We now give an analysis of whether FK enforcement is required, by
-considering the relationship between vertex and edge aggregation
-quantifiers $Q_V$ and $Q_E$.  Recall that we support quantifiers
-\insql{all}, \insql{most}, \insql{at least} $n$, and \insql{exists},
-and observe that they can be translated to a threshold on the
-percentage of the time during which an entity (vertex or edge)
-existed, relative to the duration of the window specification: $t = 1$
-for \insql{all}, $t > 0.5$ for \insql{most}, $t > 0$ for
-\insql{exists} and $t > n$ for \insql{at least} $n$.  Let us refer to
-the vertex threshold as $t_V$, and to the edge threshold as $t_E$.  If
-an entity's existence meets the threshold, it will be retained in the
-result.
-
-FK enforcement is only required if $t_V > t_E$.  To see why, consider
-an interval $w$ which is one of the windows computed based on
-specification $W$.  We produce an edge $(v_1, v_2, w)$ iff $\exists
-\{(v_1, v_2, p_1),\ldots,(v_1, v_2, p_k)\} \in
-\te~~|~~(\bigcup_{i=1}^k p_i \cap w) / w > t_E$.  According to
-Definition~\ref{def:tg:c1}, if the input graph is valid then we must
-also produce $(v_1, w)$ and $(v_2, w)$ if $t_V \leq t_E$, since vertex
-periods are supersets of edge periods.  However, if $t_V > t_E$, we
-may not produce a vertex that meets $t_E$ but does not meet the
-greater $t_V$, as we showed with the example above.
-
-\eat{FK enforcement is only required if $t_V$ is stricter
-than $t_E$.  To see why, consider 2 cases.  (1) Suppose that $t_V \leq
-t_E$.  To violate FK constraint, we must produce edge $(v_1, v_2, p)
-\in \te'$ and not produce vertex $(v_1, p) \in \tv'$.  This edge
-$(v_1, v_2)$ must have been valid during at least $t_E$ portion of p
-in \te.  If our input is valid, then there must exist both $v_1$ and
-$v_2$ in \tv during at least $t_E$ portion of p to pass the FK
-constraint.  Since $t_E$ is at least as large as $t_V$, we will
-produce both $(v_1, p)$ and $(v_2, p)$.  (2) $t_V > t_E$.  The proof
-here is similar to above.  If we produce edge $(v_1, v_2, p) \in
-\te'$, then there must be both $v_1$ and $v_2$ in \tv that exist
-during at least $t_V$ portion of p.  However, since $t_V$ is larger
-than $t_E$, we may not produce a vertex in \tv' that meets $t_E$ but
-does not meet the greater $t_V$.  In that case the edge is violating
-the FK constraint.}
-
-{\bf Analytics do not uncoalesce.} An analytic adds a new key-value
-pair to the property bag of each vertex $v$ of every representative
-graph $g$, and does not implicitly project out vertex attributes.
-\eat{For this reason}Thus, an analytic cannot cause two temporally
-adjacent graphs \eat{$g_1$ and $g_2$ }that were not equivalent before
-the attribute addition \eat{new attribute was added }to become
-equivalent after it was added.
+Figure~\ref{fig:tg_diff} shows the result of temporal difference
+of \insql{T1} with \insql{T2}.  Vertex v1 is removed between 2/15 and
+6/15, splitting one v1 tuple in \tv of T1 into two temporally-disjoint
+tuples in the result.
 
 \section{Additional results.}
 \label{sec:app2}
@@ -228,3 +39,66 @@ equivalent after it was added.
 Plots and discussion in this section complement experimental results
 presented in Section~\ref{sec:exp}.
 
+\begin{figure*}[th]
+\centering
+\begin{minipage}{2.1in}
+\centering
+\includegraphics[width=2.1in]{figs/slice_wikitalk_build13.png}
+\vspace{-0.2in}
+\caption{Slice on wiki-talk.}
+\label{fig:slicewiki}
+\vspace{-0.1in}
+\end{minipage}
+\begin{minipage}{2.2in}
+\centering
+\includegraphics[width=2.2in]{figs/subgraph_wikitalk_build13.png}
+\caption{Subgraph on wiki-talk.}
+\vspace{-0.1in}
+\label{fig:subgraphwiki}
+\vspace{-0.1in}
+\end{minipage}
+\begin{minipage}{2.2in}
+\centering
+\includegraphics[width=2.2in]{figs/agg_allall_wikitalk_build13.png}
+%\caption{$Q_V=\insql{all}$, $Q_E=\insql{all}$, wiki-talk}
+\caption{Node creation by time, all/all quantification on the wiki-talk dataset.}
+\label{fig:agg1}
+\end{minipage}
+\end{figure*}
+
+
+
+\begin{figure*}[t!]
+\centering
+\begin{subfigure}{0.3\textwidth}
+%\begin{minipage}{2.2in}
+%\centering
+\includegraphics[width=2.2in]{figs/agg_allall_wikitalk_build13.png}
+\caption{$Q_V=\insql{all}$, $Q_E=\insql{all}$, wiki-talk}
+%\caption{Aggregate by time, all/all quantification on the wiki-talk dataset.}
+\label{fig:agg1}
+%\end{minipage}
+\end{subfigure}
+\begin{subfigure}{0.3\textwidth}
+%\begin{minipage}{2.2in}
+%\centering
+\includegraphics[width=2.2in]{figs/agg_allexists_ngrams_build13.png}
+\caption{$Q_V=\insql{all}$, $Q_E=\insql{exists}$, nGrams}
+%\caption{Aggregate by time, all/exists quantification on the nGrams dataset.}
+\label{fig:agg2}
+%\end{minipage}
+\end{subfigure}
+\begin{subfigure}{0.36\textwidth}
+%\begin{minipage}{2.5in}
+%\centering
+\includegraphics[width=2.5in]{figs/agg_allexists_wikitalk_build13.png}
+\caption{$Q_V=\insql{all}$, $Q_E=\insql{exists}$, wiki-talk}
+%\caption{Aggregate by time, all/exists quantification on the wiki-talk dataset.}
+\label{fig:agg4}
+%\end{minipage}
+\end{subfigure}
+\vspace{-0.1in}
+\caption[]{Aggregate by time.}
+\vspace{-0.1in}
+\label{fig:agg}
+\end{figure*}

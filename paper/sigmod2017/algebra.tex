@@ -23,8 +23,8 @@ In Section~\ref{sec:algebra:integrity} we present the primitives that
 are needed to enforce soundness of \tga.  Then, in
 Sections~\ref{sec:algebra:unary} through~\ref{sec:algebra:ecreate}, we
 present \tga operators.  Section~\ref{sec:analytics} presents an
-extension of \tga to support Pregel-style analytics.  We conclude by
-showing expressiveness of \tga in Section~\ref{sec:algebra:formal}.
+extension of \tga to support Pregel-style analytics.  \eat{We conclude
+  by showing expressiveness of \tga in Section~\ref{sec:aformal}.}
 
 \subsection{Primitives and Soundness}
 \label{sec:algebra:integrity}
@@ -36,7 +36,7 @@ of these relations in the result corresponds to a valid \tg, i.e.,
 that the translation is sound.  Recall from Definition~\ref{def:tg}
 that a valid \tg must satisfy four requirements: {\bf R1}: Unique
 vertices and edges, {\bf R2}: Unique attribute values, {\bf R3}:
-Referential integrity, and {\bf R4}: Coalesced.  We now describe three
+Referential integrity, and {\bf R4}: Coalesced.  We now describe four
 primitives that will ensure soundness of \tga.
 
 {\bf Coalesce.} To enforce requirements {\bf R1} and {\bf R4}, we
@@ -48,13 +48,10 @@ literature~\cite{DBLP:conf/vldb/BohlenSS96,DBLP:journals/sigmod/Zimanyi06}.
 $\coal{R}$ is applied to individual relations of \tve, or to
 intermediate results, following the application of operations that
 uncoalesce.
-
+%
 The coalesce primitive can be implemented in relational
-algebra~\cite{DBLP:conf/vldb/BohlenSS96}.  Note that eager coalescing
-is not always desirable, since it is expensive and some operations may
-produce correct results (up to coalescing) even when computing over
-uncoalesced inputs~\cite{DBLP:reference/db/Bohlen09}.  Finally, if a
-DBMS supports automatic coalescing, this primitive is not necessary.
+algebra~\cite{DBLP:conf/vldb/BohlenSS96}.  If a DBMS supports
+automatic coalescing, this primitive is not necessary.
 
 {\bf Resolve.} To enforce {\bf R2} we introduce the resolve primitive
 $\resolve{f_1(k_1), \ldots, f_n(k_n)}{R}$, which is invoked by
@@ -71,8 +68,8 @@ example, if $R$ contains tuples $(v_1, [2/15,4/15),
     \{name=Ann,sal=200\})$, the result of $\resolve{AVG(sal)}{R}$ will
     contain $(v_1, [2/15,3/5), \{name=Ann,sal=150\})$ and $(v_1,
       [3/15,4/5), \{name=Ann,sal=100\})$.  The resolve primitive can
-        be implemented with temporal relational aggregation
-        $\gamma^T$.
+        be implemented with temporal relational aggregation $\gamma^T$
+        over unnested relations.
 
 {\bf Constrain.} To enforce {\bf R3} we introduce the constrain
 primitive $\constr{r}{s}$, which enforces referential integrity on
@@ -92,10 +89,10 @@ for $(v_1, v_2)$, with periods $[2/15, 5/15)$ and $[5/15, 6/15)$, and
     2 tuples for $(v_2, v_3)$, with validity periods $[7/15, 8/15)$
       and $[8/15, 10/15)$.  This primitive will be necessary to
         express the temporal variant of node creation
-        (Section~\ref{sec:algebra:ncreate}), and is essentially a
-        temporal normalization
-        method~\cite{DBLP:conf/time/BohlenGJ06}.  It will be used at
-        an intermediate step in the computation, all final results
+        (Section~\ref{sec:algebra:ncreate})\eat{, and is essentially a
+          temporal normalization
+          method~\cite{DBLP:conf/time/BohlenGJ06}}.  It will be used
+        at an intermediate step in the computation, all final results
         will be coalesced as needed, enforcing {\bf R4}.
 
 \eat{The reduce function may, for example, pick the left, the right,
@@ -144,8 +141,8 @@ $\slice{\bc}{\tv}$ and similarly for \te, \tav and \tae.
   (\pred{c}{overlaps}{p} \vee \pred{c}{contains}{p})\}$.  }
 
 Slice does not violate any of the soundness requirements {\bf R1} ---
-{\bf R4}, see Appendix~\ref{sec:app1} for proofs of this and similar
-statements.
+{\bf R4}. \eat{, see Appendix~\ref{sec:app1} for proofs of this and
+  similar statements.}
 
 \paragraph*{Subgraph}  Temporal subgraph matching is a generalization of
 subgraph matching for non-temporal graphs~\cite{Wood2012}.  This query
@@ -181,7 +178,7 @@ must invoke $\coal{\tv'}$ to enforce {\bf R1} and {\bf R4}; and
 $\constr{\te'}{\tv'}$, $\constr{\tav'}{\tv'}$, $\constr{\tae'}{\te'}$
 to enforce {\bf R3}.
 %
-Following the computation $\te' = q^t_e(\te)$, \subv{q^t_e}{\ttt} must
+Following the computation $\te' = q^t_e(\te)$, \sube{q^t_e}{\ttt} must
 invoke $\coal{\te'}$ to enforce {\bf R1} and {\bf R4}; and
 $\constr{\tae'}{\te'}$ to enforce {\bf R3}.  %No further
 %validation is required, provided that $q^t_e$ outputs a temporal
@@ -235,7 +232,7 @@ FK enforcement on \tae'.}
 user-defined map functions $f_v$ and $f_e$ to vertex or edge
 attributes.  Temporal vertex-map $\vmap{f_v, \tve}$ outputs $\tve'$ in
 which $\tv'=\tv$, $\te'=\te$, $\tae' = \tae$, and $\tav' =
-\pi_{v,f_v(a)}\tav$. Temporal edge-map $\emap{f_e, \tve}$ is defined
+\pi^T_{v,f_v(a)}\tav$. Temporal edge-map $\emap{f_e, \tve}$ is defined
 analogously.
 
 \eat{To evaluate $\map_{M_V,M_E} (\tve)$, we set $\tv'=\tv$ and $\te'=\te$,
@@ -317,7 +314,7 @@ the friends of $v_1$ live).  Finally, $f_a$ is the function that
 aggregates values computed by $f_m$, and $pname$ is the name of the
 property to which the computed value is assigned.  Putting everything
 together, and omitting the computation of $L$ for clarity: we compute
-a temporal relation $R = \coal{v_1 \gamma^T_{f_a} (\pi_{v_1,f_m}
+a temporal relation $R = \coal{v_1 \gamma^T_{f_a} (\pi^T_{v_1,f_m}
   (\sigma^T_{cond} L))}$. (Here, $\gamma^T$ is the temporal version of
 relational aggregation, and $v_1$ is the grouping attribute.)  We then
 compute an outer join of \tav with $R$, and invoke the resolve
@@ -329,7 +326,7 @@ the outer join of \tav and $R$, since $R$ is temporally coalesced and
 the join is by key, resolve is needed to compute a bag-union of
 properties in $R.a$ and $\tav.a$, and to aggregate the values
 corresponding to $pname$ (in case $pname$ already occurred as a
-property in $\tav.a$)..
+property in $\tav.a$).
 
 \eat{The result is a new isomorphic graph $\ttt'$:
 $\agg{cond,msg,red}{\ttt} = \{ \tv, \te, \tav', \tae \}$, where $\tav'
@@ -363,6 +360,23 @@ property with the earliest/latest timestamp, while \insql{set} and
 \subsection{Binary set operators}
 \label{sec:algebra:binary}
 
+\begin{figure*}[t]
+\begin{minipage}{2.5in}
+\includegraphics[width=2.5in]{figs/T2_rel.pdf}
+\caption{T2.}
+\label{fig:tg_t2}
+\end{minipage}
+\vspace{-0.2cm}
+\begin{minipage}{4.3in}
+\includegraphics[width=4.3in]{figs/T1_union_T2_rel.pdf}
+\caption{$T1 \cup^T T2.$}
+\label{fig:tg_union}
+\end{minipage}
+%\caption{Binary operators.}
+%\label{fig:binary}
+\vspace{-0.2cm}
+\end{figure*}
+
 We support temporal versions of the three binary set operators
 intersection ($\cap^T$), union ($\cup^T$), and difference
 ($\setminus^T$).
@@ -376,12 +390,6 @@ intersection ($\cap^T$), union ($\cup^T$), and difference
   operators require that the resolve primitive be invoked as part of
   the computation.}
 
-To compute $\insql{T1} \cap^T \insql{T2}$, we set $\tv' = \tv_1 \cap^T
-\tv_2$ and $\te' = \te_1 \cap^T \te_2$.  Next, we compute $\tav' =
-\constr{\resolve{f_v}{\tav_1 \fullouterjoin^T_{v} \tav_2}}{\tv'}$ and
-$\tae' = \constr{\resolve{f_e}{\tae_1 \fullouterjoin^T_{v1,v2}
-    \tae_2}}{\te'}$.
-
 To compute $\insql{T1} \cup^T \insql{T2}$, we set $\tv' = \tv_1 \cup^T
 \tv_2$ and $\te' = \te_1 \cup^T \te_2$.  Next, we compute $\tav' =
 \resolve{f_v}{\tav_1 \fullouterjoin^T_{v} \tav_2}$ and $\tae' =
@@ -389,10 +397,35 @@ To compute $\insql{T1} \cup^T \insql{T2}$, we set $\tv' = \tv_1 \cup^T
 unlike for $\cap^T$, it is not necessary to constraint $\tav'$ and
 $\tae'$.
 
+Consider \insql{T1} in Figure~\ref{fig:tg_ve} and \insql{T2} in
+Figure~\ref{fig:tg_t2}.  Figure~\ref{fig:tg_union} illustrates
+\insql{T1} $\cup^T$ \insql{T2}.  According to the definition of
+$\cup^T$, periods are split to coincide for any group, and thus the
+attribute values for e.g., $v_1$ have three distinct tuples.
+
+To compute $\insql{T1} \cap^T \insql{T2}$, we set $\tv' = \tv_1 \cap^T
+\tv_2$ and $\te' = \te_1 \cap^T \te_2$.  Next, we compute $\tav' =
+\constr{\resolve{f_v}{\tav_1 \fullouterjoin^T_{v} \tav_2}}{\tv'}$ and
+$\tae' = \constr{\resolve{f_e}{\tae_1 \fullouterjoin^T_{v1,v2}
+    \tae_2}}{\te'}$.
+
+As an example, when applying \insql{T1} $\cap^T$ \insql{T2}, only the
+vertices and edges present in both \tgs are produced, thus eliminating
+$v_3$ and $v_4$.  Period $[2/15, 4/15)$ for $v_2$ is computed as a
+  result of the join of $[2/15, 5/15)$ in \insql{T1} and [$2/15,
+      4/15)$ in \insql{T2}.  See Figure~\ref{fig:tg_inter} in
+      Appendix~\ref{sec:app:examples} for full result.
+
 To compute $\insql{T1} \setminus^T \insql{T2}$, we set $\tv' = \tv_1
 \setminus^T \tv_2$ and $\te' = \te_1 \setminus^T \te_2$.  Next, we
 compute $\tav' = \constr{{\tav}'_1}{\tv'}$ and $\tae' =
 \constr{{\tae}'_1}{\te'}$.
+
+To continue the example above, the result of \insql{T1} $\setminus^T$
+\insql{T2} includes vertex v1 before 2/15 and after 6/15, splitting
+one v1 tuple in \tv of T1 into two temporally-disjoint tuples in the
+result.  See Figure~\ref{fig:tg_diff} in
+Appendix~\ref{sec:app:examples} for full result.
 
 Note that both $\cap^T$ and $\cup^T$ require that resolve be invoked,
 to reconcile the vertex/edge attributes associated with vertices/edges
@@ -433,51 +466,6 @@ then compute \tav' and \tae' with temporal outer joins of the
 corresponding relations (lines 3, 4).  Finally, we enforce foreign key
 constraints on \te', \tav' and \tae' (lines 5, 6).
 }
-
-\begin{figure*}
-%\centering
-\begin{subfigure}{2.5in}
-\includegraphics[width=2.5in]{figs/T2_rel.pdf}
-\caption{T2.}
-\label{fig:tg_t2}
-\end{subfigure}
-\begin{subfigure}{4.3in}
-\includegraphics[width=4.3in]{figs/T1_union_T2_rel.pdf}
-\caption{$T1 \cup^T T2.$}
-\label{fig:tg_union}
-\end{subfigure}
-\begin{subfigure}{2.3in}
-\includegraphics[width=2.3in]{figs/T1_inter_T2_rel.pdf}
-\caption{$T1 \cap^T T2$.}
-\vspace{-0.2cm}
-\label{fig:tg_inter}
-\end{subfigure}
-\begin{subfigure}{2.3in}
-\includegraphics[width=2.3in]{figs/T1_diff_T2_rel.pdf}
-\caption{$T1 \setminus^T T2$.}
-\vspace{-0.2cm}
-\label{fig:tg_diff}
-\end{subfigure}
-\caption{Binary operators.}
-\label{fig:binary}
-\vspace{-0.2cm}
-\end{figure*}
-
-Consider \insql{T1} in Figure~\ref{fig:tg_ve} and \insql{T2} in
-Figure~\ref{fig:tg_t2}.  Figure~\ref{fig:tg_inter} illustrates
-\insql{T1} $\cap^T$ \insql{T2}.  Period $[2/15, 4/15)$ for $v_2$ is
-  computed as a result of the join of $[2/15, 5/15)$ in \insql{T1} and
-    [$2/15, 4/15)$ in \insql{T2}.  Only the vertices and edges present
-      in both \tgs are produced, thus eliminating $v_3$ and $v_4$.
-      Figure~\ref{fig:tg_union} illustrates \insql{T1} $\cup^T$
-      \insql{T2}.  According to the definition of $\cup^T$, periods
-      are split to coincide for any group, and thus the attribute
-      values for e.g., $v_1$ have three distinct tuples.
-      Figure~\ref{fig:tg_diff} shows the result of $\insql{T1}
-      \setminus^T \insql{T2}$.  Vertex $v_1$ in the result is present
-      before $2/15$ and after $6/15$, splitting one $v_1$ tuple in \tv
-      of \insql{T1} into two temporally-disjoint tuples in \tv of the
-      result (and similarly for \tav).
 
 \eat{In addition to invoking reduce on the attribute relations for all
 operations, it is required to invoke $\constr{\tav'}{\tv}$ and
@@ -584,32 +572,42 @@ $\tae'$ (lines 5, 6).
 \subsection{Node creation}
 \label{sec:algebra:ncreate}
 
+\begin{figure}[b]
+\includegraphics[width=3in]{figs/agg3.pdf}
+\caption{\insql{node}$^T_a(school, set(school), max(cnt).)$}
+\label{fig:tg_agg3}
+\end{figure}
+
 The node creation operator enables the user to analyze an evolving
 graph at different levels of granularity.  This operator comes in two
 variants --- based on vertex attributes or based on temporal window.
 
 \paragraph*{Attribute-based node creation} This operation is denoted
-$\insql{node}^T_a(g_1,\ldots,g_i,f_1(k_1),\ldots,f_n(k_n),\tve)$,
+$\insql{node}^T_a(g_1,\ldots,g_i,f_{v1}(k_1),\ldots,f_{vn}(k_n),f_{e1}(l_1),\ldots,f_{em}(l_m),\tve)$,
 where $g_1,\ldots,g_i$ are the grouping attributes, and each
-$f_i(k_i)$ specifies an aggregation function $f_i$ to be applied to a
-vertex property $k_i$.  This operation allows the user to generate a
-\tg in which vertices correspond to disjoint groups of vertices in the
-input that agree on the values of all grouping attributes.  For
-example, $\insql{node}^T_a(school,\tve)$ will compute a vertex for
-each value of $\tav.a.school$.  Vertices that do not specify a value
-for one or several grouping attributes at a given time, will not
-contribute to the result for the corresponding snapshot.
+$f_{vj}(k_j)$ ($f_{ej}(l_j)$) specifies an aggregation function
+$f_{vj}$ (resp. $f_{ej}$) to be applied to a vertex property $k_j$
+(resp. edge property $l_j$).  This operation allows the user to
+generate a \tg in which vertices correspond to disjoint groups of
+vertices in the input that agree on the values of all grouping
+attributes.  For example, $\insql{node}^T_a(school,\tve)$ will compute
+a vertex for each value of $\tav.a.school$.  Vertices that do not
+specify a value for one or several grouping attributes at a given
+time, will not contribute to the result for the corresponding
+snapshot.
 
 To compute $\tve' =
-\insql{node}^T_a(g_1,\ldots,g_i,f_1(k_1),\ldots,f_n(k_n),\tve)$, we
-first execute $L = g_1,\ldots,g_i \gamma^T (\tv \rightouterjoin^T_v
+\insql{node}^T_a(g_1,\ldots,g_i,f_{v1}(k_1),\ldots,f_{vn}(k_n),$ \\ 
+$f_{e1}(l_1),\ldots,f_{em}(l_m),\tve)$,
+we execute $L = g_1,\ldots,g_i \gamma^T (\tv \rightouterjoin^T_v
 \tav)$, computing an intermediate temporal relation for each group.
-Next, we generate the new vertex relation \tv', by generating an id
+Next, we generate the new vertex relation $\tv'$, by generating an id
 for each group with a Skolem function: $\tv' =
-\sigma^T_{skolem(g_1,\ldots,g_i)}L$.  Then, $\tav' =
-\sigma^T_{skolem(g_1,\ldots,g_i), a} (\resolve{f_1(k_1), \ldots,
-  f_n(k_n)}{L})$.  Note the use of the resolve primitive to reconcile
-attribute values within a group.
+\sigma^T_{skolem(g_1,\ldots,g_i)}L$.  Then,\\
+$\tav' =
+\resolve{f_{v1}(k_1), \ldots,
+  f_{vn}(k_n)}{\sigma^T_{skolem(g_1,\ldots,g_i), a} L}$.  Note the use
+of the resolve primitive to reconcile attribute values within a group.
 
 Vertices of the input are partitioned on their values of the grouping
 attributes.  Partitioning of the vertices also induces a partitioning
@@ -618,14 +616,21 @@ conjunctive query that computes $E(v_1,v_2,p,v_1',v_2')$, where $v_1'$
 and $v_2'$ are the identifiers of the vertices in \tv' to which $v_1$
 and $v_2$ are mapped.  Finally, we compute $\te' =
 \coal{\pi_{v_1',v_2',p}E}$ and\\ $\tae' =
-\resolve{f_1(k_1),\ldots,f_n(k_n)}{v_1',v_2' \gamma^T (E
+\resolve{f_{e1}(l_1),\ldots,f_{vm}(l_m)}{v_1',v_2' \gamma^T (E
   \bowtie^T_{v_1,v_2} \tae)}$.
 
+Figure~\ref{fig:tg_agg3} illustrates attribute-based node creation
+over \insql{T1} in our running example, with \insql{set(school)}
+aggregation function for vertices and and \insql{max(cnt)} for edges.
+Vertices $v1$ and $v3$ create a single new vertex $v10$ representing
+Drexel.
+
 \paragraph*{Window-based node creation} This operation is denoted
-$\insql{node}^T_w(w,q_v,q_e,f_1(k_1),\ldots,f_n(k_n),\tve)$, where $w$
-is the window specification, $q_v$ and $q_e$ are vertex and edge
-quantifiers, and each $f_i(k_i)$ specifies an aggregation function
-$f_i$ to be applied to a property name $k_i$.  This operation
+$\insql{node}^T_w(w,q_v,q_e,f_{v1}(k_1),\ldots,f_{vn}(k_n),f_{e1}(l_1),\ldots,f_{em}(l_m),\tve)$,
+where $w$ is the window specification, $q_v$ and $q_e$ are vertex and
+edge quantifiers, and each $f_{vj}(k_j)$ ($f_{ej}(l_j)$) specifies an
+aggregation function $f_{vj}$ (resp. $f_{ej}$) to be applied to a
+vertex property $k_j$ (resp. edge property $l_j$).  This operation
 corresponds to moving window temporal aggregation, and is inspired by
 the stream aggregation work of~\cite{Li2005} and by generalized
 quantifiers of~\cite{Hsu1995}, both adopted to graphs.
@@ -713,10 +718,20 @@ revisited in Algorithm~\ref{alg:agg_ve}.
 
 For both kinds of window specification (by unit or by number of
 changes), we must (1) compute a mapping from a tuple in a temporal
-relation to one or multiple windows, and (2) map a tuple to the
-appropriate windows.
+relation to one or multiple windows, and (2) aggregate over each
+window.  The $s$ parameter for the split primitive is the smallest
+start date across \tve.
 
-\julia{Revise this paragraph.} We compute group periods based on window
+To compute $\tv'$, we apply the split primitive to \tv, group by vid,
+select only those vertices which meet the quantification, and finally
+coalesce: $\tv' = \coal{\sigma^T_{q_V} (v \gamma^T_{\cup
+    p}(\wsplit{s}{w}{\tv}))}$.  Similarly for $\te'$.  To compute
+attribute relations we split, resolve with the aggregation functions,
+and enforce FK constraints: $\tav' =
+\constr{\resolve{f_{v1}(k_1),\ldots,f_{vn}(k_n)}{\wsplit{s}{w}{\tav}}}{\tv'}$,
+similarly for $\tae'$.
+
+\eat{We compute group periods based on window
 specification: $P = \textsf{computePeriods}(W, \tv, \te, \tav, \tae)$.
 We use temporal aggregation and selection to evaluate $Q_V$ on each
 group in $\tv$: $\tv' = \sigma_{P,Q_V}( _{G_V}\vartheta^T (\tv
@@ -724,17 +739,31 @@ group in $\tv$: $\tv' = \sigma_{P,Q_V}( _{G_V}\vartheta^T (\tv
 \sigma_{P,Q_E}( _{G_V}\vartheta^T (\te \bowtie^T_{v_1=v} \tav
 \bowtie^T_{v_2=v} \tav))$.  The edge triplets, obtained through
 three-way temporal join of \tae with \tav are required to aggregate
-edges by $G_V$.  To compute attribute relations we compute temporal
-aggregation with the reduce functions and enforce FK constraints:
-$\tav' = ~_{G_V}\vartheta^T_{red}(\tav)$, $\tae' =
-~_{G_V}\vartheta^T_{red}(\tae \leftouterjoin^T_{v_1=v} \tav
-\leftouterjoin^T_{v_2=v})$.
+edges by $G_V$.  }
 
 \eat{
 Node creation over \trg is computed by first calculating time periods
 from $W$ and \trg, and then reducing and combining the representative
 graphs directly.
 }
+
+\begin{figure*}[t]
+%\centering
+\begin{subfigure}[b]{0.5\textwidth}
+\includegraphics[width=3.2in]{figs/agg1.pdf}
+\caption{By time: $w=3~\textsf{months}$.}
+\label{fig:tg_agg1}
+\end{subfigure}
+\begin{subfigure}[b]{0.5\textwidth}
+\includegraphics[width=3.2in]{figs/agg2.pdf}
+\caption{By change: $w=3~\textsf{changes}$.}
+\label{fig:tg_agg2}
+\end{subfigure}
+\caption[]{Node creation,
+  $\insql{node}^T_w(\mathsf{q_v=always},\mathsf{q_e=exists,f_v=\{first(name),~first(school)\}},\ttt)$.}
+\label{fig:tg_agg}
+\vspace{-0.5cm}
+\end{figure*}
 
 \eat{\begin{algorithm}[t!]
 \caption{Node creation in \tve.}
@@ -757,50 +786,15 @@ $A_V$, vertex aggregate function $A_E$.\\
 \end{algorithm}
 }
 
-Figure~\ref{fig:tg_agg1} illustrates node creation by time
-($W=3~\textsf{months}$), and Figure~\ref{fig:tg_agg2} --- by change
-($W=3~\textsf{changes}$).  Figure~\ref{fig:tg_agg3} illustrates
-structural reduce only ($W=1~\textsf{change}$), and
-Figure~\ref{fig:tg_agg4} both structural and temporal
-($G_V=\textsf{school}, W=3~\textsf{months}$).  All four are applied to
-\insql{T1} in our running example, and list the same quantifiers
-(\insql{all} for vertices and \insql{exists} for edges) and reduce
-functions (\insql{first} for vertex and edge properties).  $v_2$ is
-present in the result in Figure~\ref{fig:tg_agg1} starting at $4/15$
-because it did not exist for the entirety of the first window, while
-in Figure~\ref{fig:tg_agg2} it is produced starting $6/15$.  In
-Figure~\ref{fig:tg_agg3} vertices $v1$ and $v3$ create a single new
-vertex $v1$ representing the institution.  A subsequent \insql{map}
-operation to produce a new name attribute and a count of people would
-produce a more meaningful final result.
-
-\begin{figure*}[t]
-%\centering
-\begin{subfigure}[b]{0.5\textwidth}
-\includegraphics[width=3.2in]{figs/agg1.pdf}
-\caption{By time: $W=3~\textsf{months}, G_V=\textsf{vid}$.}
-\label{fig:tg_agg1}
-\end{subfigure}
-\begin{subfigure}[b]{0.5\textwidth}
-\includegraphics[width=3.2in]{figs/agg3.pdf}
-\caption{Grouped by attribute: $W=1~\textsf{change}, G_V=\textsf{school}$.}
-\label{fig:tg_agg3}
-\end{subfigure}
-\begin{subfigure}[b]{0.5\textwidth}
-\includegraphics[width=3.2in]{figs/agg2.pdf}
-\caption{By change: $W=3~\textsf{changes}, G_V=\textsf{vid}$.}
-\label{fig:tg_agg2}
-\end{subfigure}
-\begin{subfigure}[b]{0.5\textwidth}
-\includegraphics[width=3.2in]{figs/agg4.pdf}
-\caption{By time with grouping: $W=3~\textsf{months}, G_V=\textsf{school}$.}
-\label{fig:tg_agg4}
-\end{subfigure}
-\caption[]{Node creation, $Q_V=\insql{all}$, $Q_E=\insql{exists}$,
-  $A_V=\insql{first}$, $A_E=\insql{first}.$}
-\label{fig:tg_agg}
-\vspace{-0.5cm}
-\end{figure*}
+Figure~\ref{fig:tg_agg1} illustrates window-based node creation by
+time ($w=3~\textsf{months}$), and Figure~\ref{fig:tg_agg2} --- by
+change ($w=3~\textsf{changes}$).  Both are applied to \insql{T1} in
+our running example with \insql{all} quantifier for vertices and
+\insql{exists} for edges, and \insql{first} aggregation function for
+vertex and edge properties.  $v_2$ is present in the result in
+Figure~\ref{fig:tg_agg1} starting at $4/15$ because it did not exist
+for the entirety of the first window, while in
+Figure~\ref{fig:tg_agg2} it is produced starting $6/15$.
 
 \eat{Node creation may uncoalesce and requires FK enforcement.}
 
@@ -826,9 +820,9 @@ Edge creation
 $\insql{edge}^T(q,f_1(k_1),\ldots,f_n(k_n),\ttt_1,\ttt_2)$ is a binary
 operator that computes a \tg on the vertices $\tv = \tv_1 \cup^T
 \tv_2$, with edges and edge attributes computed by a conjunctive query
-over the constituent relations of $\ttt_1$ and $\ttt_2$.  We compute
+over the constituent relations of $\ttt_1$ and $\ttt_2$.  \eat{We compute}
 $L(v_1,v_2,a,p) = \resolve{f_1(k_1),\ldots,f_n(k_n)}{q(\ttt_1,
-  \ttt_2)}$, and then set $\te' = \coal{\pi_{v1,v2,p} L}$, and $\tae'
+  \ttt_2)}$, and then set $\te' = \coal{\pi^T_{v1,v2} L}$, and $\tae'
 = \sigma_{a~is~not~null} L$.  We then compute $\tav =
 \resolve{f_1(k_1),\ldots,f_n(k_n)}{\tv_1 \cup^T \tv_2}$.
 
@@ -863,7 +857,7 @@ We can obtain a graph join by computing $\te' = \tv_1 \times^T \tv_2$.
 SocialScope~\cite{Amer-Yahia2009} defines (non-temporal) graph
 composition: compose the edge of the two operands, with a directional
 condition, and return an edge-indiced subgraph.  TGA can express this
-operator by a combinatin of node creation and edge creation.
+operator by a combination of node creation and vertex subgraph.
 
 \eat{In \ql temporal graph composition can be computed using node
   creation of \ttt with itself and a $q = $ a temporal theta-join of

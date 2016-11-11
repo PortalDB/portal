@@ -69,7 +69,7 @@ $\ttt_1 = \slice{[2010,2015)}{wikitalk}$
 \begin{center}
 %\vspace{-0.2cm}
 %$\ttt_2 = \agg{msg=(dst,p,1),red=count}{\ttt_1}$
-$\ttt_2 = \insql{agg}^T(\mathsf{f_m=1},\mathsf{f_a=count},\mathsf{pname=deg},\ttt_1)$
+$\ttt_2 = \insql{agg}^T(\mathsf{dir=right},\mathsf{f_m=1},\mathsf{f_a=count},\mathsf{pname=deg},\ttt_1)$
 %\vspace{-0.2cm}
 \end{center}
 
@@ -159,7 +159,7 @@ $\ttt_1 = \insql{node}^T_w(\mathsf{w=2~mon},\mathsf{q_v=always},\mathsf{q_e=alwa
 \begin{center}
 %\vspace{-0.2cm}
 %$\ttt_2 = \agg{msg=(dst,p,1),red=count}{\ttt_1}$
-$\ttt_2 = \insql{agg}^T(\mathsf{f_m=1},\mathsf{f_a=count},\mathsf{pname=deg},\ttt_1)$
+$\ttt_2 = \insql{agg}^T(\mathsf{dir=right},\mathsf{f_m=1},\mathsf{f_a=count},\mathsf{pname=deg},\ttt_1)$
 %\vspace{-0.2cm}
 \end{center}
 
