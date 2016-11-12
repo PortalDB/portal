@@ -35,15 +35,15 @@ extension of \tga to support Pregel-style analytics.  \eat{We conclude
 \subsection{Primitives and Soundness}
 \label{sec:algebra:integrity}
 
-\tga operators are translated into a sequence of expressions in
-temporal relational algebra (\tra).  Since TRA is applied to
-individual relations of \tve, we must ensure that the combined state
-of these relations in the result corresponds to a valid \tg, i.e.,
-that the translation is sound.  Recall from Definition~\ref{def:tg}
-that a valid \tg must satisfy four requirements: {\bf R1}: Unique
-vertices and edges, {\bf R2}: Unique attribute values, {\bf R3}:
-Referential integrity, and {\bf R4}: Coalesced.  We now describe four
-primitives that will ensure soundness of \tga.
+\tga operators are translated into expressions in temporal relational
+algebra (\tra).  Since TRA is applied to individual relations of \tve,
+we must ensure that the combined state of these relations in the
+result corresponds to a valid \tg, i.e., that the translation is
+sound.  Recall from Definition~\ref{def:tg} that a valid \tg must
+satisfy four requirements: {\bf R1}: Unique vertices and edges, {\bf
+  R2}: Unique attribute values, {\bf R3}: Referential integrity, and
+{\bf R4}: Coalesced.  We now describe four primitives that will ensure
+soundness of \tga.
 
 {\bf Coalesce.} To enforce requirements {\bf R1} and {\bf R4}, we
 introduce the coalesce primitive $\coal{R}$, which merges adjacent or
@@ -127,7 +127,7 @@ listed in Appendix~\ref{sec:app1}.}
 \subsection{Unary operators}
 \label{sec:algebra:unary}
 
-\paragraph*{Slice}  The slice operator, denoted $\slice{\bc}{\ttt}$, where
+{\bf Slice.} The slice operator, denoted $\slice{\bc}{\ttt}$, where
 $\bc$ is a time interval, cuts a temporal slice from \ttt. The
 resulting \tg will contain vertices and edges whose period $\bp$ has a
 non-empty intersection with $\bc$.  We translate this \tga operator to
@@ -146,11 +146,11 @@ $\slice{\bc}{\tv}$ and similarly for \te, \tav and \tae.
   (\trg) = \{ (g, p \cap c)~~|~~(g, p) \in \trg \wedge
   (\pred{c}{overlaps}{p} \vee \pred{c}{contains}{p})\}$.  }
 
-Slice does not violate any of the soundness requirements {\bf R1} ---
-{\bf R4}. \eat{, see Appendix~\ref{sec:app1} for proofs of this and
-  similar statements.}
+%Slice does not violate any of the soundness requirements {\bf R1} ---
+%{\bf R4}. \eat{, see Appendix~\ref{sec:app1} for proofs of this and
+%  similar statements.}
 
-\paragraph*{Subgraph}  Temporal subgraph matching is a generalization of
+{\bf Subgraph.} Temporal subgraph matching is a generalization of
 subgraph matching for non-temporal graphs~\cite{Wood2012}.  This query
 comes in two variants.
 
@@ -174,9 +174,8 @@ $\tve'(\tv', \te', \tav', \tae')$ in which edges are defined by TCQ
 $q^t_e$.  Since this is a subgraph query, $\te' \subseteq^T \te$.
 
 Queries $q^t_v$ and $q^t_e$ may use any of the constituent relations
-of \tve to compute the vertex/edge sets.  Further, since these
-are TRA queries, they may explicitly reference temporal information,
-and so require all input relations to be
+of \tve, and may explicitly reference temporal information, and so
+require all input relations to be
 coalesced~\cite{DBLP:reference/db/Bohlen09}.
 
 Following the computation of $\tv' = q^t_v(\tv)$, \subv{q^t_v}{\ttt}
@@ -234,10 +233,10 @@ FK enforcement on \tae'.}
 %\subsection{Temporal map}
 %\label{sec:algebra:project}
 
-\paragraph*{Map}  Temporal vertex-map and edge-map apply
-user-defined map functions $f_v$ and $f_e$ to vertex or edge
-attributes.  Temporal vertex-map $\vmap{f_v, \tve}$ outputs $\tve'$ in
-which $\tv'=\tv$, $\te'=\te$, $\tae' = \tae$, and $\tav' =
+{\bf Map.}  Temporal vertex-map and edge-map apply user-defined map
+functions $f_v$ and $f_e$ to vertex or edge attributes.  Temporal
+vertex-map $\vmap{f_v, \tve}$ outputs $\tve'$ in which $\tv'=\tv$,
+$\te'=\te$, $\tae' = \tae$, and $\tav' =
 \pi^T_{v,f_v(a)}\tav$. Temporal edge-map $\emap{f_e, \tve}$ is defined
 analogously.
 
@@ -301,14 +300,14 @@ and $\tae$ outer-joined with the corresponding relations.  Outer-joins
 are needed because a vertex / edge is not required to specify an
 attribute.
 
-When \tve represents a directed graph, and direction of the edge is
-important for aggregation, it can be accounted for in the way the join
-is set up (e.g., mapping $v_2$ in \te to $v_1$ in $L$ if the goal is
-to aggregate information on incoming edges).  When \tve represents an
-undirected graph (recall that we choose a canonical representation of
-an edge, with $v_1 \leq v_2$), or when direction of the edge is
-unimportant, $L$ can be computed from $\te(v_1,v_2,p) \cup^T
-\te(v_2,v_1,p)$ rather than from $\te$.
+When \tve represents a directed graph, direction of the edge can be
+accounted for in the way the join is set up (e.g., mapping $v_2$ in
+\te to $v_1$ in $L$ if the goal is to aggregate information on
+incoming edges).  When \tve represents an undirected graph (recall
+that we choose a canonical representation of an edge, with $v_1 \leq
+v_2$), or when direction of the edge is unimportant, $L$ can be
+computed from $\te(v_1,v_2,p) \cup^T \te(v_2,v_1,p)$ rather than from
+$\te$.
 
 Aggregation is denoted $\insql{agg}^T(dir,cond,f_m,f_a,pname,\ttt)$,
 where $dir$ is the direction of the edge (one of 'right', 'left' or
@@ -401,9 +400,7 @@ intersection ($\cap^T$), union ($\cup^T$), and difference
 To compute $\insql{T1} \cup^T \insql{T2}$, we set $\tv' = \tv_1 \cup^T
 \tv_2$ and $\te' = \te_1 \cup^T \te_2$.  Next, we compute $\tav' =
 \resolve{f_v}{\tav_1 \fullouterjoin^T_{v} \tav_2}$ and $\tae' =
-\resolve{f_e}{\tae_1 \fullouterjoin^T_{v1,v2} \tae_2}$.  Note, that
-unlike for $\cap^T$, it is not necessary to constraint $\tav'$ and
-$\tae'$.
+\resolve{f_e}{\tae_1 \fullouterjoin^T_{v1,v2} \tae_2}$. 
 
 Consider \insql{T1} in Figure~\ref{fig:tg_ve} and \insql{T2} in
 Figure~\ref{fig:tg_t2}.  Figure~\ref{fig:tg_union} illustrates
@@ -592,7 +589,7 @@ The node creation operator enables the user to analyze an evolving
 graph at different levels of granularity.  This operator comes in two
 variants --- based on vertex attributes or based on temporal window.
 
-\paragraph*{Attribute-based node creation} This operation is denoted
+{\bf Attribute-based node creation.}  This operation is denoted
 $\insql{node}^T_a(g_1,\ldots,g_i,f_{v1}(k_1),\ldots,f_{vn}(k_n),f_{e1}(l_1),\ldots,f_{em}(l_m),\tve)$,
 where $g_1,\ldots,g_i$ are the grouping attributes, and each
 $f_{vj}(k_j)$ ($f_{ej}(l_j)$) specifies an aggregation function
@@ -607,15 +604,14 @@ time, will not contribute to the result for the corresponding
 snapshot.
 
 To compute $\tve' =
-\insql{node}^T_a(g_1,\ldots,g_i,f_{v1}(k_1),\ldots,f_{vn}(k_n),$ \\ 
-$f_{e1}(l_1),\ldots,f_{em}(l_m),\tve)$,
-we execute $L = g_1,\ldots,g_i \gamma^T (\tv \rightouterjoin^T_v
-\tav)$, computing an intermediate temporal relation for each group.
-Next, we generate the new vertex relation $\tv'$, by generating an id
-for each group with a Skolem function: $\tv' =
-\sigma^T_{skolem(g_1,\ldots,g_i)}L$.  Then,\\
-$\tav' =
-\resolve{f_{v1}(k_1), \ldots,
+\insql{node}^T_a(g_1,\ldots,g_i,f_{v1}(k_1),\ldots,f_{vn}(k_n),$
+\\ $f_{e1}(l_1),\ldots,f_{em}(l_m),\tve)$, we execute $L =
+g_1,\ldots,g_i \gamma^T (\tv \rightouterjoin^T_v \tav)$, computing an
+intermediate temporal relation for each group.  Next, we generate the
+new vertex relation $\tv'$, by generating an id for each group with a
+Skolem function: $\tv' = \sigma^T_{skolem(g_1,\ldots,g_i)}L$.
+
+Then, $\tav' = \resolve{f_{v1}(k_1), \ldots,
   f_{vn}(k_n)}{\sigma^T_{skolem(g_1,\ldots,g_i), a} L}$.  Note the use
 of the resolve primitive to reconcile attribute values within a group.
 
@@ -632,10 +628,10 @@ and $v_2$ are mapped.  Finally, we compute $\te' =
 Figure~\ref{fig:tg_agg3} illustrates attribute-based node creation
 over \insql{T1} in our running example, with \insql{set(school)}
 aggregation function for vertices and and \insql{max(cnt)} for edges.
-Vertices $v1$ and $v3$ create a single new vertex $v10$ representing
-Drexel.
+Vertices $v_1$ and $v_3$ create a single new vertex $v_10$,
+representing Drexel.
 
-\paragraph*{Window-based node creation} This operation is denoted
+{\bf Window-based node creation.} This operation is denoted
 $\insql{node}^T_w(w,q_v,q_e,f_{v1}(k_1),\ldots,f_{vn}(k_n),f_{e1}(l_1),\ldots,f_{em}(l_m),\tve)$,
 where $w$ is the window specification, $q_v$ and $q_e$ are vertex and
 edge quantifiers, and each $f_{vj}(k_j)$ ($f_{ej}(l_j)$) specifies an
@@ -867,9 +863,9 @@ connecting every vertex in graph one with each vertex in graph two.
 We can obtain a graph join by computing $\te' = \tv_1 \times^T \tv_2$.
 
 SocialScope~\cite{Amer-Yahia2009} defines (non-temporal) graph
-composition: compose the edge of the two operands, with a directional
-condition, and return an edge-indiced subgraph.  TGA can express this
-operator by a combination of node creation and vertex subgraph.
+composition: compose the edge of the two operands and return an
+edge-indiced subgraph.  TGA can express this operator by a combination
+of node creation and vertex subgraph.
 
 \eat{In \ql temporal graph composition can be computed using node
   creation of \ttt with itself and a $q = $ a temporal theta-join of

@@ -1,12 +1,12 @@
 \subsection{Extension: user-defined analytics}
 \label{sec:analytics}
 
-For many types of evolving graph analysis, it is necessary to compute
-some property, such as PageRank of each vertex $v$, or the length of
-the shortest path from a given designated vertex $u$ to each $v$, for
-each time point.  This information can then be used to study how the
-graph evolves over time.  \ql supports this type of analysis through
-{\em temporal user-defined analytics}, which conceptually execute an
+For many types of analysis, it is necessary to compute some property,
+such as PageRank of each vertex $v$, or the length of the shortest
+path from a given designated vertex $u$ to each $v$, for each time
+point.  This information can then be used to study how the graph
+evolves over time.  \ql supports this type of analysis through {\em
+  temporal user-defined analytics}, which conceptually execute an
 aggregation-map operation sequence repeatedly over a set number of
 iterations or until fixpoint and save the result in property $pname$.
 $\ttt' = \insql{pregel}^T (dir,cond,f_m,f_a,pname,iter,\ttt)$, where
