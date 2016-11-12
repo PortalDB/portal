@@ -254,9 +254,9 @@ are some common cases.  Map may specify the set of properties to
 project out or retain, it may aggregate (e.g., \insql{COUNT}) or
 deduplicate values of a collection property, or flatten a nested
 value.
-
+%
 To produce a valid \tg, $\vmap{f_v, \tve}$ must invoke $\coal{\tv'}$
-and $\emap{f_e, \tve}$ must invoke $\coal{\te'}$, enforcing {\bf R4}.
+and $\emap{f_e, \tve}$ must invoke $\coal{\te'}$.
 
 % because this is an arbitrary operation, we don't need to invent
 % syntax here.  it's also clear what this operation does, I don't
@@ -589,7 +589,7 @@ The node creation operator enables the user to analyze an evolving
 graph at different levels of granularity.  This operator comes in two
 variants --- based on vertex attributes or based on temporal window.
 
-{\bf Attribute-based node creation.}  This operation is denoted
+{\bf Attribute-based node creation} is denoted\\
 $\insql{node}^T_a(g_1,\ldots,g_i,f_{v1}(k_1),\ldots,f_{vn}(k_n),f_{e1}(l_1),\ldots,f_{em}(l_m),\tve)$,
 where $g_1,\ldots,g_i$ are the grouping attributes, and each
 $f_{vj}(k_j)$ ($f_{ej}(l_j)$) specifies an aggregation function
@@ -631,7 +631,7 @@ aggregation function for vertices and and \insql{max(cnt)} for edges.
 Vertices $v_1$ and $v_3$ create a single new vertex $v_10$,
 representing Drexel.
 
-{\bf Window-based node creation.} This operation is denoted
+{\bf Window-based node creation} is denoted\\
 $\insql{node}^T_w(w,q_v,q_e,f_{v1}(k_1),\ldots,f_{vn}(k_n),f_{e1}(l_1),\ldots,f_{em}(l_m),\tve)$,
 where $w$ is the window specification, $q_v$ and $q_e$ are vertex and
 edge quantifiers, and each $f_{vj}(k_j)$ ($f_{ej}(l_j)$) specifies an
@@ -728,12 +728,12 @@ relation to one or multiple windows, and (2) aggregate over each
 window.  The $s$ parameter for the split primitive is the smallest
 start date across \tve.
 
-To compute $\tv'$, we apply the split primitive to \tv, group by vid,
-select only those vertices which meet the quantification, and finally
-coalesce: $\tv' = \coal{\sigma^T_{q_V} (v \gamma^T_{\cup
+To compute $\tv'$, we apply split to \tv, group by vid, select only
+those vertices that meet the quantification, and finally coalesce:
+$\tv' = \coal{\sigma^T_{q_V} (v \gamma^T_{\cup
     p}(\wsplit{s}{w}{\tv}))}$.  Similarly for $\te'$.  To compute
 attribute relations we split, resolve with the aggregation functions,
-and enforce FK constraints: $\tav' =
+and constrain: $\tav' =
 \constr{\resolve{f_{v1}(k_1),\ldots,f_{vn}(k_n)}{\wsplit{s}{w}{\tav}}}{\tv'}$,
 similarly for $\tae'$.
 
