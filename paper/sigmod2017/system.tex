@@ -36,17 +36,17 @@ by key, and tuples are sorted and folded within each group to produce
 time periods of maximum length.  Eager coalescing, however, is not
 desirable since it is expensive and some operations may produce
 correct results (up to coalescing) {\em even when computing over
-  uncoalesced inputs}.  We keep track of whether each of the four \tve
-relations is known to be coalesced based on its translation into \tra
-and we include this information in our operator definitions in
-Section~\ref{sec:algebra}.  When an operation requires the input to be
-coalesced, we perform the coalescing on each relation as necessary.
-Any operation that is time-variant requires input to be coalesced.
-This includes vertex- and edge-subgraph with temporal predicates, node
-creation with a temporal window, aggregation with a temporal
-predicate, and edge creation with a temporal predicate.  We base the
-eager coalescing rules on coalescing rules in \tra, as stated
-in~\cite{DBLP:conf/vldb/BohlenSS96}.  
+  uncoalesced inputs}.\eat{ We keep track of whether each of the four
+  \tve relations is known to be coalesced based on its translation
+  into \tra and we include this information in our operator
+  definitions in Section~\ref{sec:algebra}.  When an operation
+  requires the input to be coalesced, we perform the coalescing on
+  each relation as necessary. } Any operation that is time-variant
+requires input to be coalesced.\eat{ This includes vertex- and
+  edge-subgraph with temporal predicates, node creation with a
+  temporal window, aggregation with a temporal predicate, and edge
+  creation with a temporal predicate.}  We base the eager coalescing
+rules on coalescing rules in \tra~\cite{DBLP:conf/vldb/BohlenSS96}.
 
 \eat{This involves shuffling between partitions, is computationally
   expensive, and motivates lazy coalescing.}
@@ -95,26 +95,26 @@ operations, and is needed for extended snapshot reducibility.  We
 implement extend by defining an Interval class and including it as a
 field in every RDD.
 
-The {\em normalize} primitive, indicated by $\norm{B}{r}{s}$ produces
-a set of tuples for each tuple in {\bf r} by splitting its timestamp
-into non-overlapping periods with respect to another relation {\bf s}
-and attributes {\bf B}.  See~\cite{Dignos2012} for the formal
-definition.  Intuitively, normalize creates tuples in corresponding
-groups such that their timestamps are also equivalent.  \eat{For
-  example, for a pair of relations $\mathbf{r}$ with single tuple
-  $(v_1, [2016-05-01, 2016-08-01))$ and $\mathbf{s}$ with single tuple
-    $(v_1, [2016-07-01, 2016-09-01))$, it splits the intervals to
+The {\em normalize} primitive produces a set of tuples for each tuple
+in {\bf r} by splitting its timestamp into non-overlapping periods
+with respect to another relation {\bf s} and attributes {\bf B}.
+See~\cite{Dignos2012} for the formal definition.  Intuitively,
+normalize creates tuples in corresponding groups such that their
+timestamps are also equivalent.  \eat{For example, for a pair of
+  relations $\mathbf{r}$ with single tuple $(v_1, [2016-05-01,
+    2016-08-01))$ and $\mathbf{s}$ with single tuple $(v_1,
+    [2016-07-01, 2016-09-01))$, it splits the intervals to
       non-overlapping fragments. $\norm{A}{r}{s} = (v_1, [2016-05-01,
         2016-07-01)),(v_1, [2016-07-01, 2016-08-01))$.  }This
         primitive is necessary for node creation, set operators like
-        union, and joins.  Note that Dignos et al. do not use
-        $\norm{B}{r}{s}$ for joins, and instead use an align operator
-        to support the change preservation property of sequenced
-        semantics.  The normalize primitive relies on an efficient
-        implementation of the tuple splitter.  Our current
-        implementation splits each tuple based on the change periods
-        over the whole graph.  This approach avoids costly joins but
-        may split some tuples unnecessarily.
+        union, and joins.\eat{ Note that Dignos et al. do not use
+          $\norm{B}{r}{s}$ for joins, and instead use an align
+          operator to support the change preservation property of
+          sequenced semantics.}  Normalize primitive relies on an
+        efficient implementation of the tuple splitter.  We split each
+        tuple based on the change periods over the whole graph,
+        avoiding costly joins but potentially splitting some tuples
+        unnecessarily.
 
 \subsection{Physical Representations}
 \label{sec:sys:datastructs}
@@ -175,11 +175,11 @@ preserves temporal locality.
   is that it can easily deal with schema evolution and leaves the
   details of attribute processing to the user. } 
 
-VE supports all \tg algebra operations except analytics.  This is
-because an analytic is defined on a representative graph, which VE
-does not materialize.  As we will show in Section~\ref{sec:exp}, this
-physical representation is the most efficient for many operations.  In
-the current prototype we limit the expressiveness of some of the
+VE supports all \tga operations except analytics.  This is because an
+analytic is defined on a representative graph, which VE does not
+materialize.  As we will show in Section~\ref{sec:exp}, this physical
+representation is the most efficient for many operations.  In the
+current prototype we limit the expressiveness of some of the
 operations, such as only supporting vertex- and edge-subgraph queries
 over the \tav and \tae relations.
 
