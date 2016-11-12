@@ -12,20 +12,19 @@
 \label{fig:slicengrams}
 \vspace{-0.1in}
 \end{minipage}
-\begin{minipage}[b]{2.1in}
-\centering
-\includegraphics[width=2.1in]{figs/project_wikitalk_build13.png}
-\vspace{-0.2in}
-\caption{Map on wiki-talk.}
-\label{fig:project}
-\vspace{-0.1in}
-\end{minipage}
 \begin{minipage}[b]{2.2in}
 \centering
 \includegraphics[width=2.4in]{figs/subgraph_ngrams_build13.png}
 \vspace{-0.2in}
 \caption{Subgraph on nGrams.}
 \label{fig:subgraphngrams}
+\vspace{-0.1in}
+\end{minipage}
+\begin{minipage}[b]{2.15in}
+\includegraphics[width=2.15in]{figs/deg_twitter_build14.png}
+\vspace{-0.2in}
+\caption{Aggregate on Twitter.}
+\label{fig:degtwitter}
 \vspace{-0.1in}
 \end{minipage}
 \end{figure*}
@@ -48,15 +47,14 @@
 \label{fig:agg2}
 %\end{minipage}
 \end{subfigure}
-\begin{subfigure}{0.36\textwidth}
+\begin{subfigure}{0.35\textwidth}
 %\begin{minipage}{2.5in}
 %\centering
-\includegraphics[width=2.5in]{figs/agg_allexists_wikitalk_build13.png}
+\includegraphics[width=2.3in]{figs/agg_allexists_wikitalk_build13.png}
 \caption{$q_v=\insql{always}$, $q_e=\insql{exists}$, wiki-talk}
 \label{fig:agg4}
 %\end{minipage}
 \end{subfigure}
-\vspace{-0.1in}
 \caption[]{Node creation with temporal windows.}
 \vspace{-0.1in}
 \label{fig:agg}
@@ -166,10 +164,11 @@ up to 15 min with broadcast join for VE, in contrast to between 95 and
   size through the \insql{slice} operation.} exhibits a similar trend
 as \insql{slice}: constant running time for VE and a linear increase
 in running time with increasing number of representative graphs for
-\sg (Figure~\ref{fig:project} for wiki-talk, similar for other
-datasets).  Performance of \insql{map} is slightly worse than that of
-\insql{slice} because \insql{map} must coalesce its output as the last
-step, while \insql{slice} does not. 
+\sg (Figure~\ref{fig:project} for wiki-talk in
+Appendix~\ref{sec:app2}, similar for other datasets).  Performance of
+\insql{map} is slightly worse than that of \insql{slice} because
+\insql{map} must coalesce its output as the last step, while
+\insql{slice} does not.
 
 \begin{table}
 \caption{Experimental datasets.}
@@ -196,48 +195,20 @@ twitter & 505.4M & 23B & 2006--2012 & 88 \\ \hline
 \label{fig:union1}
 \vspace{-0.1in}
 \end{minipage}
-\begin{minipage}{2.1in}
-\centering
-\includegraphics[width=2.1in]{figs/union_ngrams_build13.png}
-\vspace{-0.2in}
-\caption{Union on nGrams.}
-\label{fig:union2}
-\vspace{-0.1in}
-\end{minipage}
 \begin{minipage}{2.2in}
 \centering
-\includegraphics[width=2.55in]{figs/intersect_ngrams_build13.png}
+\includegraphics[width=2.5in]{figs/intersect_ngrams_build13.png}
 \vspace{-0.2in}
 \caption{Intersection on nGrams.}
 \label{fig:intersectngrams}
 \vspace{-0.1in}
 \end{minipage}
-\end{figure*}
-
-\begin{figure*}[t]
+\begin{minipage}{2.2in}
 \centering
-\begin{minipage}{2.15in}
-\centering
-\includegraphics[width=2.15in]{figs/deg_twitter_build14.png}
-\vspace{-0.2in}
-\caption{Aggregate on Twitter.}
-\label{fig:degtwitter}
-\vspace{-0.1in}
-\end{minipage}
-\begin{minipage}{2.15in}
-\centering
-\includegraphics[width=2.15in]{figs/cc_wikitalk_build13.png}
+\includegraphics[width=2.4in]{figs/cc_wikitalk_build13.png}
 \vspace{-0.2in}
 \caption{Components on wiki-talk.}
 \label{fig:ccwiki}
-\vspace{-0.1in}
-\end{minipage}
-\begin{minipage}{2.2in}
-\centering
-\includegraphics[width=2.2in]{figs/prank_twitter_build13.png}
-\vspace{-0.2in}
-\caption{PageRank on Twitter.}
-\label{fig:pranktwitter}
 \vspace{-0.1in}
 \end{minipage}
 \end{figure*}
