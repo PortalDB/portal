@@ -175,13 +175,13 @@ preserves temporal locality.
   is that it can easily deal with schema evolution and leaves the
   details of attribute processing to the user. } 
 
-VE supports all \tga operations except analytics.  This is because an
-analytic is defined on a representative graph, which VE does not
-materialize.  As we will show in Section~\ref{sec:exp}, this physical
-representation is the most efficient for many operations.  In the
-current prototype we limit the expressiveness of some of the
-operations, such as only supporting vertex- and edge-subgraph queries
-over the \tav and \tae relations.
+VE supports all \tga operations except analytics, because an analytic
+is defined on a representative graph, which VE does not materialize.
+As we will show in Section~\ref{sec:exp}, this physical representation
+is the most efficient for many operations.  In the current prototype
+we limit the expressiveness of some of the operations, such as only
+supporting vertex- and edge-subgraph queries over the \tav and \tae
+relations.
 
 {\bf RepresentativeGraphs (RG)} is a collection (parallel sequence) of
 GraphX graphs, one for each representative graph of \ttt, where
