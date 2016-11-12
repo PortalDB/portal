@@ -22,6 +22,59 @@
 \vspace{-0.2cm}
 \end{figure*}
 
+\begin{figure*}
+%\centering
+\begin{minipage}[b]{2.2in}
+\centering
+\includegraphics[width=2.1in]{figs/slice_wikitalk_build13.png}
+\caption{Slice on wiki-talk.}
+\label{fig:slicewiki}
+\end{minipage}
+\begin{minipage}[b]{2.2in}
+\centering
+\includegraphics[width=2.1in]{figs/project_wikitalk_build13.png}
+\caption{Map on wiki-talk.}
+\label{fig:project}
+\end{minipage}
+\begin{minipage}[b]{2.2in}
+\centering
+\includegraphics[width=2.4in]{figs/subgraph_wikitalk_build13.png}
+\caption{Subgraph on wiki-talk.}
+\label{fig:subgraphwiki}
+\end{minipage}
+\end{figure*}
+
+\begin{figure*}
+\centering
+\begin{minipage}[b]{2in}
+\centering
+\includegraphics[width=2in]{figs/union_ngrams_build13.png}
+\caption{Union on nGrams.}
+\label{fig:union2}
+\end{minipage}
+\begin{minipage}[b]{2.3in}
+\centering
+\includegraphics[width=2.3in]{figs/prank_twitter_build13.png}
+\caption{PageRank on Twitter.}
+\label{fig:pranktwitter}
+\end{minipage}
+\begin{minipage}[b]{2.3in}
+\centering
+\includegraphics[width=2.3in]{figs/slice_wikitalk_scale_build13.png}
+\caption{Scaling slice on wiki-talk.}
+\label{fig:slicescale}
+\end{minipage}
+\end{figure*}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=2.1in]{figs/select_wikitalk_scale_build13.png}
+%\vspace{-0.2in}
+\caption{V-subgraph on wiki-talk.}
+\label{fig:selectscale}
+\vspace{-0.1in}
+\end{figure}
+
 Figure~\ref{fig:tg_inter} shows the result of temporal intersection
 of \insql{T1} with \insql{T2}.  Only the vertices and edges present in
 both \tgs are produced, thus eliminating $v_3$ and $v_4$.  Period
@@ -39,28 +92,6 @@ tuples in the result.
 Plots and discussion in this section complement experimental results
 presented in Section~\ref{sec:exp}.
 
-\begin{figure*}
-%\centering
-\begin{minipage}[b]{2.2in}
-\centering
-\includegraphics[width=2.1in]{figs/slice_wikitalk_build13.png}
-\caption{Slice on wiki-talk.}
-\label{fig:slicewiki}
-\end{minipage}
-\begin{minipage}[b]{2.2in}
-\centering
-\includegraphics[width=2.2in]{figs/subgraph_wikitalk_build13.png}
-\caption{Subgraph on wiki-talk.}
-\label{fig:subgraphwiki}
-\end{minipage}
-\begin{minipage}[b]{2.2in}
-\centering
-\includegraphics[width=2.2in]{figs/slice_wikitalk_scale_build13.png}
-\caption{Scaling slice on wiki-talk.}
-\label{fig:slicescale}
-\end{minipage}
-\end{figure*}
-
 Figure~\ref{fig:slicewiki} shows performance of VE and \sg
 on \insql{slice} over wiki-talk.  It exhibits the same trend as on the
 nGrams dataset in Figure~\ref{fig:slicengrams} but on a smaller scale.
@@ -70,15 +101,6 @@ on \insql{vertex subgraph} over wiki-talk.  Wiki-talk dataset is small
 enough that broadcast join can be used for constraining the edges, so
 the sudden worsening of performance is not observed, as it is in
 Figure~\ref{fig:subgraphngrams}.
-
-\begin{figure}
-\centering
-\includegraphics[width=2.1in]{figs/select_wikitalk_scale_build13.png}
-%\vspace{-0.2in}
-\caption{V-subgraph on wiki-talk.}
-\label{fig:selectscale}
-\vspace{-0.1in}
-\end{figure}
 
 We next examine how the different access methods scale with the size
 of the cluster.  We varied the number of cluster workers while
