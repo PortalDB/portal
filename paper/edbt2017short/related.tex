@@ -1,57 +1,56 @@
 \section{Related work}
 \label{sec:related}
 
-While the temporal models in the relational literature are very
-mature, the same cannot be said for the evolving graphs literature.
-Evolving graph models differ in what time model they adopt (point or
-interval stamping), what top-level entities they model (graphs or sets
-of nodes and edges), whether they represent topology only or
-attributes or weights as well, and what types of evolution are
-allowed.  All evolving graph models require node identity, and thus
-edge identity as well, to persist across time.  See~\cite{Zaki2016}
-for a survey of evolving graph models.
+{\bf Evolving graph models.}  While temporal models in the relational
+literature are very mature, the same cannot be said for the evolving
+graphs literature.  Evolving graph models differ in what time stamp
+they use (point or interval stamping), what top-level entities they
+model (graphs or sets of nodes and edges), whether they represent
+topology only or attributes or weights as well, and what types of
+evolution are allowed.  All evolving graph models require node
+identity, and thus edge identity as well, to persist across time.
+See~\cite{Zaki2016} for a survey of evolving graph models.
 
 The first mention of evolving graphs that we are aware of is by Harary
 and Gupta~\cite{Harary1997} who informally proposed to model the
 evolution as a sequence of static graphs.  This model has been
 predominant in the research literature
-since~\cite{Borgwardt2006,Chan2008,Fard2012,Ferreira2004,Kan2009,Khurana2013,Lahiri2008,Lerman2010,Ren2011,Semertzidis2015,Sricharan2014,Yang2007},
-with various restrictions on the kinds of changes that can take place
-in the graph evolution.  For example, Khurana and Deshponde use this
-model but a node, once removed, cannot reappear~\cite{Khurana2013}.
-In~\cite{Ren2011} and~\cite{Fard2012} there is no notion of time at
-all, only a sequence of graphs.  In~\cite{Borgwardt2006}
-and~\cite{Kan2009} the time series of graphs represent topology only,
-with no attributes, and only edges can vary with time, while the nodes
-remain unchanged.  Ferreira's model~\cite{Ferreira2004} allows both
-node and edge evolution, but again, only restricted to topology.
-
-This approach has several limitations.  First and foremost, the state
-of the graph can be undefined at some time $t$ unless a snapshot is
-associated with each possible value in the discrete range $[t_{start},
-  now)$.  So either there are many consecutive equivalent snapshots or
-  the state of the graph is undefined.  It also forces a specific time
-  granularity since the time is discrete, whereas open-closed time
-  intervals can be broken down into any desired level of granularity.
-  Just as importantly, this introduces a semantic ambiguity that we
-  explored in Section~\ref{sec:intro}.
+(\cite{Borgwardt2006,Fard2012,Ferreira2004,Kan2009,Khurana2013,Ren2011}
+and many others), with various restrictions on the kinds of changes
+that can take place during graph evolution.  For example, Khurana and
+Deshponde use this model with the restriction that a node, once
+removed, cannot reappear~\cite{Khurana2013}.  In~\cite{Ren2011}
+and~\cite{Fard2012} there is no notion of time at all, only a sequence
+of graphs.  In~\cite{Borgwardt2006} and~\cite{Kan2009} the time series
+of graphs represents topology only, with no attributes, and only edges
+can vary with time, while the nodes remain unchanged.  Ferreira's
+model~\cite{Ferreira2004} allows both node and edge evolution, but
+again, only restricted to topology.
 
 The advantages of the snapshot sequence model are that a) it is simple
 and b) if snapshots are obtained by periodic sampling, which is a very
-common approach, it accurately represents the state at that point
+common approach, that accurately represents the state at that point
 without making statements about other unknowable times.  For example,
 the WWW is so large that it is impossible to create a fully accurate
 snapshot that represents any moment in time.
 
-Several models use the interval time model, although without the full
-interval semantics.  Huo and Tsotras model an evolving graph as a set
+There are also several limitations.  The model creates a semantic
+ambiguity on what constitutes a change, as already shown in
+Section~\ref{sec:intro}.  It also forces a specific time granularity
+since the time is discrete, whereas open-closed time intervals can be
+broken down into any desired level of granularity.
+
+\eat{Several models use the interval time model, although without the full
+sequenced semantics.  Huo and Tsotras model an evolving graph as a set
 of nodes and a set of edges where each entity is
 interval-stamped~\cite{Huo2014}.  The semantics of the intervals is
-not stated.  Similary, Koloniari~\cite{Koloniari2012}, while not
+not stated.  Similarly, Koloniari~\cite{Koloniari2012}, while not
 providing a formal model, represents nodes and edges as having periods
-of validity.
+of validity.  As~\cite{Bohlen1998} has shown, sequenced semantics is
+determined now by the representation, but by the properties of the
+operators.}
 
-There are several important system works on evolving graphs which do
+\eat{There are several important system works on evolving graphs which do
 not have a formal model.  The ImmortalGraph (formally Chronos) system
 has no formal model, but informally an evolving graph is defined as a
 series of activities on the graph, such as node additions and
@@ -63,19 +62,43 @@ them by maintaining periodic snapshots~\cite{Labouseur2015}.  So while
 there is no explicit notion of time in G*, it essentially uses
 discrete time snapshot sequence model, with all limitations thereof.
 For each graph, it adopts a nested data model, with vertices nested
-within the graph, and edges within the corresponding vertices.
+within the graph, and edges within the corresponding vertices.}
 
-This situation has persisted over 20 years, due in large part to the
+\eat{This situation has persisted over 20 years, due in large part to the
 fact that most papers lack formal semantics of the model or the
-operations, which are generally specified algorithmically.  However,
-the question of semantics of temporal data has been throughly explored
-in the relational temporal database community.  B{\"{o}}hlen et
-al.~\cite{Bohlen1998} have formally stated the point- and
-interval-based models and crisply defined the differences between
-them.  With this foundation, Dign{\"{o}}s et al.~\cite{Dignos2012}
-have defined sequence (interval) semantics properties of snapshot
-reducibility, extended snapshot reducibility, and change preservation,
-and shown how nontemporal operators can be applied to temporal data.
+operations, which are generally specified algorithmically.}
+
+{\bf Temporal relational models.}  The question of semantics of
+temporal data has been throughly explored in the relational temporal
+database community.  B{\"{o}}hlen et al.~\cite{Bohlen1998} have
+formally defined the point and sequenced models and crisply defined
+the differences between them.  They showed that the difference lies in
+the properties of the operators of the models rather than in the use
+of intervals as representational devices.  With this foundation,
+Dign{\"{o}}s et al.~\cite{Dignos2012} have defined sequenced
+semantics, with properties of snapshot reducibility, extended
+snapshot reducibility, and change preservation, and shown how
+non-temporal operators can be applied to temporal data.  Snapshot
+reducibility means that a temporal operator produces the same result
+as an equivalent non-temporal operator over corresponding snapshots.
+Extended snapshot reducibility allows references to timestamps in the
+operators by propagating them as data.  Point semantics has both of
+these properties as well.
+
+The third property, change preservation is unique to sequenced
+semantics.  It states that operators only merge contiguous time points
+of a result if they have the same lineage.  As Dignos et al. show in
+\cite{Dignos2012}, all three properties can be guaranteed through
+application of the normalize and align operators to the non-temporal
+relations extended with the explicit time attribute.  The normalize
+operator splits each tuple in the input relation w.r.t. a group of
+tuples such that each timestamp fragment is either fully contained or
+disjoint with every timestamp in the group.  The align operator splits
+each tuple w.r.t. a group of tuples such that each timestamp fragment
+is either an intersection with one of the tuples in the group or is
+not covered by any tuple in a group. (See Figure 2
+in~\cite{Dignos2012} for an illustration.)
+
 As we as a community move to more and more sophisticated analyses of
 evolving graphs, we need to adopt the state of the art in temporal
 databases.
