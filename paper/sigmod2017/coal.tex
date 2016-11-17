@@ -1,4 +1,3 @@
-%\section{Lazy Coalescing}
 \subsection{Lazy Coalescing}
 \label{sec:sys:coal}
 
@@ -23,19 +22,11 @@ analytics & no & yes \\
 }
 
 All operations and all sequences of operations must output a valid
-temporally coalesced \tg.  Several implementations are possible for
-the coalesce operation over temporal SQL relations,
-see~\cite{DBLP:conf/vldb/BohlenSS96} for details.  We use the
-partitioning method, where the relation (e.g., \tv, \te, \trg) is
-grouped by key, and tuples are sorted and folded within each group to
-produce time periods of maximum length.  This involves shuffling
-between partitions, is computationally expensive, and motivates
-lazy coalescing.
-
-Correctness of many \tg algebra operations does not depend on whether
-their input is coalesced.  Consequently, \ql supports both eager and
-lazy coalescing, with lazy being the default for queries that admit
-it.  We now present useful coalescing rules.
+temporally coalesced \tg.  Correctness of many \tg algebra operations
+does not depend on whether their input is coalesced.  Consequently,
+\ql supports both eager and lazy coalescing, with lazy being the
+default for queries that admit it.  We now present useful coalescing
+rules.
 
 \eat{ As with duplicate elimination, if the coalesced output is
   expected to be significantly reduced in size, such as after a

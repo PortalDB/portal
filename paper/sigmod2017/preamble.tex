@@ -17,7 +17,8 @@
 \newcommand{\vera}[1]{[\textcolor{orange}{{\bf Vera: }#1}]}
 
 % Vocabulary
-\newcommand*{\ql}{\textsf{Portal}\xspace}
+%\newcommand*{\ql}{\textsf{Portal}\xspace}
+\newcommand*{\ql}{\textsf{SysXYZ}\xspace}
 \newcommand*{\tg}{\textsf{TGraph}\xspace}
 \newcommand*{\tgs}{\textsf{TGraphs}\xspace}
 \newcommand*{\rgs}{\textsf{representative graphs}\xspace}
@@ -30,9 +31,19 @@
 \newcommand*{\ogc}{OGC\xspace}
 \newcommand*{\hg}{HG\xspace}
 
+\def\bp{\boldsymbol{p}}
+\def\bq{\boldsymbol{q}}
+\def\bc{\boldsymbol{c}}
+
+\newcommand*{\edgec}{\textsf{edge-complete}\xspace}
+\newcommand*{\vertexc}{\textsf{vertex-complete}\xspace}
+\newcommand*{\edgeq}{\textsf{edge-query}\xspace}
+\newcommand*{\vertexq}{\textsf{vertex-query}\xspace}
+
 \newcommand*{\ttt}{\ensuremath{\mathsf{T}}\xspace}
 \newcommand*{\trg}{\ensuremath{\mathsf{T^{RG}}}\xspace}
-\newcommand*{\tve}{\ensuremath{\mathsf{T^{VE}}}\xspace}
+%\newcommand*{\tve}{\ensuremath{\mathsf{T^{VE}}}\xspace}
+\newcommand*{\tve}{\ensuremath{\mathsf{T}}\xspace}
 \newcommand*{\tvea}{\ensuremath{\mathsf{{T_1}^{VE}}}\xspace}
 \newcommand*{\tveb}{\ensuremath{\mathsf{{T_2}^{VE}}}\xspace}
 \newcommand*{\trga}{\ensuremath{\mathsf{{T_1}^{RG}}}\xspace}
@@ -45,11 +56,14 @@
 \newcommand*{\aee}{\ensuremath{\mathsf{A^{E}}}\xspace}
 \newcommand*{\tav}{\ensuremath{\mathsf{TA^{V}}}\xspace}
 \newcommand*{\tae}{\ensuremath{\mathsf{TA^{E}}}\xspace}
+\newcommand*{\tga}{TGA\xspace}
+\newcommand*{\tra}{TRA\xspace}
 
 \newcommand*{\opp}{\textsf{op}\xspace}
 \newcommand*{\cl}{\textsf{coal}\xspace}
 \newcommand{\dollar}{{\$}}
 \newcommand*{\map}{\textsf{map}\xspace}
+\newcommand*{\red}{\textsf{red}\xspace}
 \newcommand*{\uda}{\textsf{uda}\xspace}
 
 % Time periods
@@ -58,19 +72,22 @@
 \newcommand{\tpymd}[3]{\ensuremath{\mathsf #1/#2/#3}}
 
 % Query langauge operations
-\newcommand*{\tsel}[2]{\ensuremath{\sigma^{t}(#1,#2)}}
-\newcommand*{\ssel}[2]{\ensuremath{\sigma^{s}(#1,#2)}}
-
-\newcommand*{\andgrp}[4]{\ensuremath{\gamma^{\cap}(#1,#2,#3,#4)}}
-\newcommand*{\orgrp}[4]{\ensuremath{\gamma^{\cup}(#1,#2,#3,#4)}}
-
-\newcommand*{\xfrm}[3]{\ensuremath{\chi(#1,#2,#3)}}
-\newcommand*{\an}[2]{\ensuremath{\alpha(#1,#2)}}
-
-%\newcommand*{\tor}[4]{\ensuremath{\bigcup({#1},{#2},{#3},{#4})}}
-\newcommand*{\tor}[4]{\ensuremath{#1 \cup_{#3, #4} #2}}
-%\newcommand*{\tand}[4]{\ensuremath{\bigcap(#1,#2,#3,#4)}}
-\newcommand*{\tand}[4]{\ensuremath{#1 \cap_{#3, #4} #2}}
+\newcommand*{\slice}[2]{\ensuremath{\tau_{#1}(#2)}}
+\newcommand*{\subv}[2]{\ensuremath{\textsf{sub}^T_v(#1,#2)}}
+\newcommand*{\sube}[2]{\ensuremath{\textsf{sub}^T_e(#1,#2)}}
+\newcommand*{\vmap}[1]{\ensuremath{\textsf{map}^T_v(#1)}}
+\newcommand*{\emap}[1]{\ensuremath{\textsf{map}^T_e(#1)}}
+\newcommand*{\agg}[2]{\ensuremath{\textsf{agg}_{\mathsf{#1}}(#2)}}
+%\newcommand*{\agg}[5]{\ensuremath{\textsf{agg}^T(#1,#2,#3,#4,#5)}}
+\newcommand*{\ncr}[3]{\ensuremath{~_{#1}\textsf{ncr}_{\mathsf{#2}}(#3)}}
+\newcommand*{\ecr}[3]{\ensuremath{#1~\textsf{ecr}_{#2}~#3}}
+\newcommand*{\extend}[1]{\ensuremath{\epsilon(\mathbf{#1})}}
+\newcommand*{\trim}[2]{\ensuremath{\mathcal{I}(\mathbf{#1},#2)}}
+\newcommand*{\coal}[1]{\ensuremath{\mathcal{C}(#1)}}
+\newcommand*{\norm}[3]{\ensuremath{\mathcal{N}_{#1}(\mathbf{#2},\mathbf{#3})}}
+\newcommand*{\constr}[2]{\ensuremath{\mathcal{K}(#1,#2)}}
+\newcommand*{\resolve}[2]{\ensuremath{\mathcal{R}(#1,#2)}}
+\newcommand*{\wsplit}[3]{\ensuremath{\mathcal{S}(#1,#2,#3)}}
 
 \newcommand{\insql}[1]{\textsf{#1}}
 

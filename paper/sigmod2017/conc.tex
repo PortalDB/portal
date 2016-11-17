@@ -1,18 +1,30 @@
 \section{Conclusions and Future Work}
 \label{sec:conc}
 
-In this paper we presented an interval-based model of evolving graphs,
-and proposed a composable \tg algebra that supports a rich set of
-operations.  It is in our immediate plans to develop a declarative
-syntax for the algebra, making it accessible to a wider audience of
-users.
+In this paper we presented \tga: a tuple-stamped vertex and edge
+relational model of evolving graphs and a rich set of operations with
+point semantics.  TGA is TRA-vertex- and -edge-complete.  We show
+reduction of each of our operations into TRA and further into RA with
+additional primitives.
 
-We described an impementation in scope of Apache Spark, and studied
-performance of operations on different physical representations.
-Interestingly, different physical implementations perform best for
-different operations, opening up avenues for rule-based and cost-based
-optimization.  Developing a query optimizer for \ql is in our
-immediate plans.
+It is in our immediate plans to develop a declarative syntax for \tra,
+making it accessible to a wider audience of users.  We described an
+implementation of \ql in scope of Apache Spark, and studied performance
+of operations on different physical representations.  Interestingly,
+different physical implementations perform best for different
+operations but support switching, opening up avenues for rule-based
+and cost-based optimization.  Developing a query optimizer for \ql is
+in our immediate plans.
+
+% Support for interval semantics: change preservation
+
+% Support for recursion
+
+% Support for path queries - quesions of efficiency and of semantics
+% --- preserving soundness of the model
+
+% Systems work: evaluate alternative physical representations for
+% temporal property graphs.
 
 \eat{ While the Portal language is extensive, it is by no means
   complete. We recognize that there are a number of operations that

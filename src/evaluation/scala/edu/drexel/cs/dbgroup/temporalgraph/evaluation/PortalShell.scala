@@ -79,6 +79,10 @@ object PortalShell {
     GraphLoader.setStrategy(partitionType)
     GraphLoader.setRunWidth(runWidth)
 
+    //force workers to load first
+    sqlContext.emptyDataFrame.count
+    //println("starting the timer")
+
     val startAsMili = System.currentTimeMillis()
     PortalParser.setStrategy(partitionType)
     PortalParser.setRunWidth(runWidth)
