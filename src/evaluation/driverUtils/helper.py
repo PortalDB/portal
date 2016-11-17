@@ -163,10 +163,10 @@ def drawSmallPlotForPaper(name,dataframes,keys):
 def plot(name,dataframes, config, keys):
     sns.set_context('notebook', font_scale=config['fontScale'])
     sns.set_style('whitegrid')
-    lines = ['-', ':', '-', '--', '-', '-.', '-', '-', '-', '-', '-']
-    colors = sns.color_palette("Paired", n_colors=11)
-    markers = ['', 's', '', 'o', '', 'D',  "", ">", "", "", ""]
-    linewitdhs = [2, 3, 2, 3, 2, 3, 2, 2, 2, 2, 2]
+    lines = ['-', ':', '-', '--', '-', '-.', '-', '-', '-', '-', '-', '-']
+    colors = sns.color_palette("Paired", n_colors=12)
+    markers = ['', 's', '', 'o', '', 'D',  "", ">", "", "", "", ""]
+    linewitdhs = [2, 3, 2, 3, 2, 3, 2, 2, 2, 2, 2, 2]
     linesDict =  dict(zip(keys, lines))
     colorsDict = dict(zip(keys, colors))
     markersDict = dict(zip(keys, markers))
