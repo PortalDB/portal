@@ -119,10 +119,10 @@ def runConfig(configFile):
     return dataframes
     
     
-def removeCloseValues(alignment, ticks, xmax):
+def removeCloseValues(alignment, ticks, xmax, removeCloseValuesRatio):
     n = 0
     while n < (len(alignment) - 1):
-        while (alignment[n+1] - alignment[n] < xmax/16):
+        while (alignment[n+1] - alignment[n] < (xmax/removeCloseValuesRatio)):
             del alignment[n + 1]
             del ticks[n + 1]
 	    if(n == len(alignment) -1):
@@ -130,10 +130,39 @@ def removeCloseValues(alignment, ticks, xmax):
         n = n + 1
     return alignment, ticks
 
-def drawGraph(name,dataframes):
-    sns.set_context('notebook', font_scale=1.4)
+def drawBigPlotsToDisplay(name,dataframes,keys):
+    config = {}
+    config['fontScale'] = 1.4;
+    config['figSizeX'] = 10;
+    config['figSizeY'] = 7.5;
+    config['nbins'] = False;
+    config['grid'] = True;
+    config['title'] = True;
+    config['convertValuesToThousandsAndMillions'] = False;
+    config['displayPlot'] = True;
+    config['savePlot'] = False;
+    config['removeCloseValuesRatio'] = 16;
+    plot(name, dataframes, config, keys);
+
+def drawSmallPlotForPaper(name,dataframes,keys):
+    config = {}
+    config['fontScale'] = 1;
+    config['figSizeX'] = 3;
+    config['figSizeY'] = 2.25;
+    config['nbins'] = True;
+    config['nbinsX'] = 5;
+    config['nbinsY'] = 4;
+    config['grid'] = False;
+    config['title'] = False;
+    config['convertValuesToThousandsAndMillions'] = False;
+    config['displayPlot'] = False;
+    config['savePlot'] = True;
+    config['removeCloseValuesRatio'] = 8;
+    plot(name, dataframes, config, keys);
+
+def plot(name,dataframes, config, keys):
+    sns.set_context('notebook', font_scale=config['fontScale'])
     sns.set_style('whitegrid')
-    keys = ['RGS', 'RG', 'OGS', 'OG', 'HGS', 'HG', 'VES', 'VE', 'RG_E2D', 'OG_E2D', 'HG_E2D']
     lines = ['-', ':', '-', '--', '-', '-.', '-', '-', '-', '-', '-']
     colors = sns.color_palette("Paired", n_colors=11)
     markers = ['', 's', '', 'o', '', 'D',  "", ">", "", "", ""]
@@ -142,7 +171,7 @@ def drawGraph(name,dataframes):
     colorsDict = dict(zip(keys, colors))
     markersDict = dict(zip(keys, markers))
     linewidthsDict = dict(zip(keys, linewitdhs))
- 
+
     items = [value for key, value in dataframes.items() if name in key]
     if not items:
         print "No data found for that dataset"
@@ -150,30 +179,55 @@ def drawGraph(name,dataframes):
     else:
         items = items[0]
     for i, item in enumerate(items):
-#         pprint.pprint(item[0])
         labels = list(item[0].columns.values)
-        fig = plt.figure(figsize=(10, 7.5))
+        fig = plt.figure(figsize=(config['figSizeX'], config['figSizeY']))
         ax1 = plt.gca()
-        ax1.set_xlabel(item[0].index.name)
         plt.ylabel(item[2])
+        if(config['nbins']):
+            plt.locator_params(nbins=config['nbinsX'], axis="x")
+            plt.locator_params(nbins=config['nbinsY'], axis="y")
+        plt.grid(config['grid'])
+
         for label in labels:
             #plotting a column only if its data are not None
             if any(item[0][label].tolist()):
                 plt.plot(item[0][label], label=label, linestyle=linesDict[label], color=colorsDict[label], linewidth=linewidthsDict[label], marker=markersDict[label])
         #setting up secondary x=axis if avaliable
         if item[4] is not None:
-            xmin, xmax = ax1.get_xlim() 
+            xmin, xmax = ax1.get_xlim()
             ax2 = ax1.twiny()
             ax2.set_xlabel(item[6])
             ax2.grid(False)
             #if the tick labels are too close they overlap, so we remove close values. The function removes values which are closer than 1/16th of the graph
-            new_tick_locations, ticks = removeCloseValues(item[5], item[4],xmax)
+            new_tick_locations, ticks = removeCloseValues(item[5], item[4],xmax,config['removeCloseValuesRatio'])
             ax2.set_xticklabels(ticks)
             ax2.set_xticks(new_tick_locations)
-            plt.title(item[1] + " build_num=" + str(item[3]), y=1.12)
+            if(config['title']):
+                plt.title(item[1] + " build_num=" + str(item[3]), y=1.12)
         else:
             #title in the regular position
-            plt.title(item[1] + " build_num=" + str(item[3]))
+            if(config['title']):
+                plt.title(item[1] + " build_num=" + str(item[3]))
+
+        xlabelextra = ""
+        if(config['convertValuesToThousandsAndMillions']):
+            #finding number of digits
+            xmax = max(item[0].index.values)
+            x = len(str(xmax).replace(".0", ""))
+            divider = 1
+            if (x >  6):
+                divider = 1000000
+                xlabelextra = " (Millions)"
+            #         elif(x > 5):
+            #             divider = 100000;
+            #             xlabelextra = " (Hundred Thousands)"
+            elif(x > 4):
+                divider = 1000;
+                xlabelextra = " (Thousands)"
+            ax1.xaxis.set_major_formatter(mtick.FuncFormatter(lambda y, pos: ('%.f')%(y/divider)))
+
+
+        ax1.set_xlabel(item[0].index.name + xlabelextra)
 
         #sorting the legends to match the order of the graph
         handles, labels = ax1.get_legend_handles_labels()
@@ -187,5 +241,16 @@ def drawGraph(name,dataframes):
         #setting up the maximum of x axis to the maximum value
         xmax = max(item[0].index.values)
         ax1.set_xlim(xmin=0, xmax=xmax)
-	plt.show()
 
+        if(config['savePlot']):
+            #figure save logic
+            dirName = "graphs/" + item[1].split(' ')[0]
+            fileName = item[1].split(' ', 1)[1].replace(' ', '_') + "_build_num=" + str(item[3])
+            if not os.path.exists(dirName):
+                os.makedirs(dirName)
+            plt.savefig(dirName + "/" + fileName, bbox_extra_artists=(lgd,), bbox_inches='tight')
+        
+        if(config['displayPlot']):
+            plt.show()
+        else:
+            plt.close()
