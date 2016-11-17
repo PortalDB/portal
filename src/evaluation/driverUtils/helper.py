@@ -23,7 +23,7 @@ db = None
 
 locale.setlocale(locale.LC_ALL, 'en_US.utf8')
 
-def getDataframesDictionary(configFile):
+def getDataframesDictionary(configFile, buildStart, buildEnd):
     global db
     graphsToPlot = {}
     myDefaults = {'axis-sql':None, 'secondaryXLabel':None}
@@ -62,7 +62,7 @@ def getDataframesDictionary(configFile):
     lineColorIndex = 0    
 
     for chartName,chartDesc in sqls.iteritems():
-        for build_num in range(3, 20):
+        for build_num in range(buildStart, buildEnd):
             xlabel = chartDesc["xlabel"]
             ylabel = chartDesc["ylabel"]
             query = chartDesc["sql"]
@@ -110,11 +110,11 @@ def getDataframesDictionary(configFile):
     return dataframes
         
 
-def runConfig(configFile):
+def runConfig(configFile, buildStart, buildEnd):
     global db
     db = models.BaseModel._meta.database
     db.connect()
-    dataframes = getDataframesDictionary(configFile)
+    dataframes = getDataframesDictionary(configFile, buildStart, buildEnd)
     db.close()
     return dataframes
     
