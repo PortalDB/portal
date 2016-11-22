@@ -96,9 +96,9 @@ $\ttt_4 = \vmap{\mathsf{f_v=stdev(deg)/mean(deg)*100}, \ttt_3}$
 
 {\bf Graph centrality over time.} Graph centrality is a popular
 measure that is used to evaluate how connected or centralized the
-community is.  This measure is computed by aggregating in-degree
-values of graph vertices%~\cite{}.  Interestingly, centrality of a
-graph may change as communication patterns evolve, or as high
+community is.  This measure can be computed by aggregating in-degree
+values of graph vertices\eat{~\cite{}.  Interestingly, centrality of
+  a} and may change as communication patterns evolve, or as high
 influencers appear or disappear. In sparse interaction graphs there is
 an additional question of temporal resolution to consider: if two
 people communicated on May 16, 2010, how long do we consider them to
@@ -245,7 +245,7 @@ $\ttt_1 = \insql{node}^T_w(\mathsf{w=6~mon},\mathsf{q_v=always},\mathsf{q_e=alwa
 %\vspace{-0.2cm}
 %\end{center}
 
-\item Generate a new graph, in which a vertex correspond to a
+\item Generate a new graph, in which a vertex corresponds to a
   connected component, and compute the size of the connected
   component. $\ttt_3 =
   \insql{node}^T_a(\mathsf{g=comp,f_v=count(1)},\ttt_2)$

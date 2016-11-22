@@ -3,12 +3,23 @@
 \section{Additional examples.}
 \label{sec:app:examples}
 
-\begin{figure*}
+Figure~\ref{fig:tg_inter} shows the result of temporal intersection
+of \insql{T1} with \insql{T2}.  Only the vertices and edges present in
+both \tgs are produced, thus eliminating $v_3$ and $v_4$.  Period
+$[2/15, 4/15)$ for $v_2$ is computed as a result of the join of
+$[2/15, 5/15)$ in \insql{T1} and [$2/15, 4/15)$ in \insql{T2}.
+
+Figure~\ref{fig:tg_diff} shows the result of temporal difference
+of \insql{T1} with \insql{T2}.  Vertex v1 is removed between 2/15 and
+6/15, splitting one v1 tuple in \tv of T1 into two temporally-disjoint
+tuples in the result.
+
+\begin{figure}[b]
 \centering
 \begin{subfigure}{3in}
 \includegraphics[width=2.8in]{figs/T1_inter_T2_rel.pdf}
 \caption{$T1 \cap^T T2$.}
-\vspace{-0.2cm}
+%\vspace{-0.2cm}
 \label{fig:tg_inter}
 \end{subfigure}
 \begin{subfigure}{3in}
@@ -20,7 +31,11 @@
 \caption{Binary operators.}
 \label{fig:binary}
 \vspace{-0.2cm}
-\end{figure*}
+\end{figure}
+
+
+\section{Additional results.}
+\label{sec:app2}
 
 \begin{figure*}
 %\centering
@@ -66,28 +81,15 @@
 \end{minipage}
 \end{figure*}
 
-\begin{figure}[h]
+\begin{figure*}
 \centering
-\includegraphics[width=2.1in]{figs/select_wikitalk_scale_build13.png}
+\begin{minipage}{2.4in}
+\includegraphics[width=2.4in]{figs/select_wikitalk_scale_build13.png}
 %\vspace{-0.2in}
 \caption{V-subgraph on wiki-talk.}
 \label{fig:selectscale}
-\vspace{-0.1in}
-\end{figure}
-
-Figure~\ref{fig:tg_inter} shows the result of temporal intersection
-of \insql{T1} with \insql{T2}.  Only the vertices and edges present in
-both \tgs are produced, thus eliminating $v_3$ and $v_4$.  Period
-$[2/15, 4/15)$ for $v_2$ is computed as a result of the join of
-$[2/15, 5/15)$ in \insql{T1} and [$2/15, 4/15)$ in \insql{T2}.
-
-Figure~\ref{fig:tg_diff} shows the result of temporal difference
-of \insql{T1} with \insql{T2}.  Vertex v1 is removed between 2/15 and
-6/15, splitting one v1 tuple in \tv of T1 into two temporally-disjoint
-tuples in the result.
-
-\section{Additional results.}
-\label{sec:app2}
+\end{minipage}
+\end{figure*}
 
 Plots and discussion in this section complement experimental results
 presented in Section~\ref{sec:exp}.

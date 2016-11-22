@@ -1,31 +1,54 @@
 \subsection{Reducing operators}
 \label{sec:props:reduce}
 
-Spark is not a temporal system.  Following the approach of Dignos et
-al.~\cite{Dignos2012} we reduce our temporal operators into a sequence
-of nontemporal relational operators, maintaining point semantics.  We
-need several operators on individual temporal relations in \tve which
-we term {\em primitives}: extend, trim, coalesce, normalize, and
-constrain, in order to support the operators of \ql algebra.
+\begin{table*}
+\small
+\begin{tabular}{ | p{1.4cm} p{2.5cm} c L{12.1cm} | }
+\hline
+\multicolumn{1}{|l}{\bfseries Operator} & & & \multicolumn{1}{c|}{\bfseries Reduction} \\ \hline
+\multicolumn{4}{|l|}{trim = $\mathcal{I}$; coalesce = $\mathcal{C}$; normalize = $\mathcal{N}$; constrain = $\mathcal{K}$} \\ \hline
+Slice & $\slice{c}{\ttt}$ & $=$ & $\forall x \in \{\tv,\te,\tav,\tae \}, x' = \trim{\sigma_{p \cap c} (x)}{c}$ \\
+Subgraph & $\subg{C_V}{C_E}{\ttt}$ & $=$ & $\tv' = \coal{\pi_{v,p}(\sigma_{C_V}(\norm{v}{\tv}{\tav}) \leftouterjoin_{v,p} \tav)},$ \newline $\te' = \constr{v}{\coal{\pi_{v_1,v_2,p} (\sigma_{C_E}(\norm{v_1,v_2}{\te}{\tae} \leftouterjoin_{v_1,v_2,p} \tae \bowtie_{v,p} \norm{v}{\tav}{\tae} \bowtie_{v,p} \norm{v}{\tav}{\tae}))}}{\tv'},$ \newline $\tav' = \constr{v}{\sigma_{C_V}(\tav)}{\tv'},$ \newline $\tae' = \constr{v}{\coal{\pi_{v_1,v_2,p,a} (\sigma_{C_E}(\norm{v_1,v_2}{\tae}{\tav} \bowtie_{v,p} \norm{v}{\tav}{\tae} \bowtie_{v,p} \norm{v}{\tav}{\tae}))}}{\te'}$ \\
+Map & $\mapp{M_V}{M_E}{\ttt}$ & $=$ & $\{ \tv, \te, \coal{map_{M_V}(\tav)}, \coal{map_{M_E}(\tae)} \} $ \\
+Intersection & $\ttt_1 \cap^T_r \ttt_2$ & $=$ & $\tv' = \coal{\norm{v}{\tv_1}{\tv_2} \cap \norm{v}{\tv_2}{\tv_1}},$ \newline $\te' = \coal{\norm{v1,v2}{\te_1}{\te_2} \cap \norm{v1,v2}{\te_2}{\te_1}},$ \newline $\tav' = \constr{v}{\coal{map_r(\norm{v}{\tav_1}{\tav_2} \fullouterjoin_{v,p} \norm{v}{\tav_2}{\tav_1})}}{\tv'},$ \newline $\tae' = \constr{v}{\coal{map_r(\norm{v1,v2}{\tae_1}{\tae_2} \fullouterjoin_{v_1,v_2,p} \norm{v}{\tae_2}{\tae_1})}}{\te'}$ \\
+Union & $\ttt_1 \cup^T_r \ttt_2$ & $=$ & $\tv' = \coal{\norm{v}{\tv_1}{\tv_2} \cup \norm{v}{\tv_2}{\tv_1}},$ \newline $\te' = \coal{\norm{v1,v2}{\te_1}{\te_2} \cup \norm{v1,v2}{\te_2}{\te_1}},$ \newline $\tav' = \coal{map_r(\norm{v}{\tav_1}{\tav_2} \fullouterjoin_{v,p} \norm{v}{\tav_2}{\tav_1})},$ \newline $\tae' = \coal{map_r(\norm{v1,v2}{\tae_1}{\tae_2} \fullouterjoin_{v_1,v_2,p} \norm{v}{\tae_2}{\tae_1})} \}$ \\
+Difference & $\ttt_1 \setminus^T_r \ttt_2$ & $=$ & $\tv' = \coal{\norm{v}{\tv_1}{\tv_2} \setminus \norm{v}{\tv_2}{\tv_1}},$ \newline $\te' = \coal{\norm{v1,v2}{\te_1}{\te_2} \setminus \norm{v1,v2}{\te_2}{\te_1}},$ \newline $\tav' = \constr{v}{\tav_1}{\tv'},$ \newline $\tae' = \constr{v}{\tae_1}{\te'}$ \\
+Semijoin & $\ttt_1 \ltimes_{C_V} \ttt_2$ & $=$ & $\tv' = \coal{\pi_{v_1,p}(\norm{v1,v2}{\te_1}{\te_2} \cap \norm{v1,v2}{\te_2}{\te_1}) \cup \pi_{v_2,p}(\norm{v1,v2}{\te_1}{\te_2} \cap \norm{v1,v2}{\te_2}{\te_1})}$ \newline $\te' = \coal{\norm{v1,v2}{\te_1}{\te_2} \setminus \norm{v1,v2}{\te_2}{\te_1}}$ \newline $\tav' = \constr{v}{\tav_1}{\tv}$ \newline $\tae' = \constr{v_1,v_2}{\tae_1}{\tae'}$ \\
+Aggregation & $\agg{C_V}{C_E}{d}{M}{A_V}{\ttt}$ & $=$ & $\tv' = \tv, \te' = \te$ \newline $\tav' = map_{a_1+a_2}(\norm{v,a}{\tav}{r} \bowtie_{v,p} \norm{v,a}{r}{\tav}) ~|~ r = \coal{_{v,p}\vartheta_{A_V}(M(\sigma_{C_V,C_E}(\norm{v_1,v_2}{\tae}{\tav} \bowtie_{v_1,p} \norm{v}{\tav}{\tae} \bowtie_{v_2,p} norm{v}{\tav}{\tae})))}$ \newline $\tae' = \tae$ \\
+Node creation & $\nodecr{W}{Q_V}{Q_E}{A_V}{A_E}{\ttt}$ & $=$ & \\
+Composition & $\compose{\ttt_1}{d}{r}{\ttt_2}$ & $=$ & \\
+\hline
+\end{tabular}
+\label{tab:reduce}
+\end{table*}
+
+Following the approach of Dignos et al.~\cite{Dignos2012} we reduce
+our temporal operators into a sequence of nontemporal relational
+operators, maintaining point semantics.  This allows our algebra to be
+implemented in any nontemporal relational database.  In addition to
+the regular algebra operators, we need several operators on individual
+temporal relations in \tve.  We term these {\em primitives} to
+distinguish them from the \ql algebraic operators.  They are extend,
+trim, coalesce, normalize, and constrain.
 
 \eat{Since our model is using point
 semantics, we do not support the property of change preservation.  }
 
-The {\em extend} primitive $\epsilon(\mathbf{r})$ extends a relation
-with an additional attribute which for each tuple is equivalent to
-that tuple's timestamp.  See~\cite{Dignos2012} for the formal
-definition.  The extend primitive allows references to the timestamps
-in the temporal predicates and join conditions making time information
+The {\em extend} primitive $\extend{r}$ extends a relation with an
+additional attribute which for each tuple is equivalent to that
+tuple's timestamp.  See~\cite{Dignos2012} for the formal definition.
+The extend primitive allows references to the timestamps in the
+temporal predicates and join conditions, transforming time information
 into data.
 
-The {\em trim} primitive $\mathcal{I}(\mathbf{r},c)$ modifies the
+The {\em trim} primitive $\trim{r}{c}$ modifies the
 timestamp of each tuple in a relation $\mathbf{r}$ to the result of
 its intersection with input period $c$.  Assuming $A$ is a set of
 non-temporal attributes of relation {\bf r}, $z \in
-\mathcal{I}(\mathbf{r},c) \iff \exists r \in \mathbf{r}(z.A = r.A
+\trim{r}{c} \iff \exists r \in \mathbf{r}(z.A = r.A
 \wedge z.p = r.p \cap c)$.
 
-The {\em coalesce} primitive $\mathcal{C}(\mathbf{r})$ merges adjacent
+The {\em coalesce} primitive $\coal{r}$ merges adjacent
 and overlapping time periods.  This operation, which is similar to
 duplicate elimination in conventional databases, has been extensively
 studied in the
@@ -37,13 +60,25 @@ operations may produce correct results (up to coalescing) {\em even
   in~\cite{DBLP:conf/vldb/BohlenSS96}.}We will revisit this point in
 Section~\ref{sec:sys:coal}.
 
-The {\em normalize} primitive, indicated by $\mathcal{N}_B(r;s)$
-produces a set of tuples for each tuple in {\bf r} by splitting its
-timestamp into non-overlapping periods with respect to another
-relation {\bf s} and attributes {\bf B}.  See~\cite{Dignos2012} for
-the formal definition.
+The {\em normalize} primitive, indicated by $\norm{B}{r}{s}$ produces
+a set of tuples for each tuple in {\bf r} by splitting its timestamp
+into non-overlapping periods with respect to another relation {\bf s}
+and attributes {\bf B}.  See~\cite{Dignos2012} for the formal
+definition.  Intuitively, normalize creates tuples in corresponding
+groups such that their timestamps are also equivalent.  For example,
+for a pair of relations $\mathbf{r}$ with single tuple $(vid1,
+[2016-05-01, 2016-08-01))$ and $\mathbf{s}$ with single tuple $(vid1,
+  [2016-07-01, 2016-09-01))$, it splits the intervals to
+    non-overlapping fragments. $\norm{A}{r}{s} = (vid1, [2016-05-01,
+      2016-07-01)),(vid1, [2016-07-01, 2016-08-01))$.  This primitive
+        is necessary for node creation, set operators like union, and
+        joins.  Note that Dignos et al. do not use the normalize
+        operator for joins, and instead use an align operator.  This
+        is necessary for change preservation property of sequenced
+        semantics and does not apply to point-based semantics we use
+        here.
 
-The {\em constrain} primitive $\mathcal{K}_k(r;s)$ constrains relation
+The {\em constrain} primitive $\constr{k}{r}{s}$ constrains relation
 $\mathbf{r}$ with respect to relation $\mathbf{s}$ by key $k$, such as
 removing edges from the result that do not have associated nodes, or
 trimming the edge validity period to be within the validity periods of
@@ -53,28 +88,10 @@ built-in way to express foreign key constraints.
 The implementation of each of these primitives is discussed in
 Section~\ref{sec:sys:maint}.
 
-Our reduction rules assume that the four constituent parts of \tve are
-extended and are as follows:
+Our reduction rules are shown in Table~\ref{tab:reduce} and assume
+that the four constituent parts of \tve are extended with the extend
+primitive.
 
-\begin{table*}
-\small
-\begin{tabular}{ | p{1.4cm} p{2.5cm} c L{12.1cm} | }
-\hline
-\multicolumn{1}{|l}{\bfseries Operator} & & & \multicolumn{1}{c|}{\bfseries Reduction} \\ \hline
-\multicolumn{4}{|l|}{trim = $\mathcal{I}$; coalesce = $\mathcal{C}$; normalize = $\mathcal{N}$; constrain = $\mathcal{K}$} \\ \hline
-Slice & $\tau_c (\ttt)$ & $=$ & $\forall x \in \{\tv,\te,\tav,\tae \}, x' = \mathcal{I}( \sigma_{p \cap c} (x), c)$ \\
-Subgraph & $\sigma_{C_V,C_E} (\ttt)$ & $=$ & $\tv' = \mathcal{C}(\pi_{v,p} (\sigma_{C_{V1}}(\mathcal{N}_v(\tv, \tav)) \bowtie_{v,p} \sigma_{C_{V2}}(\mathcal{N}_v(\tav,\tv)))),$ \newline $\te' = \mathcal{K}_v(\mathcal{C}(\pi_{v_1,v_2,p} (\sigma_{C_{E1}}(\mathcal{N}_{v_1,v_2}(\te,\tae)) \bowtie_{v_1,v_2,p} \sigma_{C_{E2}}(\mathcal{N}_{v_1,v_2}(\tae,\te))), \tv')),$ \newline $\tav' = \mathcal{K}_v(\sigma_{C_{V2}}(\tav), \tv'),$ \newline $\tae' = \mathcal{K}_v(\sigma_{C_{E2}}(\tae), \tv')$ \\
-Map & $map_{M_V,M_E}(\ttt)$ & $=$ & $\{ \tv, \te, \mathcal{C}(map_{M_V}(\tav)), \mathcal{C}(map_{M_E}(\tae) \} $ \\
-Intersection & $\ttt_1 \cap^T_r \ttt_2$ & $=$ & $\tv' = \mathcal{C}(\mathcal{N}_v(\tv_1, \tv_2) \cap \mathcal{N}_{v}(\tv_2, \tv_1)),$ \newline $\te' = \mathcal{C}(\mathcal{N}_{v1,v2}(\te_1, \te_2) \cap \mathcal{N}_{v1,v2}(\te_2, \te_1)),$ \newline $\tav' = \mathcal{K}_v(\mathcal{C}(map_r(\mathcal{N}_v(\tav_1, \tav_2) \fullouterjoin_{v,p} \mathcal{N}_v(\tav_2, \tav_1))), \tv'),$ \newline $\tae' = \mathcal{K}_v(\mathcal{C}(map_r(\mathcal{N}_{v1,v2}(\tae_1, \tae_2) \fullouterjoin_{v_1,v_2,p} \mathcal{N}_v(\tae_2, \tae_1))), \tv')$ \\
-Union & $\ttt_1 \cup^T_r \ttt_2$ & $=$ & $\tv' = \mathcal{C}(\mathcal{N}_v(\tv_1, \tv_2) \cup \mathcal{N}_{v}(\tv_2, \tv_1)),$ \newline $\te' = \mathcal{C}(\mathcal{N}_{v1,v2}(\te_1, \te_2) \cup \mathcal{N}_{v1,v2}(\te_2, \te_1)),$ \newline $\tav' = \mathcal{C}(map_r(\mathcal{N}_v(\tav_1, \tav_2) \fullouterjoin_{v,p} \mathcal{N}_v(\tav_2, \tav_1))),$ \newline $\tae' = \mathcal{C}(map_r(\mathcal{N}_{v1,v2}(\tae_1, \tae_2) \fullouterjoin_{v_1,v_2,p} \mathcal{N}_v(\tae_2, \tae_1))) \}$ \\
-Difference & $\ttt_1 \setminus^T_r \ttt_2$ & $=$ & $\tv' = \mathcal{C}(\mathcal{N}_v(\tv_1, \tv_2) \setminus \mathcal{N}_{v}(\tv_2, \tv_1)),$ \newline $\te' = \mathcal{C}(\mathcal{N}_{v1,v2}(\te_1, \te_2) \cap \mathcal{N}_{v1,v2}(\te_2, \te_1)),$ \newline $\tav' = \mathcal{K}_v(\mathcal{C}(map_r(\mathcal{N}_v(\tav_1, \tav_2) \fullouterjoin_{v,p} \mathcal{N}_v(\tav_2, \tav_1))), \tv'),$ \newline $\tae' = \mathcal{K}_v(\mathcal{C}(map_r(\mathcal{N}_{v1,v2}(\tae_1, \tae_2) \fullouterjoin_{v_1,v_2,p} \mathcal{N}_v(\tae_2, \tae_1))), \tv')$ \\
-Semijoin & $\ttt \ltimes_{C_V} \mathbf{r}$ & $=$ & \\
-Aggregation & $\gamma_{C_V,C_E,A_V}(\ttt)$ & $=$ & \\
-Node creation & $\vartheta_{W,Q_V,Q_E,A_V,A_E}(\ttt)$ & $=$ & \\
-Composition & $\ttt_1 sym \ttt_2$ & $=$ & \\
-\hline
-\end{tabular}
-\end{table*}
 
 \eat{
 When computing result of an operator over the \ve representation, we
