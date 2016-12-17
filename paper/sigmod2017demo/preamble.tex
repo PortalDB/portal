@@ -1,0 +1,122 @@
+% Enviroment definitions
+\newtheorem{definition}{Definition}[section]
+\newtheorem{proposition}{Proposition}
+\newtheorem{conjecture}{Conjecture}
+\newtheorem{theorem}{Theorem}
+\newtheorem{problem}{Problem}
+\newtheorem{example}{Example}
+\newtheorem{remark}{Remark}
+\newtheorem{lemma}{Lemma}
+
+% Comments
+\newcommand{\todo}[1]{[\textcolor{magenta}{{\bf TODO: }#1}]}
+\newcommand{\reminder}[1]{[\textcolor{magenta}{{\bf NB: }#1}]}
+\newcommand{\comment}[1]{\noindent\textcolor{comcol}{\small\textbf{Comment:} #1}}
+\newcommand*{\eat}[1]{}
+\newcommand{\julia}[1]{[\textcolor{purple}{{\bf Julia: }#1}]}
+\newcommand{\vera}[1]{[\textcolor{orange}{{\bf Vera: }#1}]}
+
+% Vocabulary
+\newcommand*{\ql}{\textsf{Portal}\xspace}
+\newcommand*{\tg}{\textsf{TGraph}\xspace}
+\newcommand*{\tgs}{\textsf{TGraphs}\xspace}
+\newcommand*{\rgs}{\textsf{representative graphs}\xspace}
+\newcommand*{\ve}{\textsf{vertex-edge}\xspace}
+\newcommand*{\sg}{RG\xspace}
+\newcommand*{\rg}{RG\xspace}
+\newcommand*{\mg}{MG\xspace}
+\newcommand*{\mgc}{MGC\xspace}
+\newcommand*{\og}{OG\xspace}
+\newcommand*{\ogc}{OGC\xspace}
+\newcommand*{\hg}{HG\xspace}
+
+\def\bp{\boldsymbol{p}}
+\def\bq{\boldsymbol{q}}
+\def\bc{\boldsymbol{c}}
+
+\newcommand*{\edgec}{\textsf{edge-complete}\xspace}
+\newcommand*{\vertexc}{\textsf{vertex-complete}\xspace}
+\newcommand*{\edgeq}{\textsf{edge-query}\xspace}
+\newcommand*{\vertexq}{\textsf{vertex-query}\xspace}
+
+\newcommand*{\ttt}{\ensuremath{\mathsf{T}}\xspace}
+\newcommand*{\trg}{\ensuremath{\mathsf{T^{RG}}}\xspace}
+%\newcommand*{\tve}{\ensuremath{\mathsf{T^{VE}}}\xspace}
+\newcommand*{\tve}{\ensuremath{\mathsf{T}}\xspace}
+\newcommand*{\tvea}{\ensuremath{\mathsf{{T_1}^{VE}}}\xspace}
+\newcommand*{\tveb}{\ensuremath{\mathsf{{T_2}^{VE}}}\xspace}
+\newcommand*{\trga}{\ensuremath{\mathsf{{T_1}^{RG}}}\xspace}
+\newcommand*{\trgb}{\ensuremath{\mathsf{{T_2}^{RG}}}\xspace}
+%\newcommand*{\tgg}{\textsf{TG}\xspace}
+\newcommand*{\tgg}{\ensuremath{\mathsf{T^{RG}}}\xspace}
+\newcommand*{\tv}{\textsf{TV}\xspace}
+\newcommand*{\te}{\textsf{TE}\xspace}
+\newcommand*{\avv}{\ensuremath{\mathsf{A^{V}}}\xspace}
+\newcommand*{\aee}{\ensuremath{\mathsf{A^{E}}}\xspace}
+\newcommand*{\tav}{\ensuremath{\mathsf{TA^{V}}}\xspace}
+\newcommand*{\tae}{\ensuremath{\mathsf{TA^{E}}}\xspace}
+\newcommand*{\tga}{TGA\xspace}
+\newcommand*{\tra}{TRA\xspace}
+
+\newcommand*{\opp}{\textsf{op}\xspace}
+\newcommand*{\cl}{\textsf{coal}\xspace}
+\newcommand{\dollar}{{\$}}
+\newcommand*{\map}{\textsf{map}\xspace}
+\newcommand*{\red}{\textsf{red}\xspace}
+\newcommand*{\uda}{\textsf{uda}\xspace}
+
+% Time periods
+\newcommand{\tpy}[1]{#1}
+\newcommand{\tpym}[2]{#1/#2}
+\newcommand{\tpymd}[3]{\ensuremath{\mathsf #1/#2/#3}}
+
+% Query langauge operations
+\newcommand*{\slice}[2]{\ensuremath{\tau_{#1}(#2)}}
+\newcommand*{\subv}[2]{\ensuremath{\textsf{sub}^T_v(#1,#2)}}
+\newcommand*{\sube}[2]{\ensuremath{\textsf{sub}^T_e(#1,#2)}}
+\newcommand*{\vmap}[1]{\ensuremath{\textsf{map}^T_v(#1)}}
+\newcommand*{\emap}[1]{\ensuremath{\textsf{map}^T_e(#1)}}
+\newcommand*{\agg}[2]{\ensuremath{\textsf{agg}_{\mathsf{#1}}(#2)}}
+%\newcommand*{\agg}[5]{\ensuremath{\textsf{agg}^T(#1,#2,#3,#4,#5)}}
+\newcommand*{\ncr}[3]{\ensuremath{~_{#1}\textsf{ncr}_{\mathsf{#2}}(#3)}}
+\newcommand*{\ecr}[3]{\ensuremath{#1~\textsf{ecr}_{#2}~#3}}
+\newcommand*{\extend}[1]{\ensuremath{\epsilon(\mathbf{#1})}}
+\newcommand*{\trim}[2]{\ensuremath{\mathcal{I}(\mathbf{#1},#2)}}
+\newcommand*{\coal}[1]{\ensuremath{\mathcal{C}(#1)}}
+\newcommand*{\norm}[3]{\ensuremath{\mathcal{N}_{#1}(\mathbf{#2},\mathbf{#3})}}
+\newcommand*{\constr}[2]{\ensuremath{\mathcal{K}(#1,#2)}}
+\newcommand*{\resolve}[2]{\ensuremath{\mathcal{R}(#1,#2)}}
+\newcommand*{\wsplit}[3]{\ensuremath{\mathcal{S}(#1,#2,#3)}}
+
+\newcommand{\insql}[1]{\textsf{#1}}
+
+\newcommand*{\predName}[1]{\ensuremath{\mathsf{#1}}}
+\newcommand*{\pred}[3]{#1~\predName{#2}~#3}
+
+\newcommand*{\op}[1]{\ensuremath{\mathsf{#1}}}
+\def\ojoin{\setbox0=\hbox{$\Join$}%
+\rule[0.2ex]{.25em}{.4pt}\llap{\rule[1.5ex]{.25em}{.4pt}}}
+\def\leftouterjoin{\mathbin{\ojoin\mkern-5.8mu\Join}}
+\def\rightouterjoin{\mathbin{\Join\mkern-5.8mu\ojoin}}
+\def\fullouterjoin{\mathbin{\ojoin\mkern-5.8mu\Join\mkern-6mu\ojoin}} 
+
+\newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}p{#1}}
+
+%\lstset{frame=tb,
+%  language=scala,
+%  aboveskip=3mm,
+%  belowskip=3mm,
+%  showstringspaces=false,
+%  columns=flexible,
+%  basicstyle={\small\ttfamily},
+%  numbers=none,
+%  numberstyle=\tiny\color{gray},
+%  keywordstyle=\color{blue},
+%  commentstyle=\color{dkgreen},
+%  stringstyle=\color{mauve},
+%  breaklines=true,
+%  breakatwhitespace=true,
+%  tabsize=3
+%}
+%\lstset{language=scala}
+

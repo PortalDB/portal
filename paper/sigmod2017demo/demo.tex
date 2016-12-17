@@ -1,0 +1,85 @@
+\section{Demonstration Details}
+\label{sec:demo}
+
+We will present an end-to-end implementation of \ql and will
+demonstrate that our system is usable and efficient, by showing that
+sophisticated kinds of exploratory analysis of large evolving graphs
+can be expressed intuitively and concisely, and executed in
+interactive time.
+
+\subsection{Demo Setup}
+\label{sec:setup}
+
+Users will interact with the \ql system via an interactive shell,
+where they will compose queries and define \tg views, exploring
+language features.  Users will inspect optimized query execution plans
+and execute queries.
+
+We will have a local cluster on a single laptop with three evolving
+graph datasets that allow interactive-speed data
+exploration. DBLP~\cite{dblp} contains co-authorship information from
+1936 through 2015, with 2.4 million author nodes and 7.2 million
+undirected co-authorship edges.  arXiv~\cite{arxiv} contains
+co-authorship information from 1993 through 2016, filtered to Computer
+Science publications with 0.26 million user nodes and 0.4 million
+messaging edges.  wiki-talk
+(\url{http://dx.doi.org/10.5281/zenodo.49561}) contains over 10
+million messaging events among 3 million wiki-en users\eat{2002
+  through 2015}, aggregated at 1-month resolution.
+
+\subsection{Story Line}
+\label{sec:story}
+
+We will demonstrate the functionality of \ql by executing queries
+provided by us and by members of the audience. Queries on very large
+evolving graphs will not result in interactive running times on the
+stand-alone cluster we plan to use for the demonstration.  However,
+the DBLP and arXiv datasets that we will primarily use allow for
+exploratory querying that takes on the order of seconds on a small
+cluster.
+
+{\bf Use Case 1:} DBLP and arXiv datasets can provide interesting
+insights into Computer Science research community at large.  Which
+authors have the most consistent publication record, i.e. publish
+every year over a long time period? This question can be answered
+using temporal node creation.  How stable are the co-authorship
+relationships over time? This question can also be answered using
+temporal node creation.  Who are the most authoritative sources, as
+judged by the co-authorship relationships, and does that coincide with
+our own judgments?  This question can be answered using pagerank
+analytic over various durations since the by-year data is very sparse.
+Members of the audience may come up with other questions.
+
+An interesting complex query computes the answer the following
+question: Who are the top-10 researchers whose publication careers
+exhibit the highest rising popularity over the last 20 years, using
+both DBLP and arXiv datasets?  We can use the following SQL-\ql
+query:
+
+\begin{small}
+\begin{verbatim}
+Select vid, pr
+From (VSelect trend(prank) as pr
+      ESelect *
+      From (VSelect pagerank() as prank
+            ESelect *
+            From (dblp UNION arxiv)
+            VWhere start >= 1996-01-01 and
+                   end < 2016-01-01
+            TGroup by 5 years)
+      TGroup by size).vertices()
+Order by pr
+Limit 10
+\end{verbatim}
+\end{small}
+
+\vera{We should reconsider using this query and/or using a laptop for
+  the demo. This query takes almost 5 minutes on the cluster using
+  dblp only, 14 minutes on the cluster using arxiv only, and 47
+  minutes on my laptop using dblp only. Obviously these are not
+  interactive speeds.}
+
+{\bf Use Case 2:} In Section~\ref{sec:cases} we used the wiki-talk
+dataset to explore common analysis tasks on interaction graphs.  The
+users will be able to explore these and other types of analyses during
+the demonstration.
