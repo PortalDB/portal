@@ -1,244 +1,33 @@
-\section{Use cases and Portal by example}
+\section{\ql by example}
 \label{sec:cases}
 
-An interaction network is one typical kind of an evolving graph.  It
-represents people as vertices, and interactions between them such as
-messages, conversations and endorsements, as edges.  Information
-describing people and their interactions is represented by vertex and
-edge attributes.  One easily accessible interaction network is the
-wiki-talk dataset (\url{http://dx.doi.org/10.5281/zenodo.49561}),
-containing messaging events among Wikipedia contributors over a
-13-year period.  Information available about the users includes their
-username, group membership, and the number of Wikipedia edits they
-made.  Messaging events occur when users post on each other's talk
-pages.  We can load the dataset with the following command:
+We demonstrate the \tga / \ql operations through the following use
+case.  An interaction network is one typical kind of an evolving
+graph.  It represents people as vertices, and interactions between
+them such as messages, conversations and endorsements, as edges.
+Information describing people and their interactions is represented by
+vertex and edge attributes.  One easily accessible interaction network
+is the wiki-talk dataset
+(\url{http://dx.doi.org/10.5281/zenodo.49561}), containing messaging
+events among Wikipedia contributors over a 13-year period.
+Information available about the users includes their username, group
+membership, and the number of Wikipedia edits they made.  Messaging
+events occur when users post on each other's talk pages.  
 
-\vspace{-0.1cm}
-\begin{small} 
-\begin{verbatim}
-CREATE VIEW wiki AS { LOAD FROM "path/to/data" }
-\end{verbatim}
-\end{small}
+%Communities over time.
 
-{\bf Vertex influence over time.} In an interaction graph, vertex
-centrality is a measure of how important or influential people are.
-Over a dozen different centrality measures exist, providing indicators
-of how much information ``flows'' through the vertex or how the vertex
-contributes to the overall cohesiveness of the network.  Vertex
-importance fluctuates over time.  To see whether the wiki-talk graph
-has high-importance vertices, and how stable vertex importance is over
-time during a particular period of interest, we can look at a subset
-of the graph that corresponds to the period of interest, compute an
-importance measure, such as in-degree, for each vertex and for each
-point in time, and finally calculate the coefficient of variation per
-vertex.
+Interaction networks are sparse because edges are so short-lived.  As
+part of exploratory analysis, we can consider the network at different
+temporal resolutions, run a community detection algorithm, e.g.,
+compute the connected components of the network, and then consider the
+number of and size of connected components.
 
-\eat{This example demonstrates a need to select a subset of the data
-corresponding to the period of interest, compute in-/out-degree for
-each vertex at each point in time, and compute a single measure across
-time for each vertex.  Computation of degree is a simple example of a
-non-temporal {\em aggregation} operation as defined by the taxonomy of
-Wood~\cite{Wood2012}.  Aggregation computes a value for each vertex
-based on its neighbors and can be used for a wide variety of analyses.
-SocialScope~\cite{Amer-Yahia2009} is one of the languages that proposes
-an aggregation operation and demonstrates its many uses.  We introduce
-a temporal version of aggregation.}
-
-{\bf Question:} What are the high-influence nodes over the past 5
-years, and is their influence persistent over time?
-
-\begin{enumerate}[noitemsep,itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=0pt]
-\item Select a subset of the data representing the 5 years of
-  interest, using a common temporal operator slice($\tau$):
-%$\ttt_1 = \slice{[2010,2015)}{wikitalk}$
-
-\vspace{-0.1cm}
-\begin{small} 
-\begin{verbatim}
-CREATE VIEW T1 AS { VSELECT *
-ESELECT *
-FROM wiki
-VWHERE start >= '2010-01-01' AND end < '2014-01-01'}
-\end{verbatim}
-\end{small}
-
-\item Compute in-degree (prominence) of each vertex during each time
-  point.  This is an example of the {\em aggregation} operation, a
-  common operation on non-temporal graphs, as defined by the taxonomy
-  of Wood~\cite{Wood2012}.  Aggregation computes a value for each
-  vertex based on its neighbors.  SocialScope~\cite{Amer-Yahia2009} is
-  one of the languages that proposes an aggregation operation and
-  demonstrates its many uses.  We introduce a temporal version of
-  aggregation (listed here with default arguments omitted for
-  readability):
-%$\ttt_2 = \insql{agg}^T(\mathsf{dir=right},\mathsf{f_m=1},\mathsf{f_a=count},\mathsf{pname=deg},\ttt_1)$
-
-\vspace{-0.1cm}
-\begin{small} 
-\begin{verbatim}
-CREATE VIEW T2 AS { VSELECT count(*) as deg
-ESELECT *
-FROM T1
-AGGREGATE RIGHT }
-\end{verbatim}
-\end{small}
-
-\item Aggregate degree information per vertex across the timespan
-  of $\ttt_2$, collecting values into a map.  This is an example of
-  aggregation based on temporal window, which we implement with the
-  temporal node creation operator:
-%$\ttt_3 =\insql{node}^T_w(\mathsf{w=lifetime},\mathsf{f_v=\{map(deg)\}},\ttt_2)$
-
-\vspace{-0.1cm}
-\begin{small} 
-\begin{verbatim}
-CREATE VIEW T3 AS { VSELECT map(deg)
-ESELECT *
-FROM T2
-TGROUP BY SIZE }
-\end{verbatim}
-\end{small}
-
-\item Transform the attributes of each vertex to compute the
-  coefficient of variation from the map of degree values, using the
-  temporal vertex-map operator:
-%$\ttt_4 = \vmap{\mathsf{f_v=stdev(deg)/mean(deg)*100}, \ttt_3}$
-
-\vspace{-0.1cm}
-\begin{small} 
-\begin{verbatim}
-VSELECT stdev(deg)/average(deg)*100 as cov
-ESELECT *
-FROM T3
-\end{verbatim}
-\end{small}
-\end{enumerate}
-
-The multiple queries can be combined into a single complex one:
-
-\vspace{-0.1cm}
-\begin{small} 
-\begin{verbatim}
-VSELECT stdev(map(deg))/average(map(deg))*100 as cov
-ESELECT *
-FROM ( VSELECT count(*) as deg
-       ESELECT *
-       FROM wiki
-       AGGREGATE RIGHT
-       VWHERE start >= '2010-01-01' AND end < '2014-01-01' )
-TGROUP BY SIZE
-\end{verbatim}
-\end{small}
-
-{\bf Graph centrality over time.} Graph centrality is a popular
-measure that is used to evaluate how connected or centralized the
-community is.  This measure can be computed by aggregating in-degree
-values of graph vertices\eat{~\cite{}.  Interestingly, centrality of
-  a} and may change as communication patterns evolve, or as high
-influencers appear or disappear. In sparse interaction graphs there is
-an additional question of temporal resolution to consider: if two
-people communicated on May 16, 2010, how long do we consider them to
-be connected?  We now show how graph centrality can be computed over
-time, with control for temporal resolution.
-
-\eat{This example demonstrates a need to compute graph centrality at every
-point in its lifetime and to do so at different temporal resolution.
-For most graph centrality measures, the two-step process involves
-first calculating some measure, such as in-degree, for each graph
-vertex, and then accumulating them into one.  This calls for an
-operation that can group multiple vertices, in this case all of them,
-into a new vertex.  Wood terms this operation {\em node creation} and
-shows that many graph languages such as GraphQL~\cite{He2008} support
-it if there is a need to output new nodes that were not part of the
-input.  Creating a single vertex to represent the whole graph is one
-way to support computation of some whole-graph measure, but, as we
-show below, node creation is useful for other types of analyses.  Use
-of temporal windows is also important here to consider different
-temporal resolution, which is similar to temporal aggregation in
-temporal relational databases.  Our temporal node creation operator
-can create new nodes from structure or temporal information or both.}
-
-{\bf Question:} How has graph centrality changed over time?
-
-\begin{enumerate}[noitemsep,,itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=0pt]
-\item Compute a temporally aggregated view of the graph into 2-months
-  windows.  Each window will include vertices and edges that
-  communicate frequently: a vertex and an edge are each present during
-  a 2-month window if they exist in every snapshot during that period.
-  We use the window-based node creation operation.
-%$\ttt_1 = \insql{node}^T_w(\mathsf{w=2~mon},\mathsf{q_v=always},\mathsf{q_e=always},wikitalk)$
-
-\vspace{-0.1cm}
-\begin{small} 
-\begin{verbatim}
-CREATE VIEW T1 AS { VSELECT *
-ESELECT *
-FROM wiki
-TGROUP BY 2 months
-VEXISTS always
-EEXISTS always }
-\end{verbatim}
-\end{small}
-
-\item Compute in-degree of each vertex:
-%$\ttt_2 = \insql{agg}^T(\mathsf{dir=right},\mathsf{f_m=1},\mathsf{f_a=count},\mathsf{pname=deg},\ttt_1)$
-
-\vspace{-0.1cm}
-\begin{small} 
-\begin{verbatim}
-CREATE VIEW T2 AS { VSELECT count(*) as deg
-ESELECT *
-FROM T1
-AGGREGATE RIGHT }
-\end{verbatim}
-\end{small}
-
-\item Create a new graph, in which all vertices that are present at a
-  given time point (snapshot) are grouped into a single vertex.
-  Accumulate maximum, sum and count of the values of $deg$ as
-  properties at that vertex.  We implement this with the
-  attribute-based node creation operation.  Creating a single vertex
-  to represent the whole graph is one use of node creation.  We will
-  show that node creation is useful for other types of analysis. 
-%$\ttt_3 =$\\
-%  $\insql{node}^T_a(\mathsf{g=1,f_v=\{max(deg),~sum(deg),~count(deg)\}},\ttt_2)$
-
-\vspace{-0.1cm}
-\begin{small} 
-\begin{verbatim}
-CREATE VIEW T3 AS { VSELECT max(deg) as maxd, 
-                    sum(deg) as sumd, count(deg) as cnt
-ESELECT *
-FROM T2 }
-\end{verbatim}
-\end{small}
-
-\item Compute degree centrality at each time point.
-%$\ttt_4 = \vmap{\mathsf{f_v=(max*cnt-sum)/(cnt^2-3*cnt+2)}, \ttt_3}$
-
-\vspace{-0.1cm}
-\begin{small} 
-\begin{verbatim}
-VSELECT (maxd*cnt - sumd) / (cnt^2 - 3*cnt + 1) as central
-ESELECT *
-FROM T3
-\end{verbatim}
-\end{small}
-\end{enumerate}
-
-{\bf Communities over time.} Interaction networks are sparse because
-edges are so short-lived.  As part of exploratory analysis, we can
-consider the network at different temporal resolutions, run a
-community detection algorithm, e.g., compute the connected components
-of the network, and then consider the number of and size of connected
-components.
-
-\eat{To see whether communities form and at what time scale, we can
-  vary the time scale and compute communities, e.g. through connected
-  components detection, group the vertices by the community they form
-  and calculate their size.  We can filter out vertices that represent
-  communities below a reasonable threshold, for example of size
-  smaller than two.}
+\eat{To see whether communities form and at what time scale, we can vary
+the time scale and compute communities, e.g. through connected
+components detection, group the vertices by the community they form
+and calculate their size.  We can filter out vertices that represent
+communities below a reasonable threshold, for example of size smaller
+than two.}
 
 \eat{This example demonstrates a need to compute graph-wide analytics
   such as connected components for each point in time, create new
@@ -248,77 +37,202 @@ components.
   G*~\cite{Labouseur2015}, including PageRank, weakly connected
   components, and source-source shortest path.}
 
-{\bf Question:} In a sparse communication network, on what time scale
-can we detect communities?
+\eat{{\bf Question:} In a sparse communication network, on what time scale
+can we detect communities?}
 
-\begin{enumerate}[noitemsep,itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=0pt]
-\item Aggregate the graph into 6-month windows.
-%$\ttt_1 = \insql{node}^T_w(\mathsf{w=6~mon},\mathsf{q_v=always},\mathsf{q_e=always},wikitalk)$
+\begin{example}
+\label{ex:load}
+We can load the dataset with the following command:
 
-\vspace{-0.1cm}
 \begin{small} 
 \begin{verbatim}
-CREATE VIEW T1 AS { VSELECT *
-ESELECT *
-FROM wiki
-TGROUP BY 6 months
-VEXISTS always
-EEXISTS always }
+Create View wiki As { Load From "path/to/data" }
+\end{verbatim}
+\end{small}
+\end{example}
+
+\begin{example}
+\label{ex:slice}
+
+Select a subset of the data representing the 5 years of interest,
+using a common temporal operator slice($\tau$):
+
+$\ttt_1 = \slice{[2010,2015)}{wiki}$
+
+\begin{small} 
+\begin{verbatim}
+Create View T1 As { 
+   VSelect * ESelect *
+   From wiki
+   VWhere start>='2010-01-01' AND end<'2015-01-01'}
 \end{verbatim}
 \end{small}
 
-\item Compute connected components at each time point.  This is an
+\end{example}
+
+\begin{example}
+\label{ex:nodecrt}
+
+Compute a temporally aggregated view of the graph into 6-months
+windows.  Each window will include vertices and edges if they
+communicated regularly: a vertex and an edge are each present during a
+6-month window if they exist in every snapshot during that period.  We
+use the window-based node creation operation, which is similar to
+moving window temporal aggregation for relations:
+
+\eat{\item Aggregate the graph into 6-month windows.}
+
+$\ttt_2 = \insql{node}^T_w(\mathsf{w=6~mon},\mathsf{q_v=always},\mathsf{q_e=always},\ttt_1)$
+
+\begin{small} 
+\begin{verbatim}
+Create View T2 As { 
+   VSelect * ESelect *
+   From T1
+   TGroup By 6 months
+   VExists always EExists always }
+\end{verbatim}
+\end{small}
+
+\end{example}
+
+The node creation operator enables the user to analyze an evolving
+graph at different levels of granularity.  This operator comes in two
+variants --- based on vertex attributes or based on temporal window.
+
+\begin{example}
+\label{ex:cc}
+
+Compute connected components at each time point.  This is an
   example of a Pregel-style analytic invocation over an evolving
-  graph. 
-%$\ttt_2 = \insql{pregel}^T_{cc} (\mathsf{pname=comp}, \ttt_1)$
+  graph.
 
-\vspace{-0.1cm}
+$\ttt_3 = \insql{pregel}^T_{cc} (\mathsf{pname=comp}, \ttt_2)$
+
 \begin{small} 
 \begin{verbatim}
-CREATE VIEW T2 AS { VSELECT components() as comp
-ESELECT *
-FROM T1
+Create View T3 As { 
+   VSelect components() as comp, *
+   Eselect *
+   From T2 }
 \end{verbatim}
 \end{small}
 
-  \eat{ We need to compute graph-wide analytics such as connected
-    components for each point in time.  Graph-wide analytics on
-    evolving graphs have been proposed previously in
-    ImmortalGraph~\cite{Miao2015} and G*~\cite{Labouseur2015},
-    including PageRank, weakly connected components, and source-source
-    shortest path.}
+\end{example}
 
-\item Generate a new graph, in which a vertex corresponds to a
-  connected component, and compute the size of the connected
-  component. 
-%$\ttt_3 =
-%  \insql{node}^T_a(\mathsf{g=comp,f_v=count(1)},\ttt_2)$
+\eat{
+Note the use of $*$ after invocation of the components analytic.  With
+the property model, different nodes may have different properties, so
+listing them all may be burdensome for the user.}
 
-\vspace{-0.1cm}
+\eat{ We need to compute graph-wide analytics such as connected
+  components for each point in time.  Graph-wide analytics on evolving
+  graphs have been proposed previously in
+  ImmortalGraph~\cite{Miao2015} and G*~\cite{Labouseur2015}, including
+  PageRank, weakly connected components, and source-source shortest
+  path.}
+
+\begin{example}
+\label{ex:nodecra}
+
+Generate a new graph, in which a vertex corresponds to a connected
+component, and compute the size of the connected component.  We
+implement this with the attribute-based node creation operation:
+
+$\ttt_4 = \insql{node}^T_a(\mathsf{g=comp,f_v=count(1)},\ttt_3)$
+
 \begin{small} 
 \begin{verbatim}
-CREATE VIEW T3 AS { VSELECT count(*) as cnt
-ESELECT *
-FROM T2
-VGROUP BY comp }
+Create View T4 As { 
+   VSelect count(*) as cnt  ESelect *
+   From T3
+   VGroup By comp }
 \end{verbatim}
 \end{small}
 
-\item Filter out vertices that represent communities too small to be
+\end{example}
+
+This operation allows the user to generate a \tg in which vertices
+correspond to disjoint groups of vertices in the input that agree on
+the values of all grouping attributes.  Vertices of the input are
+partitioned on their values of the grouping attributes.  Partitioning
+of the vertices also induces a partitioning of the edges.
+
+\begin{example}
+\label{ex:subg}
+
+Filter out vertices that represent communities too small to be
   useful (e.g., of 1-2 people).  This is an example of vertex
-  subgraph.  
-%$\ttt_4 = \subv{\mathsf{v.a.count > 2}}{\ttt_3}$
+  subgraph.
 
-\vspace{-0.1cm}
+$\ttt_5 = \subv{\mathsf{v.a.count > 2}}{\ttt_4}$
+
 \begin{small} 
 \begin{verbatim}
-VSELECT *
-ESELECT *
-FROM T3
-VWHERE cnt > 2
+Create View T5 As {
+   VSelect * ESelect *
+   From T4
+   VWhere cnt > 2 }
 \end{verbatim}
 \end{small}
-\end{enumerate}
+\end{example}
+
+The multiple queries can be combined into a single complex one, as in SQL.
+
+Another use case demonstrates the remaining operations of \tga.  DBLP
+and arXiv datasets contain co-authorship information and can provide
+interesting insights into Computer Science research community at
+large.  Nodes represent authors and edges an existence of a joint
+publication between them.
+
+\begin{example}
+\label{ex:union}
+
+Assuming that the author ids are drawn from the same set,
+i.e. assigned identically in both dblp and arXiv, we can combine the
+two datasets for a more comprehensive view using the union operation:
+
+$\ttt_6 = dblp \cap^T arXiv (f_v=left(name),f_E=max(cnt))$
+
+\begin{small}
+\begin{verbatim}
+Create View T6 As {
+   VSelect left(name)  ESelect max(cnt)
+   From dblp union arxiv }
+\end{verbatim}
+\end{small}
+
+\end{example}
+
+Note that unlike in relational algebra, \tga union operation requires
+aggregation functions to resolve multiple property values for the same
+node/edge.  The \insql{left} aggregation function takes the value of
+the name vertex property from the dblp dataset where the vertex exists
+in both.
+
+\begin{example}
+\label{ex:agg}
+
+Finally, we compute an in-degree of each vertex during each time
+point.  This is an example of the {\em aggregation} operation, a
+common operation on non-temporal graphs, as defined by the taxonomy of
+Wood~\cite{Wood2012}.  Aggregation computes a value for each vertex
+based on its neighbors.  We introduce a temporal version of
+aggregation (listed here with default arguments omitted for
+readability):
+
+$\ttt_7 = \insql{agg}^T(\mathsf{dir=right},\mathsf{f_m=1},\mathsf{f_a=count},\mathsf{pname=deg},\ttt_6)$
+
+\begin{small} 
+\begin{verbatim}
+Create View T7 As { 
+   VSelect count(*) as deg, * ESelect *
+   From T6
+   Aggregate Right }
+\end{verbatim}
+\end{small}
+
+\end{example}
 
 \eat{Besides the examples above, graph queries commonly include retrieving
 a specific node (which can be accomplished through a subgraph) and
@@ -335,3 +249,4 @@ operators.}
 graph algebra.  In Section~\ref{sec:exp} we return to these three use
 cases. 
 }
+
