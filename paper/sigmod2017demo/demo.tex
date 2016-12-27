@@ -1,0 +1,47 @@
+\section{Demonstration Details}
+\label{sec:demo}
+
+We will present an end-to-end implementation of \sys and will
+demonstrate that our system is efficient and usable, by showing that
+sophisticated kinds of exploratory analysis of large evolving graphs
+can be expressed intuitively and concisely, and executed in
+interactive time.
+
+\eat{
+\subsection{Demo Setup}
+\label{sec:setup}}
+
+Users will interact with the \sys system via an interactive shell,
+where they will compose queries and define \tg views, exploring
+language features.  Users will inspect optimized query execution plans
+and execute queries.
+
+We will have a local cluster on a single laptop with three evolving
+graph datasets that allow interactive-speed data exploration. DBLP
+contains co-authorship information from 1936 through 2015, with 2.4
+million author nodes and 7.2 million undirected co-authorship edges.
+arXiv contains co-authorship information from 1993 through 2016,
+filtered to Computer Science publications with 0.26 million user nodes
+and 0.4 million messaging edges.  wiki-talk contains over 10 million
+messaging events among 3 million wiki-en users\eat{2002 through 2015},
+aggregated at 1-month resolution.
+
+\eat{
+\subsection{Story Line}
+\label{sec:story}}
+
+\eat{We will demonstrate the functionality of \sys by executing queries
+provided by us and by members of the audience. }
+
+The demonstration will consist of three parts.  In Part 1, we will
+offer an introduction to the \ql operations and syntax.  In Part 2, we
+will showcase the queries from Section~\ref{sec:cases}.  Each of the
+queries is expected to take on the order of 30 seconds or less.
+Queries on very large evolving graphs will not result in interactive
+running times on the stand-alone cluster we plan to use for the
+demonstration.  However, the DBLP and arXiv datasets that we will
+primarily use allow for reasonable response time.  We will examine the
+execution plans for these queries, including the selected access
+methods and the order of execution.  In Part 3, we will encourage the
+audience to try the interactive shell and define new analyses on the
+demo data sets.

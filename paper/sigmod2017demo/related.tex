@@ -1,0 +1,42 @@
+\section{Related Work}
+\label{sec:related}
+
+Three systems in the literature focus on systematic support of
+evolving graphs, all of them non-compositional.  Miao et
+al.~\cite{Miao2015} developed ImmortalGraph (formerly Chronos), a
+proprietary in-memory execution engine for temporal graph analytics.
+ImmortalGraph does not provide a query language, focusing primarily on
+efficient physical data layout.  The batching method for snapshot
+analytics we use is similar to the one proposed in ImmortalGraph.
+However, ImmortalGraph was developed with the focus on centralized
+rather than distributed computation and~\cite{Miao2015} does not
+explore the effect of distribution on batching performance.
+
+The G* system~\cite{Labouseur2015} manages graphs that correspond to
+periodic snapshots, with the focus on efficient data layout.  It takes
+advantage of the similarity between successive snapshots by storing
+shared vertices only once and maintaining per-graph indexes.  Time is
+not an intrinsic part of the system, as there is in \tga, and thus
+temporal queries with time predicates like node creation are not
+supported.  G* provides two query languages: procedural query language
+PGQL, and a declarative graph query language (DGQL). PGQL provides
+graph operators such as retrieving vertices and their edges from disk
+and non-graph operators like aggregate, union, projection, and join.
+All operators use a streaming model, i.e. like in traditional DBMS,
+they pipeline.  DGQL is similar to SQL and is converted into PGQL by
+the system.
+
+Finally, the Historical Graph Store (HGS) system is an evolving graph
+query system based on Spark.  It uses the property graph model and
+supports retrieval tasks along time and entity dimensions through Java
+and Python API.  It provides a range of operators such as selection
+(equivalent to our subgraph operators but with no temporal
+predicates), timeslice, nodecompute (similar to map but also with no
+temporal information), as well as various evolution-centered
+operators.  HGS does not provide formal semantics for any of the
+operations it supports and the main focus is on efficient on-disk
+representation for retrieval.
+
+None of the three systems are publicly available, so direct
+performance comparison with them is not feasible.
+

@@ -1,0 +1,119 @@
+\section{Demonstration Details}
+\label{sec:demo}
+
+We will present an end-to-end implementation of \ql and will
+demonstrate that our system is usable and efficient, by showing that
+sophisticated kinds of exploratory analysis of large evolving graphs
+can be expressed intuitively and concisely, and executed in
+interactive time.
+
+\subsection{Demo Setup}
+\label{sec:setup}
+
+Users will interact with the \ql system via an interactive shell and
+via the \qlui, where they will type in or visually compose queries and
+define \tg views, exploring language features.\eat{ and its
+  expressiveness.}  Users will inspect optimized query execution plans
+and execute queries.
+
+We will have a local cluster with three evolving graph datasets that
+allow interactive-speed data exploration. DBLP~\cite{dblp} contains
+co-authorship information from 1936 through 2015, with over 1.5
+million author nodes and over 6 million undirected co-authorship
+edges.  arXiv~\cite{arxiv} contains co-authorship information from
+1993 through 2016, filtered to Computer Science publications.
+nGrams~\cite{nGrams} lists word co-occurrences from 1520 through
+2008, with over 1.5 million word nodes and over 65 million undirected
+co-occurrence edges.  
+
+\subsection{Story Line}
+\label{sec:story}
+
+\eat{We will demonstrate the functionality of \ql by executing queries
+provided by us and by members of the audience. Queries on very
+  large evolving graphs will not result in interactive running times
+  on the stand-alone cluster we plan to use for the demonstration.
+  However, the DBLP dataset that we will primarily use allows for
+  exploratory querying that takes on the order of seconds on a small
+  cluster.  The total running time is dominated by the time it takes
+  to load data from HDFS, except in cases of using snapshot analytics
+  over long time periods. Some queries on the nGrams dataset also can
+  be done in interactive time.} 
+
+{\bf Use Case 1:} DBLP dataset can provide interesting insights into
+Computer Science research community at large.  Which authors have the
+most consistent publication record, i.e. publish every year over a
+long time period? This question can be answered using temporal
+aggregation.  How stable are the co-authorship relationships over
+time? This question can also be answered using temporal aggregation.
+Who are the most authoritative sources, as judged by the co-authorship
+relationships, and does that coincide with our own judgments?  This
+question can be answered using pagerank analytic over an aggregation
+of various durations since the by-year data is very sparse.  Members
+of the audience may come up with other questions.  We will record all
+the questions to see what language features, if any, are currently
+missing from \ql but desirable to the community.
+
+An interesting complex query computes the answer the following
+question: Who are the top-10 researchers whose publication careers
+exhibit the highest rising popularity over the last 20 years, using
+both DBLP and arXiv datasets?  We can use the following SQL-\ql
+query:
+
+\begin{small}
+\begin{verbatim}
+ Q4: Select vid, pr
+     From (TSelect Any V[vid, trend(prank) as pr];
+                   Any E
+           From (TSelect All V[vid, pagerank() as prank]; 
+                         All E
+                 From dblp TAnd arxiv
+                 TWhere Start >= 1995-01-01 And
+                        End < 2015-01-01
+                 TGroup by 5 years)
+           TGroup by size).toVerticesFlat()
+     Order by pr
+     Limit 10
+\end{verbatim}
+\end{small}
+
+Note the use of \insql{Any} and \insql{All} modifiers in \insql{Q4}.
+The \insql{Any} modifier makes explicit the default behavior of
+structural aggregation, where a union of the vertices and edge is
+computed.  \insql{All} specifies that the vertex and edge relations
+should be intersected in the corresponding snapshots.
+
+With this query users will not only get to experiment with the
+available features of \ql, but also observe query optimization in
+action.  We will explain that several different orders of operators
+produce equivalent results for this query, but lead to different
+performance.
+
+{\bf Use Case 2:} Word co-occurrences in the nGrams dataset provide
+interesting history of the evolution of the English language over 400
+years.  Do co-occurrence pairs persist over time?  By experimenting
+with different aggregation window sizes, we can see how stable
+two-word phrases are long-term.  What words are the most popular in
+each century, as judged by the number of phrases in which they appear?
+
+An interesting query on this data answers the question: Which words
+are becoming obsolete most rapidly over the past 50 years?  We can use
+the following SQL-\ql query:
+
+\begin{small}
+\begin{verbatim}
+ Q5: Select name, pop
+     From (TSelect Any V[vid, trend(degree) as pop];
+                   Any E
+           From (TSelect V[vid, degree()]; 
+                         E[vid1, vid2]
+                 TWhere Start >= 1965-01-01)
+           TGroup by size).toVerticesFlat()
+     Order by pop asc
+     Limit 10
+\end{verbatim}
+\end{small}
+
+Users will explore the dataset and come up with their own questions,
+and with \ql queries to answer those questions.
+

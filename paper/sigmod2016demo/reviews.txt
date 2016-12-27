@@ -1,0 +1,67 @@
+Reviews For Paper
+Paper ID	10
+Title	Analyzing Evolving Graphs with Portal
+Masked Reviewer ID:	Assigned_Reviewer_1
+Review:	
+Question	 
+Overall Rating	Reject
+Detailed Comments	This work proposes Portal system on top of Spark. It provides a SQL-like language by extending SparkSQL and reuses the distributed processing power of Spark framework. The demo tests several temporal analysis tasks including co-authorship analytic of research community, co-occurrences of words for the evolution of English. The system supports snapshots analytics and trend analytics. Query optimization such as reordering operators, multi-level physical representations and partitioning strategies are discussed. 
+
+The system reuses existing SparkSQL abstractions for logical plan generation and verification. It provides interactive shell and query composer. The system is designed for potential large-scale distributed deployment on top of GraphX. However, I have several concerns. 
+
+D1. The overall performance of the system is unclear, and lacks support of experimental study although the authors claimed the efficiency of query and capability of distributed processing. Experimental study needs to be provided to verify if GraphX and Spark's bottleneck carries over to Portal. 
+
+D2: The major extension of Portal are mostly engineering: interactive shell, query parser, and runtime operators and optimizers. The technique contributions unique to Portal (distributed temporal processing) should be motivated and clarified, but seems missing. Note that in-memory temporal processing could be easily deployed in a distributed shared-nothing architecture, especially for the proposed test cases that are not hard to be parallelized. 
+
+D3: The scope of the class of queries Portal can cope with should be discussed. Can it process temporal graph queries e.g., reachability or link prediction? The generality of the system needs to be addressed. 
+
+In general, while temporal graph processing systems meet evident need in a number of applications, this work
+mainly focuses on usability issues rather than addressing fundamental/new solutions proposed for temporal graph analysis. The latter would be necessary for a strong demo paper.
+List at least three strengths of this paper.	S1: Reusing SparkSQL abstractions for logical plan generation and verification. 
+S2: Interactive shell and query composer. 
+S3: Potential of distributed deployment on top of GraphX.
+List at least three weaknesses of this paper.	W1: Performance of the system unclear. 
+W2: The system resorts to usability issues but not much solid techniques for scalable temporal graph analysis. 
+W3: The system resorts to cope with basic temporal SQL semantics that has been 
+studied for a while.
+Does the paper clearly articulate the proposed demo experience?	Yes
+Masked Reviewer ID:	Assigned_Reviewer_2
+Review:	
+Question	 
+Overall Rating	Accept
+Detailed Comments	The authors present Portal. This is a system that allows analytical queries on time-evolving graphs. The authors built Portal on top of Apache Spark (and GraphX), which are well-known open-source frameworks. They enriched SparkSQL to provide the funcionality of querying the author's needed graph representation, called a TGraph. With this extension, the authors can rely on SparkSQL for query evaluation. They also modified GraphX to support time-based queries.
+
+The demo seems complete, the authors promise an end-to-end implementation of Portal. The authors discussed in the paper 3 different datasets: DBLP, ArXiv, and nGrams. Portal has a nice GUI that allows the user to compose queries graphically by using GUI elements, like enlarging time intervals or choosing operations from a menu, like joins, or aggregates. The system also verifies feasibility when for example joining time intervals of two data sets. This means, the time windows must match and the graphs must also be compatible (vertices/edges). This can be nicely seen in the GUI because the elements will either snap together (compatible) or not. In a different GUI element the user can see how the query changes (in text) as the GUI elements get modified. I find this a very nice feature of Portal, it seems rather friendly, yet powerful.
+
+Overall I like the demo. It should appeal equally to users with strong and weak DB knowledge to perform stron analytical queries.
+
+The paper is well-written and the description of portal is rather clear.
+
+Just one comment. In Figure 1 and 3, the graphs really represent directed graphs, as the edge (1,2) appears, but not (2, 1).
+
+It would have been nice to know some performance indicators, time to perform certain queries and memory requirements.
+List at least three strengths of this paper.	
+1. Portal (the product the authors present) is based on well-known open technologies: GraphX and Apache Spark. There is a similar framework (by Miao et al.) but it's proprietary.
+2. The systems seems very friendly, yet powerful. This is important because users with somewhat weaker DB knowledge will be able to perform non-trivial queries.
+3. The demo seems fully usable. The authors will provide 3 datasets that can be queried, but the queries themselves can be provided by the users. This means that there is freedom to stress the system.
+List at least three weaknesses of this paper.	
+1. A similar system exists (although with proprietary technologies) (Miao et al. 2015).
+2. No performance indicators (how long do the queries presented in the paper take? what about memory?)
+3. More details about how GraphX was improved to support the time dimension.
+Does the paper clearly articulate the proposed demo experience?	Yes
+Masked Reviewer ID:	Assigned_Reviewer_3
+Review:	
+Question	 
+Overall Rating	Reject
+Detailed Comments	The main contribution of the proposed demo is the use of SQL to query a graph, which makes the task easier for data scientists who may not understand graph algorithms. However, there is really not much novelty in the Portal SQL proposed, which is basically a subset of SQL with a limited set of graph operations embedded in the language. The backend engine for graph processing is based on Spark GraphX, which is well known to have very poor performance for graph processing, and hence it is not clear how Portal can be used for analyzing real world graphs which can be quite large, and how a vast set of other graph analytics tools can be supported with GraphX as the backend engine and can be integrated into SQL with a feasible optimization plan. The authors should also discuss in more details how to obtain an optimized query plan as this seems to be the non-trivial technical aspect in the work. On the topic of graph evolution, it is important to discuss how the system handles updates to the graph, which can be frequent in many applications. The snapshot representation is a problem for applications that may create many snapshots, and temporal graph representation can be a better choice. One may combine snapshots to give a single large snapshot, but then it will lose the temporal information in that snapshot and affect the analytical results of the proposed demo.
+
+List at least three strengths of this paper.	S1. A declarative query language is proposed to query the trend of objects in an evolving graph.
+S2. The implementation of such a system requires a lot of engineering efforts.
+S3. The system may be useful to better understand the evolution in some small graphs.
+
+List at least three weaknesses of this paper.	W1. The novelty is low, the integration of SQL and some graph operations is straightforward.
+W2. The choice of Spark or GraphX as the underlying backend engine limits the performance and its scalability to handle large graphs.
+W3. There is no discussion on how the system handles updates, which are critical for dynamic and temporal graphs.
+W4. The snapshot representation can be a serious problem, as many real world graphs can have a huge number of snapshots.
+W5. The support of tools for graph analytics is rather limited, hence also limiting the applications.
+Does the paper clearly articulate the proposed demo experience?	Yes

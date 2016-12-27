@@ -1,0 +1,252 @@
+\section{\ql by example}
+\label{sec:cases}
+
+We demonstrate the \tga / \ql operations through the following use
+case.  An interaction network is one typical kind of an evolving
+graph.  It represents people as vertices, and interactions between
+them such as messages, conversations and endorsements, as edges.
+Information describing people and their interactions is represented by
+vertex and edge attributes.  One easily accessible interaction network
+is the wiki-talk dataset
+(\url{http://dx.doi.org/10.5281/zenodo.49561}), containing messaging
+events among Wikipedia contributors over a 13-year period.
+Information available about the users includes their username, group
+membership, and the number of Wikipedia edits they made.  Messaging
+events occur when users post on each other's talk pages.  
+
+%Communities over time.
+
+Interaction networks are sparse because edges are so short-lived.  As
+part of exploratory analysis, we can consider the network at different
+temporal resolutions, run a community detection algorithm, e.g.,
+compute the connected components of the network, and then consider the
+number of and size of connected components.
+
+\eat{To see whether communities form and at what time scale, we can vary
+the time scale and compute communities, e.g. through connected
+components detection, group the vertices by the community they form
+and calculate their size.  We can filter out vertices that represent
+communities below a reasonable threshold, for example of size smaller
+than two.}
+
+\eat{This example demonstrates a need to compute graph-wide analytics
+  such as connected components for each point in time, create new
+  vertices that represent some aspect of data of existing vertices,
+  and compute subgraphs.  Graph-wide analytics on evolving graphs have
+  been proposed previously in ImmortalGraph~\cite{Miao2015} and
+  G*~\cite{Labouseur2015}, including PageRank, weakly connected
+  components, and source-source shortest path.}
+
+\eat{{\bf Question:} In a sparse communication network, on what time scale
+can we detect communities?}
+
+\begin{example}
+\label{ex:load}
+We can load the dataset with the following command:
+
+\begin{small} 
+\begin{verbatim}
+Create View wiki As { Load From "path/to/data" }
+\end{verbatim}
+\end{small}
+\end{example}
+
+\begin{example}
+\label{ex:slice}
+
+Select a subset of the data representing the 5 years of interest,
+using a common temporal operator slice($\tau$):
+
+$\ttt_1 = \slice{[2010,2015)}{wiki}$
+
+\begin{small} 
+\begin{verbatim}
+Create View T1 As { 
+   VSelect * ESelect *
+   From wiki
+   VWhere start>='2010-01-01' AND end<'2015-01-01'}
+\end{verbatim}
+\end{small}
+
+\end{example}
+
+\begin{example}
+\label{ex:nodecrt}
+
+Compute a temporally aggregated view of the graph into 6-months
+windows.  Each window will include vertices and edges if they
+communicated regularly: a vertex and an edge are each present during a
+6-month window if they exist in every snapshot during that period.  We
+use the window-based node creation operation, which is similar to
+moving window temporal aggregation for relations:
+
+\eat{\item Aggregate the graph into 6-month windows.}
+
+$\ttt_2 = \insql{node}^T_w(\mathsf{w=6~mon},\mathsf{q_v=always},\mathsf{q_e=always},\ttt_1)$
+
+\begin{small} 
+\begin{verbatim}
+Create View T2 As { 
+   VSelect * ESelect *
+   From T1
+   TGroup By 6 months
+   VExists always EExists always }
+\end{verbatim}
+\end{small}
+
+\end{example}
+
+The node creation operator enables the user to analyze an evolving
+graph at different levels of granularity.  This operator comes in two
+variants --- based on vertex attributes or based on temporal window.
+
+\begin{example}
+\label{ex:cc}
+
+Compute connected components at each time point.  This is an
+  example of a Pregel-style analytic invocation over an evolving
+  graph.
+
+$\ttt_3 = \insql{pregel}^T_{cc} (\mathsf{pname=comp}, \ttt_2)$
+
+\begin{small} 
+\begin{verbatim}
+Create View T3 As { 
+   VSelect components() as comp, *
+   Eselect *
+   From T2 }
+\end{verbatim}
+\end{small}
+
+\end{example}
+
+\eat{
+Note the use of $*$ after invocation of the components analytic.  With
+the property model, different nodes may have different properties, so
+listing them all may be burdensome for the user.}
+
+\eat{ We need to compute graph-wide analytics such as connected
+  components for each point in time.  Graph-wide analytics on evolving
+  graphs have been proposed previously in
+  ImmortalGraph~\cite{Miao2015} and G*~\cite{Labouseur2015}, including
+  PageRank, weakly connected components, and source-source shortest
+  path.}
+
+\begin{example}
+\label{ex:nodecra}
+
+Generate a new graph, in which a vertex corresponds to a connected
+component, and compute the size of the connected component.  We
+implement this with the attribute-based node creation operation:
+
+$\ttt_4 = \insql{node}^T_a(\mathsf{g=comp,f_v=count(1)},\ttt_3)$
+
+\begin{small} 
+\begin{verbatim}
+Create View T4 As { 
+   VSelect count(*) as cnt  ESelect *
+   From T3
+   VGroup By comp }
+\end{verbatim}
+\end{small}
+
+\end{example}
+
+This operation allows the user to generate a \tg in which vertices
+correspond to disjoint groups of vertices in the input that agree on
+the values of all grouping attributes.  Vertices of the input are
+partitioned on their values of the grouping attributes.  Partitioning
+of the vertices also induces a partitioning of the edges.
+
+\begin{example}
+\label{ex:subg}
+
+Filter out vertices that represent communities too small to be
+  useful (e.g., of 1-2 people).  This is an example of vertex
+  subgraph.
+
+$\ttt_5 = \subv{\mathsf{v.a.count > 2}}{\ttt_4}$
+
+\begin{small} 
+\begin{verbatim}
+Create View T5 As {
+   VSelect * ESelect *
+   From T4
+   VWhere cnt > 2 }
+\end{verbatim}
+\end{small}
+\end{example}
+
+The multiple queries can be combined into a single complex one, as in SQL.
+
+Another use case demonstrates the remaining operations of \tga.  DBLP
+and arXiv datasets contain co-authorship information and can provide
+interesting insights into Computer Science research community at
+large.  Nodes represent authors and edges an existence of a joint
+publication between them.
+
+\begin{example}
+\label{ex:union}
+
+Assuming that the author ids are drawn from the same set,
+i.e. assigned identically in both dblp and arXiv, we can combine the
+two datasets for a more comprehensive view using the union operation:
+
+$\ttt_6 = dblp \cap^T arXiv (f_v=left(name),f_E=max(cnt))$
+
+\begin{small}
+\begin{verbatim}
+Create View T6 As {
+   VSelect left(name)  ESelect max(cnt)
+   From dblp union arxiv }
+\end{verbatim}
+\end{small}
+
+\end{example}
+
+Note that unlike in relational algebra, \tga union operation requires
+aggregation functions to resolve multiple property values for the same
+node/edge.  The \insql{left} aggregation function takes the value of
+the name vertex property from the dblp dataset where the vertex exists
+in both.
+
+\begin{example}
+\label{ex:agg}
+
+Finally, we compute an in-degree of each vertex during each time
+point.  This is an example of the {\em aggregation} operation, a
+common operation on non-temporal graphs, as defined by the taxonomy of
+Wood~\cite{Wood2012}.  Aggregation computes a value for each vertex
+based on its neighbors.  We introduce a temporal version of
+aggregation (listed here with default arguments omitted for
+readability):
+
+$\ttt_7 = \insql{agg}^T(\mathsf{dir=right},\mathsf{f_m=1},\mathsf{f_a=count},\mathsf{pname=deg},\ttt_6)$
+
+\begin{small} 
+\begin{verbatim}
+Create View T7 As { 
+   VSelect count(*) as deg, * ESelect *
+   From T6
+   Aggregate Right }
+\end{verbatim}
+\end{small}
+
+\end{example}
+
+\eat{Besides the examples above, graph queries commonly include retrieving
+a specific node (which can be accomplished through a subgraph) and
+k-hop neighborhood of a node.  While general transitive closure
+requires recursion, which we do not support, k-hop neighborhoods can
+be computed using composition operations like the one defined in
+SocialScope~\cite{Amer-Yahia2009}.  We provide temporal versions of
+subgraph and generalized edge creation.  Additionally, if multiple
+sources of the same graph are available, it is useful to combine or
+compare them, which dictates the need for temporal set-theoretic
+operators.}
+
+\eat{In Section~\ref{sec:algebra} we formally define the operators of our
+graph algebra.  In Section~\ref{sec:exp} we return to these three use
+cases. 
+}
+
