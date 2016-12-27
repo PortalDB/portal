@@ -34,7 +34,7 @@ object SQLInterface {
     //in spark sql maps have to have known key and value types
     //and for us the value is a sequence of different types, depending on the property
     for (struct <- vertexSchema) {
-      schema = schema.add(StructField(struct.name, ArrayType(struct.dataType), true))
+      schema = schema.add(StructField(struct.name, struct.dataType, true))
     }
 
     val vertexRowRdd = vertexes.map(x => Row.fromSeq(Seq(x._1.toLong, Date.valueOf(x._2._1.start), Date.valueOf(x._2._1.end)) ++ convertAttribute(x._2._2, vertexSchema)))
@@ -136,12 +136,9 @@ object SQLInterface {
     }
   }
 
-  private def convertAttribute(attr: VertexEdgeAttribute, schema: Seq[StructField]): Seq[Seq[Any]] = {
+  private def convertAttribute(attr: VertexEdgeAttribute, schema: Seq[StructField]): Seq[Any] = {
     schema.map( f =>
-      if (attr.exists(f.name))
-        attr(f.name).toSeq
-      else
-        Seq()
+      attr(f.name)
     )
   }
 }

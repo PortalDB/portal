@@ -38,100 +38,28 @@ abstract class StructuralAggregate extends UnaryExpression with Unevaluable {
 
 case class Any(child: Expression) extends StructuralAggregate {
   override def process(value: VertexEdgeAttribute) = {
-    if (value.exists(name)) {
-      value.drop(name).add(name, value(name).head)
-    } else value
+    value
   }
 }
 
 case class First(child: Expression) extends StructuralAggregate {
-  override def initialize(initValue: VertexEdgeAttribute, interval: Interval): VertexEdgeAttribute = {
-    if (initValue.exists(name)) {
-      //if there are multiple values of this property, we will keep them all
-      //transform each value to have the interval
-      var modified = initValue.drop(name)
-      initValue(name).foreach { x =>
-        modified = modified.add(name, (interval, x))
-      }
-      modified
-    } else initValue
-  }
   override def process(value: VertexEdgeAttribute): VertexEdgeAttribute = {
-    if (value.exists(name)){
-      //pick those that have the same date which is the earliest
-      implicit def ordering: Ordering[LocalDate] = TempGraphOps.dateOrdering
-      val minDate = value(name).map{ case x: (Interval, scala.Any) => x._1.start}.min
-      var modified = value.drop(name)
-      value(name).foreach { case x: (Interval, scala.Any) =>
-        if (x._1.start == minDate)
-          modified = modified.add(name, x)
-      }
-      modified
-    } else value
-  }
-  override def finalize(finalValue: VertexEdgeAttribute): VertexEdgeAttribute = {
-    if (finalValue.exists(name)) {
-      //transform each value to remove the interval
-      var modified = finalValue.drop(name)
-      finalValue(name).foreach { case x: (Interval, scala.Any) =>
-        modified = modified.add(name, x._2)
-      }
-      modified
-    } else finalValue
+    //fixme
+    value
   }
 }
 
 case class Last(child: Expression) extends StructuralAggregate {
-  override def initialize(initValue: VertexEdgeAttribute, interval: Interval): VertexEdgeAttribute = {
-    if (initValue.exists(name)) {
-      //if there are multiple values of this property, we will keep them all
-      //transform each value to have the interval
-      var modified = initValue.drop(name)
-      initValue(name).foreach { x =>
-        modified = modified.add(name, (interval, x))
-      }
-      modified
-    } else initValue
-  }
   override def process(value: VertexEdgeAttribute): VertexEdgeAttribute = {
-    if (value.exists(name)){
-      //pick those that have the same date which is the latest
-      implicit def ordering: Ordering[LocalDate] = TempGraphOps.dateOrdering
-      val maxDate = value(name).map{ case x: (Interval, scala.Any) => x._1.start}.max
-      var modified = value.drop(name)
-      value(name).foreach { case x: (Interval, scala.Any) =>
-        if (x._1.start == maxDate)
-          modified = modified.add(name, x)
-      }
-      modified
-    } else value
-  }
-  override def finalize(finalValue: VertexEdgeAttribute): VertexEdgeAttribute = {
-    if (finalValue.exists(name)) {
-      //transform each value to remove the interval
-      var modified = finalValue.drop(name)
-      finalValue(name).foreach { case x: (Interval, scala.Any) =>
-        modified = modified.add(name, x._2)
-      }
-      modified
-    } else finalValue
+    //fixme
+    value
   }
 }
 
 case class Sum(child: Expression) extends StructuralAggregate {
   override def process(value: VertexEdgeAttribute): VertexEdgeAttribute = {
-    //if the property exists and is a number, we just add them up
-    //but if it doesn't exist or is not a number, we leave it alone
-    if (value.exists(name)) {
-      var modified = value.drop(name)
-      var sum = 0.0
-      value(name).foreach {
-        case i: Int => sum = sum + i
-        case l: Long => sum = sum + l
-        case d: Double => sum = sum + d
-      }
-      modified.add(name, sum)
-    } else value
+    //fixme
+    value
   }
   override def checkInputDataTypes(): TypeCheckResult =
     TypeUtils.checkForNumericExpr(child.dataType, "function sum")
@@ -139,18 +67,8 @@ case class Sum(child: Expression) extends StructuralAggregate {
 
 case class Max(child: Expression) extends StructuralAggregate {
   override def process(value: VertexEdgeAttribute): VertexEdgeAttribute = {
-    //if the property exists and is a number, we just pick
-    //but if it doesn't exist or is not a number, we leave it alone
-    if (value.exists(name)) {
-      var modified = value.drop(name)
-      var max = Double.MinValue
-      value(name).foreach {
-        case i: Int => max = math.max(max, i)
-        case l: Long => max = math.max(max, l)
-        case d: Double => max = math.max(max, d)
-      }
-      modified.add(name, max)
-    } else value
+    //fixme
+    value
   }
   override def checkInputDataTypes(): TypeCheckResult =
     TypeUtils.checkForNumericExpr(child.dataType, "function max")

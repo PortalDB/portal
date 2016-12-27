@@ -2,13 +2,13 @@ package edu.drexel.cs.dbgroup.temporalgraph
 
 /** 
   Property model.
-  Key-value pairs with bag semantics.
+  Key-value pairs with set semantics.
   Not meant to be mutable since Graphs are not mutable.
 */
 //TODO: it may be more efficient to have a mutable version because of memory churn
 trait VertexEdgeAttribute extends Serializable {
-  /**
-    * How many entries, with bag semantics, which includes duplicates.
+    /**
+    * How many entries, with set semantics, which does not include duplicates.
     */
   def size: Int
   /**
@@ -17,30 +17,28 @@ trait VertexEdgeAttribute extends Serializable {
     */
   def keys: Iterable[String]
   /**
-    * Return all the values associated with the same key.
-    * The order is arbitrary.
+    * Return the value associated with the key.
     */
-  def apply(key: String): Iterable[Any]
+  def apply(key: String): Any
   /**
-    * Returns true if there is at least one value
-    * associated with this key.
+    * Returns true if there there exists a value associated with the key.
     */
   def exists(key: String): Boolean
 
-  //this collection is immutable, so returning a new one for any modification
+  //this collection is mutable, so the instance will be modified and the function does not return anything.
   /**
     * Return a new collection with all the entries from both. No deduplication.
     */
-  def ++(other: VertexEdgeAttribute): VertexEdgeAttribute
+  def ++(other: VertexEdgeAttribute): Unit
   /**
     * Add a key-value pair. If this key already exists, 
-    * nothing is overwritten/destroyed. Both are kept.
+    * the value is overridden.
     */
-  def add(key: String, value: Any): VertexEdgeAttribute
+  def add(key: String, value: Any): Unit
   /**
-    * Drop all key-value pairs with this key.
+    * Drop the key-value pair with this key.
     */
-  def drop(key: String): VertexEdgeAttribute
+  def drop(key: String): Unit
 
 }
 
@@ -51,9 +49,9 @@ object VertexEdgeAttribute {
 class EmptyVEAttribute extends VertexEdgeAttribute {
   override def size: Int = 0
   override def keys: Iterable[String] = List[String]()
-  override def apply(key: String): Iterable[Any] = List[Any]()
+  override def apply(key: String): Any = null
   override def exists(key: String): Boolean = false
-  override def ++(other: VertexEdgeAttribute): VertexEdgeAttribute = other
-  override def add(key: String, value: Any): VertexEdgeAttribute = throw new UnsupportedOperationException("cannot add to permanently empty VE attribute")
-  override def drop(key: String): VertexEdgeAttribute = this
+  override def ++(other: VertexEdgeAttribute): Unit = {}
+  override def add(key: String, value: Any): Unit = {}
+  override def drop(key: String): Unit = {}
 }

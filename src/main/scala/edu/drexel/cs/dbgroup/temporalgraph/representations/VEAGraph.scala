@@ -331,8 +331,8 @@ class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Int
       val newEdges = allEdges.flatMap{ case (ids, intv) => split(intv).map(ii => ((ids._1, ids._2, ii), 1))}.fullOuterJoin(grp2.allEdges.flatMap{ case (ids, intv) => split(intv).map(ii => ((ids._1, ids._2, ii), 1))}).map{ case (e, attr) => ((e._1, e._2), e._3)}
       //now attributes
       val emptyat = VertexEdgeAttribute.empty
-      val newVProps = allVProperties.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}.fullOuterJoin(grp2.allVProperties.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}).map{ case (v, attr) => (v._1, (v._2, attr._1.getOrElse(emptyat) ++ attr._2.getOrElse(emptyat)))}
-      val newEProps = allEProperties.flatMap{ case (vids, (intv, attr)) => split(intv).map(ii => ((vids._1, vids._2, ii), attr))}.fullOuterJoin(grp2.allEProperties.flatMap{ case (vids, (intv, attr)) => split(intv).map(ii => ((vids._1, vids._2, ii), attr))}).map{ case (e, attr) => ((e._1, e._2), (e._3, attr._1.getOrElse(emptyat) ++ attr._2.getOrElse(emptyat)))}
+      val newVProps = allVProperties.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}.fullOuterJoin(grp2.allVProperties.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}).map{ case (v, attr) => val tmp = attr._1.getOrElse(emptyat); tmp ++ attr._2.getOrElse(emptyat); (v._1, (v._2, tmp))}
+      val newEProps = allEProperties.flatMap{ case (vids, (intv, attr)) => split(intv).map(ii => ((vids._1, vids._2, ii), attr))}.fullOuterJoin(grp2.allEProperties.flatMap{ case (vids, (intv, attr)) => split(intv).map(ii => ((vids._1, vids._2, ii), attr))}).map{ case (e, attr) => val tmp =  attr._1.getOrElse(emptyat); tmp ++ attr._2.getOrElse(emptyat); ((e._1, e._2), (e._3, tmp))}
 
       fromRDDs(newVerts, newEdges, newVProps, newEProps, graphSpec, storageLevel, false)
 
@@ -377,8 +377,8 @@ class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Int
       //now properties. here we need to do outer join and then constrain
       //now attributes
       val emptyat = VertexEdgeAttribute.empty
-      val newVProps = allVProperties.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}.fullOuterJoin(grp2.allVProperties.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}).map{ case (v, attr) => (v._1, (v._2, attr._1.getOrElse(emptyat) ++ attr._2.getOrElse(emptyat)))}.join(newVertices).filter{ case (vid, (u, w)) => u._1.intersects(w)}.map{ case (vid, (u, w)) => (vid, (u._1.intersection(w).get, u._2))}
-      val newEProps = allEProperties.flatMap{ case (vids, (intv, attr)) => split(intv).map(ii => ((vids._1, vids._2, ii), attr))}.fullOuterJoin(grp2.allEProperties.flatMap{ case (vids, (intv, attr)) => split(intv).map(ii => ((vids._1, vids._2, ii), attr))}).map{ case (e, attr) => ((e._1, e._2), (e._3, attr._1.getOrElse(emptyat) ++ attr._2.getOrElse(emptyat)))}.join(newEdges).filter{ case (vids, (u, w)) => u._1.intersects(w)}.map{ case (vids, (u, w)) => (vids, u)}
+      val newVProps = allVProperties.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}.fullOuterJoin(grp2.allVProperties.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}).map{ case (v, attr) => val tmp = attr._1.getOrElse(emptyat); tmp ++ attr._2.getOrElse(emptyat); (v._1, (v._2, tmp))}.join(newVertices).filter{ case (vid, (u, w)) => u._1.intersects(w)}.map{ case (vid, (u, w)) => (vid, (u._1.intersection(w).get, u._2))}
+      val newEProps = allEProperties.flatMap{ case (vids, (intv, attr)) => split(intv).map(ii => ((vids._1, vids._2, ii), attr))}.fullOuterJoin(grp2.allEProperties.flatMap{ case (vids, (intv, attr)) => split(intv).map(ii => ((vids._1, vids._2, ii), attr))}).map{ case (e, attr) => val tmp = attr._1.getOrElse(emptyat); tmp ++ attr._2.getOrElse(emptyat); ((e._1, e._2), (e._3, tmp))}.join(newEdges).filter{ case (vids, (u, w)) => u._1.intersects(w)}.map{ case (vids, (u, w)) => (vids, u)}
 
       fromRDDs(newVertices, newEdges, newVProps, newEProps, graphSpec, storageLevel, false)
 
