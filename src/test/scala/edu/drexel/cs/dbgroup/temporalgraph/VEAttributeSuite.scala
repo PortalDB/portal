@@ -89,6 +89,13 @@ class VEAttributeSuite extends FunSuite with BeforeAndAfter{
     ve.add("name", "mike")
     var dob = new Date(2012,12,1)
     ve.add("dob", dob)
+
+    //sorted keys
+    val keys = ve.keys.toArray.sorted;
+    assert(keys.size === 3);
+    assert(keys(0) === "dob");
+    assert(keys(1) === "id");
+    assert(keys(2) === "name");
   }
 
 
