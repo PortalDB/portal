@@ -2,7 +2,7 @@ package edu.drexel.cs.dbgroup.temporalgraph
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import scala.collection.Iterable
-
+import scala.collection.JavaConverters._
 
 class VEAttribute extends VertexEdgeAttribute {
   private val set: Object2ObjectOpenHashMap[String, Any] = new Object2ObjectOpenHashMap[String, Any]()
@@ -12,7 +12,7 @@ class VEAttribute extends VertexEdgeAttribute {
   }
 
   def keys: Iterable[String] = {
-    return set.keySet.iterator.asInstanceOf[Iterable[String]]
+    return set.keySet.asScala
   }
 
   def apply(key: String): Any = {
@@ -24,7 +24,7 @@ class VEAttribute extends VertexEdgeAttribute {
   }
 
   override def ++(other: VertexEdgeAttribute): Unit = {
-    other.keys.foreach(x => set.put(x, apply(x)));
+    other.keys.foreach(x => set.put(x, other.apply(x)));
   }
 
   def add(key: String, value: Any): Unit =  {

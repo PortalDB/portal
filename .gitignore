@@ -26,3 +26,8 @@ src/main/driverutils/target
 *.lck
 *.dat
 *.ctrl
+*.aux
+*.blg
+*.*~
+*.bak
+*.bbl
