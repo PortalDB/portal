@@ -105,6 +105,15 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
     * @param other The other TGraph
     * @return new TemporaGraph with the intersection of entities from both graphs within each chronon.
     */
+
+  def difference(other: TGraphNoSchema[VD, ED]): TGraphNoSchema[VD, ED]
+
+  /**
+    * Produce the difference of two temporal graphs.
+    * @param other The other TGraph
+    * @return new TemporaGraph with the diffrence of entities from both graphs within each chronon.
+    */
+
   def intersection(other: TGraphNoSchema[VD, ED]): TGraphNoSchema[Set[VD], Set[ED]]
 
   /**

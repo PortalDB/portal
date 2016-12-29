@@ -5,7 +5,6 @@ import scala.collection.parallel.ParSeq
 import scala.collection.mutable.Buffer
 import scala.reflect.ClassTag
 import scala.util.control._
-
 import org.apache.hadoop.conf._
 import org.apache.hadoop.fs._
 import org.apache.spark.{Partition, SparkContext, SparkException}
@@ -16,12 +15,11 @@ import org.apache.spark.storage.RDDBlockId
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
 import org.apache.spark.graphx.lib.ShortestPaths
-
 import edu.drexel.cs.dbgroup.temporalgraph._
 import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps
-
 import java.time.LocalDate
 import java.util.Map
+
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap
 
 class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], grphs: ParSeq[Graph[VD,ED]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraphNoSchema[VD, ED](defValue, storLevel, coal) {
@@ -235,6 +233,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
   }
 
   override def union(other: TGraphNoSchema[VD, ED]): SnapshotGraphParallel[Set[VD], Set[ED]] = {
+
     var grp2: SnapshotGraphParallel[VD, ED] = other match {
       case grph: SnapshotGraphParallel[VD, ED] => grph
       case _ => throw new ClassCastException
@@ -298,6 +297,54 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
       //the union of coalesced is coalesced
 
       new SnapshotGraphParallel(newIntvs, newGraphs, Set(defaultValue), storageLevel, coalesced && grp2.coalesced)
+    }
+  }
+
+  override def difference(other: TGraphNoSchema[VD, ED]): SnapshotGraphParallel[VD, ED] = {
+    val grp2: SnapshotGraphParallel[VD, ED] = other match {
+      case grph: SnapshotGraphParallel[VD, ED] => grph
+      case _ => throw new ClassCastException
+    }
+
+    if (span.intersects(grp2.span)) {
+      //compute new intervals
+      val newIntvs: RDD[Interval] = TempGraphOps.intervalDifference(intervals, grp2.intervals)
+      var ii: Integer = 0
+      var jj: Integer = 0
+      val empty: Interval = new Interval(LocalDate.MAX, LocalDate.MAX)
+      val intervalsZipped = intervals.zipWithIndex.map(_.swap)
+      val intervals2Zipped = grp2.intervals.zipWithIndex.map(_.swap)
+
+      val head = newIntvs.min
+       val newGraphs: ParSeq[Graph[VD, ED]] =
+        newIntvs.collect.map { intv =>
+        val iith = intervalsZipped.lookup(ii.toLong).lift(0).getOrElse(empty)
+        val jjth = intervals2Zipped.lookup(jj.toLong).lift(0).getOrElse(empty)
+        if (iith.intersects(intv) && jjth.intersects(intv)) {
+          val temp = graphs(ii).outerJoinVertices(grp2.graphs(jj).vertices)((id, vd, optmatch) =>
+            optmatch match {
+              case Some(id) => (vd, 1)
+              case None => (vd, 0)
+            }
+          ).subgraph(vpred = (id, attr) => attr._2 == 0)
+
+        val ret: Graph[VD, ED] = Graph(temp.vertices.map(in=>(in._1,in._2._1)), temp.edges, defaultValue, storageLevel, storageLevel)
+          if (iith.end == intv.end)
+            ii = ii + 1
+          if (jjth.end == intv.end)
+            jj = jj + 1
+          ret
+        }else if (iith.intersects(intv)) {
+            if (iith.end == intv.end)
+              ii = ii+1
+            graphs(ii-1).mapVertices((vid,attr) => (attr)).mapEdges(e => (e.attr))
+          }else { //should never get here
+          throw new SparkException("bug in difference")
+        }
+      }.par
+      new SnapshotGraphParallel(newIntvs, newGraphs, defaultValue, storageLevel, false)
+    } else {
+        this
     }
   }
 

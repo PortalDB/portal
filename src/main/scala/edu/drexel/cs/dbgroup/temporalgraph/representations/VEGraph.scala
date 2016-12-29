@@ -335,7 +335,35 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     }
   }
 
-  override def intersection(other: TGraphNoSchema[VD, ED]): VEGraph[Set[VD], Set[ED]] = {
+  override def difference(other: TGraphNoSchema[VD, ED]): VEGraph[VD, ED] = {
+    val grp2: VEGraph[VD, ED] = other match {
+      case grph: VEGraph[VD, ED] => grph
+      case _ => throw new ClassCastException
+    }
+
+    if (span.intersects(grp2.span)) {
+      //compute new intervals
+      val newIntvs: RDD[Interval] = TempGraphOps.intervalDifference(intervals, grp2.intervals)
+      //TODO: rewrite to use the newIntvs rdd instead of materializing
+      val newIntvsc = ProgramContext.sc.broadcast(newIntvs.collect)
+      val split = (interval: Interval) => {
+        newIntvsc.value.flatMap{ intv =>
+          if (intv.intersects(interval))
+            Some(intv)
+          else
+            None
+        }
+      }
+      val newVertices=((allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}).leftOuterJoin((grp2.allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}))).filter(v=>v._2._2 == None).map{ case (v,attr) => (v._1,(v._2,(attr._1)))}
+      val newEdges=((allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}).leftOuterJoin((grp2.allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}))) .filter(e=>e._2._2 == None).map{ case (e, attr) => ((e._1, e._2), (e._3, (attr._1)))}
+      //Todo: Is this the correct way to do this? Check with Vera
+      fromRDDs(newVertices, TGraphNoSchema.constrainEdges(newVertices,newEdges), defaultValue, storageLevel, false)
+    } else {
+       this
+    }
+  }
+
+    override def intersection(other: TGraphNoSchema[VD, ED]): VEGraph[Set[VD], Set[ED]] = {
     //intersection is correct whether the two input graphs are coalesced or not
     var grp2: VEGraph[VD, ED] = other match {
       case grph: VEGraph[VD, ED] => grph

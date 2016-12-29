@@ -299,7 +299,9 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
         e.attr.map(ii => ii + gr2IndexStart)
       } else grp2.graphs
 
-      val newGraphs: Graph[BitSet,BitSet] = Graph(gp1.vertices.union(gp2.vertices).reduceByKey((a,b) => a ++ b), gp1.edges.union(gp2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey((a,b) => a ++ b).map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storageLevel, storageLevel)
+      val newGraphs: Graph[BitSet,BitSet] = Graph(gp1.vertices.union(gp2.vertices).reduceByKey((a,b) => a ++ b),
+        gp1.edges.union(gp2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey((a,b) => a ++ b)
+          .map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storageLevel, storageLevel)
       val newDefVal = Set[VD](defaultValue)
       val vs = newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}
       val tmp = Set[ED](defaultValue.asInstanceOf[ED])
@@ -315,6 +317,65 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
     }
   }
 
+  override def difference(other: TGraphNoSchema[VD, ED]): OneGraphColumn[VD,ED] = {
+    defaultValue match {
+      case a: StructureOnlyAttr => differenceStructureOnly(other)
+      case _ => super.difference(other).asInstanceOf[OneGraphColumn[VD,ED]]
+    }
+  }
+
+  def differenceStructureOnly(other: TGraphNoSchema[VD, ED]): OneGraphColumn[VD, ED]  = {
+    val grp2: OneGraphColumn[VD, ED] = other match {
+      case grph: OneGraphColumn[VD, ED] => grph
+      case _ => return super.difference(other).asInstanceOf[OneGraphColumn[VD, ED]]
+    }
+    if (graphs == null) computeGraph()
+    if (grp2.graphs == null) grp2.computeGraph()
+
+    //compute new intervals
+    val newIntvs: RDD[Interval] = intervalDifference(intervals, grp2.intervals)
+    //TODO: make this work without collect
+    val newIntvsb = ProgramContext.sc.broadcast(newIntvs.collect)
+
+    if (span.intersects(grp2.span)) {
+      val intvMap: Map[Int, Seq[Int]] = collectedIntervals.zipWithIndex.map(ii => (ii._2, newIntvsb.value.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None).toList)).toMap[Int, Seq[Int]]
+      //???
+      val intvMapB = ProgramContext.sc.broadcast(intvMap)
+      val intvMap2: Map[Int, Seq[Int]] = grp2.collectedIntervals.zipWithIndex.map(ii => (ii._2, newIntvsb.value.zipWithIndex.flatMap(jj => if (ii._1.intersects(jj._1)) Some(jj._2) else None).toList)).toMap[Int, Seq[Int]]
+      val intvMap2B = ProgramContext.sc.broadcast(intvMap2)
+
+      //for each index in a bitset, put the new one
+      val gp1: Graph[BitSet,BitSet] = graphs.mapVertices{ (vid, attr) =>
+        BitSet() ++ attr.toSeq.flatMap(ii => intvMapB.value(ii))
+      }.mapEdges{ e =>
+        BitSet() ++ e.attr.toSeq.flatMap(ii => intvMapB.value(ii))
+      }
+      val gp2: Graph[BitSet,BitSet] = grp2.graphs.mapVertices{ (vid, attr) =>
+        BitSet() ++ attr.toSeq.flatMap(ii => intvMap2B.value(ii))
+      }.mapEdges{ e =>
+        BitSet() ++ e.attr.toSeq.flatMap(ii => intvMap2B.value(ii))
+      }
+      val newGraphs: Graph[BitSet,BitSet] = Graph(
+          gp1.vertices.leftOuterJoin(gp2.vertices).mapValues {x=> x._1.diff(x._2.getOrElse(BitSet()))}.filter( v =>  v._2.size>0),
+          gp1.edges.map( e=>((e.srcId,e.dstId),e.attr)).leftOuterJoin(
+            gp2.edges.map( e=>((e.srcId,e.dstId),e.attr))
+          ).mapValues(x=> x._1.diff((x._2.getOrElse(BitSet())))).filter( e => e._2.size>0).map(e=> Edge(e._1._1,e._1._2,e._2))
+        , BitSet() , storageLevel, storageLevel)
+      val newDefVal = (defaultValue.asInstanceOf[VD])
+      val vs = newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}
+      val tmp = (defaultValue.asInstanceOf[ED])
+      val es = newGraphs.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp))))
+
+      if (ProgramContext.eagerCoalesce)
+        //Todo : is this the correct way to do this ?
+        fromRDDs(vs, TGraphNoSchema.constrainEdges(vs,es), newDefVal, storageLevel, false)
+      else
+        new OneGraphColumn(vs,  TGraphNoSchema.constrainEdges(vs,es), newGraphs, newDefVal, storageLevel, false)
+
+    } else {
+        this
+    }
+  }
   override def intersection(other: TGraphNoSchema[VD, ED]): OneGraphColumn[Set[VD],Set[ED]] = {
     defaultValue match {
       case a: StructureOnlyAttr => intersectionStructureOnly(other)

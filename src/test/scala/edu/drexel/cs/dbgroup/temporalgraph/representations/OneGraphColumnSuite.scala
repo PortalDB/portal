@@ -7,9 +7,10 @@ import org.apache.log4j.{Level, Logger}
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
-import org.apache.spark.{SparkContext, SparkConf}
+import org.apache.spark.{SparkConf, SparkContext}
 import org.scalatest.{BeforeAndAfter, FunSuite}
 import java.util.Map
+
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap
@@ -148,7 +149,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     assert(actualOGC3.getTemporalSequence.collect === Seq[Interval]())
     info("empty graph passed")
   }
- */
+*/
 
   test("structural select function - epred") {
     //Regular cases
@@ -824,7 +825,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     assert(expectedDegree.collect.toSet === resultDegree.collect.toSet)
   }
 
-  test("Union and Intersection") {
+  test("Union, Intersection and Difference") {
     val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "a")),
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "b")),
@@ -909,13 +910,39 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     ))
     val expectedOGCIntersection = OneGraphColumn.fromRDDs(expectedVerticesIntersection, expectedEdgesIntersection, Set("Default"), StorageLevel.MEMORY_ONLY_SER)
 
+    val resultOGCDifference = OGC.difference(OGC2)
+
+    val expectedVerticesDifference: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "a")),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "b")),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), "c")),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), "e")),
+      (5L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2014-01-01")), "e"))
+
+    ))
+
+    val expectedEdgesDifference: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42)),
+      ((3L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42)),
+      ((2L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), 42)),
+      ((2L, 5L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2014-01-01")), 42))
+
+    ))
+    val expectedOGCDifference = OneGraphColumn.fromRDDs(expectedVerticesDifference, expectedEdgesDifference, "Default", StorageLevel.MEMORY_ONLY_SER)
+
+    assert(resultOGCDifference.vertices.collect.toSet === expectedVerticesDifference.collect.toSet)
+    assert(resultOGCDifference.edges.collect.toSet === expectedEdgesDifference.collect.toSet)
+    assert(resultOGCDifference.getTemporalSequence.collect === expectedOGCDifference.getTemporalSequence.collect)
+
+
     assert(resultOGCIntersection.vertices.collect.toSet === expectedVerticesIntersection.collect.toSet)
     assert(resultOGCIntersection.edges.collect.toSet === expectedEdgesIntersection.collect.toSet)
     assert(resultOGCIntersection.getTemporalSequence.collect === expectedOGCIntersection.getTemporalSequence.collect)
 
   }
 
-  test("Union and intersection - when there is no overlap between two graphs") {
+  test("Union, Intersection and Difference - when there is no overlap between two graphs") {
     val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "a")),
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "b"))
@@ -963,9 +990,27 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     assert(resultOGCIntersection.vertices.collect.toSet === OneGraphColumn.emptyGraph("").vertices.collect.toSet)
     assert(resultOGCIntersection.edges.collect.toSet === OneGraphColumn.emptyGraph("").edges.collect.toSet)
     assert(resultOGCIntersection.getTemporalSequence.collect === Seq[Interval]())
+
+    val resultOGCDifference = OGC.difference(OGC2)
+
+    val expectedVerticesDifference: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "a")),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "b"))
+
+    ))
+
+    val expectedEdgesDifference: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42))
+    ))
+    val expectedOGCDifference = OneGraphColumn.fromRDDs(expectedVerticesDifference, expectedEdgesDifference, "Default", StorageLevel.MEMORY_ONLY_SER)
+
+    assert(resultOGCDifference.vertices.collect.toSet === expectedVerticesDifference.collect.toSet)
+    assert(resultOGCDifference.edges.collect.toSet === expectedEdgesDifference.collect.toSet)
+    assert(resultOGCDifference.getTemporalSequence.collect === expectedOGCDifference.getTemporalSequence.collect)
+
   }
 
-  test("Union and intersection -when graph.span.start == graph2.span.end") {
+  test("Union, Intersection and Difference -when graph.span.start == graph2.span.end") {
     val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "a")),
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "b"))
@@ -1008,9 +1053,28 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     assert(resultOGCIntersection.vertices.collect.toSet === OneGraphColumn.emptyGraph("").vertices.collect.toSet)
     assert(resultOGCIntersection.edges.collect.toSet === OneGraphColumn.emptyGraph("").edges.collect.toSet)
     assert(resultOGCIntersection.getTemporalSequence.collect === Seq[Interval]())
+
+    val resultOGCDifference = OGC.difference(OGC2)
+
+    val expectedVerticesDifference: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "a")),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "b"))
+
+    ))
+
+    val expectedEdgesDifference: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42))
+    ))
+    val expectedOGCDifference = OneGraphColumn.fromRDDs(expectedVerticesDifference, expectedEdgesDifference, "Default", StorageLevel.MEMORY_ONLY_SER)
+
+    assert(resultOGCDifference.vertices.collect.toSet === expectedVerticesDifference.collect.toSet)
+    assert(resultOGCDifference.edges.collect.toSet === expectedEdgesDifference.collect.toSet)
+    assert(resultOGCDifference.getTemporalSequence.collect === expectedOGCDifference.getTemporalSequence.collect)
+
+
   }
 
-  test("Union and Intersection - with structure only") {
+  test("Union, Intersection and Difference - with structure only") {
     val users: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
@@ -1090,9 +1154,37 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     assert(resultOGCIntersection.vertices.collect.toSet === expectedVerticesIntersection.collect.toSet)
     assert(resultOGCIntersection.edges.collect.toSet === expectedEdgesIntersection.collect.toSet)
     assert(resultOGCIntersection.getTemporalSequence.collect === expectedOGCIntersection.getTemporalSequence.collect)
+
+
+    val resultOGCDifference = OGC.difference(OGC2)
+
+    val expectedVerticesDifference: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), true)),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), true)),
+      (5L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2014-01-01")), true))
+
+    ))
+
+    val expectedEdgesDifference: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), true)),
+      ((3L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), true)),
+      ((2L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), true)),
+      ((2L, 5L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2014-01-01")), true))
+
+    ))
+    val expectedOGCDifference = OneGraphColumn.fromRDDs(expectedVerticesDifference, expectedEdgesDifference, true, StorageLevel.MEMORY_ONLY_SER)
+
+    assert(resultOGCDifference.vertices.collect.toSet === expectedVerticesDifference.collect.toSet)
+    assert(resultOGCDifference.edges.collect.toSet === expectedEdgesDifference.collect.toSet)
+    assert(resultOGCDifference.getTemporalSequence.collect === expectedOGCDifference.getTemporalSequence.collect)
+
   }
 
-  test("Union and intersection -when there is no overlap between two graphs and has null attributes") {
+
+  test("Union, Intersection and Difference -when there is no overlap between two graphs and has null attributes") {
     val users: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true))
@@ -1139,9 +1231,28 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     assert(resultOGCIntersection.vertices.collect.toSet === OneGraphColumn.emptyGraph("").vertices.collect.toSet)
     assert(resultOGCIntersection.edges.collect.toSet === OneGraphColumn.emptyGraph("").edges.collect.toSet)
     assert(resultOGCIntersection.getTemporalSequence.collect === Seq[Interval]())
+
+
+    val resultOGCDifference = OGC.difference(OGC2)
+
+    val expectedVerticesDifference: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true))
+
+    ))
+
+    val expectedEdgesDifference: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true))
+    ))
+    val expectedOGCDifference = OneGraphColumn.fromRDDs(expectedVerticesDifference, expectedEdgesDifference, true, StorageLevel.MEMORY_ONLY_SER)
+
+    assert(resultOGCDifference.vertices.collect.toSet === expectedVerticesDifference.collect.toSet)
+    assert(resultOGCDifference.edges.collect.toSet === expectedEdgesDifference.collect.toSet)
+    assert(resultOGCDifference.getTemporalSequence.collect === expectedOGCDifference.getTemporalSequence.collect)
+
   }
 
-  test("Union and intersection -when graph.span.start == graph2.span.end and has null attributes") {
+  test("Union, Intersection and Difference -when graph.span.start == graph2.span.end and has null attributes") {
     val users: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true))
@@ -1188,8 +1299,97 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     assert(resultOGCIntersection.vertices.collect.toSet === OneGraphColumn.emptyGraph("").vertices.collect.toSet)
     assert(resultOGCIntersection.edges.collect.toSet === OneGraphColumn.emptyGraph("").edges.collect.toSet)
     assert(resultOGCIntersection.getTemporalSequence.collect === Seq[Interval]())
+
+    val resultOGCDifference = OGC.difference(OGC2)
+
+    val expectedVerticesDifference: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true))
+
+    ))
+
+    val expectedEdgesDifference: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true))
+    ))
+    val expectedOGCDifference = OneGraphColumn.fromRDDs(expectedVerticesDifference, expectedEdgesDifference, true, StorageLevel.MEMORY_ONLY_SER)
+
+    assert(resultOGCDifference.vertices.collect.toSet === expectedVerticesDifference.collect.toSet)
+    assert(resultOGCDifference.edges.collect.toSet === expectedEdgesDifference.collect.toSet)
+    assert(resultOGCDifference.getTemporalSequence.collect === expectedOGCDifference.getTemporalSequence.collect)
   }
-  
+
+
+  test("Difference 2 - with structure only") {
+    val users: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), true)),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), true)),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), true)),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), true))
+
+
+    ))
+
+    val edges: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), true)),
+      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), true)),
+      ((3L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), true)),
+      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), true))
+
+    ))
+
+    val OGC = OneGraphColumn.fromRDDs(users, edges, true, StorageLevel.MEMORY_ONLY_SER)
+
+    val users2: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), true)),
+      (3L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2018-01-01")), true)),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (5L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), true))
+    ))
+
+    val edges2: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), true)),
+      ((2L, 3L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), true)),
+      ((3L, 3L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2018-01-01")), true)),
+      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      ((5L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), true))
+    ))
+
+    val OGC2 = OneGraphColumn.fromRDDs(users2, edges2, true, StorageLevel.MEMORY_ONLY_SER)
+
+    val expectedVerticesDifference: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2015-01-01")), true)),
+      (1L, (Interval(LocalDate.parse("2018-01-01"), LocalDate.parse("2019-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2018-01-01"), LocalDate.parse("2019-01-01")), true)),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), true)),
+      (3L, (Interval(LocalDate.parse("2018-01-01"), LocalDate.parse("2019-01-01")), true)),
+      (4L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2019-01-01")), true)),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), true)),
+      (5L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2019-01-01")), true))
+    ))
+
+    val expectedEdgesDifference: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      ((1L, 2L), (Interval(LocalDate.parse("2018-01-01"), LocalDate.parse("2019-01-01")), true)),
+      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), true)),
+      ((2L, 3L), (Interval(LocalDate.parse("2018-01-01"), LocalDate.parse("2019-01-01")), true)),
+      ((3L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), true)),
+      ((3L, 3L), (Interval(LocalDate.parse("2018-01-01"), LocalDate.parse("2019-01-01")), true)),
+      ((4L, 4L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2019-01-01")), true))
+
+    ))
+
+    val expectedOGCDifference = OneGraphColumn.fromRDDs(expectedVerticesDifference, expectedEdgesDifference, true, StorageLevel.MEMORY_ONLY_SER)
+    val resultOGCDifference = OGC.difference(OGC2)
+
+    assert(resultOGCDifference.vertices.collect.toSet === expectedVerticesDifference.collect.toSet)
+    assert(resultOGCDifference.edges.collect.toSet === expectedEdgesDifference.collect.toSet)
+    assert(resultOGCDifference.getTemporalSequence.collect === expectedOGCDifference.getTemporalSequence.collect)
+  }
+
+
   test("Project") {
     //Checks for projection and coalescing of vertices and edges
     val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
@@ -1736,8 +1936,8 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     println("secong representative graph")
     pageRank2014_2018VerticesSorted.foreach(println)
     actualOGC2014_2018VerticesSorted.foreach(println)
- */
-    //Assertion
+*/
+     //Assertion
     for (i <- 0 until pageRank2010_2014VerticesSorted.length) {
       val difference = pageRank2010_2014VerticesSorted(i)._2 - actualOGC2010_2014VerticesSorted(i)._2._2._2
       assert(Math.abs(difference) < 0.0000001)
@@ -1748,4 +1948,5 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
       assert(Math.abs(difference) < 0.0000001)
     }
   }
+
 }

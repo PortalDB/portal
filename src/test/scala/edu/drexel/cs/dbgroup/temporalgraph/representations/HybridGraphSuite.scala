@@ -27,6 +27,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     }
   }
 
+
   test("slice function") {
     //Regular cases
     val sliceInterval = (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")))
@@ -824,7 +825,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     assert(expectedDegree.collect.toSet === resultDegree.collect.toSet)
   }
 
-  test("Union and Intersection") {
+  test("Union, Intersection and Difference") {
     val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "a")),
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "b")),
@@ -913,9 +914,34 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     assert(resultHGIntersection.edges.collect.toSet === expectedEdgesIntersection.collect.toSet)
     assert(resultHGIntersection.getTemporalSequence.collect === expectedHGIntersection.getTemporalSequence.collect)
 
+    val resultHGDiffenrence = HG.difference(HG2)
+
+    val expectedVerticesDifference: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "a")),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "b")),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), "c")),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), "e")),
+      (5L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2014-01-01")), "e"))
+
+    ))
+
+    val expectedEdgesDifference: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42)),
+      ((3L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42)),
+      ((2L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), 42)),
+      ((2L, 5L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2014-01-01")), 42))
+
+    ))
+    val expectedHGDifference = HybridGraph.fromRDDs(expectedVerticesDifference, expectedEdgesDifference, "Default", StorageLevel.MEMORY_ONLY_SER)
+    assert(resultHGDiffenrence.vertices.collect.toSet === expectedVerticesDifference.collect.toSet)
+    assert(resultHGDiffenrence.edges.collect.toSet === expectedEdgesDifference.collect.toSet)
+    assert(resultHGDiffenrence.getTemporalSequence.collect === expectedHGDifference.getTemporalSequence.collect)
+
+
   }
 
-  test("Union and intersection - when there is no overlap between two graphs") {
+  test("Union, Intersection and Difference- when there is no overlap between two graphs") {
     val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "a")),
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "b"))
@@ -963,9 +989,25 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     assert(resultHGIntersection.vertices.collect.toSet === HybridGraph.emptyGraph("").vertices.collect.toSet)
     assert(resultHGIntersection.edges.collect.toSet === HybridGraph.emptyGraph("").edges.collect.toSet)
     assert(resultHGIntersection.getTemporalSequence.collect === Seq[Interval]())
+
+    val resultHGDiffenrence = HG.difference(HG2)
+
+    val expectedVerticesDifference: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "a")),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "b"))
+    ))
+
+    val expectedEdgesDifference: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42))
+    ))
+    val expectedHGDifference = HybridGraph.fromRDDs(expectedVerticesDifference, expectedEdgesDifference, "Default", StorageLevel.MEMORY_ONLY_SER)
+    assert(resultHGDiffenrence.vertices.collect.toSet === expectedVerticesDifference.collect.toSet)
+    assert(resultHGDiffenrence.edges.collect.toSet === expectedEdgesDifference.collect.toSet)
+    assert(resultHGDiffenrence.getTemporalSequence.collect === expectedHGDifference.getTemporalSequence.collect)
+
   }
 
-  test("Union and intersection -when graph.span.start == graph2.span.end") {
+  test("Union, Intersection and Difference -when graph.span.start == graph2.span.end") {
     val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "a")),
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "b"))
@@ -1008,9 +1050,25 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     assert(resultHGIntersection.vertices.collect.toSet === HybridGraph.emptyGraph("").vertices.collect.toSet)
     assert(resultHGIntersection.edges.collect.toSet === HybridGraph.emptyGraph("").edges.collect.toSet)
     assert(resultHGIntersection.getTemporalSequence.collect === Seq[Interval]())
+
+    val resultHGDiffenrence = HG.difference(HG2)
+
+    val expectedVerticesDifference: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "a")),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "b"))
+    ))
+
+    val expectedEdgesDifference: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42))
+    ))
+    val expectedHGDifference = HybridGraph.fromRDDs(expectedVerticesDifference, expectedEdgesDifference, "Default", StorageLevel.MEMORY_ONLY_SER)
+    assert(resultHGDiffenrence.vertices.collect.toSet === expectedVerticesDifference.collect.toSet)
+    assert(resultHGDiffenrence.edges.collect.toSet === expectedEdgesDifference.collect.toSet)
+    assert(resultHGDiffenrence.getTemporalSequence.collect === expectedHGDifference.getTemporalSequence.collect)
+
   }
 
-  test("Union and Intersection - with structure only") {
+  test("Union, Intersection and Difference - with structure only") {
     val users: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
@@ -1090,9 +1148,35 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     assert(resultHGIntersection.vertices.collect.toSet === expectedVerticesIntersection.collect.toSet)
     assert(resultHGIntersection.edges.collect.toSet === expectedEdgesIntersection.collect.toSet)
     assert(resultHGIntersection.getTemporalSequence.collect === expectedHGIntersection.getTemporalSequence.collect)
+
+    val resultHGDiffenrence = HG.difference(HG2)
+
+    val expectedVerticesDifference: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), true)),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), true)),
+      (5L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2014-01-01")), true))
+
+    ))
+
+    val expectedEdgesDifference: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), true)),
+      ((3L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), true)),
+      ((2L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), true)),
+      ((2L, 5L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2014-01-01")), true))
+
+    ))
+    val expectedHGDifference = HybridGraph.fromRDDs(expectedVerticesDifference, expectedEdgesDifference, true, StorageLevel.MEMORY_ONLY_SER)
+    assert(resultHGDiffenrence.vertices.collect.toSet === expectedVerticesDifference.collect.toSet)
+    assert(resultHGDiffenrence.edges.collect.toSet === expectedEdgesDifference.collect.toSet)
+    assert(resultHGDiffenrence.getTemporalSequence.collect === expectedHGDifference.getTemporalSequence.collect)
+
+
   }
 
-  test("Union and intersection -when there is no overlap between two graphs and has no attributes") {
+   test("Union, Intersection and Difference -when there is no overlap between two graphs and has no attributes") {
     val users: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true))
@@ -1139,9 +1223,25 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     assert(resultHGIntersection.vertices.collect.toSet === HybridGraph.emptyGraph("").vertices.collect.toSet)
     assert(resultHGIntersection.edges.collect.toSet === HybridGraph.emptyGraph("").edges.collect.toSet)
     assert(resultHGIntersection.getTemporalSequence.collect === Seq[Interval]())
-  }
 
-  test("Union and intersection -when graph.span.start == graph2.span.end and has no attributes") {
+     val resultHGDiffenrence = HG.difference(HG2)
+
+     val expectedVerticesDifference: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true))
+     ))
+
+     val expectedEdgesDifference: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+       ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true))
+     ))
+     val expectedHGDifference = HybridGraph.fromRDDs(expectedVerticesDifference, expectedEdgesDifference, true, StorageLevel.MEMORY_ONLY_SER)
+     assert(resultHGDiffenrence.vertices.collect.toSet === expectedVerticesDifference.collect.toSet)
+     assert(resultHGDiffenrence.edges.collect.toSet === expectedEdgesDifference.collect.toSet)
+     assert(resultHGDiffenrence.getTemporalSequence.collect === expectedHGDifference.getTemporalSequence.collect)
+
+   }
+
+  test("Union, Intersection and Difference -when graph.span.start == graph2.span.end and has no attributes") {
     val users: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true))
@@ -1188,9 +1288,25 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     assert(resultHGIntersection.vertices.collect.toSet === HybridGraph.emptyGraph("").vertices.collect.toSet)
     assert(resultHGIntersection.edges.collect.toSet === HybridGraph.emptyGraph("").edges.collect.toSet)
     assert(resultHGIntersection.getTemporalSequence.collect === Seq[Interval]())
+
+    val resultHGDiffenrence = HG.difference(HG2)
+
+    val expectedVerticesDifference: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true))
+    ))
+
+    val expectedEdgesDifference: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true))
+    ))
+    val expectedHGDifference = HybridGraph.fromRDDs(expectedVerticesDifference, expectedEdgesDifference, true, StorageLevel.MEMORY_ONLY_SER)
+    assert(resultHGDiffenrence.vertices.collect.toSet === expectedVerticesDifference.collect.toSet)
+    assert(resultHGDiffenrence.edges.collect.toSet === expectedEdgesDifference.collect.toSet)
+    assert(resultHGDiffenrence.getTemporalSequence.collect === expectedHGDifference.getTemporalSequence.collect)
+
   }
 
-  test("Union and Intersection -when the graphs has higher number of periods than the rundwithds(currently 8)") {
+  test("Union, Intersection and Difference -when the graphs has higher number of periods than the rundwithds(currently 8)") {
     val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "a")),
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "b")),
@@ -1279,6 +1395,101 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     assert(resultHGIntersection.edges.collect.toSet === expectedEdgesIntersection.collect.toSet)
     assert(resultHGIntersection.getTemporalSequence.collect === expectedHGIntersection.getTemporalSequence.collect)
 
+    val resultHGDiffenrence = HG.difference(HG2)
+
+    val expectedVerticesDifference: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "a")),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "b")),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), "c")),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), "e")),
+      (5L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2014-01-01")), "e"))
+
+    ))
+
+    val expectedEdgesDifference: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
+      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42)),
+      ((3L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42)),
+      ((2L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), 42)),
+      ((2L, 5L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2014-01-01")), 42))
+
+
+    ))
+    val expectedHGDifference = HybridGraph.fromRDDs(expectedVerticesDifference, expectedEdgesDifference, "Default", StorageLevel.MEMORY_ONLY_SER)
+    assert(resultHGDiffenrence.vertices.collect.toSet === expectedVerticesDifference.collect.toSet)
+    assert(resultHGDiffenrence.edges.collect.toSet === expectedEdgesDifference.collect.toSet)
+    assert(resultHGDiffenrence.getTemporalSequence.collect === expectedHGDifference.getTemporalSequence.collect)
+
+
+  }
+
+  test("Difference 2 - wtih structure only") {
+    val users: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), true)),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), true)),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), true)),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), true))
+
+
+    ))
+
+    val edges: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), true)),
+      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), true)),
+      ((3L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), true)),
+      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), true))
+
+    ))
+
+    val HG = HybridGraph.fromRDDs(users, edges, true, StorageLevel.MEMORY_ONLY_SER)
+
+    val users2: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), true)),
+      (3L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2018-01-01")), true)),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (5L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), true))
+    ))
+
+    val edges2: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), true)),
+      ((2L, 3L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), true)),
+      ((3L, 3L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2018-01-01")), true)),
+      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      ((5L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), true))
+    ))
+
+    val HG2 = HybridGraph.fromRDDs(users2, edges2, true, StorageLevel.MEMORY_ONLY_SER)
+    val resultHGIntersection = HG.difference(HG2)
+
+    val expectedVerticesDifference: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2015-01-01")), true)),
+      (1L, (Interval(LocalDate.parse("2018-01-01"), LocalDate.parse("2019-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2018-01-01"), LocalDate.parse("2019-01-01")), true)),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), true)),
+      (3L, (Interval(LocalDate.parse("2018-01-01"), LocalDate.parse("2019-01-01")), true)),
+      (4L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2019-01-01")), true)),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), true)),
+      (5L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2019-01-01")), true))
+    ))
+
+    val expectedEdgesDifference: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      ((1L, 2L), (Interval(LocalDate.parse("2018-01-01"), LocalDate.parse("2019-01-01")), true)),
+      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), true)),
+      ((2L, 3L), (Interval(LocalDate.parse("2018-01-01"), LocalDate.parse("2019-01-01")), true)),
+      ((3L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), true)),
+      ((3L, 3L), (Interval(LocalDate.parse("2018-01-01"), LocalDate.parse("2019-01-01")), true)),
+      ((4L, 4L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2019-01-01")), true))
+
+    ))
+    val expectedHGDifference = HybridGraph.fromRDDs(expectedVerticesDifference, expectedEdgesDifference, true, StorageLevel.MEMORY_ONLY_SER)
+
+    assert(resultHGIntersection.vertices.collect.toSet === expectedVerticesDifference.collect.toSet)
+    assert(resultHGIntersection.edges.collect.toSet === expectedEdgesDifference.collect.toSet)
+    assert(resultHGIntersection.getTemporalSequence.collect === expectedHGDifference.getTemporalSequence.collect)
   }
 
   test("Project") {

@@ -32,19 +32,73 @@ object TempGraphOps extends Serializable {
       .map(x => Interval(x(0), x(1)))
   }
 
+
   def intervalIntersect(intervals: RDD[Interval], other: RDD[Interval]): RDD[Interval] = {
     val st: LocalDate = maxDate(intervals.min.start, other.min.start)
     val en: LocalDate = minDate(intervals.max.end, other.max.end)
     val intv = Interval(st, en)
     implicit val ord = dateOrdering
     intervals.filter(in => !in.start.isBefore(st) && in.start.isBefore(en)).map(_.start)
-      .union(other.filter(in => !in.start.isBefore(st) && in.start.isBefore(en)).map(_.start))
+    .union(other.filter(in => !in.start.isBefore(st) && in.start.isBefore(en)).map(_.start))
       .union(ProgramContext.sc.parallelize(Seq(en)))
       .distinct
       .sortBy(c => c, true)
       .sliding(2)
       .map(x => Interval(x(0), x(1)))
   }
+
+
+  def intervalDifference(intervals: RDD[Interval], other: RDD[Interval]): RDD[Interval] = {
+    val st: LocalDate = intervals.min.start
+    val en: LocalDate = intervals.max.end
+    val spanend = intervals.max.end
+    implicit val ord = dateOrdering
+    intervals.map(in => in.start)
+      .union(intervals.map(in => in.end))
+      .union(other.filter(in => !in.start.isBefore(st) && in.start.isBefore(en)).map(_.start))
+      .union(other.filter(in => !in.end.isBefore(st) && in.start.isBefore(en)).map(_.end))
+      .distinct
+      .sortBy(c => c, true)
+      .sliding(2)
+      .map(x => Interval(x(0), x(1)))
+    /*
+    val intersect=intervalIntersect(intervals,other)
+
+    val st: LocalDate = intervals.min.start
+    val en: LocalDate = intervals.max.end
+    val intv = Interval(st, en)
+    implicit val ord = dateOrdering
+
+
+    val difference=intervals.map(_.start)
+
+
+      .union(other.filter(in => !in.start.isBefore(st) && in.start.isBefore(en)).map(_.start))
+      .union(other.filter(in => in.end.isAfter(st) && !in.start.isAfter(en)).map(_.end))
+      .union(ProgramContext.sc.parallelize(Seq(en)))
+      .distinct
+      .sortBy(c => c, true)
+      .sliding(2)
+      .map(x => Interval(x(0), x(1)))
+    difference.subtract(intersect).distinct().sortBy(c=>c,true)
+    */
+
+    /*
+    val st: LocalDate = maxDate(intervals.min.start, other.min.start)
+    val en: LocalDate = minDate(intervals.max.end, other.max.end)
+    val intv = Interval(st, en)
+    implicit val ord = dateOrdering
+    intervals.map(_.start)
+      .union(other.filter(in => !in.start.isBefore(st) && in.start.isBefore(en)).map(_.start))
+      .union(ProgramContext.sc.parallelize(Seq(en)))
+      .distinct
+      .sortBy(c => c, true)
+      .sliding(2)
+      .map(x => Interval(x(0), x(1)))
+      */
+
+  }
+
 
   def combine(lst: List[Interval]): List[Interval] = {
     implicit val ord = dateOrdering
