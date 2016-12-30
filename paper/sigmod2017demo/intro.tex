@@ -10,25 +10,6 @@ research is to provide a similar tool for analyzing evolving graphs,
 an area of interest in many research communities, including sociology,
 epidemiology, networking, etc.
 
-
-
-% General motivation
-\eat{
-The importance of networks in scientific and commercial domains cannot
-be overstated.  Considerable research and engineering effort is being
-devoted to developing effective and efficient graph representations
-and analytics.  Efficient graph abstractions and analytics for {\em
-  static graphs} are available to researchers and practitioners in
-scope of open source platforms such as Apache Giraph, Apache Spark /
-GraphX~\cite{DBLP:conf/osdi/GonzalezXDCFS14} and GraphLab /
-PowerGraph~\cite{DBLP:conf/osdi/GonzalezLGBG12}.
-}
-
-\eat{
-Arguably the most interesting and important questions one can ask
-about networks have to do with their evolution, rather than with their
-static state.}
-
 Analysis of {\em evolving graphs} has been receiving increasing
 attention~\cite{DBLP:journals/csur/AggarwalS14,Miao2015,Ren2011,Semertzidis2015}.
 Yet, despite much recent activity, and despite increased variety and
@@ -38,31 +19,33 @@ urgently needed, due first and foremost to the scalability and
 efficiency challenges inherent in evolving graph analysis, but also to
 considerations of usability and ease of dissemination.  The goal of
 our work is to fill this gap.  In this demonstration we present
-Portal, an open-source distributed framework that implements an
+\sys, an open-source distributed framework that implements an
 algebraic query language called \tg algebra~\cite{PortalarXiv2016}
-(\tga) and a declarative language \tgql over it. Portal streamlines
+(\tga) and a declarative language \ql over it. \sys streamlines
 exploratory analysis of evolving graphs, making it efficient and
 usable, and providing critical tools to computational and data
 scientists.
 
-\julia{What do we want to say here?  It's confusing to be zooming in
-  on \tga, let's rephrase to talk about (a) why a relational treatment
-  of evolving graphs and (b) why Spark.}  Our goal in developing \tga
-is to give users an ability to concisely express a wide range of
-common analysis tasks over evolving graphs, while at the same time
-preserving inter-operability with temporal relational algebra (\tra).
 Implementing (non-temporal) graph querying and analytics in an RDBMS
 has been receiving renewed
-attention~\cite{DBLP:conf/sigmod/AbergerTOR16,DBLP:conf/sigmod/SunFSKHX15,DBLP:journals/pvldb/Xirogiannopoulos15},
-and our work is in-line with this trend. Our data model is based on
-the temporal relational model, and our algebra corresponds to temporal
-relational algebra, but is designed specifically for evolving graphs.
+attention~\cite{DBLP:conf/sigmod/AbergerTOR16,DBLP:conf/sigmod/SunFSKHX15,DBLP:journals/pvldb/Xirogiannopoulos15}.
+Our work is in-line with this trend.  Our goal in developing \sys is
+to give users an ability to concisely express a wide range of common
+analysis tasks over evolving graphs, while at the same time preserving
+inter-operability with temporal relational algebra, and with
+non-temporal relational operations.  We build on Apache Spark /
+GraphX~\cite{DBLP:conf/osdi/GonzalezXDCFS14}, an open-source
+distributed system that combines data-parallel and graph-parallel
+processing, to achieve scalability.
 
-In what follows, we briefly describe our data model and algebra (Section 2), declarative query
-language for evolving graphs (Section 3) and the Portal system
-(Section 4) that implements it. We then present several
-interesting demonstration scenarios (Section 5). We finish
-with a brief discussion of related work (Section 6) and with
-take-home messages (Section 7).
+In what follows, we briefly describe our data model and algebra
+(Section 2), and go on to present a declarative query language for
+evolving graphs (Section 3) and the architecture of the \sys system
+(Section 4) that implements it. We then present several interesting
+demonstration scenarios (Section 5), in which sophisticated data
+analysis tasks are specified concisely with declarative \ql queries,
+and are executed in interactive time.  We finish with a brief
+discussion of related work (Section 6) and with take-home messages
+(Section 7).
 
 

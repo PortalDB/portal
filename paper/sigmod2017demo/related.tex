@@ -15,28 +15,28 @@ explore the effect of distribution on batching performance.
 The G* system~\cite{Labouseur2015} manages graphs that correspond to
 periodic snapshots, with the focus on efficient data layout.  It takes
 advantage of the similarity between successive snapshots by storing
-shared vertices only once and maintaining per-graph indexes.  Time is
-not an intrinsic part of the system, as there is in \tga, and thus
+shared vertices only once and maintaining per-graph indexes.  Unlike
+in \tga, time is not an intrinsic part of the system in G*, and thus
 temporal queries with time predicates like node creation are not
 supported.  G* provides two query languages: procedural query language
 PGQL, and a declarative graph query language (DGQL). PGQL provides
 graph operators such as retrieving vertices and their edges from disk
 and non-graph operators like aggregate, union, projection, and join.
-All operators use a streaming model, i.e. like in traditional DBMS,
-they pipeline.  DGQL is similar to SQL and is converted into PGQL by
-the system.
+All operators use a streaming model, i.e., like in a traditional DBMS,
+they pipeline.\eat{  DGQL is similar to SQL and is converted into PGQL by
+the system.}
 
 Finally, the Historical Graph Store (HGS) system is an evolving graph
 query system based on Spark.  It uses the property graph model and
 supports retrieval tasks along time and entity dimensions through Java
-and Python API.  It provides a range of operators such as selection
+and Python APIs.  It provides a range of operators such as selection
 (equivalent to our subgraph operators but with no temporal
 predicates), timeslice, nodecompute (similar to map but also with no
-temporal information), as well as various evolution-centered
-operators.  HGS does not provide formal semantics for any of the
-operations it supports and the main focus is on efficient on-disk
-representation for retrieval.
+temporal information), and various evolution-centered operators.  HGS
+does not provide formal semantics for any of the operations it
+supports and the main focus is on efficient on-disk representation for
+retrieval.
 
-None of the three systems are publicly available, so direct
-performance comparison with them is not feasible.
+None of the three systems are publicly available, so a direct
+performance comparison with them is not possible.
 

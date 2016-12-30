@@ -1,26 +1,37 @@
 \section{\ql by example}
 \label{sec:cases}
 
-We demonstrate the \tga / \ql operations through the following use
-case.  An interaction network is one typical kind of an evolving
-graph.  It represents people as vertices, and interactions between
-them such as messages, conversations and endorsements, as edges.
-Information describing people and their interactions is represented by
-vertex and edge attributes.  One easily accessible interaction network
-is the wiki-talk dataset
+We now illustrate the salient features of \ql with examples.  For each
+example, we give a declarative query, and a corresponding \tga
+expression.  For readability, we start by presenting single-operator
+queries, and then combine them into a complex query.
+
+All queries presented here will be available to \sys users during the
+demonstration, as described in Section~\ref{sec:demo}.  We do not list
+performance results here due to space constraints, and point an
+interested reader to~\cite{PortalarXiv2016}, where system performance
+is evaluated thoroughly.  We note that all queries described here, and
+many others, execute in interactive time.
+
+All queries in this section analyze one typical kind of an evolving
+graph, namely, an interaction network, which represents people as
+vertices, and interactions between them such as messages,
+conversations and endorsements, as edges.  Information describing
+people and their interactions is represented by vertex and edge
+attributes, respectively.  An example of a publicly available
+interaction network is the wiki-talk dataset
 (\url{http://dx.doi.org/10.5281/zenodo.49561}), containing messaging
 events among Wikipedia contributors over a 13-year period.
 Information available about the users includes their username, group
 membership, and the number of Wikipedia edits they made.  Messaging
-events occur when users post on each other's talk pages.  
+events occur when users post on each other's talk pages.
 
 %Communities over time.
-
-Interaction networks are sparse because edges are so short-lived.  As
+Interaction networks are sparse because edges are short-lived.  As
 part of exploratory analysis, we can consider the network at different
 temporal resolutions, run a community detection algorithm, e.g.,
 compute the connected components of the network, and then consider the
-number of and size of connected components.
+number of connected components and their sizes.  
 
 \eat{To see whether communities form and at what time scale, we can vary
 the time scale and compute communities, e.g. through connected
@@ -42,6 +53,11 @@ can we detect communities?}
 
 \begin{example}
 \label{ex:load}
+
+\julia{Do we have a ``create \tg'' or something similar?  ``create
+  view'' doesn't make sense here, a view is an IDB, there needs to be
+  a way to define an EDB.}
+  
 We can load the dataset with the following command:
 
 \begin{small} 
@@ -49,15 +65,17 @@ We can load the dataset with the following command:
 Create View wiki As { Load From "path/to/data" }
 \end{verbatim}
 \end{small}
+
+\julia{Say something about the format of the data on disk, and that we
+  provide a default loader that works as is, since vertex and edge
+  attributes are key-value pairs}
+
 \end{example}
 
 \begin{example}
 \label{ex:slice}
 
-Select a subset of the data representing the 5 years of interest,
-using a common temporal operator slice($\tau$):
-
-$\ttt_1 = \slice{[2010,2015)}{wiki}$
+Select a 5-year subset of the data:
 
 \begin{small} 
 \begin{verbatim}
@@ -68,21 +86,19 @@ Create View T1 As {
 \end{verbatim}
 \end{small}
 
+The corresponding algebraic expression in \tra uses the common
+temporal slice operator: $\ttt_1 = \slice{[2010,2015)}{wiki}$.
+
 \end{example}
 
 \begin{example}
 \label{ex:nodecrt}
 
 Compute a temporally aggregated view of the graph into 6-months
-windows.  Each window will include vertices and edges if they
-communicated regularly: a vertex and an edge are each present during a
-6-month window if they exist in every snapshot during that period.  We
-use the window-based node creation operation, which is similar to
-moving window temporal aggregation for relations:
-
-\eat{\item Aggregate the graph into 6-month windows.}
-
-$\ttt_2 = \insql{node}^T_w(\mathsf{w=6~mon},\mathsf{q_v=always},\mathsf{q_e=always},\ttt_1)$
+windows.  A window includes vertices and edges that correspond to
+users who communicated regularly: a vertex and an edge are each
+present during a 6-month window if they exist in every snapshot during
+that period.
 
 \begin{small} 
 \begin{verbatim}
@@ -94,11 +110,17 @@ Create View T2 As {
 \end{verbatim}
 \end{small}
 
+This query corresponds to a \tra expression that invokes window-based
+node creation, an evolving graph operation similar to moving window
+temporal aggregation for relations:
+$\ttt_2 = \insql{node}^T_w(\mathsf{w=6~mon},\mathsf{q_v=always},\mathsf{q_e=always},\ttt_1)$.
+
 \end{example}
 
-The node creation operator enables the user to analyze an evolving
-graph at different levels of granularity.  This operator comes in two
-variants --- based on vertex attributes or based on temporal window.
+Node creation enables the user to analyze an evolving graph at
+different levels of granularity.  This operator comes in two variants
+--- based on temporal window (Example~\ref{ex:nodecrt}) or based
+on vertex attributes, illustrated next.
 
 \begin{example}
 \label{ex:cc}
@@ -106,8 +128,6 @@ variants --- based on vertex attributes or based on temporal window.
 Compute connected components at each time point.  This is an
   example of a Pregel-style analytic invocation over an evolving
   graph.
-
-$\ttt_3 = \insql{pregel}^T_{cc} (\mathsf{pname=comp}, \ttt_2)$
 
 \begin{small} 
 \begin{verbatim}
@@ -117,6 +137,9 @@ Create View T3 As {
    From T2 }
 \end{verbatim}
 \end{small}
+
+This query correspond to the following \tra expression:
+$\ttt_3 = \insql{pregel}^T_{cc} (\mathsf{pname=comp}, \ttt_2)$.
 
 \end{example}
 
@@ -136,10 +159,7 @@ listing them all may be burdensome for the user.}
 \label{ex:nodecra}
 
 Generate a new graph, in which a vertex corresponds to a connected
-component, and compute the size of the connected component.  We
-implement this with the attribute-based node creation operation:
-
-$\ttt_4 = \insql{node}^T_a(\mathsf{g=comp,f_v=count(1)},\ttt_3)$
+component, and compute the size of the connected component.  
 
 \begin{small} 
 \begin{verbatim}
@@ -152,20 +172,25 @@ Create View T4 As {
 
 \end{example}
 
-This operation allows the user to generate a \tg in which vertices
-correspond to disjoint groups of vertices in the input that agree on
-the values of all grouping attributes.  Vertices of the input are
-partitioned on their values of the grouping attributes.  Partitioning
-of the vertices also induces a partitioning of the edges.
+This operation allows the user to generate a \tg in which a vertex
+corresponds to a group of vertices in the input that agree on the
+values of all grouping attributes.  An edge in the output is
+introduced between vertices $g_1$ and $g_2$ if some pair of vertices
+$v_1$ and $v_2$ in the input \tg were connected by an edge, $v_1$ is
+in group $g_1$ and $v_2$ is in group $g_2$.  We do not add any
+self-loops to the output \tg. The corresponding \tra expression is
+$\ttt_4 = \insql{node}^T_a(\mathsf{g=comp,f_v=count(1)},\ttt_3)$.
+
+\eat{Vertices of the input are partitioned on their values of the
+  grouping attributes.  An edge is created between a pair of vertices
+  in the output if some two input Partitioning of the vertices also
+  induces a partitioning of the edges.}
 
 \begin{example}
 \label{ex:subg}
 
-Filter out vertices that represent communities too small to be
-  useful (e.g., of 1-2 people).  This is an example of vertex
-  subgraph.
-
-$\ttt_5 = \subv{\mathsf{v.a.count > 2}}{\ttt_4}$
+Filter out vertices that represent communities too small to be of
+interest (e.g., of 1-2 people).  
 
 \begin{small} 
 \begin{verbatim}
@@ -175,40 +200,46 @@ Create View T5 As {
    VWhere cnt > 2 }
 \end{verbatim}
 \end{small}
+
+This query correspond a \tra expression that invokes the vertex
+subgraph operation $\ttt_5 = \subv{\mathsf{v.a.count > 2}}{\ttt_4}$.
+
 \end{example}
 
-The multiple queries can be combined into a single complex one, as in SQL.
+The multiple queries can be combined into a single complex one, as in
+SQL.  \julia{I'd like to see a complex query here, ideally one that
+  combines everything, or at least a good subset of the operations.
+  Also please give a couple of alternative algebraic rewritings.}
 
 Another use case demonstrates the remaining operations of \tga.  DBLP
 and arXiv datasets contain co-authorship information and can provide
-interesting insights into Computer Science research community at
-large.  Nodes represent authors and edges an existence of a joint
-publication between them.
+interesting insights into the CS research community at large.  Nodes
+represent authors, and edges --- a joint publication between a pair of
+authors.
 
 \begin{example}
 \label{ex:union}
 
-Assuming that the author ids are drawn from the same set,
-i.e. assigned identically in both dblp and arXiv, we can combine the
-two datasets for a more comprehensive view using the union operation:
-
-$\ttt_6 = dblp \cap^T arXiv (f_v=left(name),f_E=max(cnt))$
+Assuming that author ids are drawn from the same set, i.e., assigned
+consistently in DBLP and arXiv, we can combine the two datasets for a
+more comprehensive view using temporal graph union:
 
 \begin{small}
 \begin{verbatim}
 Create View T6 As {
    VSelect left(name)  ESelect max(cnt)
-   From dblp union arxiv }
+   From dblp Union arXiv }
 \end{verbatim}
 \end{small}
 
-\end{example}
+Note that, unlike in relational algebra, \tga union requires aggregate
+functions to resolve multiple property values for the same node or
+edge.  The \insql{left} function takes the value of the vertex
+property \insql{name} from the DBLP dataset (the left operand) if a
+vertex exists in both DBLP and arXiv. The corresponding \tga
+expression is $\ttt_6 = dblp~\cap^T~arXiv(f_v=left(name),f_E=max(cnt))$.
 
-Note that unlike in relational algebra, \tga union operation requires
-aggregation functions to resolve multiple property values for the same
-node/edge.  The \insql{left} aggregation function takes the value of
-the name vertex property from the dblp dataset where the vertex exists
-in both.
+\end{example}
 
 \begin{example}
 \label{ex:agg}
@@ -217,11 +248,7 @@ Finally, we compute an in-degree of each vertex during each time
 point.  This is an example of the {\em aggregation} operation, a
 common operation on non-temporal graphs, as defined by the taxonomy of
 Wood~\cite{Wood2012}.  Aggregation computes a value for each vertex
-based on its neighbors.  We introduce a temporal version of
-aggregation (listed here with default arguments omitted for
-readability):
-
-$\ttt_7 = \insql{agg}^T(\mathsf{dir=right},\mathsf{f_m=1},\mathsf{f_a=count},\mathsf{pname=deg},\ttt_6)$
+based on its neighbors.
 
 \begin{small} 
 \begin{verbatim}
@@ -231,6 +258,10 @@ Create View T7 As {
    Aggregate Right }
 \end{verbatim}
 \end{small}
+
+This query corresponds to a \tra expression that uses temporal
+aggregation, listed here with default arguments: $\ttt_7 =
+\insql{agg}^T(\mathsf{dir=right},\mathsf{f_m=1},\mathsf{f_a=count},\mathsf{pname=deg},\ttt_6)$.
 
 \end{example}
 
