@@ -355,22 +355,20 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       }.mapEdges{ e =>
         BitSet() ++ e.attr.toSeq.flatMap(ii => intvMap2B.value(ii))
       }
-      val newGraphs: Graph[BitSet,BitSet] = Graph(
-          gp1.vertices.leftOuterJoin(gp2.vertices).mapValues {x=> x._1.diff(x._2.getOrElse(BitSet()))}.filter( v =>  v._2.size>0),
-          gp1.edges.map( e=>((e.srcId,e.dstId),e.attr)).leftOuterJoin(
-            gp2.edges.map( e=>((e.srcId,e.dstId),e.attr))
-          ).mapValues(x=> x._1.diff((x._2.getOrElse(BitSet())))).filter( e => e._2.size>0).map(e=> Edge(e._1._1,e._1._2,e._2))
-        , BitSet() , storageLevel, storageLevel)
-      val newDefVal = (defaultValue.asInstanceOf[VD])
-      val vs = newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}
-      val tmp = (defaultValue.asInstanceOf[ED])
+      val newGraphs: Graph[BitSet,BitSet] = 
+        gp1.outerJoinVertices(gp2.vertices)((vid, attr1, attr2) => attr1.diff(attr2.getOrElse(BitSet())))
+          .subgraph(vpred = (vid, attr) => !attr.isEmpty) //this will remove edges where vertices went away completely, automatically
+          .mapTriplets( etp => etp.attr & etp.srcAttr & etp.dstAttr)
+          .subgraph(epred = et => !et.attr.isEmpty)
+
+      val vs = newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), defaultValue)))}
+      val tmp = defaultValue.asInstanceOf[ED]
       val es = newGraphs.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp))))
 
       if (ProgramContext.eagerCoalesce)
-        //Todo : is this the correct way to do this ?
-        fromRDDs(vs, TGraphNoSchema.constrainEdges(vs,es), newDefVal, storageLevel, false)
+        fromRDDs(vs, es, defaultValue, storageLevel, false)
       else
-        new OneGraphColumn(vs,  TGraphNoSchema.constrainEdges(vs,es), newGraphs, newDefVal, storageLevel, false)
+        new OneGraphColumn(vs,  es, newGraphs, defaultValue, storageLevel, false)
 
     } else {
         this
