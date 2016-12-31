@@ -57,6 +57,10 @@ can we detect communities?}
 \julia{Do we have a ``create \tg'' or something similar?  ``create
   view'' doesn't make sense here, a view is an IDB, there needs to be
   a way to define an EDB.}
+
+\vera{No, we don't. The load command gives you the data, but it still
+  needs a name if referred to elsewhere. How would you like to change
+  this?}
   
 We can load the dataset with the following command:
 
@@ -66,11 +70,13 @@ Create View wiki As { Load From "path/to/data" }
 \end{verbatim}
 \end{small}
 
-\julia{Say something about the format of the data on disk, and that we
-  provide a default loader that works as is, since vertex and edge
-  attributes are key-value pairs}
-
 \end{example}
+
+We use the Apache Parquet format for on-disk storage, with one archive
+for vertices and another for edges, temporally coalesced.  For ease of
+use, we provide a GraphLoader utility that can initialize any of the
+four physical representations from Apache Parquet files on HDFS or on
+local disk.
 
 \begin{example}
 \label{ex:slice}
@@ -85,6 +91,11 @@ Create View T1 As {
    VWhere start>='2010-01-01' AND end<'2015-01-01'}
 \end{verbatim}
 \end{small}
+
+\vera{We have a semantic ambiguity here that we need to fix. Now that
+  selection operator accepts temporal predicates, the above can be
+  interpreted as either a slice or a selection, with different
+  results.}
 
 The corresponding algebraic expression in \tra uses the common
 temporal slice operator: $\ttt_1 = \slice{[2010,2015)}{wiki}$.
@@ -207,9 +218,30 @@ subgraph operation $\ttt_5 = \subv{\mathsf{v.a.count > 2}}{\ttt_4}$.
 \end{example}
 
 The multiple queries can be combined into a single complex one, as in
-SQL.  \julia{I'd like to see a complex query here, ideally one that
-  combines everything, or at least a good subset of the operations.
-  Also please give a couple of alternative algebraic rewritings.}
+SQL:
+
+\begin{small}
+\begin{verbatim}
+VSelect * ESelect *
+From (
+    VSelect count(*) as cnt  ESelect *
+    From (
+        VSelect components() as comp, * ESelect *
+        From ( Load From "path/to/data" }
+        TGroup By 6 months
+        VExists always EExists always
+        VWhere start>='2010-01-01' AND end<'2015-01-01' )
+    VGroup By comp)
+VWhere cnt > 2 
+\end{verbatim}
+\end{small}
+
+The order of precedence in a single statement is selection and slice
+(\insql{vwhere}, \insql{ewhere}), node creation, analytics, map, and
+  then binary operations.  Multiple orders of execution are possible
+  since slice can be performed at any point, but it is most efficient
+  to perform slice first to reduce the amount of data for further
+  evaluation.
 
 Another use case demonstrates the remaining operations of \tga.  DBLP
 and arXiv datasets contain co-authorship information and can provide
