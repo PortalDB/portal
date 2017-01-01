@@ -28,9 +28,9 @@ state of the relations at any time point.  Relations of \tg are
 coalesced~\cite{DBLP:conf/vldb/BohlenSS96} --- each fact (existence of
 a vertex or edge, or an assignment of a value to a vertex or edge
 attribute) is represented exactly once for each time period of maximal
-length during which it holds.  We also require that referential
-integrity hold on \insql{E} w.r.t. \insql{V}, guaranteeing that edges
-only exist if their end points exist at the same time, on \insql{VA}
+length during which it holds.  Referential integrity holds on
+\insql{E} w.r.t. \insql{V}, guaranteeing that edges only exist if
+their end points exist at the same time, on \insql{VA}
 w.r.t. \insql{V}, and on \insql{EA} w.r.t. \insql{E}.
 
 {\bf Operations.} In~\cite{PortalarXiv2016} we proposed a temporal
@@ -39,18 +39,17 @@ graph algebra \tga.  The algebra is compositional: operators take a
 be expressed as a sequence of temporal relational algebra expressions,
 guaranteeing snapshot reducibility and extended snapshot
 reducibility~\cite{DBLP:reference/db/Bohlen092} --- two properties
-that are appropriate for a point-based temporal data model.  We study
-the expressiveness of \tga in~\cite{PortalarXiv2016} and formally show
-completeness with respect to temporal relational algebra.
+that are appropriate for a point-based temporal data model.  The
+operations of \tga include slice, map, selection, aggregation, node
+creation, edge creation, and common binary operations union,
+intersection, and difference.  We study the expressiveness of \tga
+in~\cite{PortalarXiv2016} and show completeness w.r.t. temporal
+relational algebra.  We also support Pregel-style analytics that are
+logically executed on each snapshot.
 
-The operations of \tga include slice, map, selection, aggregation,
-node creation, edge creation, and common set operators union,
-intersection, and difference.  We also support Pregel-style analytics
-that are logically executed on each snapshot.  We explain some of
-these operations in the next section through examples, and refer the
-reader to~\cite{PortalarXiv2016} for additional details.
-
-The next section also serves to introduce the syntax of \ql, a
-declarative language in which queries are rewritten by the \sys system
-into sequence of \tga operations.  \ql is being presented here for the
-first time.
+In the next section, we explain the operations of TGA through
+examples, and refer the reader to~\cite{PortalarXiv2016} for
+additional details.  The next section also serves to introduce the
+syntax of \ql, a declarative language, whose queries are rewritten by
+the \sys system into sequence of \tga operations.  \ql is being
+presented here for the first time.
