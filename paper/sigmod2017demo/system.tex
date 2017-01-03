@@ -11,14 +11,14 @@
 \end{figure}
 
 We developed a prototype system \sys that is implemented on top of
-Apache Spark/GraphX~\cite{DBLP:conf/osdi/GonzalezXDCFS14}/Spark SQL,
-as depicted in Figure~\ref{fig:arch}.  Green boxes indicate built-in
-components, while blue are those we added for \sys.  Data is
-distributed in partitions across the cluster workers, is read in from
-the distributed file system (HDFS), and can be viewed both as a graph
-and as a pair of RDDs.  All \tg operations are available through the
-public API of the \sys library, and may be used in an Apache Spark
-application.
+Apache Spark/GraphX~\cite{DBLP:conf/osdi/GonzalezXDCFS14}/Spark
+SQL~\cite{Armbrust2015}, as depicted in Figure~\ref{fig:arch}.  Green
+boxes indicate built-in components, while blue are those we added for
+\sys.  Data is distributed in partitions across the cluster workers,
+is read in from the distributed file system (HDFS), and can be viewed
+both as a graph and as a pair of RDDs.  All \tg operations are
+available through the public API of the \sys library, and may be used
+in an Apache Spark application.
 
 {\bf Temporal operators.}  Apache Spark is not a temporal DBMS but
 rather an open-source in-memory distributed framework that combines
@@ -37,30 +37,34 @@ see~\cite{MoffittTempWeb16} for a detailed discussion.\eat{ \sys
 {\bf Query evaluation.}  \sys query execution follows the traditional
 query processing steps: parsing, logical plan generation and
 verification, and physical plan generation. \sys re-uses and extends
-SparkSQL abstractions for these steps.  A \ql query is rewritten into
-a sequence of \tga operators, and some operators are reordered in a
-rule-based manner to improve performance. \julia{How do we rewrite
-  \tga into \tra then?  In what way to we use SparkSQL?  This part
-  needs to be explained.}
+SparkSQL classes for these steps, including expressions, query tree,
+etc, but not the SparkSQL execution engine.  A \ql query is rewritten
+into a sequence of \tga operators, and some operators are reordered in
+a rule-based manner to improve performance.
 
-\julia{Need a paragarph here about rule-based query optimziation in
-  \tga.}
-
-\eat{For example, pushing slice improves performance similar to
-  pushing selection in SQL.}
-
-\eat{For example, pushing temporal aggregation
-  before temporal join can sometimes lead to better performance. A
-  temporal join query may be rewritten to include additional temporal
-  selection conditions, based on information about the temporal schema
-  of the TGraphs being joined, which in turn significantly reduces
-  data load time.}
+Similar to SQL, we apply attribute pruning (column pruning in SQL),
+collapse multiple filters into one, and collapse multiple maps into
+one.  Slice is always pushed to the bottom of the tree, except when it
+appears after temporal window node creation.  We also add slice to
+each subtree of the temporal intersection based on system catalog.
+E-subgraph is pushed through v-subgraph if e-subgraph has no temporal
+predicate because this leads to smaller join size in v-subgraph during
+integrity constraint enforcement.  Unlike in SQL, filter pushdown
+cannot be performed through union because of the aggregate functions.
+(See extended discussion on the need for aggregation functions in
+set-based operators in the full paper~\cite{PortalarXiv2016}).
+Attribute-based node creation is always placed before temporal node
+creation and temporal union because of its output size reduction.
 
 We developed several physical representations and partitioning
-strategies that are selected at the physical plan generation
-stage. \tgs are read into memory from HDFS and processed by Spark
-Workers, with task assignment managed by the runtime.  Details about
-the physical representations can be found in~\cite{PortalarXiv2016}.
+strategies that are selected at the physical plan generation stage.
+One representation is based on temporal relational algebra, mirrowing
+the logical data model.  It translates \tga operators into a series of
+RDD transformations.  Other representations are graph-based, use the
+GraphX library, and are more efficient under certain conditions.  \tgs
+are read into memory from HDFS and processed by Spark Workers, with
+task assignment managed by the runtime.  Details about the physical
+representations can be found in~\cite{PortalarXiv2016}.
 
 \begin{figure}[t]
 \centering

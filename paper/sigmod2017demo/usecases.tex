@@ -80,14 +80,9 @@ Select a 5-year subset of the data:
 Create TGView T1 As { 
    VSelect * ESelect *
    From wiki
-   VWhere start>='2010-01-01' AND end<'2015-01-01'}
+   When start>='2010-01-01' AND end<'2015-01-01'}
 \end{verbatim}
 \end{small}
-
-\vera{We have a semantic ambiguity here that we need to fix. Now that
-  selection operator accepts temporal predicates, the above can be
-  interpreted as either a slice or a selection, with different
-  results.}
 
 The corresponding algebraic expression in \tra uses the common
 temporal slice operator: $\ttt_1 = \slice{[2010,2015)}{wiki}$.
@@ -221,16 +216,16 @@ From (
         From ( Load From "path/to/data" }
         TGroup By 6 months
         VExists always EExists always
-        VWhere start>='2010-01-01' AND end<'2015-01-01' )
+        When start>='2010-01-01' AND end<'2015-01-01' )
     VGroup By comp)
 VWhere cnt > 2 
 \end{verbatim}
 \end{small}
 
-In an individual \ql query, selection and subgraph operations
-(\insql{VWhere} and \insql{EWhere}) take precedence over the other
-operations, followed by node creation (\insql{TGroup} and
-\insql{VGroup}), and then by aggregation (illustrated in
+In an individual \ql query, slice and subgraph operations
+(\insql{When}, \insql{VWhere}, and \insql{EWhere}) take precedence
+over the other operations, followed by node creation (\insql{TGroup}
+and \insql{VGroup}), and then by aggregation (illustrated in
 Example~\ref{ex:agg}) and analytics.  Multiple orders of execution are
 possible in queries that include node creation by both temporal window
 and vertex attributes, and in queries that join two \tgs by means of
