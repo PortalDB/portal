@@ -3,10 +3,10 @@
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=3.4in]{figs/architecture.pdf}
-\vspace{-0.4cm}
+\includegraphics[width=3in]{figs/architecture.pdf}
+\vspace{-0.5cm}
 \caption{\sys system architecture.}
-\vspace{-0.4cm}
+\vspace{-0.5cm}
 \label{fig:arch}
 \end{figure}
 
@@ -46,35 +46,37 @@ Similar to SQL, we apply attribute pruning (column pruning in SQL),
 collapse multiple filters into one, and collapse multiple maps into
 one.  Slice is always pushed to the bottom of the tree, except when it
 appears after temporal window node creation.  We also add slice to
-each subtree of the temporal intersection based on system catalog.
-E-subgraph is pushed through v-subgraph if e-subgraph has no temporal
-predicate because this leads to smaller join size in v-subgraph during
-integrity constraint enforcement.  Unlike in SQL, filter pushdown
-cannot be performed through union because of the aggregate functions.
+each subtree of the temporal intersection based on information about
+temporal ranges of \tgs stored in the system catalog.  \eat{E-subgraph
+  is pushed through v-subgraph if e-subgraph has no temporal predicate
+  because this leads to smaller join size in v-subgraph during
+  integrity constraint enforcement.}Unlike in SQL, filter pushdown
+cannot be performed through union because of the aggregation functions.
 (See extended discussion on the need for aggregation functions in
-set-based operators in the full paper~\cite{PortalarXiv2016}).
-Attribute-based node creation is always placed before temporal node
-creation and temporal union because of its output size reduction.
+set-based operators in~\cite{PortalarXiv2016}).  Attribute-based node
+creation is always placed before temporal node creation and temporal
+union, because it leads to a reduction in intermediate result size.
 
 We developed several physical representations and partitioning
-strategies that are selected at the physical plan generation stage.
-One representation is based on temporal relational algebra, mirrowing
-the logical data model.  It translates \tga operators into a series of
-RDD transformations.  Other representations are graph-based, use the
-GraphX library, and are more efficient under certain conditions.  \tgs
-are read into memory from HDFS and processed by Spark Workers, with
-task assignment managed by the runtime.  Details about the physical
-representations can be found in~\cite{PortalarXiv2016}.
+strategies, selected at the physical plan generation stage.  One
+representation mirrors the logical data model and translates \tga
+operators into RDD transformations.  Other representations are
+graph-based, use the GraphX library, and are more efficient under
+certain conditions.  \tgs are read into memory from HDFS and processed
+by Spark Workers, with task assignment managed by the runtime.
+Details can be found in~\cite{PortalarXiv2016}.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=3.4in]{figs/shell.png}
+\vspace{-0.5cm}
 \caption{\sys interactive shell.}
+\vspace{-0.5cm}
 \label{fig:shell}
 \end{figure}
 
-{\bf Interactive shell. Integration with SQL.}  The \sys system
-includes an interactive shell for exploratory data analysis
+{\bf Interactive shell. Integration with SQL.}  \sys includes an
+interactive shell for exploratory data analysis
 (Figure~\ref{fig:shell}). Shell users can execute queries, define
 (materialized) views, inspect query execution plans, and execute SQL
 queries with an embedded \ql view. Consider the following SQL query
@@ -85,8 +87,7 @@ most significantly increasing PageRank trend.
 \begin{verbatim}
 Select VF.vid, VF.tr
 From T5.vertices() as VF
-Order by tr
-Limit 20
+Order by tr Limit 20
 \end{verbatim}
 \end{small}
 

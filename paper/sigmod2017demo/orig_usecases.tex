@@ -1,51 +1,28 @@
-%\section{\ql by example}
-\section{Demonstration Details}
+\section{\ql by example}
 \label{sec:cases}
 
-We will present an end-to-end implementation of \sys and will
-demonstrate that our system is efficient and usable, by showing that
-sophisticated kinds of exploratory analysis of large evolving graphs
-can be expressed intuitively and concisely, and executed efficiently.
-We do not list performance results here due to space constraints, and
-point an interested reader to~\cite{PortalarXiv2016}, where system
-performance is evaluated thoroughly.  We note that all queries
-described here, and many others, execute in interactive time.
+We now illustrate the salient features of \ql with examples.  For each
+example, we give a declarative query, and a corresponding \tga
+expression.  For readability, we start by presenting single-operator
+queries, and then combine them into a complex query.
 
-{\bf Demo set-up.} Users will interact with the \sys system via an
-interactive shell, where they will compose queries and define \tg
-views, exploring language features.  Users will inspect query
-execution plans and execute queries.
+All queries presented here will be available to \sys users during the
+demonstration, as described in Section~\ref{sec:demo}.  We do not list
+performance results here due to space constraints, and point an
+interested reader to~\cite{PortalarXiv2016}, where system performance
+is evaluated thoroughly.  We note that all queries described here, and
+many others, execute in interactive time.
 
-We will have a local cluster on a single laptop with three evolving
-graph datasets that allow interactive-speed data exploration. DBLP
-contains co-authorship information from 1936 through 2015, with 2.4
-million author nodes and 7.2 million undirected co-authorship edges.
-arXiv contains co-authorship information from 1993 through 2016,
-filtered to Computer Science publications with 0.26 million user nodes
-and 0.4 million messaging edges.  wiki-talk contains over 10 million
-messaging events among 3 million wiki-en users\eat{2002 through 2015},
-aggregated at 1-month resolution.
-
-{\bf Demo scenarios.} The demonstration will consist of three parts.
-In Part 1, we will offer an introduction to \ql.  In Part 2, we will
-showcase the queries presented in the remainder of this section.\eat{
-  For each example, we will give a declarative query, and a
-  corresponding \tga expression. } We will start with single-operator
-queries, and will then combine them into complex queries.  During the
-demonstration, we will examine the query execution plans, including
-the order of execution of \tga operators and the selected access
-methods.  In Part 3, we will encourage the audience to use the
-interactive shell and define new queries on the demo datasets.
-
-{\bf \ql by example.}  All queries in this section analyze one typical
-kind of an evolving graph, namely, an interaction network, which
-represents people as vertices, and interactions between them such as
-messages, conversations and endorsements, as edges.  Information
-describing people and their interactions is represented by vertex and
-edge attributes, respectively. For example, wiki-talk dataset
-(\url{http://dx.doi.org/10.5281/zenodo.49561}) contains messaging
+All queries in this section analyze one typical kind of an evolving
+graph, namely, an interaction network, which represents people as
+vertices, and interactions between them such as messages,
+conversations and endorsements, as edges.  Information describing
+people and their interactions is represented by vertex and edge
+attributes, respectively.  An example of a publicly available
+interaction network is the wiki-talk dataset
+(\url{http://dx.doi.org/10.5281/zenodo.49561}), containing messaging
 events among Wikipedia contributors over a 13-year period.
-Information available about the users includes username, group
+Information available about the users includes their username, group
 membership, and the number of Wikipedia edits they made.  Messaging
 events occur when users post on each other's talk pages.
 
@@ -75,35 +52,50 @@ than two.}
 can we detect communities?}
 
 \begin{example}
-\label{ex:slice}
-To start, load a 5-year subset of the data:
-\begin{small}
+\label{ex:load}
+
+We can load the dataset with the following command:
+
+\begin{small} 
 \begin{verbatim}
-Create TGraph T1 As {
-   VSelect * ESelect *  
-   From 'path/to/data' as wiki
-   When start>='2010' AND end<'2015'}
+Create TGraph wiki As { Load From "path/to/data" }
 \end{verbatim}
 \end{small}
-
-The corresponding algebraic expression in \tga uses the common
-temporal slice operator: $\ttt_1 = \slice{[2010, 2015)}{wiki}$.
 
 \end{example}
 
 We use the Apache Parquet format for on-disk storage, with one archive
 for vertices and another for edges, temporally coalesced.  We provide
-a loader utility that can initialize any of the available physical
-representations of \tgs (see~\cite{PortalarXiv2016}) from the HDFS or
-local disk.
+a loader utility that can initialize any of our available physical
+representations (see~\cite{PortalarXiv2016}), from Apache Parquet
+files on HDFS or on local disk.
+
+\begin{example}
+\label{ex:slice}
+
+Select a 5-year subset of the data:
+
+\begin{small} 
+\begin{verbatim}
+Create TGView T1 As { 
+   VSelect * ESelect *
+   From wiki
+   When start>='2010-01-01' AND end<'2015-01-01'}
+\end{verbatim}
+\end{small}
+
+The corresponding algebraic expression in \tra uses the common
+temporal slice operator: $\ttt_1 = \slice{[2010,2015)}{wiki}$.
+
+\end{example}
 
 \begin{example}
 \label{ex:nodecrt}
 
-Compute a temporally aggregated view of T1 into 6-month windows.  A
-window includes vertices and edges that correspond to users who
-communicated regularly: a vertex and an edge are each present if they
-exist in every snapshot during the 6-month period.
+Compute a temporally aggregated view of the graph into 6-months
+windows.  A window includes vertices and edges that correspond to
+users who communicated regularly: a vertex and an edge are each
+present if they exist in every snapshot during the 6-month period.
 
 \begin{small} 
 \begin{verbatim}
@@ -115,7 +107,7 @@ Create TGView T2 As {
 \end{verbatim}
 \end{small}
 
-This query corresponds to a \tga expression that invokes window-based
+This query corresponds to a \tra expression that invokes window-based
 node creation, an evolving graph operation similar to moving window
 temporal aggregation for relations:
 $\ttt_2 = \insql{node}^T_w(\mathsf{w=6~mon},\mathsf{q_v=always},\mathsf{q_e=always},\ttt_1)$.
@@ -130,18 +122,20 @@ on vertex attributes, illustrated next.
 \begin{example}
 \label{ex:cc}
 
-Compute connected components (a Pregel-style analytic) at each time
-point. 
+Compute connected components at each time point.  This is an
+  example of a Pregel-style analytic invocation over an evolving
+  graph.
 
 \begin{small} 
 \begin{verbatim}
 Create TGView T3 As { 
-   VSelect components() as comp, *  ESelect *
+   VSelect components() as comp, *
+   Eselect *
    From T2 }
 \end{verbatim}
 \end{small}
 
-This query correspond to the following \tga expression:
+This query correspond to the following \tra expression:
 $\ttt_3 = \insql{pregel}^T_{cc} (\mathsf{pname=comp}, \ttt_2)$.
 
 \end{example}
@@ -161,7 +155,7 @@ listing them all may be burdensome for the user.}
 \begin{example}
 \label{ex:nodecra}
 
-Generate a new \tg, in which a vertex corresponds to a connected
+Generate a new graph, in which a vertex corresponds to a connected
 component, and compute the size of the connected component.  
 
 \begin{small} 
@@ -181,7 +175,7 @@ values of all grouping attributes.  An edge in the output is
 introduced between vertices $g_1$ and $g_2$ if some pair of vertices
 $v_1$ and $v_2$ in the input \tg were connected by an edge, $v_1$ is
 in group $g_1$ and $v_2$ is in group $g_2$.  We do not add any
-self-loops to the output \tg. The corresponding \tga expression is
+self-loops to the output \tg. The corresponding \tra expression is
 $\ttt_4 = \insql{node}^T_a(\mathsf{g=comp,f_v=count(1)},\ttt_3)$.
 
 \eat{Vertices of the input are partitioned on their values of the
@@ -204,12 +198,12 @@ Create TGView T5 As {
 \end{verbatim}
 \end{small}
 
-This query corresponds to a \tga expression that invokes the vertex
+This query corresponds to a \tra expression that invokes the vertex
 subgraph operation $\ttt_5 = \subv{\mathsf{v.a.count > 2}}{\ttt_4}$.
 
 \end{example}
 
-The queries of Examples~\ref{ex:slice} --- \ref{ex:subg} can be
+The queries of Examples~\ref{ex:load} --- \ref{ex:subg} can be
 combined into a single complex query:
 
 \begin{small}
@@ -219,10 +213,10 @@ From (
     VSelect count(*) as cnt  ESelect *
     From (
         VSelect components() as comp, * ESelect *
-        From 'path/to/data' as wiki
-        When start>='2010' AND end<'2015' 
+        From ( Load From "path/to/data" }
         TGroup By 6 months
-        VExists always EExists always)
+        VExists always EExists always
+        When start>='2010-01-01' AND end<'2015-01-01' )
     VGroup By comp)
 VWhere cnt > 2 
 \end{verbatim}
@@ -266,14 +260,15 @@ Create TGView T6 As {
 \end{verbatim}
 \end{small}
 
-The corresponding \tga expression is\\$\ttt_6 = dblp~\cap^T~arXiv(f_v=left(name),f_E=max(cnt))$.
+Note that, unlike in relational algebra, \tga union requires aggregate
+functions to resolve multiple property values for the same node or
+edge.  The \insql{left} function takes the value of the vertex
+property \insql{name} from the DBLP dataset (the left operand), if a
+vertex exists in both DBLP and arXiv. The corresponding \tga
+expression is $\ttt_6 =
+dblp~\cap^T~arXiv(f_v=left(name),f_E=max(cnt))$.
+
 \end{example}
-
-Unlike in relational algebra, \tga union requires aggregate functions
-to resolve multiple property values for the same node or edge.  If a
-vertex exists in both DBLP and arXiv, \insql{left} takes the value of
-the vertex property \insql{name} from the left operand, DBLP.
-
 
 \begin{example}
 \label{ex:agg}
@@ -293,7 +288,7 @@ Create TGView T7 As {
 \end{verbatim}
 \end{small}
 
-This query corresponds to a \tga expression that uses temporal
+This query corresponds to a \tra expression that uses temporal
 aggregation, listed here with default arguments: $\ttt_7 =
 \insql{agg}^T(\mathsf{dir=right},\mathsf{f_m=1},\mathsf{f_a=count},\mathsf{pname=deg},\ttt_6)$.
 
