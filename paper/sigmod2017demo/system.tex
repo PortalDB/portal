@@ -42,20 +42,21 @@ etc, but not the SparkSQL execution engine.  A \ql query is rewritten
 into a sequence of \tga operators, and some operators are reordered in
 a rule-based manner to improve performance.
 
-Similar to SQL, we apply attribute pruning (column pruning in SQL),
-collapse multiple filters into one, and collapse multiple maps into
-one.  Slice is always pushed to the bottom of the tree, except when it
-appears after temporal window node creation.  We also add slice to
-each subtree of the temporal intersection based on information about
-temporal ranges of \tgs stored in the system catalog.  \eat{E-subgraph
-  is pushed through v-subgraph if e-subgraph has no temporal predicate
+Similar to SQL, we apply attribute pruning (column pruning in SQL) and
+collapse multiple filters into one.  Slice is always pushed to the
+bottom of the tree, except when it appears after temporal window node
+creation.  We also add slice to each subtree of the query execution
+plan of temporal intersection, based on information about temporal
+ranges of \tgs stored in the system catalog.  \eat{E-subgraph is
+  pushed through v-subgraph if e-subgraph has no temporal predicate
   because this leads to smaller join size in v-subgraph during
-  integrity constraint enforcement.}Unlike in SQL, filter pushdown
-cannot be performed through union because of the aggregation functions.
-(See extended discussion on the need for aggregation functions in
-set-based operators in~\cite{PortalarXiv2016}).  Attribute-based node
-creation is always placed before temporal node creation and temporal
-union, because it leads to a reduction in intermediate result size.
+  integrity constraint enforcement.}Unlike selection in SQL, filters
+cannot be pushed down through union because of the aggregation
+functions.  (See extended discussion on the need for aggregation
+functions in set-based operators in~\cite{PortalarXiv2016}).
+Attribute-based node creation is always placed before temporal node
+creation and temporal union, because it leads to a reduction in
+intermediate result size.
 
 We developed several physical representations and partitioning
 strategies, selected at the physical plan generation stage.  One
