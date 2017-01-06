@@ -21,15 +21,21 @@ that can take place during graph evolution.  For example, Khurana and
 Deshponde use this model with the restriction that a node, once
 removed, cannot reappear~\cite{Khurana2013}.  In~\cite{Ren2011}
 and~\cite{Fard2012} there is no notion of time at all, only a sequence
-of graphs.  In~\cite{Borgwardt2006} and~\cite{Kan2009} the time series
-of graphs represents topology only, with no attributes, and only edges
-can vary with time, while the nodes remain unchanged.  Ferreira's
-model~\cite{Ferreira2004} allows both node and edge evolution, but
-again, only restricted to topology.
+of graphs.  \eat{In~\cite{Borgwardt2006} and~\cite{Kan2009} the time
+  series of graphs represents topology only, with no attributes, and
+  only edges can vary with time, while the nodes remain unchanged.
+  Ferreira's model~\cite{Ferreira2004} allows both node and edge
+  evolution, but again, only restricted to topology.  }It is important
+to note that we are talking about the logical model of the evolving
+graphs, rather than a physical representation.  For example,
+Semertzidis et al. present a concrete representation of evolving
+graphs called VersionGraph which is similar to the logical model we
+propose here~\cite{Semertzidis2015}, but even there the logical model
+is still a sequence of graph snapshots.
 
 The advantages of the snapshot sequence model are that a) it is simple
 and b) if snapshots are obtained by periodic sampling, which is a very
-common approach, that accurately represents the state at that point
+common approach, it accurately represents the state at that point
 without making statements about other unknowable times.  For example,
 the WWW is so large that it is impossible to create a fully accurate
 snapshot that represents any moment in time.

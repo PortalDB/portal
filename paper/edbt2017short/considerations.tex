@@ -56,21 +56,34 @@ split into four temporal partitions.  Clearly we can carry out a
 subgraph operator with predicate \insql{name='Alice'} at each
 partition individually.
 
+The question of optimal splitting has been addressed by Le et
+al.~\cite{Le2013}, who demonstrated that the relation can be
+efficiently split into $k$ buckets in cases of both internal memory
+and external memory and guarantee optimality of solution\eat{in $O(N
+  log N)$ time in internal memory and in $O(SORT(N)$ I/Os in external
+  memory}.  However, Le's approach is not the most efficient in a
+distributed environment because it requires a sequential scan of the
+relation to compute the stabbing array.  We have found an approach
+that is parallelizable (no sequential scan) and completes in $O(N*m)$
+time, where $N$ is the size of the relation and $m$ is the number of
+distinct starting values.  In typical evolving graphs this $m$ is
+significantly smaller than $log n$ and is thus faster than Le's
+approach with and without parallelization.
+
+\vera{I added the discussion on our new splitters here to give some
+  concreteness.  But I wonder whether it's a good idea to make a claim
+  without describing the algorithm itself.}
+
 Temporal partitioning is also appropriate for binary operators as long
 as the two input relations are partitioned together, i.e., have the
 same splitters.  \eat{Because each entity (vertex or edge) evolves at
   a different rate, the boundaries of partitions will require
   splitting of some of the tuples such that they reside in more than
-  one partition.}The question of optimal splitting has been addressed
-by Le et al.~\cite{Le2013}, who demonstrated that the relation can be
-efficiently split into $k$ buckets in cases of both internal memory
-and external memory and guarantee optimality of solution\eat{in $O(N
-  log N)$ time in internal memory and in $O(SORT(N)$ I/Os in external
-  memory}.  An open question is what to do when a binary operator is
-applied to two relations that are already partitioned independently --
-it may be more efficient to repartition one of them using the
-splitters of the other, or apply the operator over existing partitions
-and accept the cost of cross-partition communication.
+  one partition.}  An open question is what to do when a binary
+operator is applied to two relations that are already partitioned
+independently -- it may be more efficient to repartition one of them
+using the splitters of the other, or apply the operator over existing
+partitions and accept the cost of cross-partition communication.
 
 \eat{As long as the full timestamp is
 preserved in each fragment after the split, both the snapshot
@@ -84,15 +97,16 @@ additional work.  Refer back to Figure~\ref{fig:split} and assume time
 granularity of years.  If we perform a subgraph operation with a
 temporal predicate such as \insql{p > 2 years} over the split, then we
 will get no matches.  However, the original relation contains two
-matches -- only Bob with \insql{vid=2} does not meet the predicate.
-To assure sequenced semantics over a split relation, we need the full
-timestamp of each tuple.  We modify the splitter described above as
-follows: during partitioning tuples are placed into their partitions
-with their original timestamps.  Incidentally, this is what Le at
-al. describe in their work on optimal splitters~\cite{Le2013}.
-Provided the full timestamps are preserved during partitioning, the
-normalize and align operators from~\cite{Dignos2012} can be carried
-out at each partition independently and still produce correct results.
+matches -- only Bob \eat{with \insql{vid=2} }does not meet the
+predicate.  To assure sequenced semantics over a split relation, we
+need the full timestamp of each tuple.  We modify the splitter
+described above as follows: during partitioning tuples are placed into
+their partitions with their original timestamps.  Incidentally, this
+is what Le at al. describe in their work on optimal
+splitters~\cite{Le2013}.  Provided the full timestamps are preserved
+during partitioning, the normalize and align operators
+from~\cite{Dignos2012} can be carried out at each partition
+independently and still produce correct results.
 Figure~\ref{fig:split2} shows relation $V$ split in the same four
 partitions with this approach.
 

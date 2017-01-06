@@ -2,7 +2,7 @@
 \label{sec:model}
 
 We propose that vertices and edges, rather than whole graphs, serve as
-units of temporal history.  We now describe the logical
+units of temporal history.  We now describe the {\em logical}
 representation of an evolving graph, called a \tg.  A \tg represents a
 single graph, and models evolution of its topology and of vertex and
 edge attributes.  \eat{Figure~\ref{fig:tg_ve} gives an example of a
@@ -56,7 +56,8 @@ pairs of vertices from \tv.
 %
 \tve optionally includes vertex and edge attribute relations
 $\tav(\underline{v}, \underline{\bp}, a)$ and $\tae(\underline{v_1},
-\underline{v_2}, \underline{\bp}, a)$.  
+\underline{v_2}, \underline{\bp}, a)$, where $a$ is a nested attribute
+consisting of key-value property pairs.
 %
 Relations of \tve must meet the following requirements:
 
@@ -171,15 +172,21 @@ That is, we do not support multigraphs.
   while edge $e(v_2,v_3)$ exists only for a portion of the period when
   both $v_2$ and $v_3$ exist.}
 
-\eat{In the \tg representation of Definition~\ref{def:tg}, vertex and edges
+In the \tg representation of Definition~\ref{def:tg}, vertex and edges
 attributes are stored as collections of properties.  That said,
-Definition~\ref{def:tg} presents a logical data structure that admits
-different physical representations, including, e.g., a columnar
+Definition~\ref{def:tg} presents a {\em logical} data structure that
+admits different physical representations, including, e.g., a columnar
 representation (each property in a separate relation, supporting
 different change rates), by a hash-based representation
-of~\cite{DBLP:conf/sigmod/SunFSKHX15}, or in some other way. We leave
-an experimental comparison of different physical representations of
-vertex and edge attributes to future work.}
+of~\cite{DBLP:conf/sigmod/SunFSKHX15}, or in some other way.  Since
+our focus is on distributed computation over very large evolving
+graphs, we do not assume that the data is stored in a relational
+database.  This logical model allows for distributed storage in HDFS
+and many other variants.
+
+\eat{We
+  leave an experimental comparison of different physical
+  representations of vertex and edge attributes to future work.}
 
 \eat{
 Definition~\ref{def:tg} gives a columnar representation of vertex and
