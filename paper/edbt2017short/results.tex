@@ -1,0 +1,67 @@
+\begin{table}
+\centering
+\caption{Connected components and PageRank with different temporal partitioning, seconds.}
+\begin{subtable}{0.229\textwidth}
+\small
+\caption{wiki-talk}
+\begin{tabular}{| l | c | c | c |}
+\hline
+\multicolumn{1}{|l|}{\bfseries width} & \multicolumn{1}{c|}{\bfseries k} & \multicolumn{1}{c|}{\bfseries CC} & \multicolumn{1}{c|}{\bfseries PR} \\ \hline
+8 & 23 & 382 & 1,086 \\ \hline
+16 & 12 & 328 & 1,037 \\ \hline
+bal. & 16 & 351 & 720 \\ \hline
+bal. & 24 & 408 & 375 \\ \hline
+\end{tabular}
+\label{fig:splitwiki}
+\end{subtable}
+\begin{subtable}{0.229\textwidth}
+\small
+\caption{nGrams}
+\begin{tabular}{| l | c | c | c |}
+\hline
+\multicolumn{1}{|l|}{\bfseries width} & \multicolumn{1}{c|}{\bfseries k} & \multicolumn{1}{c|}{\bfseries CC} & \multicolumn{1}{c|}{\bfseries PR} \\ \hline
+8 & 26 & 1,324 & 2,867 \\ \hline
+16 & 13 & 856 & 1,873  \\ \hline
+bal. & 3 & 321 & 740  \\ \hline
+bal. & 16 & 422 & 519 \\ \hline
+\end{tabular}
+\label{fig:splitngrams}
+\end{subtable}
+\label{tab:splitres}
+\end{table}
+
+%\begin{figure*}
+%\begin{subfigure}{0.45\textwidth}
+%\includegraphics[width=3.4in]{figs/splitters_wiki.pdf}
+%\label{fig:splitwiki}
+%\caption{wiki-talk}
+%\end{subfigure}
+%\begin{subfigure}{0.45\textwidth}
+%\includegraphics[width=3.4in]{figs/splitters_ngrams.pdf}
+%\label{fig:splitngrams}
+%\caption{nGrams}
+%\end{subfigure}
+%\caption[]{Connected components and PageRank with different temporal partitioning.}
+%\label{fig:splitres}
+%\end{figure*}
+
+We conducted some preliminary experiments to see the effect of
+temporal partitioning on distributed execution of analytics, which
+present one of the heaviest computational workloads.  PageRank and
+Connected components analytics were executed on the wiki-talk
+(\url{http://dx.doi.org/10.5281/zenodo.49561}) and nGrams
+(\url{http://storage.googleapis.com/books/ngrams/books/datasetsv2.html})
+datasets.
+
+Wiki-talk contains 179 time periods.  nGrams contains over 400, but we
+used the first 208.  Both datasets exhibit strong skew, with few edges
+at the start of the datasets and increasing by several orders of
+magnitude towards the end.  We compared equi-width and equi-depth
+temporal partitioning, using 8 and 16 consecutive intervals for
+equi-width, and using offline optimal split of edges with varying
+number of splitters $k$.  Each dataset was partitioned first
+temporally, and then spatially using Edge2D partitioning.
+Figure~\ref{tab:splitres} shows that equi-depth partitioning is
+superior to equi-width in all but one cases.  However, the number of
+splitters is key in obtaining good results.  We are currently
+investigating this phenomenon further.
