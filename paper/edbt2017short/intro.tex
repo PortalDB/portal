@@ -27,13 +27,15 @@ an entity to change?
 \label{fig:snapshots}
 \end{figure}
 
-\begin{figure}[b!]
+\eat{
+  \begin{figure}[b!]
 \includegraphics[width=3in]{figs/T1_relations.pdf}
 \vspace{-0.2cm}
 \caption{A social network as coalesced temporal relations.}
 \vspace{-0.5cm}
 \label{fig:coalesced}
 \end{figure}
+}
 
 Figure~\ref{fig:snapshots} shows an example of an evolving social
 network, in which vertices represent people, while edges represent
@@ -61,12 +63,12 @@ with its validity time.  For practical reasons, intervals are often
 used as syntactic abbreviations for sets of points.  To use intervals
 in a time-stamped model, we coalesce, i.e., merge value-equivalent
 tuples over overlapping and adjacent time
-points~\cite{DBLP:conf/vldb/BohlenSS96}.  Figure~\ref{fig:coalesced}
+points~\cite{DBLP:conf/vldb/BohlenSS96}.\eat{  Figure~\ref{fig:coalesced}
 represents the network of Figure~\ref{fig:snapshots} as a pair of
 coalesced temporal relations --- \insql{V} for vertices and \insql{E}
 for edges.  Vertex and edge attributes are represented as sets of
-key-value pairs based on the property graph model~\cite{GraphDB}.
-
+key-value pairs based on the property graph model~\cite{GraphDB}.}
+%
 Importantly, the use of intervals to represent a sequence of
 value-equivalent time-adjacent snapshots is not semantically
 equivalent to a model with {\em sequenced semantics}, where entities
@@ -98,14 +100,14 @@ insufficient for representation of a wide range of networks\eat{.  We
   tuples may represent different facts while being value-equivalent is
   affected. To address this issue, we} and propose instead to use the
 interval model with sequenced semantics. Facts in our model correspond
-to graph vertices and edges (as in Figure~\ref{fig:coalesced}), rather
-than to graph snapshots in their entirety (as in
-Figure~\ref{fig:snapshots}).  This representational choice is
-orthogonal to the issue of point-based vs. sequenced semantics, but
-has an important advantage.  Many evolving graph queries include
-temporal predicates over vertices or edges, e.g., compute a subgraph
-containing only vertices that persist for at least a year.  Such
-queries cannot be evaluated directly over a sequence of snapshots.
+to graph vertices and edges, rather than to graph snapshots in their
+entirety (as in Figure~\ref{fig:snapshots}).  This representational
+choice is orthogonal to the issue of point-based vs. sequenced
+semantics, but has an important advantage.  Many evolving graph
+queries include temporal predicates over vertices or edges, e.g.,
+compute a subgraph containing only vertices that persist for at least
+a year.  Such queries cannot be evaluated directly over a sequence of
+snapshots.
 
 \eat{ Interaction networks, such as message exchange graphs,
   epidemic transmission networks, network topologies, and any graphs
