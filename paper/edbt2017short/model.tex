@@ -1,12 +1,12 @@
 \section{Data Model}
 \label{sec:model}
 
-We propose that vertices and edges, rather than whole graphs, serve as
-units of temporal history.  We now describe the {\em logical}
-representation of an evolving graph, called a \tg.  A \tg represents a
-single graph, and models evolution of its topology and of vertex and
-edge attributes.  \eat{Figure~\ref{fig:tg_ve} gives an example of a
-  \tg that shows evolution of a co-authorship network.}
+\eat{We propose that vertices and edges, rather than whole graphs,
+  serve as units of temporal history. }We now describe the {\em
+  logical} representation of an evolving graph, called a \tg.  A \tg
+represents a single graph, and models evolution of its topology and of
+vertex and edge attributes.  \eat{Figure~\ref{fig:tg_ve} gives an
+  example of a \tg that shows evolution of a co-authorship network.}
 
 Following the SQL:2011
 standard~\cite{DBLP:journals/sigmod/KulkarniM12}, a period (or
@@ -28,11 +28,13 @@ interval) $\bp = [s, e)$ represents a discrete set of time instances,
 \end{figure}
 }
 
-A \tg is represented with four temporal SQL
-relations~\cite{DBLP:conf/vldb/BohlenSS96}, and uses sequence
-semantics~\cite{Dignos2012}, associating a fact (existence of a vertex
-or edge, and an assignment of a value to a vertex or edge attribute)
-with an interval.
+
+\julia{Figure 2 has 2 relations.  Let's stick with either 2 or 4, and
+  refer to Figure 2 from this section.}  A \tg is represented with
+four temporal SQL relations~\cite{DBLP:conf/vldb/BohlenSS96}, and uses
+sequence semantics~\cite{Dignos2012}, associating a fact (existence of
+a vertex or edge, and an assignment of a value to a vertex or edge
+attribute) with an interval.
 
 A snapshot of a temporal relation $R$, denoted $\tau_c(R)$ is the
 state of $R$ at time point $c$.
@@ -74,11 +76,20 @@ Relations of \tve must meet the following requirements:
   $\tau^s_c (\tae)$ to $\tau^s_c (\te)$.
 \end{description}
 \label{def:tg}
-\vspace{-0.5cm}
+%\vspace{-0.5cm}
 \end{definition}
 
 Requirements {\bf R1, R2, R3} guarantee soundness of the \tg data
-structure, ensuring that every snapshot of a \tg is a valid graph.
+structure, ensuring that every snapshot of a \tg is a valid
+graph. Graphs may be directed or undirected.  For undirected graphs we
+choose a canonical representation of an edge, with $v_1 \leq v_2$
+(self-loops are allowed).\eat{ Because we use the source and
+  destination vertex id pair as the identifier for the edges, at most
+  two edges can exist between any two vertices (one in each direction)
+  at any time point.  That is, we do not support multigraphs.} At most
+two edges can exist between any two vertices at any time point, one in
+each direction.
+
  
 \eat{\tv and \te are temporally coalesced:
 \vspace{-0.3cm}
@@ -138,12 +149,6 @@ existing vertices and edges.}
 \vspace{-0.3cm}
 }
 
-Graphs may be directed or undirected.  For undirected graphs we choose
-a canonical representation of an edge, with $v_1 \leq v_2$ (self-loops
-are allowed).  Because we use the source and destination vertex id
-pair as the identifier for the edges, at most two edges can exist
-between any two vertices (one in each direction) at any time point.
-That is, we do not support multigraphs.
 
 \eat{Conditions~\ref{def:tg:c2},~\ref{def:tg:c3},~\ref{def:tg:c4},
   and~\ref{def:tg:c6} in Definition~\ref{def:tg} state that all
@@ -172,17 +177,18 @@ That is, we do not support multigraphs.
   while edge $e(v_2,v_3)$ exists only for a portion of the period when
   both $v_2$ and $v_3$ exist.}
 
-In the \tg representation of Definition~\ref{def:tg}, vertex and edges
-attributes are stored as collections of properties.  That said,
-Definition~\ref{def:tg} presents a {\em logical} data structure that
-admits different physical representations, including, e.g., a columnar
-representation (each property in a separate relation, supporting
-different change rates), by a hash-based representation
-of~\cite{DBLP:conf/sigmod/SunFSKHX15}, or in some other way.  Since
-our focus is on distributed computation over very large evolving
-graphs, we do not assume that the data is stored in a relational
-database.  This logical model allows for distributed storage in HDFS
-and many other variants.
+\eat{In the \tg representation of Definition~\ref{def:tg}, vertex and
+  edges attributes are stored as collections of properties.  That
+  said,}Definition~\ref{def:tg} presents a {\em logical} data
+structure that admits different physical representations, including,
+e.g., a columnar representation (each property in a separate relation,
+supporting different change rates), by a hash-based representation
+of~\cite{DBLP:conf/sigmod/SunFSKHX15}, or in some other way.  The
+logical model also allows for distributed storage in HDFS.  \eat{ In
+  our work, the focus is on distributed computation over very large
+  evolving graphs, we do not assume that the data is stored in a
+  relational database.  This logical model allows for distributed
+  storage in HDFS and many other variants.}
 
 \eat{We
   leave an experimental comparison of different physical

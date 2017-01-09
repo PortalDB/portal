@@ -61,18 +61,21 @@ al.~\cite{Le2013}, who demonstrated that the relation can be
 efficiently split into $k$ buckets in cases of both internal memory
 and external memory and guarantee optimality of solution\eat{in $O(N
   log N)$ time in internal memory and in $O(SORT(N)$ I/Os in external
-  memory}.  However, Le's approach is not the most efficient in a
+  memory}.  This method requires a sequential scan of the relation to
+compute the stabbing array.  How to make this method more efficient in
+a distributed environment is an open question.
+
+\eat{ However, Le's approach is not the most efficient in a
 distributed environment because it requires a sequential scan of the
 relation to compute the stabbing array.  We have found an approach
 that is parallelizable (no sequential scan) and completes in $O(N*m)$
 time, where $N$ is the size of the relation and $m$ is the number of
 distinct starting values.  In typical evolving graphs this $m$ is
 significantly smaller than $log n$ and is thus faster than Le's
-approach with and without parallelization.
-
-\vera{I added the discussion on our new splitters here to give some
+approach with and without parallelization.}
+\eat{\vera{I added the discussion on our new splitters here to give some
   concreteness.  But I wonder whether it's a good idea to make a claim
-  without describing the algorithm itself.}
+  without describing the algorithm itself.}}
 
 Temporal partitioning is also appropriate for binary operators as long
 as the two input relations are partitioned together, i.e., have the

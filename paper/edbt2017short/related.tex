@@ -2,7 +2,7 @@
 \label{sec:related}
 
 {\bf Evolving graph models.}  While temporal models in the relational
-literature are very mature, the same cannot be said for the evolving
+literature are very mature, the same cannot be said about the evolving
 graphs literature.  Evolving graph models differ in what time stamp
 they use (point or interval stamping), what top-level entities they
 model (graphs or sets of nodes and edges), whether they represent
@@ -19,9 +19,9 @@ predominant in the research literature
 and many others), with various restrictions on the kinds of changes
 that can take place during graph evolution.  For example, Khurana and
 Deshponde use this model with the restriction that a node, once
-removed, cannot reappear~\cite{Khurana2013}.  In~\cite{Ren2011}
-and~\cite{Fard2012} there is no notion of time at all, only a sequence
-of graphs.  \eat{In~\cite{Borgwardt2006} and~\cite{Kan2009} the time
+removed, cannot reappear~\cite{Khurana2013}.  In~\cite{Fard2012}
+and~\cite{Ren2011} there is no notion of time, only a sequence of
+graphs.  \eat{In~\cite{Borgwardt2006} and~\cite{Kan2009} the time
   series of graphs represents topology only, with no attributes, and
   only edges can vary with time, while the nodes remain unchanged.
   Ferreira's model~\cite{Ferreira2004} allows both node and edge
@@ -33,18 +33,16 @@ graphs called VersionGraph which is similar to the logical model we
 propose here~\cite{Semertzidis2015}, but even there the logical model
 is still a sequence of graph snapshots.
 
-The advantages of the snapshot sequence model are that a) it is simple
-and b) if snapshots are obtained by periodic sampling, which is a very
-common approach, it accurately represents the state at that point
-without making statements about other unknowable times.  For example,
-the WWW is so large that it is impossible to create a fully accurate
-snapshot that represents any moment in time.
-
-There are also several limitations.  The model creates a semantic
-ambiguity on what constitutes a change, as already shown in
-Section~\ref{sec:intro}.  It also forces a specific time granularity
-since the time is discrete, whereas open-closed time intervals can be
-broken down into any desired level of granularity.
+The advantages of the snapshot sequence model are that (a) it is
+simple and (b) if snapshots are obtained by periodic sampling, which
+is a very common approach, it accurately represents the state at that
+point without making assertions about unknown times.  For example, the
+WWW is so large that it is impossible to create a fully accurate
+snapshot that represents any moment in time.  An important limitation
+of this model, in addition to the semantic ambiguity on what
+constitutes a change, is that it forces a specific time granularity,
+whereas open-closed time intervals can be broken down into any desired
+level of granularity.
 
 \eat{Several models use the interval time model, although without the full
 sequenced semantics.  Huo and Tsotras model an evolving graph as a set
@@ -75,16 +73,15 @@ fact that most papers lack formal semantics of the model or the
 operations, which are generally specified algorithmically.}
 
 {\bf Temporal relational models.}  The question of semantics of
-temporal data has been throughly explored in the relational temporal
-database community.  B{\"{o}}hlen et al.~\cite{Bohlen1998} have
-formally defined the point and sequenced models and crisply defined
-the differences between them.  They showed that the difference lies in
-the properties of the operators of the models rather than in the use
-of intervals as representational devices.  With this foundation,
-Dign{\"{o}}s et al.~\cite{Dignos2012} have defined sequenced
-semantics, with properties of snapshot reducibility, extended
-snapshot reducibility, and change preservation, and shown how
-non-temporal operators can be applied to temporal data.  Snapshot
+temporal data has been thoroughly explored in the relational temporal
+database community.  B{\"{o}}hlen et al.~\cite{Bohlen1998} defined
+point and sequenced models, and showed that the difference between the
+model lies in the properties of the operators, and not in the use of
+intervals as representational devices.  With this foundation,
+Dign{\"{o}}s et al.~\cite{Dignos2012} defined sequenced semantics,
+with properties of snapshot reducibility, extended snapshot
+reducibility, and change preservation.\eat{, and showed how
+  non-temporal operators can be applied to temporal data. } Snapshot
 reducibility means that a temporal operator produces the same result
 as an equivalent non-temporal operator over corresponding snapshots.
 Extended snapshot reducibility allows references to timestamps in the
@@ -93,17 +90,17 @@ these properties as well.
 
 The third property, change preservation is unique to sequenced
 semantics.  It states that operators only merge contiguous time points
-of a result if they have the same lineage.  As Dignos et al. show in
-\cite{Dignos2012}, all three properties can be guaranteed through
-application of the normalize and align operators to the non-temporal
-relations extended with the explicit time attribute.  The normalize
-operator splits each tuple in the input relation w.r.t. a group of
-tuples such that each timestamp fragment is either fully contained or
-disjoint with every timestamp in the group.  The align operator splits
-each tuple w.r.t. a group of tuples such that each timestamp fragment
-is either an intersection with one of the tuples in the group or is
-not covered by any tuple in a group. (See Figure 2
-in~\cite{Dignos2012} for an illustration.)
+of a result if they have the same lineage.  As shown
+in~\cite{Dignos2012}, all three properties can be guaranteed through
+the use of the normalize and align operators to non-temporal relations
+extended with the explicit time attribute.  The normalize operator
+splits each tuple in the input relation w.r.t. a group of tuples such
+that each timestamp fragment is either fully contained or disjoint
+with every timestamp in the group.  The align operator splits each
+tuple w.r.t. a group of tuples such that each timestamp fragment is
+either an intersection with one of the tuples in the group or is not
+covered by any tuple in a group. (See Figure 2 in~\cite{Dignos2012}
+for an illustration.)
 
 As we as a community move to more and more sophisticated analyses of
 evolving graphs, we need to adopt the state of the art in temporal
