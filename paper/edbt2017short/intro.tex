@@ -60,12 +60,12 @@ In a point-based model~\cite{Toman2009} each entity is time-stamped
 with its validity time.  For practical reasons, intervals are often
 used as syntactic abbreviations for sets of points.  To use intervals
 in a time-stamped model, we coalesce, i.e., merge value-equivalent
-tuples over overlapping and adjacent time points~\cite{Bohlen09}.
-Figure~\ref{fig:coalesced} represents the network of
-Figure~\ref{fig:snapshots} as a pair of coalesced temporal relations
---- \insql{V} for vertices and \insql{E} for edges.  Vertex and edge
-attributes are represented as sets of key-value pairs based on the
-property graph model~\cite{Angles2008}.
+tuples over overlapping and adjacent time
+points~\cite{DBLP:conf/vldb/BohlenSS96}.  Figure~\ref{fig:coalesced}
+represents the network of Figure~\ref{fig:snapshots} as a pair of
+coalesced temporal relations --- \insql{V} for vertices and \insql{E}
+for edges.  Vertex and edge attributes are represented as sets of
+key-value pairs based on the property graph model~\cite{GraphDB}.
 
 Importantly, the use of intervals to represent a sequence of
 value-equivalent time-adjacent snapshots is not semantically
