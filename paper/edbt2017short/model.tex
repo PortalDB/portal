@@ -62,19 +62,19 @@ consisting of key-value property pairs.
 Relations of \tve must meet the following requirements:
 
 \begin{description}[noitemsep]
-\item [R1: Unique vertices/ edges] In every snapshot $\tau^s_c (\tav)$
-  and $\tau^s_c (\tae)$ a vertex/edge exists at most once.
-\item [R2: Unique attribute values] In every snapshot $\tau^s_c
-  (\tav)$ and $\tau^s_c (\tae)$, a vertex/edge is associated with at
+\item [R1: Unique vertices/edges] In every snapshot $\tau_c (\tav)$
+  and $\tau_c (\tae)$ a vertex/edge exists at most once.
+\item [R2: Unique attribute values] In every snapshot $\tau_c
+  (\tav)$ and $\tau_c (\tae)$, a vertex/edge is associated with at
   most one attribute (which is itself a set of key-value pairs
   representing properties).
-\item [R3: Referential integrity] In every snapshot $\tau^s_c (\tve)$,
-  foreign key constraints hold from $\tau^s_c (\te)$ (on both $v_1$
-  and $v_2$) and $\tau^s_c (\tav)$ to $\tau^s_c (\tv)$, and from
-  $\tau^s_c (\tae)$ to $\tau^s_c (\te)$.
+\item [R3: Referential integrity] In every snapshot $\tau_c (\tve)$,
+  foreign key constraints hold from $\tau_c (\te)$ (on both $v_1$
+  and $v_2$) and $\tau_c (\tav)$ to $\tau_c (\tv)$, and from
+  $\tau_c (\tae)$ to $\tau_c (\te)$.
 \end{description}
 \label{def:tg}
-%\vspace{-0.5cm}
+\vspace{-0.2cm}
 \end{definition}
 
 Requirements {\bf R1, R2, R3} guarantee soundness of the \tg data

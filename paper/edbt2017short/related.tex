@@ -93,14 +93,7 @@ semantics.  It states that operators only merge contiguous time points
 of a result if they have the same lineage.  As shown
 in~\cite{Dignos2012}, all three properties can be guaranteed through
 the use of the normalize and align operators to non-temporal relations
-extended with the explicit time attribute.  The normalize operator
-splits each tuple in the input relation w.r.t. a group of tuples such
-that each timestamp fragment is either fully contained or disjoint
-with every timestamp in the group.  The align operator splits each
-tuple w.r.t. a group of tuples such that each timestamp fragment is
-either an intersection with one of the tuples in the group or is not
-covered by any tuple in a group.\eat{ (See Figure 2 in~\cite{Dignos2012}
-for an illustration.)}
+extended with the explicit time attribute.  
 
 As we as a community move to more and more sophisticated analyses of
 evolving graphs, we need to adopt the state of the art in temporal

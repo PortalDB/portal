@@ -1,9 +1,11 @@
 \begin{table}
 \centering
 \caption{Connected components and PageRank with different temporal partitioning, seconds.}
+\vspace{-0.2cm}
 \begin{subtable}{0.229\textwidth}
 \small
 \caption{wiki-talk}
+\vspace{-0.2cm}
 \begin{tabular}{| l | c | c | c |}
 \hline
 \multicolumn{1}{|l|}{\bfseries width} & \multicolumn{1}{c|}{\bfseries k} & \multicolumn{1}{c|}{\bfseries CC} & \multicolumn{1}{c|}{\bfseries PR} \\ \hline
@@ -17,6 +19,7 @@ bal. & 24 & 408 & 375 \\ \hline
 \begin{subtable}{0.229\textwidth}
 \small
 \caption{nGrams}
+\vspace{-0.2cm}
 \begin{tabular}{| l | c | c | c |}
 \hline
 \multicolumn{1}{|l|}{\bfseries width} & \multicolumn{1}{c|}{\bfseries k} & \multicolumn{1}{c|}{\bfseries CC} & \multicolumn{1}{c|}{\bfseries PR} \\ \hline
@@ -28,6 +31,7 @@ bal. & 16 & 422 & 519 \\ \hline
 \label{fig:splitngrams}
 \end{subtable}
 \label{tab:splitres}
+\vspace{-0.4cm}
 \end{table}
 
 %\begin{figure*}
@@ -49,9 +53,7 @@ bal. & 16 & 422 & 519 \\ \hline
 experiments to see the effect of temporal partitioning on distributed
 execution of analytics, which present one of the heaviest
 computational workloads.  PageRank and Connected components analytics
-were executed on the wiki-talk
-(\url{http://dx.doi.org/10.5281/zenodo.49561}) and nGrams
-(\url{http://storage.googleapis.com/books/ngrams/books/datasetsv2.html})
+were executed on the wiki-talk\footnote{\url{http://dx.doi.org/10.5281/zenodo.49561}} and nGrams\footnote{\url{http://storage.googleapis.com/books/ngrams/books/datasetsv2.html}}
 datasets.
 
 Wiki-talk contains 179 time periods.  nGrams contains over 400, but we
@@ -62,7 +64,7 @@ temporal partitioning, using 8 and 16 consecutive intervals for
 equi-width, and using offline optimal split of edges with varying
 number of splitters $k$.  Each dataset was partitioned first
 temporally, and then spatially using Edge2D partitioning.
-Figure~\ref{tab:splitres} shows that equi-depth partitioning is
+Table~\ref{tab:splitres} shows that equi-depth partitioning is
 superior to equi-width in all but one cases.  However, the number of
 splitters is key in obtaining good results.  We are currently
 investigating this phenomenon further.
