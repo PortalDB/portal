@@ -75,8 +75,9 @@ efficiently split into $k$ buckets in cases of both internal memory
 and external memory and guarantee optimality of solution\eat{in $O(N
   log N)$ time in internal memory and in $O(SORT(N)$ I/Os in external
   memory}.  This method requires a sequential scan of the relation to
-compute an index called the stabbing array.  How to make this method
-more efficient in a distributed environment is an open question.
+compute an index called the stabbing count array.  How to make this
+method more efficient in a distributed environment is an open
+question.
 
 \eat{ However, Le's approach is not the most efficient in a
 distributed environment because it requires a sequential scan of the
