@@ -30,18 +30,18 @@ sequenced semantics presents three challenges:}
 \begin{subfigure}[b]{1.6in}
 \includegraphics[width=1.6in]{figs/split.pdf}
 \caption{with fragments}
-\vspace{-0.2cm}
+\vspace{-0.1cm}
 \label{fig:split}
 \end{subfigure}
 \begin{subfigure}[b]{1.6in}
 \includegraphics[width=1.6in]{figs/split2.pdf}
 \caption{with full timestamps}
-\vspace{-0.2cm}
+\vspace{-0.1cm}
 \label{fig:split2}
 \end{subfigure}
 %\caption{Relation V from Figure~\ref{fig:coalesced} split in 4 partitions.}
 \caption{Vertices from Figure~\ref{fig:snapshots} split in 4 partitions.}
-\vspace{-0.5cm}
+\vspace{-0.3cm}
 \end{figure}
 
 {\bf Snapshot reducibility.}  Evolving graphs can be partitioned among
@@ -64,7 +64,7 @@ For the purposes of illustration, consider the temporal subgraph
 operation, a generalization of subgraph matching for non-temporal
 graphs~\cite{PortalarXiv2016}.  Temporal vertex-subgraph
 \subv{q^t_v}{\ttt} computes an induced subgraph of \tve $\tve'(\tv',
-\te', \tav', \tae')$, with vertices defined by the temporal
+\te', \\ \tav', \tae')$, with vertices defined by the temporal
 conjunctive query $q^t_v$.  Note that this is a subgraph query, and so
 $\tv' \subseteq^T \tv$.  Observe that we can carry out the subgraph
 operation with non-temporal predicates, e.g., \insql{name='Alice'}, at
@@ -90,14 +90,14 @@ distinct starting values.  In typical evolving graphs this $m$ is
 significantly smaller than $log n$ and is thus faster than Le's
 approach with and without parallelization.}
 
-A number of alternatives for co-partitioning of graph relations
-present themselves, as the vertex, edge and attribute relations are
-not guaranteed to have the same splitters due to different evolution
-rates.  Typically, vertices are co-partitioned with edges in the
-non-temporal case~\cite{DBLP:conf/osdi/GonzalezXDCFS14}, and this
-likely is most efficient with evolving graphs as well.  The subgraph
-operation requires such co-partitioning to enforce referential
-integrity on edges.
+The subgraph operation requires co-partitioning of graph relations to
+enforce referential integrity on edges.  A number of alternatives for
+co-partitioning \eat{of graph relations }present themselves, as the
+vertex, edge and attribute relations are not guaranteed to have the
+same splitters due to different evolution rates.  Typically, vertices
+are co-partitioned with edges in the non-temporal
+case~\cite{DBLP:conf/osdi/GonzalezXDCFS14}, and this likely is most
+efficient with evolving graphs as well.
 
 \eat{
 Temporal partitioning is also appropriate for binary operators as long
@@ -167,7 +167,7 @@ normalize operation can be carried out at each partition locally.
 Similarly for the align operator.
 
 An important challenge to address is how to efficiently support
-aggregation over temporal windows in the distributed setting.  This
+aggregation over temporal windows in a distributed setting.  This
 operation requires cross-partition communication, which impacts the
 cost model, and was not considered in Le et al.~\cite{Le2013}.
 
@@ -227,7 +227,7 @@ partitioning strategy that provides the best overall performance.
 \begin{subtable}{0.229\textwidth}
 \small
 \caption{wiki-talk}
-\vspace{-0.2cm}
+\vspace{-0.1cm}
 \begin{tabular}{| l | c | c | c |}
 \hline
 \multicolumn{1}{|l|}{\bfseries width} & \multicolumn{1}{c|}{\bfseries k} & \multicolumn{1}{c|}{\bfseries CC} & \multicolumn{1}{c|}{\bfseries PR} \\ \hline
@@ -241,7 +241,7 @@ bal. & 24 & 408 & 375 \\ \hline
 \begin{subtable}{0.229\textwidth}
 \small
 \caption{nGrams}
-\vspace{-0.2cm}
+\vspace{-0.1cm}
 \begin{tabular}{| l | c | c | c |}
 \hline
 \multicolumn{1}{|l|}{\bfseries width} & \multicolumn{1}{c|}{\bfseries k} & \multicolumn{1}{c|}{\bfseries CC} & \multicolumn{1}{c|}{\bfseries PR} \\ \hline
