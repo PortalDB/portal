@@ -7,12 +7,10 @@ preservation~\cite{Dignos2012}.  }
 
 Many interesting static graphs are so large that they necessitate a
 distributed approach, as evidenced by the plethora of works on
-Pregel-style computation and graph partitioning~\cite{McCune2015}.
-\eat{Our goal is to enable querying and analysis of large evolving
-  graphs with sequenced semantics in a distributed environment.}  In
-this section we discuss the challenges inherent to supporting three
-properties of sequenced semantics -- snapshot reducibility, extended
-snapshot reducibility, and change preservation -- in a distributed
+Pregel-style computation and graph partitioning~\cite{McCune2015}.  In
+this section we discuss the challenges inherent in supporting three
+properties of sequenced semantics --- snapshot reducibility, extended
+snapshot reducibility, and change preservation --- in a distributed
 environment.
 
 \eat{With the added time dimension, efficient computation over graphs with
@@ -57,14 +55,14 @@ evaluated over each snapshot.  Validity period of a tuple that spans
 more than one temporal partition is split, and the tuple is replicated
 across partitions.  This increases the overall size of the relation,
 but all operations can now be carried out within each partition.  See
-Figure~\ref{fig:split} for a simple example of the $V$ relation being
-split into four temporal partitions.  
+Figure~\ref{fig:split} for a simple example of the \insql{V} relation
+being split into four temporal partitions.
 
 For the purposes of illustration, consider the temporal subgraph
 operation, a generalization of subgraph matching for non-temporal
 graphs~\cite{PortalarXiv2016}.  Temporal vertex-subgraph
-\subv{q^t_v}{\ttt} computes an induced subgraph of \tve $\tve'(\tv',
-\te', \\ \tav', \tae')$, with vertices defined by the temporal
+\subv{q^t_v}{\ttt} $=\tve'(\tv', \te', \tav', \tae')$ computes an
+induced subgraph of \tve, with vertices defined by the temporal
 conjunctive query $q^t_v$.  Note that this is a subgraph query, and so
 $\tv' \subseteq^T \tv$.  Observe that we can carry out the subgraph
 operation with non-temporal predicates, e.g., \insql{name='Alice'}, at
@@ -74,12 +72,12 @@ communication.
 The question of optimal splitting has been addressed by Le et
 al.~\cite{Le2013}, who demonstrated that a temporal relation can be
 efficiently split into $k$ buckets in cases of both internal memory
-and external memory and guarantee optimality of solution\eat{in $O(N
-  log N)$ time in internal memory and in $O(SORT(N)$ I/Os in external
-  memory}.  This method requires a sequential scan of the relation to
-compute an index called the stabbing count array.  How to make this
-method more efficient in a distributed environment is an open
-question.
+and external memory, and guarantee optimality of the solution\eat{in
+  $O(N log N)$ time in internal memory and in $O(SORT(N)$ I/Os in
+  external memory}.  This method requires a sequential scan of the
+relation to compute an index called the stabbing count array.  How to
+make this method more efficient in a distributed environment is an
+open question.
 
 \eat{ However, Le's approach is not the most efficient in a
 distributed environment because it requires a sequential scan of the
@@ -124,22 +122,22 @@ reducibility and extended snapshot reducibility properties are
 observed using the approach in~\cite{Dignos2012}.}  
 
 {\bf Extended snapshot reducibility.}  Snapshot reducibility can be
-guaranteed in the distributed setting, as shown above.  \eat{Extended
-  snapshot reducibility and change preservation require additional
-  work.  }Subgraph query $q^t_v$ may use any of the constituent
-relations of \tve, and may explicitly reference temporal information
-in compliance with the extended snapshot reducibility property of
-sequenced semantics.  Refer back to Figure~\ref{fig:split} and assume
-time granularity of years.  If we perform the subgraph operation,
-selecting vertices that persist for longer than 2 years, over the
-split then we will get no matches.  However, the original relation
-contains two matches -- only Bob \eat{with \insql{vid=2} }does not
-meet the predicate.  To support extended snapshot reducibility over a
-split relation, during partitioning tuples should be placed into their
-partitions with their full original timestamps.  Incidentally, this is
-what Le at al. describe in their work on optimal
-splitters~\cite{Le2013}.  Figure~\ref{fig:split2} shows relation $V$
-split in the same four partitions with this approach.
+guaranteed in the distributed setting, as shown above for a subgraph
+query without temporal predicates.  In general, a subgraph query
+$q^t_v$ may use any of the constituent relations of \tve, and may
+explicitly reference temporal information in compliance with the
+extended snapshot reducibility property of sequenced semantics.  Refer
+back to Figure~\ref{fig:split} and assume time granularity of years.
+If we perform the subgraph operation, selecting vertices that persist
+for longer than 2 years, over the split then we will get no matches.
+However, the original relation contains two matches -- only Bob
+\eat{with \insql{vid=2} }does not meet the predicate.  To support
+extended snapshot reducibility over a split relation, during
+partitioning tuples should be placed into their partitions with their
+full original timestamps.  Incidentally, this is what Le at
+al. describe in their work on optimal splitters~\cite{Le2013}.
+Figure~\ref{fig:split2} shows relation \insql{V} split in the same
+four partitions with this approach.
 
 {\bf Change preservation.}  Change preservation property requires that
 derived tuples should only be coalesced if they share lineage.  To
@@ -154,71 +152,72 @@ a group.\eat{ (See Figure 2 in~\cite{Dignos2012} for an
   illustration.)}
 
 The normalize operator splits each tuple w.r.t. to a group defined by
-the operation.  For example, consider attribute-based node creation
-operation on graphs~\cite{PortalarXiv2016}, an operation similar to
-aggregation on temporal relations.  This operation allows the user to
-generate a \tg in which vertices correspond to disjoint groups of
-vertices in the input that agree on the values of all grouping
-attributes.  For instance, $\insql{node}^T_a(school,\tve)$ will
-compute a vertex for each value of $\tav.a.school$.  While the group
-defined for each tuple (distinct value of $school$) spans temporal
-partitions, only tuples within the same partitions overlap.  Thus the
-normalize operation can be carried out at each partition locally.
-Similarly for the align operator.
+the operation.  For example, consider the attribute-based node
+creation operation on graphs~\cite{PortalarXiv2016}, an operation
+similar to aggregation on temporal relations.  This operation allows
+the user to generate a \tg in which vertices correspond to disjoint
+groups of vertices in the input that agree on the values of all
+grouping attributes.  For instance,
+$\insql{node}^T_a(\insql{school},\tve)$ will compute a vertex for each
+value of $\insql{\tav.a.school}$.  While the group defined for each
+tuple (distinct value of \insql{school}) spans temporal partitions,
+only tuples within the same partition overlap.  Thus, the normalize
+and align operations can be carried out locally at each partition.
 
 An important challenge to address is how to efficiently support
 aggregation over temporal windows in a distributed setting.  This
 operation requires cross-partition communication, which impacts the
-cost model, and was not considered in Le et al.~\cite{Le2013}.
+cost model, requiring a generalization of the approach of Le et
+al.~\cite{Le2013}.
 
-{\bf Spatio-temporal partitioning.}  Large evolving graphs present
+{\bf Partitioning of evolving graphs.}  Large evolving graphs present
 additional challenges compared to static graphs and temporal relations
 alone.  Each graph snapshot may be too large to fit into a single
 partition.  This necessitates partitioning graphs by both time and
 structure.  Miao et al.~\cite{Miao2015} have demonstrated within their
 ImmortalGraph system that different locality, structural or temporal,
-is more appropriate for different graph queries.  However, the results
-do not directly translate into the distributed environment because of
-the parallelism gains.  While Miao et al. showed that spatial locality
-provides better performance than temporal locality in global-point
-queries, i.e., queries that compute something over a snapshot for a
-particular time point.  In a distributed setting we do not expect
-these results to hold since the communication costs generally dominate
-the overall performance, and partitioning by time alone will guarantee
-that a snapshot is distributed among the lowest number of partitions.
+is more appropriate for different graph queries.  However, their
+results do not directly translate to the distributed environment.
+Miao et al. showed that spatial locality provides better performance
+than temporal locality in global point queries, i.e., queries that
+compute over a snapshot corresponding to a particular time point.  In
+a distributed setting we do not expect these results to hold, since
+communication costs generally dominate the overall performance, and
+partitioning by time alone will guarantee that a snapshot is
+distributed among the lowest number of partitions.
 
 Global range queries such as change in graph centrality over time, on
 the other hand, are computed over multiple snapshots and their
 performance depends on the method of computation.  We can utilize
-temporal locality and compute each snapshot independently.  Assuming
-that each partition fits one or more snapshots, the maximum number of
-snapshots across all partitions will determine the overall
+temporal locality and compute on each snapshot independently.
+Assuming that each partition fits one or more snapshots, the maximum
+number of snapshots across all partitions will determine the overall
 performance.  With structural locality we can distribute edges across
 the partitions using any of the already proposed partitioning
-approaches such as range- and hash-based~\cite{Seo2013} or the
+approaches such as range- and hash-based~\cite{Seo2013} or
 EdgePartition2D (E2D).  \eat{In E2D, a sparse edge adjacency matrix is
-partitioned in two dimensions, guaranteeing a $2 \sqrt{n}$ bound on
-vertex replication, where $n$ is the number of partitions. E2D has
-been shown to provide good performance for Pregel-style
-analytics~\cite{DBLP:conf/osdi/GonzalezXDCFS14}.  To minimize
-communication with this partition approach caused by the time
-dimension, we can use a batching method, effectively computing the
-query over all snapshots simultaneously.  }
+  partitioned in two dimensions, guaranteeing a $2 \sqrt{n}$ bound on
+  vertex replication, where $n$ is the number of partitions. E2D has
+  been shown to provide good performance for Pregel-style
+  analytics~\cite{DBLP:conf/osdi/GonzalezXDCFS14}.  To minimize
+  communication with this partition approach caused by the time
+  dimension, we can use a batching method, effectively computing the
+  query over all snapshots simultaneously.  }
 
 We explored the effectiveness of partitioning strategies in graphs
-that undergo changed in topology over time, and found that structural
+that undergo changes in topology over time, and found that structural
 partitioning such as in ImmortalGraph is effective only when graph
 topology changes very little~\cite{MoffittTempWeb16}.  We found that a
 hybrid approach that combines temporal and structural locality is
-promising.  \eat{ even with sub-optimal temporal partitioning.  In the
+promising.\eat{ even with sub-optimal temporal partitioning.  In the
   hybrid approach, graphs are distributed first temporally and then
   the batching method is used within each partition.  Alternatively,
   if graphs are too large to fit into a single partition, partitions
   are divided into $k$ buckets, where $k$ is a divisor of the total
   number of partitions.  Then E2D strategy is used to partition the
   edges within the bucket among the partitions of that bucket.}  We
-are currently investigating methods for selecting the spatio-temporal
-partitioning strategy that provides the best overall performance.
+are currently investigating methods for selecting a partitioning
+strategy that provides the best overall performance.
 
 \begin{table}
 \centering
@@ -287,6 +286,6 @@ equi-width, and using offline optimal split of edges with varying
 number of splitters $k$.  Each dataset was partitioned first
 temporally, and then spatially using Edge2D partitioning.
 Table~\ref{tab:splitres} shows that equi-depth partitioning is
-superior to equi-width in all but one cases.  However, the number of
+superior to equi-width in all cases but one.  However, the number of
 splitters is key in obtaining good results.  We are currently
 investigating this phenomenon further.
