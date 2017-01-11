@@ -15,34 +15,34 @@ The first mention of evolving graphs that we are aware of is by Harary
 and Gupta~\cite{Harary1997} who informally proposed to model the
 evolution as a sequence of static graphs.  This model has been
 predominant in the research literature
-(\cite{Fard2012,Khurana2013,Ren2011}
-and many others), with various restrictions on the kinds of changes
-that can take place during graph evolution.  For example, Khurana and
-Deshponde use this model with the restriction that a node, once
-removed, cannot reappear~\cite{Khurana2013}.  In~\cite{Fard2012}
-and~\cite{Ren2011} there is no notion of time, only a sequence of
-graphs.  \eat{In~\cite{Borgwardt2006} and~\cite{Kan2009} the time
-  series of graphs represents topology only, with no attributes, and
-  only edges can vary with time, while the nodes remain unchanged.
-  Ferreira's model~\cite{Ferreira2004} allows both node and edge
-  evolution, but again, only restricted to topology.  }It is important
-to note that we are talking about the logical model of the evolving
-graphs, rather than a physical representation.  For example,
-Semertzidis et al. present a concrete representation of evolving
-graphs called VersionGraph which is similar to the logical model we
-propose here~\cite{Semertzidis2015}, but even there the logical model
-is still a sequence of graph snapshots.
+(\cite{Fard2012,Khurana2013,Ren2011} and many others), with various
+restrictions on the kinds of changes that can take place during graph
+evolution.  For example, Khurana and Deshpande~\cite{Khurana2013} use
+this model with the restriction that a node, once removed, cannot
+reappear.  In~\cite{Fard2012} and~\cite{Ren2011} there is no notion of
+time, only a sequence of graphs.  \eat{In~\cite{Borgwardt2006}
+  and~\cite{Kan2009} the time series of graphs represents topology
+  only, with no attributes, and only edges can vary with time, while
+  the nodes remain unchanged.  Ferreira's model~\cite{Ferreira2004}
+  allows both node and edge evolution, but again, only restricted to
+  topology.  }It is important to note that we are talking about the
+logical model of the evolving graphs, rather than a physical
+representation.  For example, Semertzidis et
+al.~\cite{Semertzidis2015} present a concrete representation of an
+evolving graph called VersionGraph that is similar to the logical
+model we propose here, yet their logical model is still a sequence of
+snapshots.
 
 The advantages of the snapshot sequence model are that (a) it is
 simple and (b) if snapshots are obtained by periodic sampling, which
-is a very common approach, it accurately represents the state at that
-point without making assertions about unknown times.  For example, the
-WWW is so large that it is impossible to create a fully accurate
-snapshot that represents any moment in time.  An important limitation
-of this model, in addition to the semantic ambiguity on what
-constitutes a change, is that it forces a specific time granularity,
-whereas open-closed time intervals can be broken down into any desired
-level of granularity.
+is a very common approach, it accurately represents the states of the
+graph at the sampled points without making assertions about unknown
+times.  For example, the WWW is so large that it is impossible to
+create a fully accurate snapshot that represents any moment in time.
+An important limitation of this model, in addition to the semantic
+ambiguity on what constitutes a change, is that it forces a specific
+time granularity, whereas open-closed time intervals can be broken
+down into any desired level of granularity.
 
 \eat{Several models use the interval time model, although without the full
 sequenced semantics.  Huo and Tsotras model an evolving graph as a set
@@ -76,7 +76,7 @@ operations, which are generally specified algorithmically.}
 temporal data has been thoroughly explored in the relational temporal
 database community.  B{\"{o}}hlen et al.~\cite{Bohlen1998} defined
 point and sequenced models, and showed that the difference between the
-model lies in the properties of the operators, and not in the use of
+models lies in the properties of the operators, and not in the use of
 intervals as representational devices.  With this foundation,
 Dign{\"{o}}s et al.~\cite{Dignos2012} defined sequenced semantics,
 with properties of snapshot reducibility, extended snapshot
@@ -88,12 +88,12 @@ Extended snapshot reducibility allows references to timestamps in the
 operators by propagating them as data.  Point semantics has both of
 these properties as well.
 
-The third property, change preservation is unique to sequenced
+The third property, change preservation, is unique to sequenced
 semantics.  It states that operators only merge contiguous time points
 of a result if they have the same lineage.  As shown
 in~\cite{Dignos2012}, all three properties can be guaranteed through
-the use of the normalize and align operators to non-temporal relations
-extended with the explicit time attribute.  
+the use of the normalize and align operators on non-temporal relations,
+extended with an explicit time attribute.  
 
 As we as a community move to more and more sophisticated analyses of
 evolving graphs, we need to adopt the state of the art in temporal
