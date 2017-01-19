@@ -29,7 +29,7 @@ interval) $\bp = [s, e)$ represents a discrete set of time instances,
 }
 
 A \tg is represented with four temporal SQL
-relations~\cite{DBLP:conf/vldb/BohlenSS96}, and uses sequence
+relations~\cite{DBLP:conf/vldb/BohlenSS96}, and uses sequenced
 semantics~\cite{Dignos2012}, associating a fact (existence of a vertex
 or edge, and an assignment of a value to a vertex or edge attribute)
 with an interval.
@@ -64,8 +64,8 @@ consisting of key-value property pairs.
 Relations of \tve must meet the following requirements:
 
 \begin{description}[noitemsep]
-\item [R1: Unique vertices / edges] In every snapshot $\tau_c (\tav)$
-  and $\tau_c (\tae)$ a vertex/edge exists at most once.
+\item [R1: Unique vertices/edges] In every snapshot $\tau_c (\tv)$
+  and $\tau_c (\te)$ a vertex/edge exists at most once.
 \item [R2: Unique attribute values] In every snapshot $\tau_c
   (\tav)$ and $\tau_c (\tae)$, a vertex/edge is associated with at
   most one attribute (which is itself a set of key-value pairs
