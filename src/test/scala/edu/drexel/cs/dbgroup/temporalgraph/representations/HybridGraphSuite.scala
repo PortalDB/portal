@@ -190,7 +190,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
     ))
     val expectedHG = HybridGraph.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
-    var actualHG = HG.subgraph(epred = (ids: (VertexId,VertexId), attrs: Int) => ids._1 > 2 && attrs == 42)
+    var actualHG = HG.esubgraph(epred = (edgeTriplet: EdgeTriplet[String,Int],interval: Interval)=> edgeTriplet.srcId > 2 && edgeTriplet.attr == 42)
 
     assert(expectedHG.vertices.collect() === actualHG.vertices.collect())
     assert(expectedHG.edges.collect() === actualHG.edges.collect())
@@ -231,7 +231,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
     ))
     val expectedHG = HybridGraph.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
-    var actualHG = HG.subgraph(vpred = (id: VertexId, attrs: String) => id > 3 && attrs != "Ke")
+    var actualHG = HG.vsubgraph(vpred = (id: VertexId, attrs: String,interval: Interval) => id > 3 && attrs != "Ke")
 
     assert(expectedHG.vertices.collect() === actualHG.vertices.collect())
     assert(expectedHG.edges.collect() === actualHG.edges.collect())
@@ -271,7 +271,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
     ))
     val expectedHG = HybridGraph.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
-    var actualHG = HG.subgraph(vpred = (id: VertexId, attrs: String) => id > 3 && attrs != "Ke", epred = (ids: (VertexId,VertexId), attrs: Int) => ids._1 > 2 && attrs == 42)
+    var actualHG = HG.vsubgraph(vpred = (id: VertexId, attrs: String,interval: Interval) => id > 3 && attrs != "Ke").esubgraph( epred = (edgeTriplet: EdgeTriplet[String,Int],interval: Interval) => edgeTriplet.srcId > 2 && edgeTriplet.attr == 42)
 
     assert(expectedHG.vertices.collect() === actualHG.vertices.collect())
     assert(expectedHG.edges.collect() === actualHG.edges.collect())

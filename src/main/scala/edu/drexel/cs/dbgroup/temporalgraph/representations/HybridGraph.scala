@@ -510,8 +510,6 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
   }
 
   def differenceStructureOnly(other: TGraphNoSchema[VD, ED]): HybridGraph[VD, ED] = {
-    // gps = gps :+ Graph((gr1VRDD.leftOuterJoin(gr2VRDD)).mapValues {x=> x._1.diff(x._2.getOrElse(BitSet()))}.filter( v =>  v._2.size>0),
-//    (gr1ERDD.leftOuterJoin(gr2ERDD)).mapValues(x=> x._1.diff((x._2.getOrElse(BitSet())))).filter( e => e._2.size>0).map(in=> Edge(in._1._1,in._1._2,in._2)), BitSet(), storageLevel, storageLevel)
 
     val grp2: HybridGraph[VD, ED] = other match {
       case grph: HybridGraph[VD, ED] => grph
@@ -579,11 +577,13 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
           gr2VRDD = gr2VRDD.union(grseq2(gr2Index).vertices)
           gr1ERDD = gr1ERDD.union(grseq1(gr1Index).edges)
           gr2ERDD = gr2ERDD.union(grseq2(gr2Index).edges)
-
           gps = gps :+ Graph((gr1VRDD.leftOuterJoin(gr2VRDD)).mapValues {x=> x._1.diff(x._2.getOrElse(BitSet()))}.filter( v =>  v._2.size>0),
               (gr1ERDD.map( e=>((e.srcId,e.dstId),e.attr)).leftOuterJoin(gr2ERDD.map( e=>((e.srcId,e.dstId),e.attr)))).mapValues(x=> x._1.diff((x._2.getOrElse(BitSet())))).filter( e => e._2.size>0).map(in=> Edge(in._1._1,in._1._2,in._2)), BitSet(), storageLevel, storageLevel)
+            .subgraph(vpred = (vid, attr) => !attr.isEmpty) //this will remove edges where vertices went away completely, automatically
+            .mapTriplets( etp => etp.attr & etp.srcAttr & etp.dstAttr)
+            //.subgraph(epred = et => !et.attr.isEmpty)
 
-            //how many graphs in this aggregated graphs
+            //how many graphs in this aggregated graphsg
           runs = runs :+ (gr1Sums(gr1Index) - gCount)
 
           //done, now reset and keep going
@@ -612,10 +612,9 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
       val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))}).reduce(_ union _)
 
       if (ProgramContext.eagerCoalesce)
-        //Todo: Is this the correct way to do this?
-        fromRDDs(vs, TGraphNoSchema.constrainEdges(vs,es), newDefVal, storageLevel, false)
+        fromRDDs(vs, es, newDefVal, storageLevel, false)
       else
-        new HybridGraph(vs, TGraphNoSchema.constrainEdges(vs,es), runs, gps, newDefVal, storageLevel, false)
+        new HybridGraph(vs, es, runs, gps, newDefVal, storageLevel, false)
 
     } else {
         this

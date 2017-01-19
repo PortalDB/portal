@@ -6,19 +6,19 @@ import org.apache.log4j.Level
 import org.apache.log4j.Logger
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
-
 import org.scalatest.{BeforeAndAfter, FunSuite}
-
 import java.time.LocalDate
+
 import edu.drexel.cs.dbgroup.temporalgraph._
 
 import scala.collection.parallel.ParSeq
-import org.apache.spark.graphx.{Edge, EdgeRDD, VertexId, Graph}
-
+import org.apache.spark.graphx._
 import java.util.Map
+
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap
+
 import collection.JavaConverters._
 
 
@@ -195,8 +195,7 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
     ))
     val expectedSGP = SnapshotGraphParallel.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
-    var actualSGP = SGP.subgraph(epred = (ids: (VertexId,VertexId), attrs: Int) => ids._1 > 2 && attrs == 42)
-
+    var actualSGP = SGP.esubgraph(epred =  (edgeTriplet: EdgeTriplet[String,Int],interval: Interval)=> edgeTriplet.srcId > 2 && edgeTriplet.attr == 42)
     assert(expectedSGP.vertices.collect() === actualSGP.vertices.collect())
     assert(expectedSGP.edges.collect() === actualSGP.edges.collect())
     assert(expectedSGP.getTemporalSequence.collect === actualSGP.getTemporalSequence.collect)
@@ -236,7 +235,7 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
     ))
     val expectedSGP = SnapshotGraphParallel.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
-    var actualSGP = SGP.subgraph(vpred = (id: VertexId, attrs: String) => id > 3 && attrs != "Ke")
+    var actualSGP = SGP.vsubgraph(vpred = (id: VertexId, attrs: String,interval: Interval) => id > 3 && attrs != "Ke")
 
     assert(expectedSGP.vertices.collect() === actualSGP.vertices.collect())
     assert(expectedSGP.edges.collect() === actualSGP.edges.collect())
@@ -276,7 +275,7 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
     ))
     val expectedSGP = SnapshotGraphParallel.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
-    var actualSGP = SGP.subgraph(vpred = (id: VertexId, attrs: String) => id > 3 && attrs != "Ke", epred = (ids: (VertexId,VertexId), attrs: Int) => ids._1 > 2 && attrs == 42)
+    var actualSGP = SGP.vsubgraph(vpred = (id: VertexId, attrs: String,interval: Interval) => id > 3 && attrs != "Ke").esubgraph(epred = (edgeTriplet: EdgeTriplet[String,Int], interval: Interval) => edgeTriplet.srcId > 2 && edgeTriplet.attr == 42)
 
     assert(expectedSGP.vertices.collect() === actualSGP.vertices.collect())
     assert(expectedSGP.edges.collect() === actualSGP.edges.collect())

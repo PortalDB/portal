@@ -49,6 +49,7 @@ abstract class TGraphWProperties(spec: GraphSpec, storLevel: StorageLevel = Stor
       .reduceByKey((a: Map[Interval, VertexEdgeAttribute], b: Map[Interval, VertexEdgeAttribute]) => a ++ b)
   }
 
+  //Todo: Remove this function
   override def createNodes(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute, eAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute)(vgroupby: (VertexId, VertexEdgeAttribute) => VertexId = vgb): TGraphWProperties = {
     //aggregateByChange requires coalesced tgraph for correctness
     //both produce potentially uncoalesced TGraph
@@ -59,6 +60,16 @@ abstract class TGraphWProperties(spec: GraphSpec, storLevel: StorageLevel = Stor
     }
   }
 
+  override def createAttributeNodes(res: WindowSpecification , vAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute, eAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute)(vgroupby: (VertexId, VertexEdgeAttribute) => VertexId = vgb): TGraphWProperties = {
+    //Todo: Implement
+    throw new NotImplementedError()
+  }
+  override def createTemporalNodes(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute, eAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute): TGraphWProperties = {
+    //Todo: Implement
+    throw new NotImplementedError()
+  }
+
+
   protected def aggregateByChange(c: ChangeSpec, vgroupby: (VertexId, VertexEdgeAttribute) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute, eAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute): TGraphWProperties
   protected def aggregateByTime(c: TimeSpec, vgroupby: (VertexId, VertexEdgeAttribute) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute, eAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute): TGraphWProperties
 
@@ -68,9 +79,9 @@ abstract class TGraphWProperties(spec: GraphSpec, storLevel: StorageLevel = Stor
     * @param vmap The mapping function for vertices
     * @param newSpec The new graph specification/schema
     * @return tgraph The transformed graph. The temporal schema is unchanged.
-    */
-  def map(emap: Edge[VertexEdgeAttribute] => VertexEdgeAttribute, vmap: (VertexId, VertexEdgeAttribute) => VertexEdgeAttribute, newSpec: GraphSpec): TGraphWProperties
 
+  def map(emap: Edge[VertexEdgeAttribute] => VertexEdgeAttribute, vmap: (VertexId, VertexEdgeAttribute) => VertexEdgeAttribute, newSpec: GraphSpec): TGraphWProperties
+    */
   /**
     * Transforms each vertex attribute in the graph for each time period
     * using the map function. 
@@ -78,7 +89,7 @@ abstract class TGraphWProperties(spec: GraphSpec, storLevel: StorageLevel = Stor
     * @param map the function from a vertex object to a new vertex value
     *
     */
-  def mapVertices(map: (VertexId, Interval, VertexEdgeAttribute) => VertexEdgeAttribute, newSpec: GraphSpec): TGraphWProperties
+  def vmap(map: (VertexId, Interval, VertexEdgeAttribute) => VertexEdgeAttribute, newSpec: GraphSpec): TGraphWProperties
 
   /**
    * Transforms each edge attribute in the graph using the map function.  The map function is not
@@ -88,7 +99,7 @@ abstract class TGraphWProperties(spec: GraphSpec, storLevel: StorageLevel = Stor
    * @param map the function from an edge object with a time index to a new edge value.
    *
    */
-  def mapEdges(map: (Interval, Edge[VertexEdgeAttribute]) => VertexEdgeAttribute, newSpec: GraphSpec): TGraphWProperties
+  def emap(map: (Interval, Edge[VertexEdgeAttribute]) => VertexEdgeAttribute, newSpec: GraphSpec): TGraphWProperties
 
   /**
     * Produce a union of two temporal graphs. 

@@ -97,10 +97,27 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * @param epred Edge predicate.
     * @param vpred Vertex predicate.
     * Foreign key constraint is enforced.
-    */
+
   protected val defvp2 = (vid: VertexId, attrs: VD) => true
   protected val defep2 = (ids: (VertexId, VertexId), attrs: ED) => true
   def subgraph(epred: ((VertexId, VertexId), ED) => Boolean = defep2, vpred: (VertexId, VD) => Boolean = defvp2): TGraph[VD,ED]
+  */
+
+  /**
+    * Select a subgraph based on the vertex attributes.
+    * @param vpred Vertex predicate.
+    * Foreign key constraint is enforced.
+    */
+  def vsubgraph(vpred: (VertexId, VD, Interval ) => Boolean ): TGraph[VD,ED]
+
+
+  /**
+    * Select a subgraph based on the edge attributes.
+    * @param epred Edge predicate.
+    * Foreign key constraint is enforced.
+    */
+  def esubgraph(epred: (EdgeTriplet[VD,ED],Interval  ) => Boolean): TGraph[VD,ED]
+
 
   /**
     * Aggregate into representative graphs over time windows.
@@ -117,7 +134,10 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * @return New tgraph 
     */
   protected val vgb = (vid: VertexId, attr: Any) => vid
+  //Todo: remove this function
   def createNodes(window: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): TGraph[VD, ED]
+  def createAttributeNodes(window: WindowSpecification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): TGraph[VD, ED]
+  def createTemporalNodes(window: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraph[VD, ED]
 
   /**
     * The analytics methods

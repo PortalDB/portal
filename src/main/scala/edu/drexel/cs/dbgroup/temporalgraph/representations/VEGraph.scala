@@ -150,13 +150,26 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     fromRDDs(newVerts, newEdges, defaultValue, storageLevel, true)
 
   }
-
+  /*
   override def subgraph(epred: ((VertexId, VertexId), ED) => Boolean = defep2, vpred: (VertexId, VD) => Boolean = defvp2): VEGraph[VD,ED] = {
     val newVerts: RDD[(VertexId, (Interval, VD))] = if (vpred == defvp2) allVertices else allVertices.filter{ case (vid, attrs) => vpred(vid, attrs._2)}
     val constrained = if (vpred == defvp2) allEdges else TGraphNoSchema.constrainEdges(newVerts, allEdges)
     val newEdges = if (epred == defep2) constrained else constrained.filter{ case (ids, attrs) => epred(ids, attrs._2)}
 
     fromRDDs(newVerts, newEdges, defaultValue, storageLevel, coalesced)
+  }
+  */
+  override def vsubgraph(vpred: (VertexId, VD,Interval) => Boolean): VEGraph[VD,ED] = {
+    val newVerts: RDD[(VertexId, (Interval, VD))] =allVertices.filter{ case (vid, attrs) => vpred(vid, attrs._2,attrs._1)}
+    val newEdges = TGraphNoSchema.constrainEdges(newVerts, allEdges)
+    fromRDDs(newVerts, newEdges, defaultValue, storageLevel, coalesced)
+  }
+  override def esubgraph(epred: (EdgeTriplet[VD,ED],Interval) => Boolean ): VEGraph[VD,ED] = {
+    //Todo: implement
+    throw  new NotImplementedError()
+    // /val newVerts: RDD[(VertexId, (Interval, VD))] = allVertices
+    //val newEdges = allEdges.filter{ case (ids,attrs) =>epred((ids,attrs._2),(attrs._1))}
+    //fromRDDs(newVerts, newEdges, defaultValue, storageLevel, coalesced)
   }
 
   override protected def aggregateByChange(c: ChangeSpec, vgroupby: (VertexId, VD) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): VEGraph[VD, ED] = {
@@ -356,7 +369,6 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
       }
       val newVertices=((allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}).leftOuterJoin((grp2.allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}))).filter(v=>v._2._2 == None).map{ case (v,attr) => (v._1,(v._2,(attr._1)))}
       val newEdges=((allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}).leftOuterJoin((grp2.allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}))) .filter(e=>e._2._2 == None).map{ case (e, attr) => ((e._1, e._2), (e._3, (attr._1)))}
-      //Todo: Is this the correct way to do this? Check with Vera
       fromRDDs(newVertices, TGraphNoSchema.constrainEdges(newVertices,newEdges), defaultValue, storageLevel, false)
     } else {
        this

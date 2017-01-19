@@ -168,6 +168,9 @@ class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Int
 
   }
 
+
+  //Todo: Remove this comment
+  /*
   override def subgraph(epred: ((VertexId, VertexId), VertexEdgeAttribute) => Boolean = defep2, vpred: (VertexId, VertexEdgeAttribute) => Boolean = defvp2): VEAGraph = {
     val newVProps: RDD[(VertexId, (Interval, VertexEdgeAttribute))] = if (vpred == defvp2) allVProperties else allVProperties.filter{ case (vid, attrs) => vpred(vid, attrs._2)}
     val newVerts: RDD[(VertexId, Interval)] = if (vpred == defvp2) allVertices else if (coalesced) TGraphWProperties.coalesce(newVProps.map{ case (k,v) => (k, v._1)}) else newVProps.map{ case (k,v) => (k, v._1)}
@@ -176,6 +179,27 @@ class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Int
     val newEdges = if (coalesced) TGraphWProperties.coalesce(newEProps.map{ case (k,v) => (k, v._1)}) else newEProps.map{ case (k,v) => (k, v._1)}
 
     fromRDDs(newVerts, newEdges, newVProps, newEProps, graphSpec, storageLevel, coalesced)
+  }
+  */
+  override def vsubgraph(vpred: (VertexId, VertexEdgeAttribute,Interval) => Boolean ): VEAGraph = {
+    val newVProps: RDD[(VertexId, (Interval, VertexEdgeAttribute))] = allVProperties.filter{ case (vid, attrs) => vpred(vid, attrs._2,attrs._1)}
+    val newVerts: RDD[(VertexId, Interval)] = if (coalesced) TGraphWProperties.coalesce(newVProps.map{ case (k,v) => (k, v._1)}) else newVProps.map{ case (k,v) => (k, v._1)}
+    val filtered =  allEProperties
+    val newEProps = TGraphWProperties.constrainEProperties(newVerts, filtered)
+    val newEdges = if (coalesced) TGraphWProperties.coalesce(newEProps.map{ case (k,v) => (k, v._1)}) else newEProps.map{ case (k,v) => (k, v._1)}
+
+    fromRDDs(newVerts, newEdges, newVProps, newEProps, graphSpec, storageLevel, coalesced)
+  }
+  override def esubgraph(epred:(EdgeTriplet[VertexEdgeAttribute,VertexEdgeAttribute],Interval) => Boolean): VEAGraph = {
+   //Todo: Implement
+    //Todo: Is the signiture correct?!
+    throw new NotImplementedError()
+    // val newVProps: RDD[(VertexId, (Interval, VertexEdgeAttribute))] =  allVProperties
+   // val newVerts: RDD[(VertexId, Interval)] =  allVertices
+   // val filtered = allEProperties.filter{ case (ids, attrs) => epred(ids, attrs._2)}
+   // val newEProps =filtered
+   // val newEdges = if (coalesced) TGraphWProperties.coalesce(newEProps.map{ case (k,v) => (k, v._1)}) else newEProps.map{ case (k,v) => (k, v._1)}
+   // fromRDDs(newVerts, newEdges, newVProps, newEProps, graphSpec, storageLevel, coalesced)
   }
 
   override protected def aggregateByChange(c: ChangeSpec, vgroupby: (VertexId, VertexEdgeAttribute) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute, eAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute): VEAGraph = {
@@ -274,13 +298,14 @@ class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Int
     * @param emap The mapping function for edges
     * @param vmap The mapping function for vertices
     * @return tgraph The transformed graph. The temporal schema is unchanged.
-    */
+
   override def map(emap: Edge[VertexEdgeAttribute] => VertexEdgeAttribute, vmap: (VertexId, VertexEdgeAttribute) => VertexEdgeAttribute, newSpec: GraphSpec): VEAGraph = {
     //map may cause uncoalesce but it does not affect the integrity constraint on E
     //so we don't need to check it
     //map does not care whether data is coalesced or not
     fromRDDs(allVertices, allEdges, allVProperties.map{ case (vid, (intv, attr)) => (vid, (intv, vmap(vid, attr)))}, allEProperties.map{ case (ids, (intv, attr)) => (ids, (intv, emap(Edge(ids._1, ids._2, attr))))}, newSpec, storageLevel, false)
   }
+  */
 
   /**
     * Transforms each vertex attribute in the graph for each time period
@@ -289,7 +314,7 @@ class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Int
     *
     * @param map the function from a vertex object to a new vertex value
     */
-  override def mapVertices(map: (VertexId, Interval, VertexEdgeAttribute) => VertexEdgeAttribute, newSpec: GraphSpec): VEAGraph = {
+  override def vmap(map: (VertexId, Interval, VertexEdgeAttribute) => VertexEdgeAttribute, newSpec: GraphSpec): VEAGraph = {
     fromRDDs(allVertices, allEdges, allVProperties.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, intv, attr)))}, allEProperties, newSpec, storageLevel, false)
   }
 
@@ -301,7 +326,7 @@ class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Int
    *
    * @param map the function from an edge object with a time index to a new edge value.
    */
-  override def mapEdges(map: (Interval, Edge[VertexEdgeAttribute]) => VertexEdgeAttribute, newSpec: GraphSpec): VEAGraph = {
+  override def emap(map: (Interval, Edge[VertexEdgeAttribute]) => VertexEdgeAttribute, newSpec: GraphSpec): VEAGraph = {
     fromRDDs(allVertices, allEdges, allVProperties, allEProperties.map{ case (ids, (intv, attr)) => (ids, (intv, map(intv, Edge(ids._1, ids._2, attr))))}, newSpec, storageLevel, false)
   }
 

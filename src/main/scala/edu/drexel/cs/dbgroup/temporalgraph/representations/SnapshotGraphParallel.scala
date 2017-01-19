@@ -21,6 +21,7 @@ import java.time.LocalDate
 import java.util.Map
 
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap
+import org.apache.commons.lang.NotImplementedException
 
 class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], grphs: ParSeq[Graph[VD,ED]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraphNoSchema[VD, ED](defValue, storLevel, coal) {
 
@@ -129,9 +130,21 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
     new SnapshotGraphParallel(newIntvs, graphs.slice(selectStart, selectStop+1), defaultValue, storageLevel, coalesced)
 
   }
-
+  /*
   override def subgraph(epred: ((VertexId, VertexId), ED) => Boolean, vpred: (VertexId, VD) => Boolean): SnapshotGraphParallel[VD,ED] = {
     new SnapshotGraphParallel(intervals, graphs.map(g => g.subgraph(epred = et => epred((et.srcId, et.dstId), et.attr), vpred)), defaultValue, storageLevel, false)
+  }
+  */
+
+  override def vsubgraph( vpred: (VertexId, VD,Interval) => Boolean): SnapshotGraphParallel[VD,ED] = {
+    //Todo: Implement this( maybe we can use two level of filtering)
+    throw  new NotImplementedException
+    //new SnapshotGraphParallel(intervals, graphs.map(g => g.subgraph(vpred=vpred, defaultValue, storageLevel, false)
+  }
+  override def esubgraph(epred: (EdgeTriplet[VD,ED],Interval  ) => Boolean): SnapshotGraphParallel[VD,ED] = {
+    //Todo: Implement this( maybe we can use two level of filtering)
+    throw  new NotImplementedException
+    //new SnapshotGraphParallel(intervals, graphs.map(g => g.subgraph(epred = et => epred((et.srcId, et.dstId), et.attr))), defaultValue, storageLevel, false)
   }
 
   //expects coalesced input
