@@ -59,7 +59,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
     }
   }
 
-  override def createAttributeNodes(res: WindowSpecification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): TGraphNoSchema[VD, ED] = {
+  override def createAttributeNodes(vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): TGraphNoSchema[VD, ED] = {
       //Todo: Implement
       throw new NotImplementedError()
   }
@@ -116,20 +116,22 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
   //Todo: Modify Union and Intersection so they can accept aggregate function(s)
   def union(other: TGraphNoSchema[VD, ED]): TGraphNoSchema[Set[VD], Set[ED]]
   //def union(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD , eFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED]
-  /**
-    * Produce the intersection of two temporal graphs.
-    * @param other The other TGraph
-    * @return new TemporaGraph with the intersection of entities from both graphs within each chronon.
-    */
 
-  def difference(other: TGraphNoSchema[VD, ED]): TGraphNoSchema[VD, ED]
 
   /**
     * Produce the difference of two temporal graphs.
     * @param other The other TGraph
+    * @return new TemporaGraph with the diffrence of entities from both graphs within each chronon.
+    */
+  def difference(other: TGraphNoSchema[VD, ED]): TGraphNoSchema[VD, ED]
+
+
+  /**
+    * Produce the intersection of two temporal graphs.
+    * @param other The other TGraph
     * @param vFunc The aggregate function on vertices
     * @param eFunc The aggregate function on edges
-    * @return new TemporaGraph with the diffrence of entities from both graphs within each chronon.
+    * @return new TemporaGraph with the intersection of entities from both graphs within each chronon.
     */
   def intersection(other: TGraphNoSchema[VD, ED]): TGraphNoSchema[Set[VD], Set[ED]]
   //def intersection(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TGraphNoSchema[Set[VD], Set[ED]]
