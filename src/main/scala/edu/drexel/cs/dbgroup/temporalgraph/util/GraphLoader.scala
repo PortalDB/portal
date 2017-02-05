@@ -33,8 +33,12 @@ object GraphLoader {
   def setStrategy(str: PartitionStrategyType.Value):Unit = strategy = str
   def setRunWidth(rw: Int):Unit = runWidth = rw
 
-  //TODO: change to using reflection so that new data types can be added without recoding this
-  //This is from the plain text file format with a single attribute
+  /* An old loading method from plain text files. Left just in case.
+   * Consider deprecated.
+   * Assumes space delimited format and a single string attribute.
+   * TODO: change to using reflection so that new data types can be added without recoding this
+   */
+  @deprecated("Recommend using parquet data files and method instead.", "new data model, 2016")
   def loadData(path: String, from: LocalDate, to: LocalDate):TGraphNoSchema[String,Int] = {
     //read files
     var minDate: LocalDate = from
@@ -197,6 +201,8 @@ object GraphLoader {
   def loadGraphDescription(url: String): GraphSpec = {
     //there should be a special file called graph.info
     //which contains the number of attributes and their name/type
+    //TODO: this method should use the schema in the parquet file
+    //instead of a special file
 
     val pt: Path = new Path(url + "/graph.info")
     val conf: Configuration = new Configuration()    
@@ -224,6 +230,28 @@ object GraphLoader {
     source.close()          
 
     new GraphSpec(vertexAttrs, edgeAttrs)
+  }
+
+  /* 
+   * Return all the directories within the source that contain 
+   * snapshot groups intersecting with the interval in question
+   * Assumes that the directory has the snapshot groups directly in it
+   * and that each snapshot group is named with the interval it contains.
+   */
+  def getPaths(path: String, intv: Interval, filter: String): Array[String] = {
+    //get a listing of directories from path
+    val pt: Path = new Path(path)
+    val conf: Configuration = new Configuration()
+    if (System.getenv("HADOOP_CONF_DIR") != "") {
+      conf.addResource(new Path(System.getenv("HADOOP_CONF_DIR") + "/core-site.xml"))
+    }
+    val pathFilter = new PathFilter {
+      def accept(p: Path): Boolean = {
+        p.getName().contains(filter)
+      }
+    }
+    val status = FileSystem.get(conf).listStatus(pt, pathFilter)
+    status.map(x => x.getPath()).filter(x => Interval.parse(x.getName().takeRight(21)).intersects(intv)).map(x => x.toString())
   }
 
 }

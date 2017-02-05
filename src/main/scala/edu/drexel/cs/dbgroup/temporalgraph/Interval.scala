@@ -105,7 +105,6 @@ class Interval(st: LocalDate, en: LocalDate) extends Serializable {
   /*
    * Splits this period into as many parts as time windows it covers.
    * The results are in reverse order, from latest to earliest.
-   * For each period, the coverage is computed as a ratio (0-1)
    */
   def split(period: Resolution, mark: LocalDate): Seq[(Interval, Interval)] = {
     if(mark.isAfter(this.start))
@@ -145,4 +144,15 @@ object Interval {
       throw new IllegalArgumentException("Start date cannot be after end date")
     else
       new Interval(mn.toLocalDate(), mx.toLocalDate())
+
+  //TODO: need to add unit test for this
+  def parse(str: String): Interval = {
+    try {
+      val dates = str.split("-").map(x => x.toInt)
+      new Interval(LocalDate.of(dates(0),dates(1),dates(2)),LocalDate.of(dates(3),dates(4),dates(5)))
+    } catch {
+      case _ : Throwable =>
+      throw new IllegalArgumentException("Invalid interval string. Format:yyy-mm-dd-yyyy-mm-dd")
+    }    
+  }
 }
