@@ -4,7 +4,7 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.types.{StructType,Metadata,StructField}
 import org.apache.spark.sql.catalyst.expressions.{Attribute,AttributeReference}
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{Dataset,Row}
+import org.apache.spark.sql.{Dataset,Row,DataFrame}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.graphx.VertexId
@@ -252,6 +252,22 @@ object GraphLoader {
     }
     val status = FileSystem.get(conf).listStatus(pt, pathFilter)
     status.map(x => x.getPath()).filter(x => Interval.parse(x.getName().takeRight(21)).intersects(intv)).map(x => x.toString())
+  }
+
+  def getParquet(paths: Array[String], point: LocalDate): DataFrame = {
+    val file = paths.filter(x => Interval.parse(x.takeRight(21)).contains(point))
+    if (file.size > 0) {
+      ProgramContext.getSession.read.parquet(file.head)
+    } else { 
+      ProgramContext.getSession.emptyDataFrame
+    }
+  }
+
+  def getParquet(paths: Array[String], intv: Interval): DataFrame = {
+    val file = paths.filter(x => Interval.parse(x.takeRight(21)).intersects(intv))
+    if (file.size > 0) {
+      ProgramContext.getSession.read.parquet(file:_*)
+    } else ProgramContext.getSession.emptyDataFrame
   }
 
 }

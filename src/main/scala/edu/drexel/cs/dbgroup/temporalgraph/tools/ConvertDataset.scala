@@ -17,7 +17,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{LongType,TimestampType}
 import org.apache.spark.util.SizeEstimator
 
-import edu.drexel.cs.dbgroup.temporalgraph.{ProgramContext,Interval,Resolution}
+import edu.drexel.cs.dbgroup.temporalgraph._
 import edu.drexel.cs.dbgroup.temporalgraph.util.{TempGraphOps,GraphSplitter}
 
 /**
@@ -94,7 +94,7 @@ object ConvertDataset {
 }
 
 class ConvertDataset(source: String, locality: Locality.Value, split: SnapshotGroup.Value, widthTime: Resolution, widthRGs: Int, buckets: Int, ratioT: Double, dest: String) {
-  val blocksize = 1024 * 1024 * 128
+  val blocksize = 1024 * 1024 * 128.0
 
   def convert(): Unit = {
     //load the datasets
@@ -165,12 +165,17 @@ class ConvertDataset(source: String, locality: Locality.Value, split: SnapshotGr
 
     println("splitting into intervals:\n" + intervals.mkString("\n"))
 
+    val lst = locality match {
+      case Locality.Temporal => "_t"
+      case Locality.Structural => "_s"
+    }
+
     val pname = split match {
-      case SnapshotGroup.None => ""
-      case SnapshotGroup.WidthTime => "_wt_"
-      case SnapshotGroup.WidthRGs => "_wc_"
-      case SnapshotGroup.Depth => "_d_"
-      case SnapshotGroup.Redundancy => "_rr_"
+      case SnapshotGroup.None => lst + "_"
+      case SnapshotGroup.WidthTime => lst + "_wt_"
+      case SnapshotGroup.WidthRGs => lst + "_wc_"
+      case SnapshotGroup.Depth => lst + "_d_"
+      case SnapshotGroup.Redundancy => lst + "_rr_"
     }
 
     val intvs = intervals
@@ -179,7 +184,7 @@ class ConvertDataset(source: String, locality: Locality.Value, split: SnapshotGr
 
     //split, adding the string that specifies the range
     val dfs = split match {
-      case SnapshotGroup.None => Seq((data, ""))
+      case SnapshotGroup.None => Seq((data, pname + intervals.head.toString.drop(1).dropRight(1)))
       case _ =>
         splitRDD(data.rdd.flatMap{r => 
           val ii = Interval(r.getDate(startIndex), r.getDate(startIndex+1))
@@ -199,9 +204,9 @@ class ConvertDataset(source: String, locality: Locality.Value, split: SnapshotGr
     //now write each
     //val numParts = data.rdd.getNumPartitions
     sorted.foreach{ x => 
-      val sizeest = SizeEstimator.estimate(x._1)
+      val sizeest: Long = SizeEstimator.estimate(x._1)
       println("estimated size: " + sizeest)
-      val parts: Int = math.ceil(sizeest / blocksize).toInt
+      val parts = math.ceil(sizeest / blocksize).toInt
       println("will coalesce into " + parts + " parts")
       x._1.coalesce(parts).write.parquet(dest + x._2)
     }
