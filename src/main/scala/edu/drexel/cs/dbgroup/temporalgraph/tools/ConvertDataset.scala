@@ -6,6 +6,7 @@ import java.sql.Date
 import scala.collection.mutable.ArrayBuffer
 import org.apache.log4j.Logger
 import org.apache.log4j.Level
+import org.apache.hadoop.fs._
 
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
@@ -79,8 +80,6 @@ object ConvertDataset {
 
     val sc = new SparkContext(conf)
     ProgramContext.setContext(sc)
-    //sc.hadoopConfiguration.setInt("parquet.block.size", blocksize)
-    //sc.hadoopConfiguration.setInt("dfs.blocksize", blocksize)
     val sqlContext = ProgramContext.getSession
     //import sqlContext.implicits._
     sqlContext.conf.set("spark.sql.files.maxPartitionBytes", "16777216")
@@ -94,7 +93,7 @@ object ConvertDataset {
 }
 
 class ConvertDataset(source: String, locality: Locality.Value, split: SnapshotGroup.Value, widthTime: Resolution, widthRGs: Int, buckets: Int, ratioT: Double, dest: String) {
-  val blocksize = 1024 * 1024 * 128.0
+  final val blocksize = 1024 * 1024 * 512.0
 
   def convert(): Unit = {
     //load the datasets
@@ -204,11 +203,15 @@ class ConvertDataset(source: String, locality: Locality.Value, split: SnapshotGr
     //now write each
     //val numParts = data.rdd.getNumPartitions
     sorted.foreach{ x => 
-      val sizeest: Long = SizeEstimator.estimate(x._1)
-      println("estimated size: " + sizeest)
-      val parts = math.ceil(sizeest / blocksize).toInt
-      println("will coalesce into " + parts + " parts")
-      x._1.coalesce(parts).write.parquet(dest + x._2)
+      val pth = dest + x._2 + "tmp"
+      //write out as is, then reload and coalesce into fewer files
+      x._1.write.parquet(pth)
+      val fs = FileSystem.get(ProgramContext.sc.hadoopConfiguration)
+      val dirSize = fs.getContentSummary(new Path(pth)).getLength 
+      val parts = math.max(32, dirSize / blocksize).toInt
+      val df = ProgramContext.getSession.read.parquet(pth)
+      df.coalesce(parts).write.parquet(dest + x._2)
+      fs.delete(new Path(pth), true)
     }
 
   }

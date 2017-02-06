@@ -19,8 +19,7 @@ class LocalQueries(nodePaths: Array[String], edgePaths: Array[String]) {
     //assumes start and end are stored as long values of seconds since 1970
     val secs = point.toEpochDay()*SECONDS_PER_DAY
     //FIXME: need error handling
-    val temp = GraphLoader.getParquet(nodePaths, point)
-    temp.filter("vid == " + id).filter("estart <= " + secs + " and eend > " + secs).rdd.map(r => (r.getLong(0), r.get(3)))
+    GraphLoader.getParquet(nodePaths, point).filter("vid == " + id).filter("estart <= " + secs + " and eend > " + secs).rdd.map(r => (r.getLong(0), r.get(3)))
   }
 
   def getEdge(srcId: VertexId, dstId: VertexId, point: LocalDate): RDD[((VertexId, VertexId), Any)] = {
