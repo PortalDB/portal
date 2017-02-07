@@ -78,13 +78,12 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
   }
 
   //assumes coalesced data
-  override protected def aggregateByChange(c: ChangeSpec, vgroupby: (VertexId, VD) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): OneGraphColumn[VD, ED] = {
+  override protected def aggregateByChange(c: ChangeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): OneGraphColumn[VD, ED] = {
     //if we only have the structure, we can do efficient aggregation with the graph
     //otherwise just use the parent
-    defaultValue match {
-      case a: StructureOnlyAttr if (vgroupby == vgb) => aggregateByChangeStructureOnly(c, vquant, equant)
-      case _ => super.aggregateByChange(c, vgroupby, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[OneGraphColumn[VD,ED]]
-    }
+    //Todo: Do I need to change that ?
+    super.aggregateByChange(c, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[OneGraphColumn[VD,ED]]
+
   }
  
   private def aggregateByChangeStructureOnly(c: ChangeSpec, vquant: Quantification, equant: Quantification): OneGraphColumn[VD, ED] = {
@@ -137,13 +136,12 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       new OneGraphColumn(vs, es, filtered, defaultValue, storageLevel, false)
   }
 
-  override protected def aggregateByTime(c: TimeSpec, vgroupby: (VertexId, VD) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): OneGraphColumn[VD, ED] = {
+  override protected def aggregateByTime(c: TimeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): OneGraphColumn[VD, ED] = {
     //if we only have the structure, we can do efficient aggregation with the graph
     //otherwise just use the parent
-    defaultValue match {
-      case a: StructureOnlyAttr if (vgroupby == vgb) => aggregateByTimeStructureOnly(c, vquant, equant)
-      case _ => super.aggregateByTime(c, vgroupby, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[OneGraphColumn[VD,ED]]
-    }
+    //Todo: Do I need to change that?
+    super.aggregateByTime(c, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[OneGraphColumn[VD,ED]]
+
   }
 
   private def aggregateByTimeStructureOnly(c: TimeSpec, vquant: Quantification, equant: Quantification): OneGraphColumn[VD, ED] = {
@@ -204,16 +202,17 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
 
   }
 
-  override def map[ED2: ClassTag, VD2: ClassTag](emap: Edge[ED] => ED2, vmap: (VertexId, VD) => VD2, defVal: VD2): OneGraphColumn[VD2, ED2] = {
-    val vs = allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vmap(vid, attr)))}
-    val es = allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, emap(Edge(ids._1, ids._2, attr))))}
-    if (ProgramContext.eagerCoalesce)
-      fromRDDs(vs, es, defVal, storageLevel, false)
-    else
-      new OneGraphColumn(vs, es, graphs, defVal, storageLevel, false)
+  override def createAttributeNodes(vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): OneGraphColumn[VD, ED]={
+    throw  new NotImplementedError()
   }
 
-  override def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): OneGraphColumn[VD2, ED] = {
+  override def createTemporalNodes(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): OneGraphColumn[VD, ED]={
+    throw  new NotImplementedError()
+  }
+
+
+
+  override def vmap[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): OneGraphColumn[VD2, ED] = {
     val vs = allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, intv, attr)))}
     if (ProgramContext.eagerCoalesce)
       fromRDDs(vs, allEdges, defVal, storageLevel, false)
@@ -221,7 +220,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       new OneGraphColumn(vs, allEdges, graphs, defVal, storageLevel, false)
   }
 
-  override def mapEdges[ED2: ClassTag](map: (Interval, Edge[ED]) => ED2): OneGraphColumn[VD, ED2] = {
+  override def emap[ED2: ClassTag](map: (Interval, Edge[ED]) => ED2): OneGraphColumn[VD, ED2] = {
     val es = allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(intv, Edge(ids._1, ids._2, attr))))}
     if (ProgramContext.eagerCoalesce)
       fromRDDs(allVertices, es, defaultValue, storageLevel, false)

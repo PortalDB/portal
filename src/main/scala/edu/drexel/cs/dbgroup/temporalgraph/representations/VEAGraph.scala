@@ -203,6 +203,7 @@ class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Int
   }
 
   override protected def aggregateByChange(c: ChangeSpec, vgroupby: (VertexId, VertexEdgeAttribute) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute, eAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute): VEAGraph = {
+    //Todo: Do I need to fix those?
     val size: Integer = c.num
     val emptyat = VertexEdgeAttribute.empty
 
@@ -292,6 +293,16 @@ class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Int
       throw new UnsupportedOperationException("aggregate with structural groupby not supported yet")
     }
   }
+
+  override def createAttributeNodes( vAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute, eAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute)(vgroupby: (VertexId, VertexEdgeAttribute) => VertexId = vgb): VEAGraph ={
+    throw new NotImplementedError()
+  }
+
+  override def createTemporalNodes(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute, eAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute): VEAGraph={
+    throw new NotImplementedError()
+  }
+
+
 
   /**
     * Transforms the structural schema of the graph

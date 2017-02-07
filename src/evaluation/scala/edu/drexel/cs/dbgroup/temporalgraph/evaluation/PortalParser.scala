@@ -370,9 +370,9 @@ object Interpreter {
         }
 
         val mpd: TGraphNoSchema[Any,Any] = gbp.vfun match {
-          case td: TrendFunc => gr.mapVertices((vid, intv, attr) => Map(intv -> attr), Map[Interval,Double]())
-          case lt: ListFunc => gr.mapVertices((vid, intv, attr) => List(attr), List[Any]())
-          case ave: AverageFunc => gr.mapVertices((vid, intv, attr) => (attr, 1), (0, 1))
+          case td: TrendFunc => gr.vmap((vid, intv, attr) => Map(intv -> attr), Map[Interval,Double]())
+          case lt: ListFunc => gr.vmap((vid, intv, attr) => List(attr), List[Any]())
+          case ave: AverageFunc => gr.vmap((vid, intv, attr) => (attr, 1), (0, 1))
           case _ => gr
         }
 
@@ -382,7 +382,7 @@ object Interpreter {
           //Todo: fix me. It's combined
           case a: Attr => {
             val vgb = (vid: VertexId, attr: Any) => attr.hashCode().toLong
-            mpd.createAttributeNodes(spec, fun1, fun2)(vgb)
+            mpd.createAttributeNodes(fun1, fun2)(vgb)
             //mpd.createNodes(spec, gbp.vsem.value, gbp.esem.value, fun1, fun2)(vgb)
               //.partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
           }
@@ -390,8 +390,8 @@ object Interpreter {
         }
 
         val res: TGraphNoSchema[Any,Any] = gbp.vfun match {
-          case td: TrendFunc => agg.mapVertices((vid, intv, attr) => LinearTrendEstimate.calculateSlopeFromIntervals(attr.asInstanceOf[Map[Interval,Double]]), 0.0)
-          case ave: AverageFunc => agg.mapVertices((vid, intv, attr) => {val tp = attr.asInstanceOf[Tuple2[Double,Int]]; tp._1 / tp._2}, 0.0)
+          case td: TrendFunc => agg.vmap((vid, intv, attr) => LinearTrendEstimate.calculateSlopeFromIntervals(attr.asInstanceOf[Map[Interval,Double]]), 0.0)
+          case ave: AverageFunc => agg.vmap((vid, intv, attr) => {val tp = attr.asInstanceOf[Tuple2[Double,Int]]; tp._1 / tp._2}, 0.0)
           case _ => agg
         }
         val opEnd = System.currentTimeMillis()
@@ -463,9 +463,9 @@ object Interpreter {
               }
               case _ => throw new IllegalArgumentException("project not supported for this attribute type")
             }
-            gr.map(emap = e => e.attr, vmap = vm, dfv)
+            gr.emap((intv,e) => e.attr)
           }
-          case ed: Edges => gr.map(emap = em, vmap = (vid, attr) => attr, gr.defaultValue)
+          case ed: Edges => gr.vmap((vid,intv, attr) => attr, gr.defaultValue)
         }
         val opEnd = System.currentTimeMillis()
         val total = opEnd - opStart

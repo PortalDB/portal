@@ -135,8 +135,7 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     */
   protected val vgb = (vid: VertexId, attr: Any) => vid
   //Todo: remove this function
-  def createNodes(window: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): TGraph[VD, ED]
-  def createAttributeNodes(window: WindowSpecification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): TGraph[VD, ED]
+  def createAttributeNodes( vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): TGraph[VD, ED]
   def createTemporalNodes(window: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraph[VD, ED]
 
   /**

@@ -344,7 +344,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     val resolution1Month = Resolution.between(LocalDate.parse("2011-01-01"), LocalDate.parse("2011-02-01"))
     val resolution3Years = Resolution.between(LocalDate.parse("2011-01-01"), LocalDate.parse("2014-01-01"))
 
-    val actualOGC = OGC.createNodes(new TimeSpec(resolution3Years), Always(), Always(), (attr1, attr2) => attr2, (attr1, attr2) => attr2)()
+    val actualOGC = OGC.createTemporalNodes(new TimeSpec(resolution3Years), Always(), Always(), (attr1, attr2) => attr2, (attr1, attr2) => attr2)
 
     val expectedVertices: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), "John")),
@@ -364,7 +364,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     assert(expectedEdges.collect().toSet === actualOGC.edges.collect().toSet)
     assert(expectedOGC.getTemporalSequence.collect === actualOGC.getTemporalSequence.collect)
 
-    val actualOGC2 = OGC.createNodes(new TimeSpec(resolution3Years), Always(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => Math.max(attr1, attr2))()
+    val actualOGC2 = OGC.createTemporalNodes(new TimeSpec(resolution3Years), Always(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => Math.max(attr1, attr2))
 
     val expectedVertices2: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), "John")),
@@ -420,7 +420,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     val longerString = (a: String, b: String) =>
       if (a.length > b.length) a else if (a.length < b.length) b else if (a.compareTo(b) > 0) a else b
 
-    val actualOGC = OGC.createNodes(new TimeSpec(resolution3Years), Always(), Always(), (name1, name2) => longerString(name1, name2), (count1, count2) => Math.max(count1, count2))((vid, attr1) => if (attr1.length < 5) 1L else 2L)
+    val actualOGC = OGC.createTemporalNodes(new TimeSpec(resolution3Years), Always(), Always(), (name1, name2) => longerString(name1, name2), (count1, count2) => Math.max(count1, count2))
 
     val expectedVertices: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2015-01-01")), "Vera")),
@@ -438,7 +438,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     assert(expectedEdges.collect().toSet === actualOGC.edges.collect().toSet)
     assert(expectedOGC.getTemporalSequence.collect === actualOGC.getTemporalSequence.collect)
 
-    val actualOGC2 = OGC.createNodes(new TimeSpec(resolution3Years), Always(), Exists(), (name1, name2) => longerString(name1, name2), (count1, count2) => Math.max(count1, count2))((vid, name) => if (name.length < 5) 1L else 2L)
+    val actualOGC2 = OGC.createTemporalNodes(new TimeSpec(resolution3Years), Always(), Exists(), (name1, name2) => longerString(name1, name2), (count1, count2) => Math.max(count1, count2))
 
     val expectedVertices2: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2015-01-01")), "Vera")),
@@ -461,7 +461,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     assert(expectedEdges2.collect().toSet === actualOGC2.edges.collect().toSet)
     assert(expectedOGC2.getTemporalSequence.collect === actualOGC2.getTemporalSequence.collect)
   }
-
+//Todo: I think we need to rewrite these tests.
   test("aggregateByTime -with structure only") {
     val users: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2017-01-01")), true)),
@@ -490,7 +490,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     val resolution1Month = Resolution.between(LocalDate.parse("2011-01-01"), LocalDate.parse("2011-02-01"))
     val resolution3Years = Resolution.between(LocalDate.parse("2011-01-01"), LocalDate.parse("2014-01-01"))
 
-    val actualOGC = OGC.createNodes(new TimeSpec(resolution3Years), Always(), Always(), (attr1, attr2) => attr2, (attr1, attr2) => attr2)()
+    val actualOGC = OGC.createTemporalNodes(new TimeSpec(resolution3Years), Always(), Always(), (attr1, attr2) => attr2, (attr1, attr2) => attr2)
 
     val expectedVertices: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), true)),
@@ -510,7 +510,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     assert(expectedEdges.collect().toSet === actualOGC.edges.collect().toSet)
     assert(expectedOGC.getTemporalSequence.collect === actualOGC.getTemporalSequence.collect)
 
-    val actualOGC2 = OGC.createNodes(new TimeSpec(resolution3Years), Always(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) =>  attr2)()
+    val actualOGC2 = OGC.createTemporalNodes(new TimeSpec(resolution3Years), Always(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) =>  attr2)
 
     val expectedVertices2: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), true)),
@@ -556,14 +556,14 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     ))
 
     val OGC = OneGraphColumn.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
-    val actualOGC = OGC.createNodes(new ChangeSpec(1), Exists(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => attr1)()
+    val actualOGC = OGC.createAttributeNodes( (attr1, attr2) => attr1, (attr1, attr2) => attr1)()
     val expectedOGC = OneGraphColumn.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     assert(users.collect().toSet === actualOGC.vertices.collect().toSet)
     assert(edges.collect().toSet === actualOGC.edges.collect().toSet)
     assert(expectedOGC.getTemporalSequence.collect === actualOGC.getTemporalSequence.collect)
 
-    val actualOGC2 = OGC.createNodes(new ChangeSpec(2), Exists(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => attr1)()
+    val actualOGC2 = OGC.createAttributeNodes( (attr1, attr2) => attr1, (attr1, attr2) => attr1)()
     val expectedUsers: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2017-01-01")), "John")),
       (2L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2018-01-01")), "Mike")),
@@ -591,7 +591,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     assert(expectedEdges.collect().toSet === actualOGC2.edges.collect().toSet)
     assert(expectedOGC2.getTemporalSequence.collect === actualOGC2.getTemporalSequence.collect)
 
-    val actualOGC3 = OGC.createNodes(new ChangeSpec(2), Always(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => attr1)()
+    val actualOGC3 = OGC.createAttributeNodes(  (attr1, attr2) => attr1, (attr1, attr2) => attr1)()
 
     val expectedUsers3: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2017-01-01")), "John")),
@@ -644,7 +644,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     val longerString = (a: String, b: String) =>
       if (a.length > b.length) a else if (a.length < b.length) b else if (a.compareTo(b) > 0) a else b
 
-    val actualOGC = OGC.createNodes(new ChangeSpec(3), Always(), Always(), (name1, name2) => longerString(name1, name2), (attr1, attr2) => Math.max(attr1, attr2))((vid, attr1) => if (attr1.length < 5) 1L else 2L)
+    val actualOGC = OGC.createAttributeNodes( (name1, name2) => longerString(name1, name2), (attr1, attr2) => Math.max(attr1, attr2))((vid, attr1) => if (attr1.length < 5) 1L else 2L)
 
     val expectedUsers: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2015-01-01")), "Vera")),
@@ -663,7 +663,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     assert(expectedEdges.collect().toSet === actualOGC.edges.collect().toSet)
     assert(expectedOGC.getTemporalSequence.collect === actualOGC.getTemporalSequence.collect)
 
-    val actualOGC2 = OGC.createNodes(new ChangeSpec(3), Always(), Exists(), (name1, name2) => longerString(name1, name2), (attr1, attr2) => Math.max(attr1, attr2))((vid, attr1) => if (attr1.length < 5) 1L else 2L)
+    val actualOGC2 = OGC.createAttributeNodes( (name1, name2) => longerString(name1, name2), (attr1, attr2) => Math.max(attr1, attr2))((vid, attr1) => if (attr1.length < 5) 1L else 2L)
 
     val expectedUsers2: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2015-01-01")), "Vera")),
@@ -710,14 +710,14 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     ))
 
     val OGC = OneGraphColumn.fromRDDs(users, edges, true, StorageLevel.MEMORY_ONLY_SER)
-    val actualOGC = OGC.createNodes(new ChangeSpec(1), Exists(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => attr1)()
+    val actualOGC = OGC.createAttributeNodes(  (attr1, attr2) => attr1, (attr1, attr2) => attr1)()
     val expectedOGC = OneGraphColumn.fromRDDs(users, edges, true, StorageLevel.MEMORY_ONLY_SER)
 
     assert(users.collect().toSet === actualOGC.vertices.collect().toSet)
     assert(edges.collect().toSet === actualOGC.edges.collect().toSet)
     assert(expectedOGC.getTemporalSequence.collect === actualOGC.getTemporalSequence.collect)
 
-    val actualOGC2 = OGC.createNodes(new ChangeSpec(2), Exists(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => attr1)()
+    val actualOGC2 = OGC.createAttributeNodes((attr1, attr2) => attr1, (attr1, attr2) => attr1)()
     val expectedUsers: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2017-01-01")), true)),
       (2L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2018-01-01")), true)),
@@ -744,7 +744,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     assert(expectedEdges.collect().toSet === actualOGC2.edges.collect().toSet)
     assert(expectedOGC2.getTemporalSequence.collect === actualOGC2.getTemporalSequence.collect)
 
-    val actualOGC3 = OGC.createNodes(new ChangeSpec(2), Always(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => attr1)()
+    val actualOGC3 = OGC.createAttributeNodes( (attr1, attr2) => attr1, (attr1, attr2) => attr1)()
 
     val expectedUsers3: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2017-01-01")), true)),
@@ -1404,7 +1404,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     ))
     val OGC = OneGraphColumn.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
-    val actualOGC = OGC.map(edge => (edge.attr * edge.attr), (vertex, name) => name.toUpperCase, "Default")
+    val actualOGC = OGC.emap((intv,edge) => (edge.attr * edge.attr)).vmap((vertex,intv, name) => name.toUpperCase, "Default")
 
     val expectedVertices: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2016-01-01")), "B")),
