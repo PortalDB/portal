@@ -33,9 +33,8 @@ object DegreeDistribution {
 
   def createDegreeDistribution(source:String, directoryName:String): Unit ={
     val fw = new FileWriter(directoryName, true)
-    GraphLoader.setGraphType("HG")
-    val SGP = GraphLoader.loadStructureOnlyParquet(source)
-    val degrees = SGP.degree()
+    val HG = GraphLoader.buildHG(source, -1, -1, Interval(LocalDate.MIN, LocalDate.MAX))
+    val degrees = HG.degree()
 
 
     //test data

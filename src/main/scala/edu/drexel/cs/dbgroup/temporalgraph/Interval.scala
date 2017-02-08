@@ -15,6 +15,9 @@ class Interval(st: LocalDate, en: LocalDate) extends Serializable {
   val start:LocalDate = st
   val end:LocalDate = en
 
+  def getStartSeconds:Long = start.toEpochDay()*Interval.SECONDS_PER_DAY
+  def getEndSeconds:Long = end.toEpochDay()*Interval.SECONDS_PER_DAY
+
   override def toString():String = {
     "[" + start.toString + "-" + end.toString + ")"
   }
@@ -133,6 +136,8 @@ object Interval {
     override def compare(a: Interval, b: Interval): Int = { a compare b }
   }
 
+  final val SECONDS_PER_DAY = 60 * 60 * 24L
+
   def apply(mn: LocalDate, mx: LocalDate) =
    if(mn.isAfter(mx))
      throw new IllegalArgumentException("StartDate cannot be after end date")
@@ -144,6 +149,13 @@ object Interval {
       throw new IllegalArgumentException("Start date cannot be after end date")
     else
       new Interval(mn.toLocalDate(), mx.toLocalDate())
+
+  //inputs are seconds since 1970
+  def apply(mn: Long, mx: Long) = 
+    if (mn > mx)
+      throw new IllegalArgumentException("Start date cannot be after end date")
+    else
+      new Interval(LocalDate.ofEpochDay(math.floor(mn.toDouble/SECONDS_PER_DAY).toLong), LocalDate.ofEpochDay(math.floor(mx.toDouble / SECONDS_PER_DAY).toLong))
 
   //TODO: need to add unit test for this
   def parse(str: String): Interval = {

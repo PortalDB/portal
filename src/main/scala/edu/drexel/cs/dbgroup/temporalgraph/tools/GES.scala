@@ -44,13 +44,12 @@ object GES {
     var f = new File("ges");
     f.mkdir()
     val fw = new FileWriter("ges/" + destinationFileName, true)
-    GraphLoader.setGraphType("VE")
-    val VE = GraphLoader.loadStructureOnlyParquet(source)
+    val VE = GraphLoader.buildVE(source, -1, -1, Interval(LocalDate.MIN, LocalDate.MAX))
     var intervals = VE.getTemporalSequence.collect
     intervals = intervals.drop(69)
     println(intervals.size)
     intervals.foreach(println)
-    var edges = new ListBuffer[EdgeRDD[StructureOnlyAttr]]()
+    var edges = new ListBuffer[EdgeRDD[Any]]()
     val edgesCount = new ListBuffer[Long]()
     var edge = VE.getSnapshot(intervals(0).start).edges
     edges += edge

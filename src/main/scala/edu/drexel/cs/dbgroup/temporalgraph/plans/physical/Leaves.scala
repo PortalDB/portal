@@ -17,7 +17,6 @@ case class PhysicalGraph(
   
   //TODO: incorporate partition strategy
   override def doExecute():TGraphWProperties = {
-    GraphLoader.setGraphType(graphType)
     GraphLoader.loadDataPropertyModel(source)
   }
 }

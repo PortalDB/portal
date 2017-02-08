@@ -21,8 +21,10 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
   lexical.delimiters ++= List("-", "=", ".", "<", ">", "(", ")", "+", ",")
   var strategy = PartitionStrategyType.None
   var width = 8
+  var graphType = "RG"
   def setStrategy(str: PartitionStrategyType.Value):Unit = strategy = str
   def setRunWidth(rw: Int):Unit = width = rw
+  def setGraphType(t: String):Unit = graphType = t
 
   def parse(input: String) = {
     println("parsing query " + input)
@@ -479,7 +481,8 @@ object Interpreter {
 
   def parseGraph(g: Graph): TGraphNoSchema[Any,Any] = {
     g match {
-      case DataSet(nm, col) => load(nm, col)
+      //TODO: push time selection into load
+      case DataSet(nm, col) => load(nm, col, Interval(LocalDate.MIN, LocalDate.MAX))
       case Nested(sel) => parseSelect(sel)
     }
   }
@@ -507,19 +510,25 @@ object Interpreter {
     }
   }
 
-  def load(name: String, column: Int): TGraphNoSchema[Any,Any] = {
+  def load(name: String, column: Int, bound: Interval): TGraphNoSchema[Any,Any] = {
     val selStart = System.currentTimeMillis()
-    val res = if (name.endsWith("structure") || column < 1) {
-      GraphLoader.loadStructureOnlyParquet(PortalShell.uri + "/" + name.split("structure").head).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
-    } else
-      GraphLoader.loadDataParquet(PortalShell.uri + "/" + name, column)//.persist(StorageLevel.MEMORY_ONLY_SER)
+    val vattrcol = if (name.endsWith("structure") || column < 1) -1 else column
+    val eattrcol = if (name.endsWith("structure")) -1 else 1
+
+    val res = PortalParser.graphType match {
+      case "RG" => GraphLoader.buildRG(PortalShell.uri + "/" + name.split("structure").head, vattrcol, eattrcol, bound)
+      case "OG" => GraphLoader.buildOG(PortalShell.uri + "/" + name.split("structure").head, vattrcol, eattrcol, bound)
+      case "HG" => GraphLoader.buildHG(PortalShell.uri + "/" + name.split("structure").head, vattrcol, eattrcol, bound)
+      case "VE" => GraphLoader.buildVE(PortalShell.uri + "/" + name.split("structure").head, vattrcol, eattrcol, bound)
+    }
+
     if (PortalShell.warmStart)
       res.materialize
     val selEnd = System.currentTimeMillis()
     val total = selEnd - selStart
     println(f"Load Runtime: $total%dms ($argNum%d)")
     argNum += 1
-    res
+    res.partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0))
   }
 
   def compute(gr: TGraphNoSchema[Any,Any], com: Compute, wi: WithC): TGraphNoSchema[Any,Any] = {

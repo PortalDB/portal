@@ -18,7 +18,6 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps
 
 abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraph[VD, ED] {
-
   val storageLevel = storLevel
   val defaultValue: VD = defValue
   //whether this TGraph is known to be coalesced

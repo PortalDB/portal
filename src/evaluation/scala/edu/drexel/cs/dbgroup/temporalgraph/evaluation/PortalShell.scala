@@ -75,10 +75,6 @@ object PortalShell {
     //TODO: remove hard-coding of this parameter. currently it is 1024x1024x16, i.e. 16mb
     sqlContext.conf.set("spark.sql.files.maxPartitionBytes", "16777216")
 
-    GraphLoader.setGraphType(graphType)
-    GraphLoader.setStrategy(partitionType)
-    GraphLoader.setRunWidth(runWidth)
-
     //force workers to load first
     sqlContext.emptyDataFrame.count
     //println("starting the timer")
@@ -86,6 +82,8 @@ object PortalShell {
     val startAsMili = System.currentTimeMillis()
     PortalParser.setStrategy(partitionType)
     PortalParser.setRunWidth(runWidth)
+    //TODO - move this into query
+    PortalParser.setGraphType(graphType)
     PortalParser.parse(query.mkString(" "))
     val stopAsMili = System.currentTimeMillis()
     val runTime = stopAsMili - startAsMili

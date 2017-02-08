@@ -9,6 +9,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.graphx.VertexId
 import org.apache.spark.HashPartitioner
+import org.apache.spark.sql.functions._
 
 import org.apache.hadoop.conf._
 import org.apache.hadoop.fs._
@@ -20,110 +21,76 @@ import scala.util.matching.Regex
 import scala.reflect._
 
 object GraphLoader {
-  private var graphType = "SG"
-  private var strategy = PartitionStrategyType.None
-  private var runWidth = 8
 
-  def setGraphType(tp: String):Unit = {
-    tp match {
-      case "SG" | "OG" | "HG" | "VE" => graphType = tp
-      case _ => throw new IllegalArgumentException("unknown graph type")
+  def buildRG(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval): SnapshotGraphParallel[Any, Any] = {
+    //get the configuration option for snapshot groups
+    val sg = ProgramContext.sc.getConf.get("portal.partitions.sgroup", "")
+    //make a filter. RG needs "spatial" layout, i.e. one sorted by time
+    val filter = "_s_" + sg
+
+    val (nodes, edges, deflt) = loadDataParquet(url, vattrcol, eattrcol, bounds, filter)
+    val col = sg match {
+      case "" => true
+      case _ => false
     }
-  }
-  def setStrategy(str: PartitionStrategyType.Value):Unit = strategy = str
-  def setRunWidth(rw: Int):Unit = runWidth = rw
 
-  /* An old loading method from plain text files. Left just in case.
-   * Consider deprecated.
-   * Assumes space delimited format and a single string attribute.
-   * TODO: change to using reflection so that new data types can be added without recoding this
-   */
-  @deprecated("Recommend using parquet data files and method instead.", "new data model, 2016")
-  def loadData(path: String, from: LocalDate, to: LocalDate):TGraphNoSchema[String,Int] = {
-    //read files
-    var minDate: LocalDate = from
-    var maxDate: LocalDate = to
-    var source: scala.io.Source = null
-    var fs: FileSystem = null
-
-    val pt: Path = new Path(path + "/Span.txt")
-    val conf: Configuration = new Configuration()
-    if (System.getenv("HADOOP_CONF_DIR") != "") {
-      conf.addResource(new Path(System.getenv("HADOOP_CONF_DIR") + "/core-site.xml"))
-    }
-    fs = FileSystem.get(conf)
-    source = scala.io.Source.fromInputStream(fs.open(pt))
-
-    val lines = source.getLines
-    val minin = LocalDate.parse(lines.next)
-    val maxin = LocalDate.parse(lines.next)
-    val res = Resolution.from(lines.next)
-
-    if (minin.isAfter(from))
-      minDate = minin
-    if (maxin.isBefore(to))
-      maxDate = maxin
-    source.close()
-
-    if (minDate.isAfter(maxDate) || minDate.isEqual(maxDate))
-      throw new IllegalArgumentException("invalid date range")
-
-    val end = res.minus(maxDate)
-    val usersnp: RDD[(VertexId,(Interval,String))] = MultifileLoad.readNodes(path, minDate, end).flatMap{ x => 
-      val (filename, line) = x
-      val dt = LocalDate.parse(filename.split('/').last.dropWhile(!_.isDigit).takeWhile(_ != '.'))
-      val parts = line.split(",")
-      val index = res.numBetween(minDate, dt)
-      if (parts.size > 1 && parts.head != "" && index > -1) {
-        Some(parts.head.toLong, (res.getInterval(dt), parts(1).toString))
-      } else None
-    }
-    val users = usersnp.partitionBy(new HashPartitioner(usersnp.partitions.size))
-
-    val linksnp: RDD[((VertexId,VertexId),(Interval,Int))] = MultifileLoad.readEdges(path, minDate, end)
-      .flatMap{ x =>
-      val (filename, line) = x
-      val dt = LocalDate.parse(filename.split('/').last.dropWhile(!_.isDigit).takeWhile(_ != '.'))
-      if (!line.isEmpty && line(0) != '#') {
-        val lineArray = line.split("\\s+")
-        val srcId = lineArray(0).toLong
-        val dstId = lineArray(1).toLong
-        var attr = 0
-        if(lineArray.length > 2){
-          attr = lineArray(2).toInt
-        }
-        if (srcId > dstId)
-          Some((dstId, srcId), (res.getInterval(dt),attr))
-        else
-          Some((srcId, dstId), (res.getInterval(dt),attr))
-      } else None
-    }
-    val links = linksnp.partitionBy(new HashPartitioner(linksnp.partitions.size))
-
-    graphType match {
-      case "SG" =>
-        SnapshotGraphParallel.fromRDDs(users, links, "Default", StorageLevel.MEMORY_ONLY_SER, false)
-      case "OG" =>
-        OneGraphColumn.fromRDDs(users, links, "Default", StorageLevel.MEMORY_ONLY_SER, false)
-      case "HG" =>
-        HybridGraph.fromRDDs(users, links, "Default", StorageLevel.MEMORY_ONLY_SER, coalesced = false)
-      case "VE" =>
-        VEGraph.fromRDDs(users, links, "Default", StorageLevel.MEMORY_ONLY_SER, coalesced = false)
-    }
+    SnapshotGraphParallel.fromDataFrames[Any,Any](nodes, edges, deflt, StorageLevel.MEMORY_ONLY_SER, col)
   }
 
-  def loadDataParquet(url: String, attrcol: Int): TGraphNoSchema[Any, Any] = {
-    val users = ProgramContext.getSession.read.parquet(url + "/nodes.parquet")
-    val links = ProgramContext.getSession.read.parquet(url + "/edges.parquet")
+  def buildOG(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval): OneGraphColumn[Any, Any] = {
+    //get the configuration option for snapshot groups
+    val sg = ProgramContext.sc.getConf.get("portal.partitions.sgroup", "")
+    //make a filter. OG needs "temporal" layout, i.e. one sorted by id
+    val filter = "_t_" + sg
 
-    val attr = 2 + attrcol
-    if (users.schema.fields.size <= attr)
-      throw new IllegalArgumentException("requested column index " + attrcol + " which does not exist in the data")
+    val (nodes, edges, deflt) = loadDataParquet(url, vattrcol, eattrcol, bounds, filter)
+    val col = sg match {
+      case "" => true
+      case _ => false
+    }
 
-    val vs: RDD[(VertexId, (Interval, Any))] = users.rdd.map(row => (row.getLong(0), (Interval(row.getDate(1).toLocalDate(), row.getDate(2).toLocalDate()), row.get(attr))))
-    val es: RDD[((VertexId, VertexId), (Interval, Any))] = if (links.schema.fields.size > 4) links.rdd.map(row => ((row.getLong(0), row.getLong(1)), (Interval(row.getDate(2).toLocalDate(), row.getDate(3).toLocalDate()), row.get(4)))) else links.rdd.map(row => ((row.getLong(0), row.getLong(1)), (Interval(row.getDate(2).toLocalDate(), row.getDate(3).toLocalDate()), null)))
+    OneGraphColumn.fromDataFrames[Any,Any](nodes, edges, deflt, StorageLevel.MEMORY_ONLY_SER, col)
 
-    val deflt: Any = users.schema.fields(3).dataType match {
+  }
+
+  def buildHG(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval): HybridGraph[Any, Any] = {
+    //get the configuration option for snapshot groups
+    val sg = ProgramContext.sc.getConf.get("portal.partitions.sgroup", "")
+    //want one graph in HG per SG group
+
+    //make a filter. HG needs "temporal" layout, i.e. one sorted by id
+    val filter = "_t_" + sg
+
+    //separate dataframe for each path
+    var nodeDFs = getPaths(url, bounds, "nodes" + filter).map(nf => ProgramContext.getSession.read.parquet(nf))
+    var edgeDFs = getPaths(url, bounds, "edges" + filter).map(nf => ProgramContext.getSession.read.parquet(nf))
+
+    //the schema should be the same in each df
+    val vattr = 2 + vattrcol
+    if (nodeDFs.head.schema.fields.size <= vattr)
+      throw new IllegalArgumentException("requested column index " + vattrcol + " which does not exist in the data")
+    val eattr = 3 + eattrcol
+    if (edgeDFs.head.schema.fields.size <= eattr)
+      throw new IllegalArgumentException("requested column index " + eattrcol + " which does not exist in the data")
+
+    //if there are more fields in the schema, add the select statement
+    if (vattrcol == -1) {
+      if (nodeDFs.head.schema.fields.size > 3)
+        nodeDFs = nodeDFs.map(nf => nf.select("vid", "estart", "eend"))
+      nodeDFs = nodeDFs.map(nf => nf.withColumn("attr", lit(true)))
+    }
+    else if (nodeDFs.head.schema.fields.size > 4)
+      nodeDFs = nodeDFs.map(nf => nf.select("vid", "estart", "eend", nf.schema.fields(vattr).name))
+    if (eattrcol == -1) {
+      if (edgeDFs.head.schema.fields.size > 4)
+        edgeDFs = edgeDFs.map(nf => nf.select("vid1", "vid2", "estart", "eend"))
+      edgeDFs = edgeDFs.map(nf => nf.withColumn("attr", lit(true)))
+    }
+    else if (nodeDFs.head.schema.fields.size > 5)
+      edgeDFs = edgeDFs.map(nf => nf.select("vid1", "vid2", "estart", "eend", nf.schema.fields(eattr).name))
+    
+    val col: Boolean = nodeDFs.size < 2
+    val deflt: Any = if (vattrcol == -1) false else nodeDFs.head.schema.fields(vattr).dataType match {
       case StringType => ""
       case IntegerType => -1
       case LongType => -1L
@@ -131,42 +98,65 @@ object GraphLoader {
       case _ => null
     }
 
-    graphType match {
-      case "SG" =>
-        SnapshotGraphParallel.fromRDDs(vs, es, deflt, StorageLevel.MEMORY_ONLY_SER, true).partitionBy(TGraphPartitioning(strategy, runWidth, 0))
-      case "OG" =>
-        OneGraphColumn.fromRDDs(vs, es, deflt, StorageLevel.MEMORY_ONLY_SER, true).partitionBy(TGraphPartitioning(strategy, runWidth, 0))
-      case "HG" =>
-        HybridGraph.fromRDDs(vs, es, deflt, StorageLevel.MEMORY_ONLY_SER, coalesced = true).partitionBy(TGraphPartitioning(strategy, runWidth, 0))
-      case "VE" =>
-        VEGraph.fromRDDs(vs, es, deflt, StorageLevel.MEMORY_ONLY_SER, coalesced = true)
-    }
+    HybridGraph.fromDataFrames[Any,Any](nodeDFs, edgeDFs, deflt, StorageLevel.MEMORY_ONLY_SER, col)
+
   }
 
-  def loadStructureOnlyParquet(url: String): TGraphNoSchema[StructureOnlyAttr, StructureOnlyAttr] = {
-    val sqlContext = ProgramContext.getSession
-    import sqlContext.implicits._
+  def buildVE(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval): VEGraph[Any, Any] = {
+    //get the configuration option for snapshot groups
+    val sg = ProgramContext.sc.getConf.get("portal.partitions.sgroup", "")
+    //make a filter. VE needs "temporal" layout, i.e. one sorted by id
+    val filter = "_t_" + sg
 
-    val users = sqlContext.read.parquet(url + "/nodes.parquet").select($"vid", $"estart", $"eend")
-    val links = sqlContext.read.parquet(url + "/edges.parquet").select($"vid1", $"vid2", $"estart", $"eend")
-
-    //map to rdds
-    val vs: RDD[(VertexId, (Interval, StructureOnlyAttr))] = users.rdd.map(row => (row.getLong(0), (Interval(row.getDate(1).toLocalDate(), row.getDate(2).toLocalDate()), true)))
-    val es: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = links.rdd.map(row => ((row.getLong(0), row.getLong(1)), (Interval(row.getDate(2).toLocalDate(), row.getDate(3).toLocalDate()), true)))
-
-    //FIXME: we should be coalescing, but for current datasets it is unnecessary and very expensive
-    //i.e. should change these 'true' to 'false'
-    graphType match {
-      case "SG" =>
-        SnapshotGraphParallel.fromRDDs(vs, es, false, StorageLevel.MEMORY_ONLY_SER, true).partitionBy(TGraphPartitioning(strategy, runWidth, 0))
-      case "OG" =>
-        OneGraphColumn.fromRDDs(vs, es, false, StorageLevel.MEMORY_ONLY_SER, true).partitionBy(TGraphPartitioning(strategy, runWidth, 0))
-      case "HG" =>
-        HybridGraph.fromRDDs(vs, es, false, StorageLevel.MEMORY_ONLY_SER, coalesced = true).partitionBy(TGraphPartitioning(strategy, runWidth, 0))
-      case "VE" =>
-        VEGraph.fromRDDs(vs, es, false, StorageLevel.MEMORY_ONLY_SER, coalesced = true)
+    val (nodes, edges, deflt) = loadDataParquet(url, vattrcol, eattrcol, bounds, filter)
+    val col = sg match {
+      case "" => true
+      case _ => false
     }
 
+    VEGraph.fromDataFrames[Any,Any](nodes, edges, deflt, StorageLevel.MEMORY_ONLY_SER, col)
+
+  }
+
+  private def loadDataParquet(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval, filter: String): (DataFrame, DataFrame, Any) = {
+    val nodesFiles = getPaths(url, bounds, "nodes" + filter)
+    val edgesFiles = getPaths(url, bounds, "edges" + filter)
+
+    var users = ProgramContext.getSession.read.parquet(nodesFiles:_*)
+    var links = ProgramContext.getSession.read.parquet(edgesFiles:_*)
+
+    val vattr = 2 + vattrcol
+    if (users.schema.fields.size <= vattr)
+      throw new IllegalArgumentException("requested column index " + vattrcol + " which does not exist in the data")
+    val eattr = 3 + eattrcol
+    if (links.schema.fields.size <= eattr)
+      throw new IllegalArgumentException("requested column index " + eattrcol + " which does not exist in the data")
+
+    //if there are more fields in the schema, add the select statement
+    if (vattrcol == -1) {
+      if (users.schema.fields.size > 3)
+        users = users.select("vid", "estart", "eend")
+      users = users.withColumn("attr", lit(true))
+    }
+    else if (users.schema.fields.size > 4)
+      users = users.select("vid", "estart", "eend", users.schema.fields(vattr).name)
+    if (eattrcol == -1) {
+      if (links.schema.fields.size > 4)
+        links = links.select("vid1", "vid2", "estart", "eend")
+      links = links.withColumn("attr", lit(true))
+    }
+    else if (links.schema.fields.size > 5)
+      links = links.select("vid1", "vid2", "estart", "eend", links.schema.fields(eattr).name)
+
+    val deflt: Any = if (vattrcol == -1) false else users.schema.fields(vattr).dataType match {
+      case StringType => ""
+      case IntegerType => -1
+      case LongType => -1L
+      case DoubleType => -1.0
+      case _ => null
+    }
+
+    (users, links, deflt)
   }
 
   def loadDataPropertyModel(url: String): TGraphWProperties = {

@@ -89,10 +89,6 @@ object PortalShell {
     //TODO: remove hard-coding of this parameter. currently it is 1024x1024x16, i.e. 16mb
     sqlContext.conf.set("spark.sql.files.maxPartitionBytes", "16777216")
 
-    GraphLoader.setGraphType(graphType)
-    GraphLoader.setStrategy(partitionType)
-    GraphLoader.setRunWidth(runWidth)
-
     val startAsMili = System.currentTimeMillis()
     startConsole()
     val stopAsMili = System.currentTimeMillis()
