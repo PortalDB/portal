@@ -156,31 +156,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
 
 
   override def createAttributeNodes(vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): SnapshotGraphParallel[VD, ED]={
-    //TODO: rewrite to use the RDD insteand of seq
-    //TODO : Is this correct?
-    val intervalsc = collectedIntervals
-    val groups: ParSeq[List[(Graph[VD, ED], Interval)]] =graphs.zip(intervalsc).map(g => List(g))
-    val reduced: ParSeq[(RDD[(VertexId, (VD, List[Interval]))], RDD[((VertexId, VertexId),(ED, List[Interval]))])] = groups.map(group =>
-      group.map{ case (g,ii) =>
-        //map each vertex into its new key
-        (g.vertices.map{ case (vid, vattr) => (vgroupby(vid, vattr), (vattr, List(ii)))},
-          g.triplets.map{ e => ((vgroupby(e.srcId, e.srcAttr), vgroupby(e.dstId, e.dstAttr)), (e.attr, List(ii)))}, ii)}
-        .reduce((a: (RDD[(VertexId, (VD, List[Interval]))], RDD[((VertexId, VertexId), (ED, List[Interval]))], Interval), b: (RDD[(VertexId, (VD, List[Interval]))], RDD[((VertexId, VertexId),(ED, List[Interval]))], Interval)) => (a._1.union(b._1), a._2.union(b._2), a._3.union(b._3)))
-      //reduce by key with aggregate functions
-    ).map{ case (vs, es, intv) =>
-      (vs.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 ++ b._2)),
-        es.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 ++ b._2))
-        )
-    }
-    //now we can create new graphs
-    //to enforce constraint on edges, subgraph vertices that have default attribute value
-    val vp = (vid: VertexId, attr: VD) => { val tt: VD = new Array[VD](1)(0); attr != tt}
-    val newGraphs: ParSeq[Graph[VD, ED]] = reduced.map { case (vs, es) =>
-      val g = Graph[VD,ED](vs.mapValues(v => v._1), es.map(e => Edge(e._1._1, e._1._2, e._2._1)), null.asInstanceOf[VD], storageLevel, storageLevel)
-       g.subgraph(vpred = vp)
-    }
-    val newIntervals: RDD[Interval] = intervals.zipWithIndex.map(x => (x._2 , x._1)).reduceByKey((a,b) => Interval(TempGraphOps.minDate(a.start, b.start), TempGraphOps.maxDate(a.end, b.end))).sortBy(c => c._1, true).map(x => x._2)
-    new SnapshotGraphParallel(newIntervals, newGraphs, defaultValue, storageLevel, false)
+    throw  new NotImplementedError()
   }
 
   override def createTemporalNodes(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): SnapshotGraphParallel[VD, ED]={
