@@ -144,7 +144,33 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
 
 
   override def createAttributeNodes(vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): VEGraph[VD, ED]={
-    throw  new NotImplementedError()
+
+
+
+    val splitVerts:  RDD[((VertexId, Interval), VD)]= if (vgroupby == vgb) {
+      allVertices.map(v=>((v._1,v._2._1),v._2._2))
+    } else {
+      allVertices.map(v=>((vgroupby(v._1,v._2._2),v._2._1),v._2._2))
+    }
+
+    val splitEdges: RDD[(((VertexId, VertexId), Interval),ED)] = if (vgroupby == vgb) {
+      allEdges.map(e=>(((e._1._1,e._1._2),e._2._1),e._2._2))
+    } else {
+      val newVIds: RDD[(VertexId, (Interval, VertexId))] = allVertices.map(v=>(vgroupby(v._1,v._2._2),(v._2._1,v._1)))
+      //for each edge, similar except computing the new ids requires joins with V
+      val edgesWithIds: RDD[((VertexId, VertexId), (Interval, ED))] = allEdges.map(e => (e._1._1, e)).join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => (e._1._2, (v._2, (Interval(TempGraphOps.maxDate(e._2._1.start, v._1.start), TempGraphOps.minDate(e._2._1.end, v._1.end)), e._2._2)))}.join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => ((e._1, v._2), (Interval(TempGraphOps.maxDate(e._2._1.start, v._1.start), TempGraphOps.minDate(e._2._1.end, v._1.end)), e._2._2))}
+      edgesWithIds.map(e=>(((e._1._1,e._1._2),e._2._1),e._2._2))
+    }
+
+    //map to final result
+
+
+    val newVerts: RDD[(VertexId, (Interval, VD))] = splitVerts.reduceByKey((a,b) => (vAggFunc(a, b))).map(v => (v._1._1, (v._1._2, v._2)))
+    //same for edges
+    val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a, b))).map(e=>(((e._1._1._1,e._1._1._1),(e._1._2,e._2))))
+    fromRDDs(newVerts, aggEdges, defaultValue, storageLevel, false)
+
+
   }
 
   override def createTemporalNodes(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): VEGraph[VD, ED]={
