@@ -896,14 +896,14 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       ((5L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), Set(22)))
     ))
 
-    val resultSGPUnion = SGP.union(SGP2)
+    val resultSGPUnion = SGP.union(SGP2, (x,y)=>x , (x,y)=>x)
     val expectedSGPUnion = SnapshotGraphParallel.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, Set("Default"), StorageLevel.MEMORY_ONLY_SER)
     val test = resultSGPUnion.vertices
     assert(resultSGPUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultSGPUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
     assert(resultSGPUnion.getTemporalSequence.collect === expectedSGPUnion.getTemporalSequence.collect)
 
-    val resultSGPIntersection = SGP.intersection(SGP2)
+    val resultSGPIntersection = SGP.intersection(SGP2, (x,y)=>x , (x,y)=>x)
 
     val expectedVerticesIntersection: RDD[(VertexId, (Interval, Set[String]))] = ProgramContext.sc.parallelize(Array(
       (3L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), Set("c", "C"))),
@@ -1057,13 +1057,13 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
 
     val expectedSGPUnion = SnapshotGraphParallel.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, Set("Default"), StorageLevel.MEMORY_ONLY_SER)
 
-    val resultSGPUnion = SGP.union(SGP2)
+    val resultSGPUnion = SGP.union(SGP2, (x,y)=>x , (x,y)=>x)
 
     assert(resultSGPUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultSGPUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
     assert(resultSGPUnion.getTemporalSequence.collect === expectedSGPUnion.getTemporalSequence.collect)
 
-    val resultSGPIntersection = SGP.intersection(SGP2)
+    val resultSGPIntersection = SGP.intersection(SGP2, (x,y)=>x , (x,y)=>x)
 
     assert(resultSGPIntersection.vertices.collect.toSet === SnapshotGraphParallel.emptyGraph("").vertices.collect.toSet)
     assert(resultSGPIntersection.edges.collect.toSet === SnapshotGraphParallel.emptyGraph("").edges.collect.toSet)
@@ -1123,13 +1123,13 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
 
     val expectedSGPUnion = SnapshotGraphParallel.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, Set("Default"), StorageLevel.MEMORY_ONLY_SER)
 
-    val resultSGPUnion = SGP.union(SGP2)
+    val resultSGPUnion = SGP.union(SGP2, (x,y)=>x , (x,y)=>x)
 
     assert(resultSGPUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultSGPUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
     assert(resultSGPUnion.getTemporalSequence.collect === expectedSGPUnion.getTemporalSequence.collect)
 
-    val resultSGPIntersection = SGP.intersection(SGP2)
+    val resultSGPIntersection = SGP.intersection(SGP2, (x,y)=>x , (x,y)=>x)
 
     assert(resultSGPIntersection.vertices.collect.toSet === SnapshotGraphParallel.emptyGraph("").vertices.collect.toSet)
     assert(resultSGPIntersection.edges.collect.toSet === SnapshotGraphParallel.emptyGraph("").edges.collect.toSet)

@@ -170,7 +170,43 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
   }
 
   override def createTemporalNodes(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): SnapshotGraphParallel[VD, ED]={
-    throw  new NotImplementedError()
+    throw new NotImplementedError()
+    /*
+    val intervalsc = collectedIntervals
+
+    //we need groups of graphs
+    //each graph may map into 1 or more new intervals
+    val start = span.start
+
+
+    val groups: ParSeq[(Interval, List[(Graph[VD, ED], Interval)])] = graphs.zip(intervalsc).flatMap{ case (g,ii) => ii.split(res, start).map(x => (x._2, (g, ii)))}.toList.groupBy(_._1).toList.map(x => (x._1, x._2.map(y => y._2))).sortBy(x => x._1).par
+    //for each group, reduce into vertices and edges
+    //compute new value, filter by quantification
+    val reduced: ParSeq[(RDD[(VertexId, (VD, List[Interval]))], RDD[((VertexId, VertexId),(ED, List[Interval]))])] = groups.map{ case (intv, group) =>
+      group.map{ case (g,ii) =>
+        //map each vertex into its new key
+        (g.vertices.map{ case (vid, vattr) => (vid, (vattr, List(ii)))},
+          g.triplets.map{ e => ((e.srcId, e.dstId), (e.attr, List(ii)))}, intv)}
+        .reduce((a: (RDD[(VertexId, (VD, List[Interval]))], RDD[((VertexId, VertexId), (ED, List[Interval]))], Interval), b: (RDD[(VertexId, (VD, List[Interval]))], RDD[((VertexId, VertexId),(ED, List[Interval]))], Interval)) => (a._1.union(b._1), a._2.union(b._2), a._3))
+      //reduce by key with aggregate functions
+    }.map{ case (vs, es, intv) =>
+      (vs.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 ++ b._2))
+        .filter(v => vquant.keep(TempGraphOps.combine(v._2._2).map(ii => ii.ratio(intv)).reduce(_ + _))),
+        es.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 ++ b._2))
+          .filter(e => equant.keep(TempGraphOps.combine(e._2._2).map(ii => ii.ratio(intv)).reduce(_ + _)))
+        )
+    }
+
+    //now we can create new graphs
+    //to enforce constraint on edges, subgraph vertices that have default attribute value
+    val vp = (vid: VertexId, attr: VD) => { val tt: VD = new Array[VD](1)(0); attr != tt}
+    val newGraphs: ParSeq[Graph[VD, ED]] = reduced.map { case (vs, es) =>
+      val g = Graph(vs.mapValues(v => v._1), es.map(e => Edge(e._1._1, e._1._2, e._2._1)), null.asInstanceOf[VD], storageLevel, storageLevel)
+      if (vquant.threshold <= equant.threshold) g else g.subgraph(epred = et => true, vpred = vp)
+    }
+
+    val newIntervals: RDD[Interval] = ProgramContext.sc.parallelize(span.split(res, start).map(_._2).reverse)
+  */
   }
 
 
@@ -181,7 +217,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
     new SnapshotGraphParallel(intervals, graphs.zip(intervals.collect).map(g => g._1.mapEdges(e => map(g._2, e))), defaultValue, storageLevel, false)
   }
 
-  override def union(other: TGraphNoSchema[VD, ED]): SnapshotGraphParallel[Set[VD], Set[ED]] = {
+  override def union(other: TGraphNoSchema[VD, ED],vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): SnapshotGraphParallel[Set[VD], Set[ED]] = {
 
     var grp2: SnapshotGraphParallel[VD, ED] = other match {
       case grph: SnapshotGraphParallel[VD, ED] => grph
@@ -204,8 +240,9 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
         val iith = intervalsZipped.lookup(ii.toLong).lift(0).getOrElse(empty)
         val jjth = intervals2Zipped.lookup(jj.toLong).lift(0).getOrElse(empty)
         if (iith.intersects(intv) && jjth.intersects(intv)) {
-          val ret: Graph[Set[VD], Set[ED]] = Graph(graphs(ii).vertices.fullOuterJoin(grp2.graphs(jj).vertices).mapValues{ attr => (attr._1.toList ++ attr._2.toList).toSet}, 
-            graphs(ii).edges.map(e => ((e.srcId, e.dstId), e.attr)).fullOuterJoin(grp2.graphs(jj).edges.map(e => ((e.srcId, e.dstId), e.attr))).map(e => Edge(e._1._1, e._1._2, (e._2._1.toList ++ e._2._2.toList).toSet)),
+          //Todo: Fix the reduce by key function
+          val ret: Graph[Set[VD], Set[ED]] = Graph(graphs(ii).vertices.fullOuterJoin(grp2.graphs(jj).vertices).mapValues{ attr => (attr._1.toList ++ attr._2.toList).toSet},//.reduceByKey(vFunc),
+            graphs(ii).edges.map(e => ((e.srcId, e.dstId), e.attr)).fullOuterJoin(grp2.graphs(jj).edges.map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eFunc)).map(e => Edge(e._1._1, e._1._2, (e._2._1.toList ++ e._2._2.toList).toSet)),
             Set(defaultValue), storageLevel, storageLevel)
           if (iith.end == intv.end)
             ii = ii+1
@@ -297,7 +334,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
     }
   }
 
-  override def intersection(other: TGraphNoSchema[VD, ED]): SnapshotGraphParallel[Set[VD], Set[ED]] = {
+  override def intersection(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): SnapshotGraphParallel[Set[VD], Set[ED]] = {
     var grp2: SnapshotGraphParallel[VD, ED] = other match {
       case grph: SnapshotGraphParallel[VD, ED] => grph
       case _ => throw new ClassCastException
@@ -326,8 +363,9 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
           //TODO: an innerJoin on edges would be more efficient
           //but it requires the exact same number of partitions and partition strategy
           //see whether repartitioning and innerJoin is better
-          val ret = Graph(graphs(ii).vertices.join(grp2.graphs(jj).vertices).mapValues( attr => Set(attr._1, attr._2)), 
-            graphs(ii).edges.map(e => ((e.srcId, e.dstId), e.attr)).join(grp2.graphs(jj).edges.map(e => ((e.srcId, e.dstId), e.attr))).map{ case (k, v) => Edge(k._1, k._2, Set(v._1, v._2))}, Set(defaultValue), storageLevel, storageLevel)
+          //TODO : Fix the reducebykey
+          val ret = Graph(graphs(ii).vertices.join(grp2.graphs(jj).vertices).mapValues( attr => Set(attr._1, attr._2))/*.reduceByKey(vFunc)*/,
+            graphs(ii).edges.map(e => ((e.srcId, e.dstId), e.attr)).join(grp2.graphs(jj).edges.map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eFunc)).map{ case (k, v) => Edge(k._1, k._2, Set(v._1, v._2))}, Set(defaultValue), storageLevel, storageLevel)
           if (iith.end == intv.end)
             ii = ii+1
           if (jjth.end == intv.end)

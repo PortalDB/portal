@@ -39,8 +39,8 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
     | expr ~ "materialize" ^^ { case g ~ _ => Materialize(g)}
   )
 
-  lazy val expr: PackratParser[Expression] = ( select ~ "union" ~ select ^^ { case g1 ~ _ ~ g2 => Union(g1, g2)}
-    | select ~ "intersection" ~ select ^^ { case g1 ~ _ ~ g2 => Intersect(g1, g2)}
+  lazy val expr: PackratParser[Expression] = ( select ~ "union" ~ "with" ~ function ~ function ~ select ^^ { case g1 ~ _ ~ _ ~ func1 ~ func2 ~ g2 => Union(g1, g2, func1, func2)}
+    | select ~ "intersection" ~ "with" ~ function ~ function ~ select ^^ { case g1 ~ _ ~ _ ~ func1 ~ func2 ~ g2 => Intersect(g1, g2, func1, func2)}
     | select ^^ { case sel => PlainSelect(sel)}
   )
 
@@ -224,24 +224,131 @@ object Interpreter {
       case PlainSelect(gr) => {
         parseSelect(gr)
       }
-      case Union(g1, g2) => {
+      case Union(g1, g2,vfunc, efunc) => {
         val gr1 = parseSelect(g1)
         val gr2 = parseSelect(g2)
         val countStart = System.currentTimeMillis()
+        val fun1 = (s1:Any, s2:Any) => {
+          s1 match {
+            case st: String => vfunc match {
+              case su: SumFunc => st + s2.toString
+              case mi: MinFunc => if (st.length() > s2.toString.length()) s2.toString else st
+              case ma: MaxFunc => if (st.length() < s2.toString.length()) s2.toString else s1
+              case an: AnyFunc => st
+              case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the union operation")
+            }
+            case in: Int => vfunc match {
+              case su: SumFunc => in + s2.asInstanceOf[Int]
+              case mi: MinFunc => math.min(in, s2.asInstanceOf[Int])
+              case ma: MaxFunc => math.max(in, s2.asInstanceOf[Int])
+              case an: AnyFunc => in
+              case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the union operation")
+            }
+            case du: Double => vfunc match {
+              case su: SumFunc => du + s2.asInstanceOf[Double]
+              case mi: MinFunc => math.min(du, s2.asInstanceOf[Double])
+              case ma: MaxFunc => math.max(du, s2.asInstanceOf[Double])
+              case an: AnyFunc => du
+              case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the union operation")
+            }
+            case null => null
+            case _ => throw new IllegalArgumentException("unsupported data type " + s1.getClass + " in union")
+          }
+        }
+        val fun2 = (s1:Any, s2:Any) => {
+          s1 match {
+            case st: String => efunc match {
+              case su: SumFunc => st + s2.toString
+              case mi: MinFunc => if (st.length() > s2.toString.length()) s2.toString else st
+              case ma: MaxFunc => if (st.length() < s2.toString.length()) s2.toString else s1
+              case an: AnyFunc => st
+              case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the union operation")
+            }
+            case in: Int => efunc match {
+              case su: SumFunc => in + s2.asInstanceOf[Int]
+              case mi: MinFunc => math.min(in, s2.asInstanceOf[Int])
+              case ma: MaxFunc => math.max(in, s2.asInstanceOf[Int])
+              case an: AnyFunc => in
+              case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the union operation")
+            }
+            case du: Double => efunc match {
+              case su: SumFunc => du + s2.asInstanceOf[Double]
+              case mi: MinFunc => math.min(du, s2.asInstanceOf[Double])
+              case ma: MaxFunc => math.max(du, s2.asInstanceOf[Double])
+              case an: AnyFunc => du
+              case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the union operation")
+            }
+            case null => null
+            case _ => throw new IllegalArgumentException("unsupported data type " + s1.getClass + " in union")
+          }
+        }
 
-        val res = gr1.union(gr2).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
+        val res = gr1.union(gr2,fun1,fun2).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
         val countEnd = System.currentTimeMillis()
         val total = countEnd - countStart
         println(f"Union Runtime: $total%dms ($argNum%d)")
         argNum += 1
         res
       }
-      case Intersect(g1, g2) => {
+      case Intersect(g1, g2 , vfunc, efunc) => {
         val gr1 = parseSelect(g1)
         val gr2 = parseSelect(g2)
         val countStart = System.currentTimeMillis()
-
-        val res = gr1.intersection(gr2).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
+        val fun1 = (s1:Any, s2:Any) => {
+          s1 match {
+            case st: String => vfunc match {
+              case su: SumFunc => st + s2.toString
+              case mi: MinFunc => if (st.length() > s2.toString.length()) s2.toString else st
+              case ma: MaxFunc => if (st.length() < s2.toString.length()) s2.toString else s1
+              case an: AnyFunc => st
+              case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the intersection operation")
+            }
+            case in: Int => vfunc match {
+              case su: SumFunc => in + s2.asInstanceOf[Int]
+              case mi: MinFunc => math.min(in, s2.asInstanceOf[Int])
+              case ma: MaxFunc => math.max(in, s2.asInstanceOf[Int])
+              case an: AnyFunc => in
+              case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the intersection operation")
+            }
+            case du: Double => vfunc match {
+              case su: SumFunc => du + s2.asInstanceOf[Double]
+              case mi: MinFunc => math.min(du, s2.asInstanceOf[Double])
+              case ma: MaxFunc => math.max(du, s2.asInstanceOf[Double])
+              case an: AnyFunc => du
+              case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the intersection operation")
+            }
+            case null => null
+            case _ => throw new IllegalArgumentException("unsupported data type " + s1.getClass + " in intersection")
+          }
+        }
+        val fun2 = (s1:Any, s2:Any) => {
+          s1 match {
+            case st: String => efunc match {
+              case su: SumFunc => st + s2.toString
+              case mi: MinFunc => if (st.length() > s2.toString.length()) s2.toString else st
+              case ma: MaxFunc => if (st.length() < s2.toString.length()) s2.toString else s1
+              case an: AnyFunc => st
+              case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the intersection operation")
+            }
+            case in: Int => efunc match {
+              case su: SumFunc => in + s2.asInstanceOf[Int]
+              case mi: MinFunc => math.min(in, s2.asInstanceOf[Int])
+              case ma: MaxFunc => math.max(in, s2.asInstanceOf[Int])
+              case an: AnyFunc => in
+              case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the intersection operation")
+            }
+            case du: Double => efunc match {
+              case su: SumFunc => du + s2.asInstanceOf[Double]
+              case mi: MinFunc => math.min(du, s2.asInstanceOf[Double])
+              case ma: MaxFunc => math.max(du, s2.asInstanceOf[Double])
+              case an: AnyFunc => du
+              case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the intersection operation")
+            }
+            case null => null
+            case _ => throw new IllegalArgumentException("unsupported data type " + s1.getClass + " in intersection")
+          }
+        }
+        val res = gr1.intersection(gr2,fun1,fun2).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
         val countEnd = System.currentTimeMillis()
         val total = countEnd - countStart
         println(f"Intersection Runtime: $total%dms ($argNum%d)")
@@ -576,8 +683,8 @@ case class Materialize(graph: Expression) extends Query
 
 sealed abstract class Expression
 case class PlainSelect(sel: Select) extends Expression
-case class Union(graph1: Select, graph2: Select) extends Expression
-case class Intersect(graph1: Select, graph2: Select) extends Expression
+case class Union(graph1: Select, graph2: Select,vfunc: Function, efunc: Function) extends Expression
+case class Intersect(graph1: Select, graph2: Select, vfunc: Function, efunc: Function) extends Expression
 
 sealed abstract class Entity
 case class Vertices() extends Entity

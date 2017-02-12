@@ -228,17 +228,18 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       new OneGraphColumn(allVertices, es, graphs, defaultValue, storageLevel, false)
   }
 
-  override def union(other: TGraphNoSchema[VD, ED]): OneGraphColumn[Set[VD],Set[ED]] = {
+  override def union(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): OneGraphColumn[Set[VD],Set[ED]] = {
     defaultValue match {
-      case a: StructureOnlyAttr => unionStructureOnly(other)
-      case _ => super.union(other).asInstanceOf[OneGraphColumn[Set[VD],Set[ED]]]
+      case a: StructureOnlyAttr => unionStructureOnly(other,vFunc,eFunc)
+      case _ => super.union(other,vFunc,eFunc).asInstanceOf[OneGraphColumn[Set[VD],Set[ED]]]
     }
   }
 
-  private def unionStructureOnly(other: TGraphNoSchema[VD, ED]): OneGraphColumn[Set[VD],Set[ED]] = {
+  //TODO: Do we need to add aggregate functions here? Or should we send a default value
+  private def unionStructureOnly(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): OneGraphColumn[Set[VD],Set[ED]] = {
     var grp2: OneGraphColumn[VD, ED] = other match {
       case grph: OneGraphColumn[VD, ED] => grph
-      case _ => return super.union(other).asInstanceOf[OneGraphColumn[Set[VD],Set[ED]]]
+      case _ => return super.union(other,vFunc,eFunc).asInstanceOf[OneGraphColumn[Set[VD],Set[ED]]]
     }
 
     if (graphs == null) computeGraph()
@@ -373,17 +374,17 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
         this
     }
   }
-  override def intersection(other: TGraphNoSchema[VD, ED]): OneGraphColumn[Set[VD],Set[ED]] = {
+  override def intersection(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): OneGraphColumn[Set[VD],Set[ED]] = {
     defaultValue match {
-      case a: StructureOnlyAttr => intersectionStructureOnly(other)
-      case _ => super.intersection(other).asInstanceOf[OneGraphColumn[Set[VD],Set[ED]]]
+      case a: StructureOnlyAttr => intersectionStructureOnly(other,vFunc,eFunc)
+      case _ => super.intersection(other,vFunc,eFunc).asInstanceOf[OneGraphColumn[Set[VD],Set[ED]]]
     }
   }
-
-  private def intersectionStructureOnly(other: TGraphNoSchema[VD, ED]): OneGraphColumn[Set[VD],Set[ED]] = {
+  //TODO: Do we need to add aggregate functions here? Or should we send a default value
+  private def intersectionStructureOnly(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): OneGraphColumn[Set[VD],Set[ED]] = {
     var grp2: OneGraphColumn[VD, ED] = other match {
       case grph: OneGraphColumn[VD, ED] => grph
-      case _ => return super.intersection(other).asInstanceOf[OneGraphColumn[Set[VD],Set[ED]]]
+      case _ => return super.intersection(other,vFunc,eFunc).asInstanceOf[OneGraphColumn[Set[VD],Set[ED]]]
     }
 
     if (span.intersects(grp2.span)) {

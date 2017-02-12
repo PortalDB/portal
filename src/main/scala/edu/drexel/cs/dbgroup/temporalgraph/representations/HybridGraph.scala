@@ -348,17 +348,17 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
       new HybridGraph(allVertices, es, widths, graphs, defaultValue, storageLevel, false)
   }
 
-  override def union(other: TGraphNoSchema[VD, ED]): HybridGraph[Set[VD],Set[ED]] = {
+  override def union(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): HybridGraph[Set[VD],Set[ED]] = {
     defaultValue match {
-      case a: StructureOnlyAttr => unionStructureOnly(other)
-      case _ => super.union(other).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
+      case a: StructureOnlyAttr => unionStructureOnly(other,vFunc,eFunc)
+      case _ => super.union(other,vFunc,eFunc).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
     }
   }
-
-  private def unionStructureOnly(other: TGraphNoSchema[VD, ED]): HybridGraph[Set[VD],Set[ED]] = {
+  //TODO: Do we need to add aggregate functions here? Or should we send a default value
+  private def unionStructureOnly(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): HybridGraph[Set[VD],Set[ED]] = {
     var grp2: HybridGraph[VD, ED] = other match {
       case grph: HybridGraph[VD, ED] => grph
-      case _ => return super.union(other).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
+      case _ => return super.union(other,vFunc,eFunc).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
     }
 
     if (graphs.size < 1) computeGraphs()
@@ -621,18 +621,17 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
         this
     }
   }
-
-  override def intersection(other: TGraphNoSchema[VD, ED]): HybridGraph[Set[VD], Set[ED]] = {
+  override def intersection(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): HybridGraph[Set[VD], Set[ED]] = {
     defaultValue match {
-      case a: StructureOnlyAttr => intersectionStructureOnly(other)
-      case _ => super.intersection(other).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
+      case a: StructureOnlyAttr => intersectionStructureOnly(other,vFunc,eFunc)
+      case _ => super.intersection(other,vFunc,eFunc).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
     }
   }
-
-  private def intersectionStructureOnly(other: TGraphNoSchema[VD, ED]): HybridGraph[Set[VD],Set[ED]] = {
+  //TODO: Do we need to add aggregate functions here? Or should we send a default value
+  private def intersectionStructureOnly(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): HybridGraph[Set[VD],Set[ED]] = {
     val grp2: HybridGraph[VD, ED] = other match {
       case grph: HybridGraph[VD, ED] => grph
-      case _ => return super.intersection(other).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
+      case _ => return super.intersection(other,vFunc,eFunc).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
     }
 
     if (span.intersects(grp2.span)) {

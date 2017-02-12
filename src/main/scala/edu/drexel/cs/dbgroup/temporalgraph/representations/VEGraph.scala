@@ -208,7 +208,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     fromRDDs(allVertices, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(intv, Edge(ids._1, ids._2, attr))))}, defaultValue, storageLevel, false)
   }
 
-  override def union(other: TGraphNoSchema[VD, ED]): VEGraph[Set[VD], Set[ED]] = {
+  override def union(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): VEGraph[Set[VD], Set[ED]] = {
     //union is correct whether the two input graphs are coalesced or not
     var grp2: VEGraph[VD, ED] = other match {
       case grph: VEGraph[VD, ED] => grph
@@ -229,7 +229,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
             None
         }
       }
-
+      //Todo: Add reducebykey
       val newVerts = allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}.fullOuterJoin(grp2.allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}).map{ case (v, attr) => (v._1, (v._2, (attr._1.toList ++ attr._2.toList).toSet))}
       val newEdges = allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}.fullOuterJoin(grp2.allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}).map{ case (e, attr) => ((e._1, e._2), (e._3, (attr._1.toList ++ attr._2.toList).toSet))}
       fromRDDs(newVerts, newEdges, Set(defaultValue), storageLevel, false)
@@ -275,7 +275,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     }
   }
 
-    override def intersection(other: TGraphNoSchema[VD, ED]): VEGraph[Set[VD], Set[ED]] = {
+    override def intersection(other: TGraphNoSchema[VD, ED] , vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): VEGraph[Set[VD], Set[ED]] = {
     //intersection is correct whether the two input graphs are coalesced or not
     var grp2: VEGraph[VD, ED] = other match {
       case grph: VEGraph[VD, ED] => grph
@@ -300,6 +300,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
       //split the intervals
       //then perform inner join
       //TODO: find a more efficient way that avoids splitting except at intersections
+      //TODO: Add reduceByKey
       val newVertices = allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}.join(grp2.allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}).map{ case ((vid, intv), attrs) => (vid, (intv, Set(attrs._1, attrs._2)))}
 
       val newEdges = allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}.join(grp2.allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}).map{ case ((id1, id2, intv), attrs) => ((id1, id2), (intv, Set(attrs._1, attrs._2)))}

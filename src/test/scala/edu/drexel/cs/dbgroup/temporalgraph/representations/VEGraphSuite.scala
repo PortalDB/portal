@@ -92,14 +92,14 @@ class VEGraphSuite  extends FunSuite with BeforeAndAfter {
       ((5L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), Set(22)))
     ))
 
-    val resultOGCUnion = VEG.union(VEG2)
+    val resultOGCUnion = VEG.union(VEG2, (x,y)=>x , (x,y)=>x)
     val expectedOGCUnion = VEGraph.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, Set("Default"), StorageLevel.MEMORY_ONLY_SER)
 
     assert(resultOGCUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultOGCUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
     assert(resultOGCUnion.getTemporalSequence.collect === expectedOGCUnion.getTemporalSequence.collect)
 
-    val resultOGCIntersection = VEG.intersection(VEG2)
+    val resultOGCIntersection = VEG.intersection(VEG2, (x,y)=>x , (x,y)=>x)
 
     val expectedVerticesIntersection: RDD[(VertexId, (Interval, Set[String]))] = ProgramContext.sc.parallelize(Array(
       (3L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), Set("c", "C"))),
@@ -251,13 +251,13 @@ class VEGraphSuite  extends FunSuite with BeforeAndAfter {
 
     val expectedVECUnion = VEGraph.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, Set("Default"), StorageLevel.MEMORY_ONLY_SER)
 
-    val resultVEGCUnion = VEG.union(VEG2)
+    val resultVEGCUnion = VEG.union(VEG2, (x,y)=>x , (x,y)=>x)
 
     assert(resultVEGCUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultVEGCUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
     assert(resultVEGCUnion.getTemporalSequence.collect === expectedVECUnion.getTemporalSequence.collect)
 
-    val resultVEGIntersection = VEG.intersection(VEG2)
+    val resultVEGIntersection = VEG.intersection(VEG2, (x,y)=>x , (x,y)=>x)
 
     assert(resultVEGIntersection.vertices.collect.toSet === OneGraphColumn.emptyGraph("").vertices.collect.toSet)
     assert(resultVEGIntersection.edges.collect.toSet === OneGraphColumn.emptyGraph("").edges.collect.toSet)
@@ -313,13 +313,13 @@ class VEGraphSuite  extends FunSuite with BeforeAndAfter {
     ))
     val expectedOGCUnion = VEGraph.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, Set("Default"), StorageLevel.MEMORY_ONLY_SER)
 
-    val resultOGCUnion = VEG.union(VEG2)
+    val resultOGCUnion = VEG.union(VEG2, (x,y)=>x , (x,y)=>x)
 
     assert(resultOGCUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultOGCUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
     assert(resultOGCUnion.getTemporalSequence.collect === expectedOGCUnion.getTemporalSequence.collect)
 
-    val resultOGCIntersection = VEG.intersection(VEG2)
+    val resultOGCIntersection = VEG.intersection(VEG2, (x,y)=>x , (x,y)=>x)
 
     assert(resultOGCIntersection.vertices.collect.toSet === OneGraphColumn.emptyGraph("").vertices.collect.toSet)
     assert(resultOGCIntersection.edges.collect.toSet === OneGraphColumn.emptyGraph("").edges.collect.toSet)

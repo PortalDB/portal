@@ -888,14 +888,14 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
       ((5L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), Set(22)))
     ))
 
-    val resultOGCUnion = OGC.union(OGC2)
+    val resultOGCUnion = OGC.union(OGC2, (x,y)=>x , (x,y)=>x)
     val expectedOGCUnion = OneGraphColumn.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, Set("Default"), StorageLevel.MEMORY_ONLY_SER)
 
     assert(resultOGCUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultOGCUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
     assert(resultOGCUnion.getTemporalSequence.collect === expectedOGCUnion.getTemporalSequence.collect)
 
-    val resultOGCIntersection = OGC.intersection(OGC2)
+    val resultOGCIntersection = OGC.intersection(OGC2, (x,y)=>x , (x,y)=>x)
 
     val expectedVerticesIntersection: RDD[(VertexId, (Interval, Set[String]))] = ProgramContext.sc.parallelize(Array(
       (3L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), Set("c", "C"))),
@@ -978,13 +978,13 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
 
     val expectedOGCUnion = OneGraphColumn.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, Set("Default"), StorageLevel.MEMORY_ONLY_SER)
 
-    val resultOGCUnion = OGC.union(OGC2)
+    val resultOGCUnion = OGC.union(OGC2, (x,y)=>x , (x,y)=>x)
 
     assert(resultOGCUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultOGCUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
     assert(resultOGCUnion.getTemporalSequence.collect === expectedOGCUnion.getTemporalSequence.collect)
 
-    val resultOGCIntersection = OGC.intersection(OGC2)
+    val resultOGCIntersection = OGC.intersection(OGC2, (x,y)=>x , (x,y)=>x)
 
     assert(resultOGCIntersection.vertices.collect.toSet === OneGraphColumn.emptyGraph("").vertices.collect.toSet)
     assert(resultOGCIntersection.edges.collect.toSet === OneGraphColumn.emptyGraph("").edges.collect.toSet)
@@ -1041,13 +1041,13 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     ))
     val expectedOGCUnion = OneGraphColumn.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, Set("Default"), StorageLevel.MEMORY_ONLY_SER)
 
-    val resultOGCUnion = OGC.union(OGC2)
+    val resultOGCUnion = OGC.union(OGC2, (x,y)=>x , (x,y)=>x)
 
     assert(resultOGCUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultOGCUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
     assert(resultOGCUnion.getTemporalSequence.collect === expectedOGCUnion.getTemporalSequence.collect)
 
-    val resultOGCIntersection = OGC.intersection(OGC2)
+    val resultOGCIntersection = OGC.intersection(OGC2, (x,y)=>x , (x,y)=>x)
 
     assert(resultOGCIntersection.vertices.collect.toSet === OneGraphColumn.emptyGraph("").vertices.collect.toSet)
     assert(resultOGCIntersection.edges.collect.toSet === OneGraphColumn.emptyGraph("").edges.collect.toSet)
@@ -1130,13 +1130,13 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     ))
 
     val expectedOGCUnion = OneGraphColumn.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, Set[StructureOnlyAttr](), StorageLevel.MEMORY_ONLY_SER)
-    val resultOGCUnion = OGC.union(OGC2)
+    val resultOGCUnion = OGC.union(OGC2, (x,y)=>x , (x,y)=>x)
 
     assert(resultOGCUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultOGCUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
     assert(resultOGCUnion.getTemporalSequence.collect === expectedOGCUnion.getTemporalSequence.collect)
 
-    val resultOGCIntersection = OGC.intersection(OGC2)
+    val resultOGCIntersection = OGC.intersection(OGC2, (x,y)=>x , (x,y)=>x)
 
     val expectedVerticesIntersection: RDD[(VertexId, (Interval, Set[StructureOnlyAttr]))] = ProgramContext.sc.parallelize(Array(
       (3L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), Set(true))),
@@ -1218,14 +1218,14 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
       ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set(true)))
     ))
 
-    val resultOGCUnion = OGC.union(OGC2)
+    val resultOGCUnion = OGC.union(OGC2, (x,y)=>x , (x,y)=>x)
     val expectedOGCUnion = OneGraphColumn.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, Set[StructureOnlyAttr](), StorageLevel.MEMORY_ONLY_SER)
 
     assert(resultOGCUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultOGCUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
     assert(resultOGCUnion.getTemporalSequence.collect === expectedOGCUnion.getTemporalSequence.collect)
 
-    val resultOGCIntersection = OGC.intersection(OGC2)
+    val resultOGCIntersection = OGC.intersection(OGC2, (x,y)=>x , (x,y)=>x)
 
     assert(resultOGCIntersection.vertices.collect.toSet === OneGraphColumn.emptyGraph("").vertices.collect.toSet)
     assert(resultOGCIntersection.edges.collect.toSet === OneGraphColumn.emptyGraph("").edges.collect.toSet)
@@ -1286,14 +1286,14 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
       ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), Set(true)))
     ))
 
-    val resultOGCUnion = OGC.union(OGC2)
+    val resultOGCUnion = OGC.union(OGC2, (x,y)=>x , (x,y)=>x)
     val expectedOGCUnion = OneGraphColumn.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, Set[StructureOnlyAttr](), StorageLevel.MEMORY_ONLY_SER)
 
     assert(resultOGCUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
     assert(resultOGCUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
     assert(resultOGCUnion.getTemporalSequence.collect === expectedOGCUnion.getTemporalSequence.collect)
 
-    val resultOGCIntersection = OGC.intersection(OGC2)
+    val resultOGCIntersection = OGC.intersection(OGC2, (x,y)=>x , (x,y)=>x)
 
     assert(resultOGCIntersection.vertices.collect.toSet === OneGraphColumn.emptyGraph("").vertices.collect.toSet)
     assert(resultOGCIntersection.edges.collect.toSet === OneGraphColumn.emptyGraph("").edges.collect.toSet)
