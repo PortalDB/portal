@@ -484,12 +484,12 @@ object Interpreter {
         }
 
         val agg = gbp.vgb match {
-          case i: Id => mpd.createTemporalNodes(spec, gbp.vsem.value, gbp.esem.value, fun1, fun2)
+          case i: Id => mpd.createTemporalNodes(spec, gbp.vsem.value, gbp.esem.value, fun1, fun2).asInstanceOf[TGraphNoSchema[Any,Any]]
               //.partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
           //Todo: fix me. It's combined
           case a: Attr => {
             val vgb = (vid: VertexId, attr: Any) => attr.hashCode().toLong
-            mpd.createAttributeNodes(fun1, fun2)(vgb)
+            mpd.createAttributeNodes(fun1, fun2)(vgb).asInstanceOf[TGraphNoSchema[Any,Any]]
             //mpd.createNodes(spec, gbp.vsem.value, gbp.esem.value, fun1, fun2)(vgb)
               //.partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
           }

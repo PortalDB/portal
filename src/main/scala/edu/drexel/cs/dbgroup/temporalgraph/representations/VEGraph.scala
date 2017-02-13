@@ -128,12 +128,12 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     throw new NotImplementedError()
     /*
     val newVerts: RDD[(VertexId, (Interval, VD))] = allVertices
-    val newEdges =  allEdges.filter{ e =>epred(EdgeRDD(e._1._1,e._1._2,e._2._2),e._2._1)}
+    val newEdges =  allEdges.filter{ e =>epred((e._1._1,e._1._2,e._2._2),e._2._1)}
     fromRDDs(newVerts, newEdges, defaultValue, storageLevel, coalesced)
     */
   }
 
-  override  def aggregateByChange(c: ChangeSpec,  vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): VEGraph[VD, ED] = {
+  override  protected  def aggregateByChange(c: ChangeSpec,  vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): VEGraph[VD, ED] = {
     val size: Integer = c.num
 
     //each tuple interval must be split based on the overall intervals
@@ -174,7 +174,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     fromRDDs(newVerts, newEdges, defaultValue, storageLevel, false)
   }
 
-  override  def aggregateByTime(c: TimeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): VEGraph[VD, ED] = {
+  override protected def aggregateByTime(c: TimeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): VEGraph[VD, ED] = {
     val start = span.start
     //if there is no structural aggregation, i.e. vgroupby is vid => vid
     //then we can skip the expensive joins
@@ -199,17 +199,13 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
   }
 
 
-  override def createAttributeNodes(vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): VEGraph[VD, ED]={
+  override def createAttributeNodes(vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId ): VEGraph[VD, ED]={
 
-    val splitVerts:  RDD[((VertexId, Interval), VD)]= if (vgroupby == vgb) {
-      allVertices.map(v=>((v._1,v._2._1),v._2._2))
-    } else {
+    val splitVerts:  RDD[((VertexId, Interval), VD)]=
       allVertices.map(v=>((vgroupby(v._1,v._2._2),v._2._1),v._2._2))
-    }
 
-    val splitEdges: RDD[(((VertexId, VertexId), Interval),ED)] = if (vgroupby == vgb) {
-      allEdges.map(e=>(((e._1._1,e._1._2),e._2._1),e._2._2))
-    } else {
+
+    val splitEdges: RDD[(((VertexId, VertexId), Interval),ED)] = {
       val newVIds: RDD[(VertexId, (Interval, VertexId))] = allVertices.map(v=>(vgroupby(v._1,v._2._2),(v._2._1,v._1)))
       //for each edge, similar except computing the new ids requires joins with V
       val edgesWithIds: RDD[((VertexId, VertexId), (Interval, ED))] = allEdges.map(e => (e._1._1, e)).join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => (e._1._2, (v._2, (Interval(TempGraphOps.maxDate(e._2._1.start, v._1.start), TempGraphOps.minDate(e._2._1.end, v._1.end)), e._2._2)))}.join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => ((e._1, v._2), (Interval(TempGraphOps.maxDate(e._2._1.start, v._1.start), TempGraphOps.minDate(e._2._1.end, v._1.end)), e._2._2))}
@@ -227,15 +223,6 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
 
   }
 
-  override def createTemporalNodes(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): VEGraph[VD, ED]={
-    res match {
-      case c : ChangeSpec => coalesce().aggregateByChange(c, vquant, equant, vAggFunc, eAggFunc)
-      case t : TimeSpec => coalesce().aggregateByTime(t, vquant, equant, vAggFunc, eAggFunc)
-      case _ => throw new IllegalArgumentException("unsupported window specification")
-    }
-  }
-
-
 
   /**
     * Transforms each vertex attribute in the graph for each time period
@@ -243,7 +230,6 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     * Special case of general transform, included here for better compatibility with GraphX.
     *
     * @param map the function from a vertex object to a new vertex value
-    * @param defaultValue The default value for attribute VD2. Should be something that is not an available value, like Null
     * @tparam VD2 the new vertex data type
     *
     */
@@ -297,6 +283,8 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
       //and the results of coalesced are also coalesced
       //if the two spans touch but do not interest, the results are uncoalesced
       val col = coalesced && grp2.coalesced && span.end != grp2.span.start && span.start != grp2.span.end
+      //delete these 4 lines
+      // use allvertecies and alledges
       val verts1: RDD[(VertexId, (Interval, Set[VD]))] = allVertices.mapValues{ case (intv, attr) => (intv, Set(attr))}
       val verts2: RDD[(VertexId, (Interval, Set[VD]))] = grp2.allVertices.mapValues{ case (intv, attr) => (intv, Set(attr))}
       val edg1: RDD[((VertexId,VertexId),(Interval,Set[ED]))] = allEdges.mapValues{ case (intv, attr) => (intv, Set(attr))}

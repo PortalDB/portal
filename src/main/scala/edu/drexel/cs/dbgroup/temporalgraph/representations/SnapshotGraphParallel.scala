@@ -227,7 +227,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
   }
 
 
-  override def createAttributeNodes(vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): SnapshotGraphParallel[VD, ED]={
+  override def createAttributeNodes(vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId ): SnapshotGraphParallel[VD, ED]={
     //TODO: rewrite to use the RDD insteand of seq
     //TODO : Is this correct?
     val reduced: ParSeq[(RDD[(VertexId, VD)], RDD[((VertexId, VertexId),ED)])] = graphs.map(g =>
@@ -240,15 +240,6 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
     }
     new SnapshotGraphParallel(intervals, newGraphs, defaultValue, storageLevel, false)
   }
-
-  override def createTemporalNodes(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): SnapshotGraphParallel[VD, ED]={
-    res match {
-      case c : ChangeSpec => coalesce().aggregateByChange(c, vquant, equant, vAggFunc, eAggFunc)
-      case t : TimeSpec => coalesce().aggregateByTime(t, vquant, equant, vAggFunc, eAggFunc)
-      case _ => throw new IllegalArgumentException("unsupported window specification")
-    }
-  }
-
 
   override def vmap[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): SnapshotGraphParallel[VD2, ED] = {
     new SnapshotGraphParallel(intervals, graphs.zip(intervals.collect).map(g => g._1.mapVertices((vid, attr) => map(vid, g._2, attr))), defVal, storageLevel, false)
