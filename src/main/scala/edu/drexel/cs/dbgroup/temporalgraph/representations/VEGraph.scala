@@ -158,15 +158,10 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     //filter out those that do not meet quantification criteria
     //map to final result
     implicit val ord = TempGraphOps.dateOrdering
-    val combine = (lst: List[Interval]) => lst.sortBy(x => x.start).foldLeft(List[Interval]()){ (r,c) => r match {
-      case head :: tail =>
-        if (head.intersects(c)) Interval(head.start, TempGraphOps.maxDate(head.end, c.end)) :: tail else c :: head :: tail
-      case Nil => List(c)
-    }}
 
-    val newVerts: RDD[(VertexId, (Interval, VD))] = splitVerts.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 ++ b._2)).filter(v => vquant.keep(combine(v._2._2).map(ii => ii.ratio(v._1._2)).reduce(_ + _))).map(v => (v._1._1, (v._1._2, v._2._1)))
+    val newVerts: RDD[(VertexId, (Interval, VD))] = splitVerts.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 ++ b._2)).filter(v => vquant.keep(v._2._2.map(ii => ii.ratio(v._1._2)).reduce(_ + _))).map(v => (v._1._1, (v._1._2, v._2._1)))
     //same for edges
-    val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 ++ b._2)).filter(e => equant.keep(combine(e._2._2).map(ii => ii.ratio(e._1._3)).reduce(_ + _))).map(e => ((e._1._1, e._1._2), (e._1._3, e._2._1)))
+    val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 ++ b._2)).filter(e => equant.keep(e._2._2.map(ii => ii.ratio(e._1._3)).reduce(_ + _))).map(e => ((e._1._1, e._1._2), (e._1._3, e._2._1)))
 
     //we only need to enforce the integrity constraint on edges if the vertices have all quantification but edges have exists; otherwise it's maintained naturally
     val newEdges = if (vquant.threshold <= equant.threshold) aggEdges else TGraphNoSchema.constrainEdges(newVerts, aggEdges)
@@ -186,14 +181,10 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     //filter out those that do not meet quantification criteria
     //map to final result
     implicit val ord = TempGraphOps.dateOrdering
-    val combine = (lst: List[Interval]) => lst.sortBy(x => x.start).foldLeft(List[Interval]()){ (r,c) => r match {
-      case head :: tail =>
-        if (head.intersects(c)) Interval(head.start, TempGraphOps.maxDate(head.end, c.end)) :: tail else c :: head :: tail
-      case Nil => List(c)
-    }}
-    val newVerts: RDD[(VertexId, (Interval, VD))] = splitVerts.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 ++ b._2)).filter(v => vquant.keep(combine(v._2._2).map(ii => ii.ratio(v._1._2)).reduce(_ + _))).map(v => (v._1._1, (v._1._2, v._2._1)))
+
+    val newVerts: RDD[(VertexId, (Interval, VD))] = splitVerts.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 ++ b._2)).filter(v => vquant.keep(v._2._2.map(ii => ii.ratio(v._1._2)).reduce(_ + _))).map(v => (v._1._1, (v._1._2, v._2._1)))
     //same for edges
-    val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 ++ b._2)).filter(e => equant.keep(combine(e._2._2).map(ii => ii.ratio(e._1._3)).reduce(_ + _))).map(e => ((e._1._1, e._1._2), (e._1._3, e._2._1)))
+    val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 ++ b._2)).filter(e => equant.keep(e._2._2.map(ii => ii.ratio(e._1._3)).reduce(_ + _))).map(e => ((e._1._1, e._1._2), (e._1._3, e._2._1)))
     val newEdges = if (vquant.threshold <= equant.threshold) aggEdges else TGraphNoSchema.constrainEdges(newVerts, aggEdges)
     fromRDDs(newVerts, newEdges, defaultValue, storageLevel, false)
   }
