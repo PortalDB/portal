@@ -282,7 +282,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
         if (iith.intersects(intv) && jjth.intersects(intv)) {
           //Todo: Fix the reduce by key function
           val ret: Graph[Set[VD], Set[ED]] = Graph(graphs(ii).vertices.fullOuterJoin(grp2.graphs(jj).vertices).mapValues{ attr => (attr._1.toList ++ attr._2.toList).toSet},//.reduceByKey(vFunc),
-            graphs(ii).edges.map(e => ((e.srcId, e.dstId), e.attr)).fullOuterJoin(grp2.graphs(jj).edges.map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eFunc)).map(e => Edge(e._1._1, e._1._2, (e._2._1.toList ++ e._2._2.toList).toSet)),
+            graphs(ii).edges.map(e => ((e.srcId, e.dstId), e.attr)).fullOuterJoin(grp2.graphs(jj).edges.map(e => ((e.srcId, e.dstId), e.attr)))/*.reduceByKey(eFunc)*/.map(e => Edge(e._1._1, e._1._2, (e._2._1.toList ++ e._2._2.toList).toSet)),
             Set(defaultValue), storageLevel, storageLevel)
           if (iith.end == intv.end)
             ii = ii+1

@@ -323,7 +323,13 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
 
 
   override def createAttributeNodes(vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): HybridGraph[VD, ED]={
-    //TODO: Implement
+    defaultValue match {
+      case a: StructureOnlyAttr => createAttributeNodesStructureOnly(vAggFunc,eAggFunc)(vgroupby)
+      case _ => super.createAttributeNodes(vAggFunc,eAggFunc)(vgroupby).asInstanceOf[HybridGraph[VD,ED]]
+    }
+  }
+
+  protected def createAttributeNodesStructureOnly(vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): HybridGraph[VD, ED]={
     throw  new NotImplementedError()
   }
 

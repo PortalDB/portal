@@ -125,11 +125,12 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     fromRDDs(newVerts, newEdges, defaultValue, storageLevel, coalesced)
   }
   override def esubgraph(epred: (EdgeTriplet[VD,ED],Interval) => Boolean ): VEGraph[VD,ED] = {
-    //Todo: implement
-    throw  new NotImplementedError()
-    // /val newVerts: RDD[(VertexId, (Interval, VD))] = allVertices
-    //val newEdges = allEdges.filter{ case (ids,attrs) =>epred((ids,attrs._2),(attrs._1))}
-    //fromRDDs(newVerts, newEdges, defaultValue, storageLevel, coalesced)
+    throw new NotImplementedError()
+    /*
+    val newVerts: RDD[(VertexId, (Interval, VD))] = allVertices
+    val newEdges =  allEdges.filter{ e =>epred(EdgeRDD(e._1._1,e._1._2,e._2._2),e._2._1)}
+    fromRDDs(newVerts, newEdges, defaultValue, storageLevel, coalesced)
+    */
   }
 
   override  def aggregateByChange(c: ChangeSpec,  vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): VEGraph[VD, ED] = {
@@ -300,7 +301,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
       val verts2: RDD[(VertexId, (Interval, Set[VD]))] = grp2.allVertices.mapValues{ case (intv, attr) => (intv, Set(attr))}
       val edg1: RDD[((VertexId,VertexId),(Interval,Set[ED]))] = allEdges.mapValues{ case (intv, attr) => (intv, Set(attr))}
       val edg2: RDD[((VertexId,VertexId),(Interval,Set[ED]))] = grp2.allEdges.mapValues{ case (intv, attr) => (intv, Set(attr))}
-      fromRDDs(verts1.union(verts2), edg1.union(edg2), 
+      fromRDDs(verts1.union(verts2), edg1.union(edg2),
         Set(defaultValue), storageLevel, col)
     }
   }

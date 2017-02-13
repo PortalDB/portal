@@ -204,6 +204,13 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
   }
 
   override def createAttributeNodes(vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): OneGraphColumn[VD, ED]={
+    defaultValue match {
+      case a: StructureOnlyAttr => createAttributeNodesStructureOnly(vAggFunc,eAggFunc)(vgroupby)
+      case _ => super.createAttributeNodes(vAggFunc,eAggFunc)(vgroupby).asInstanceOf[OneGraphColumn[VD,ED]]
+    }
+  }
+
+  protected def createAttributeNodesStructureOnly(vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): OneGraphColumn[VD, ED]={
     throw  new NotImplementedError()
   }
 
