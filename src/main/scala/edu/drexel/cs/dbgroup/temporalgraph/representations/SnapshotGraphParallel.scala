@@ -248,7 +248,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
     new SnapshotGraphParallel(intervals, graphs.zip(intervals.collect).map(g => g._1.mapEdges(e => map(g._2, e))), defaultValue, storageLevel, false)
   }
 
-  override def union(other: TGraphNoSchema[VD, ED],vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): SnapshotGraphParallel[Set[VD], Set[ED]] = {
+  override def union(other: TGraphNoSchema[VD, ED],vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): SnapshotGraphParallel[VD, ED] = {
 
     var grp2: SnapshotGraphParallel[VD, ED] = other match {
       case grph: SnapshotGraphParallel[VD, ED] => grph
@@ -267,14 +267,13 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
       //TODO: get rid of collect if possible
       val intervalsZipped = intervals.zipWithIndex.map(_.swap)
       val intervals2Zipped = grp2.intervals.zipWithIndex.map(_.swap)
-      val newGraphs: ParSeq[Graph[Set[VD],Set[ED]]] = newIntvs.collect.map { intv =>
+      val newGraphs: ParSeq[Graph[VD,ED]] = newIntvs.collect.map { intv =>
         val iith = intervalsZipped.lookup(ii.toLong).lift(0).getOrElse(empty)
         val jjth = intervals2Zipped.lookup(jj.toLong).lift(0).getOrElse(empty)
         if (iith.intersects(intv) && jjth.intersects(intv)) {
-          //Todo: Fix the reduce by key function
-          val ret: Graph[Set[VD], Set[ED]] = Graph(graphs(ii).vertices.fullOuterJoin(grp2.graphs(jj).vertices).mapValues{ attr => (attr._1.toList ++ attr._2.toList).toSet},//.reduceByKey(vFunc),
-            graphs(ii).edges.map(e => ((e.srcId, e.dstId), e.attr)).fullOuterJoin(grp2.graphs(jj).edges.map(e => ((e.srcId, e.dstId), e.attr)))/*.reduceByKey(eFunc)*/.map(e => Edge(e._1._1, e._1._2, (e._2._1.toList ++ e._2._2.toList).toSet)),
-            Set(defaultValue), storageLevel, storageLevel)
+          val ret: Graph[VD, ED] = Graph(graphs(ii).vertices.union(grp2.graphs(jj).vertices).reduceByKey(vFunc),
+            graphs(ii).edges.map(e => ((e.srcId, e.dstId), e.attr)).union(grp2.graphs(jj).edges.map(e => ((e.srcId, e.dstId), e.attr))).reduceByKey(eFunc).map( e => Edge( e._1._1,e._1._2,e._2)),
+            defaultValue, storageLevel, storageLevel)
           if (iith.end == intv.end)
             ii = ii+1
           if (jjth.end == intv.end)
@@ -283,37 +282,32 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
         } else if (iith.intersects(intv)) {
           if (iith.end == intv.end)
             ii = ii+1
-          graphs(ii-1).mapVertices((vid,attr) => Set(attr)).mapEdges(e => Set(e.attr))
+          graphs(ii-1)
         } else if (jjth.intersects(intv)) {
           if (jjth.end == intv.end)
             jj = jj+1
-          grp2.graphs(jj-1).mapVertices((vid,attr) => Set(attr)).mapEdges(e => Set(e.attr))
+          grp2.graphs(jj-1)
         } else { //should never get here
           throw new SparkException("bug in union")
         }
       }.par
 
-      new SnapshotGraphParallel(newIntvs, newGraphs, Set(defaultValue), storageLevel, false)
+      new SnapshotGraphParallel(newIntvs, newGraphs, defaultValue, storageLevel, false)
     } else if (span.end == grp2.span.start || span.start == grp2.span.end) {
       //if the two spans are one right after another but do not intersect
       //then we just put them together
       val newIntvs = intervals.union(grp2.intervals).sortBy(c => c, true, 1)
       //need to update values for all vertices and edges
-      val gr1: ParSeq[Graph[Set[VD],Set[ED]]] = graphs.map(g => g.mapVertices((vid,attr) => Set(attr)).mapEdges(e => Set(e.attr)))
-      val gr2: ParSeq[Graph[Set[VD],Set[ED]]] = grp2.graphs.map(g => g.mapVertices((vid,attr) => Set(attr)).mapEdges(e => Set(e.attr)))
+      val gr1: ParSeq[Graph[VD, ED]] = graphs.map(g => g.mapVertices((vid, attr) => (attr)).mapEdges(e => (e.attr)))
+      val gr2: ParSeq[Graph[VD, ED]] = grp2.graphs.map(g => g.mapVertices((vid, attr) => attr).mapEdges(e => e.attr))
       val newGraphs = if (span.start.isBefore(grp2.span.start)) gr1 ++ gr2 else gr2 ++ gr1
-      new SnapshotGraphParallel(newIntvs, newGraphs, Set(defaultValue), storageLevel, false)
+      new SnapshotGraphParallel(newIntvs, newGraphs, defaultValue, storageLevel, false)
     } else {
-      //if there is no temporal intersection, then we can just add them together
-      //no need to worry about coalesce or constraint on E; all still holds
-      val newIntvs = intervals.union(grp2.intervals).union(ProgramContext.sc.parallelize(Seq(Interval(span.end, grp2.span.start)))).sortBy(c => c, true)
-      //need to update values for all vertices and edges
-      val gr1: ParSeq[Graph[Set[VD],Set[ED]]] = graphs.map(g => g.mapVertices((vid,attr) => Set(attr)).mapEdges(e => Set(e.attr)))
-      val gr2: ParSeq[Graph[Set[VD],Set[ED]]] = grp2.graphs.map(g => g.mapVertices((vid,attr) => Set(attr)).mapEdges(e => Set(e.attr)))
-      val newGraphs = if (span.start.isBefore(grp2.span.start)) gr1 ++ Seq(Graph[Set[VD],Set[ED]](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)) ++ gr2 else gr2 ++ Seq(Graph[Set[VD],Set[ED]](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)) ++ gr1
-      //the union of coalesced is coalesced
-
-      new SnapshotGraphParallel(newIntvs, newGraphs, Set(defaultValue), storageLevel, coalesced && grp2.coalesced)
+        //if there is no temporal intersection, then we can just add them together
+        //no need to worry about coalesce or constraint on E; all still holds
+        val newIntvs = intervals.union(grp2.intervals).union(ProgramContext.sc.parallelize(Seq(Interval(span.end, grp2.span.start)))).sortBy(c => c, true)
+        val newGraphs = if (span.start.isBefore(grp2.span.start)) graphs ++ Seq(Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)) ++ grp2.graphs else grp2.graphs ++ Seq(Graph[VD, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)) ++ graphs
+        new SnapshotGraphParallel(newIntvs, newGraphs, defaultValue, storageLevel, coalesced && grp2.coalesced)
     }
   }
 
@@ -365,7 +359,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
     }
   }
 
-  override def intersection(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): SnapshotGraphParallel[Set[VD], Set[ED]] = {
+  override def intersection(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): SnapshotGraphParallel[VD, ED] = {
     var grp2: SnapshotGraphParallel[VD, ED] = other match {
       case grph: SnapshotGraphParallel[VD, ED] => grph
       case _ => throw new ClassCastException
@@ -387,16 +381,17 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
       while (!intervals2Zipped.lookup(jj.toLong).lift(0).getOrElse(empty).intersects(head)) jj = jj + 1
 
       //TODO: get rid of collect if possible
-      val newGraphs: ParSeq[Graph[Set[VD], Set[ED]]] = newIntvs.collect.map { intv =>
+      val newGraphs: ParSeq[Graph[VD, ED]] = newIntvs.collect.map { intv =>
         val iith = intervalsZipped.lookup(ii.toLong).lift(0).getOrElse(empty)
         val jjth = intervals2Zipped.lookup(jj.toLong).lift(0).getOrElse(empty)
         if (iith.intersects(intv) && jjth.intersects(intv)) {
           //TODO: an innerJoin on edges would be more efficient
           //but it requires the exact same number of partitions and partition strategy
           //see whether repartitioning and innerJoin is better
-          //TODO : Fix the reducebykey
-          val ret = Graph(graphs(ii).vertices.join(grp2.graphs(jj).vertices).mapValues( attr => Set(attr._1, attr._2))/*.reduceByKey(vFunc)*/,
-            graphs(ii).edges.map(e => ((e.srcId, e.dstId), e.attr)).join(grp2.graphs(jj).edges.map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(eFunc)).map{ case (k, v) => Edge(k._1, k._2, Set(v._1, v._2))}, Set(defaultValue), storageLevel, storageLevel)
+
+          val ret = Graph(graphs(ii).vertices.join(grp2.graphs(jj).vertices).mapValues{ case (a,b) => vFunc(a,b)},
+            graphs(ii).edges.map(e => ((e.srcId, e.dstId), e.attr)).join(grp2.graphs(jj).edges.map(e => ((e.srcId, e.dstId), e.attr))).map{ case (k, v) => Edge(k._1, k._2, eFunc(v._1,v._2))},
+            defaultValue, storageLevel, storageLevel)
           if (iith.end == intv.end)
             ii = ii+1
           if (jjth.end == intv.end)
@@ -407,10 +402,10 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
         }
       }.par
 
-      new SnapshotGraphParallel(newIntvs, newGraphs, Set(defaultValue), storageLevel, false)
+      new SnapshotGraphParallel(newIntvs, newGraphs, defaultValue, storageLevel, false)
 
     } else {
-      SnapshotGraphParallel.emptyGraph(Set(defaultValue))
+      SnapshotGraphParallel.emptyGraph(defaultValue)
     }
   }
 

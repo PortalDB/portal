@@ -340,17 +340,17 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
       new HybridGraph(allVertices, es, widths, graphs, defaultValue, storageLevel, false)
   }
 
-  override def union(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): HybridGraph[Set[VD],Set[ED]] = {
+  override def union(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): HybridGraph[VD,ED] = {
     defaultValue match {
       case a: StructureOnlyAttr => unionStructureOnly(other,vFunc,eFunc)
-      case _ => super.union(other,vFunc,eFunc).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
+      case _ => super.union(other,vFunc,eFunc).asInstanceOf[HybridGraph[VD,ED]]
     }
   }
   //TODO: Do we need to add aggregate functions here? Or should we send a default value
-  private def unionStructureOnly(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): HybridGraph[Set[VD],Set[ED]] = {
+  private def unionStructureOnly(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): HybridGraph[VD,ED] = {
     var grp2: HybridGraph[VD, ED] = other match {
       case grph: HybridGraph[VD, ED] => grph
-      case _ => return super.union(other,vFunc,eFunc).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
+      case _ => return super.union(other,vFunc,eFunc).asInstanceOf[HybridGraph[VD,ED]]
     }
 
     if (graphs.size < 1) computeGraphs()
@@ -440,8 +440,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
       }
 
       //collect vertices and edges
-      val newDefVal = Set[VD](defaultValue)
-      val tmp = Set[ED](defaultValue.asInstanceOf[ED])
+      val newDefVal = defaultValue
+      val tmp =defaultValue.asInstanceOf[ED]
       val vs = gps.map(g => g.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}).reduce(_ union _)
       val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))}).reduce(_ union _)
 
@@ -479,8 +479,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
       }
 
       //collect vertices and edges
-      val newDefVal = Set[VD](defaultValue)
-      val tmp = Set[ED](defaultValue.asInstanceOf[ED])
+      val newDefVal = defaultValue
+      val tmp = defaultValue.asInstanceOf[ED]
       val vs = gps.map(g => g.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}).reduce(_ union _)
       val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))}).reduce(_ union _)
 
@@ -613,17 +613,17 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
         this
     }
   }
-  override def intersection(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): HybridGraph[Set[VD], Set[ED]] = {
+  override def intersection(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): HybridGraph[VD, ED] = {
     defaultValue match {
       case a: StructureOnlyAttr => intersectionStructureOnly(other,vFunc,eFunc)
-      case _ => super.intersection(other,vFunc,eFunc).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
+      case _ => super.intersection(other,vFunc,eFunc).asInstanceOf[HybridGraph[VD,ED]]
     }
   }
   //TODO: Do we need to add aggregate functions here? Or should we send a default value
-  private def intersectionStructureOnly(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): HybridGraph[Set[VD],Set[ED]] = {
+  private def intersectionStructureOnly(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): HybridGraph[VD,ED] = {
     val grp2: HybridGraph[VD, ED] = other match {
       case grph: HybridGraph[VD, ED] => grph
-      case _ => return super.intersection(other,vFunc,eFunc).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
+      case _ => return super.intersection(other,vFunc,eFunc).asInstanceOf[HybridGraph[VD,ED]]
     }
 
     if (span.intersects(grp2.span)) {
@@ -721,8 +721,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
       }
 
       //collect vertices and edges
-      val newDefVal = Set[VD](defaultValue)
-      val tmp = Set[ED](defaultValue.asInstanceOf[ED])
+      val newDefVal = defaultValue
+      val tmp = defaultValue.asInstanceOf[ED]
       val vs = gps.map(g => g.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}).reduce(_ union _)
       val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))}).reduce(_ union _)
 
@@ -733,7 +733,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
         new HybridGraph(vs, es, runs, gps, newDefVal, storageLevel, false)
 
     } else {
-      emptyGraph(Set(defaultValue))
+      emptyGraph(defaultValue)
     }
 
   }

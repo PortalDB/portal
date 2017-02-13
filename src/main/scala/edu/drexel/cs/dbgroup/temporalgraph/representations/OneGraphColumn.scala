@@ -220,18 +220,18 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       new OneGraphColumn(allVertices, es, graphs, defaultValue, storageLevel, false)
   }
 
-  override def union(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): OneGraphColumn[Set[VD],Set[ED]] = {
+  override def union(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): OneGraphColumn[VD,ED] = {
     defaultValue match {
       case a: StructureOnlyAttr => unionStructureOnly(other,vFunc,eFunc)
-      case _ => super.union(other,vFunc,eFunc).asInstanceOf[OneGraphColumn[Set[VD],Set[ED]]]
+      case _ => super.union(other,vFunc,eFunc).asInstanceOf[OneGraphColumn[VD,ED]]
     }
   }
 
   //TODO: Do we need to add aggregate functions here? Or should we send a default value
-  private def unionStructureOnly(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): OneGraphColumn[Set[VD],Set[ED]] = {
+  private def unionStructureOnly(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): OneGraphColumn[VD,ED] = {
     var grp2: OneGraphColumn[VD, ED] = other match {
       case grph: OneGraphColumn[VD, ED] => grph
-      case _ => return super.union(other,vFunc,eFunc).asInstanceOf[OneGraphColumn[Set[VD],Set[ED]]]
+      case _ => return super.union(other,vFunc,eFunc).asInstanceOf[OneGraphColumn[VD,ED]]
     }
 
     if (graphs == null) computeGraph()
@@ -261,9 +261,9 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       }
 
       val newGraphs: Graph[BitSet,BitSet] = Graph(gp1.vertices.union(gp2.vertices).reduceByKey((a,b) => a ++ b), gp1.edges.union(gp2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey((a,b) => a ++ b).map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storageLevel, storageLevel)
-      val newDefVal = Set[VD](defaultValue)
+      val newDefVal = defaultValue
       val vs = newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}
-      val tmp = Set[ED](defaultValue.asInstanceOf[ED])
+      val tmp = defaultValue.asInstanceOf[ED]
       val es = newGraphs.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp))))
 
       if (ProgramContext.eagerCoalesce)
@@ -294,9 +294,9 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       val newGraphs: Graph[BitSet,BitSet] = Graph(gp1.vertices.union(gp2.vertices).reduceByKey((a,b) => a ++ b),
         gp1.edges.union(gp2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey((a,b) => a ++ b)
           .map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storageLevel, storageLevel)
-      val newDefVal = Set[VD](defaultValue)
+      val newDefVal = defaultValue
       val vs = newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}
-      val tmp = Set[ED](defaultValue.asInstanceOf[ED])
+      val tmp = defaultValue.asInstanceOf[ED]
       val es = newGraphs.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp))))
 
       //whether the result is coalesced depends on whether the two inputs are coalesced and whether their spans meet
@@ -366,17 +366,17 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
         this
     }
   }
-  override def intersection(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): OneGraphColumn[Set[VD],Set[ED]] = {
+  override def intersection(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): OneGraphColumn[VD,ED] = {
     defaultValue match {
       case a: StructureOnlyAttr => intersectionStructureOnly(other,vFunc,eFunc)
-      case _ => super.intersection(other,vFunc,eFunc).asInstanceOf[OneGraphColumn[Set[VD],Set[ED]]]
+      case _ => super.intersection(other,vFunc,eFunc).asInstanceOf[OneGraphColumn[VD,ED]]
     }
   }
   //TODO: Do we need to add aggregate functions here? Or should we send a default value
-  private def intersectionStructureOnly(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): OneGraphColumn[Set[VD],Set[ED]] = {
+  private def intersectionStructureOnly(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): OneGraphColumn[VD,ED] = {
     var grp2: OneGraphColumn[VD, ED] = other match {
       case grph: OneGraphColumn[VD, ED] => grph
-      case _ => return super.intersection(other,vFunc,eFunc).asInstanceOf[OneGraphColumn[Set[VD],Set[ED]]]
+      case _ => return super.intersection(other,vFunc,eFunc).asInstanceOf[OneGraphColumn[VD,ED]]
     }
 
     if (span.intersects(grp2.span)) {
@@ -410,9 +410,9 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       //but it requires the exact same number of partitions and partition strategy
       //see whether repartitioning and innerJoin is better
       val newGraphs = Graph(gp1.vertices.join(gp2.vertices).mapValues{ case (a,b) => a & b}.filter(v => !v._2.isEmpty), gp1.edges.map(e => ((e.srcId, e.dstId), e.attr)).join(gp2.edges.map(e => ((e.srcId, e.dstId), e.attr))).map{ case (k, v) => Edge(k._1, k._2, v._1 & v._2)}.filter(e => !e.attr.isEmpty), BitSet(), storageLevel, storageLevel)
-      val newDefVal = Set[VD](defaultValue)
+      val newDefVal = defaultValue
       val vs = newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}
-      val tmp = Set[ED](defaultValue.asInstanceOf[ED])
+      val tmp = defaultValue.asInstanceOf[ED]
       val es = newGraphs.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp))))
 
       //intersection of two coalesced structure-only graphs is not coalesced
@@ -422,7 +422,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
         new OneGraphColumn(vs, es, newGraphs, newDefVal, storageLevel, false)
 
     } else {
-      emptyGraph(Set(defaultValue))
+      emptyGraph(defaultValue)
     }
   }
 

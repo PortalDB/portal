@@ -92,7 +92,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
     * @param eFunc The aggregate function on edges
     * @return new TGraph with the union of entities from both graphs within each chronon.
     */
-  def union(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD , eFunc: (ED, ED) => ED): TGraphNoSchema[Set[VD], Set[ED]]
+  def union(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD , eFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED]
 
 
   /**
@@ -110,7 +110,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
     * @param eFunc The aggregate function on edges
     * @return new TemporaGraph with the intersection of entities from both graphs within each chronon.
     */
-  def intersection(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TGraphNoSchema[Set[VD], Set[ED]]
+  def intersection(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED]
 
   /**
     * The analytics methods
