@@ -108,11 +108,13 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
   }
 
   //assumes the data is coalesced
-  override protected def aggregateByChange(c: ChangeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): HybridGraph[VD, ED] = {
+  override  def aggregateByChange(c: ChangeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): HybridGraph[VD, ED] = {
     //if we only have the structure, we can do efficient aggregation with the graph
     //otherwise just use the parent
-     //Todo: Do I need to change this?
-     super.aggregateByChange(c, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[HybridGraph[VD,ED]]
+    defaultValue match {
+      case a: StructureOnlyAttr  => aggregateByChangeStructureOnly(c, vquant, equant)
+      case _ => super.aggregateByChange(c, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[HybridGraph[VD,ED]]
+    }
 
   }
  
@@ -212,12 +214,11 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
 
   }
 
-  override protected def aggregateByTime(c: TimeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): HybridGraph[VD, ED] = {
-    //if we only have the structure, we can do efficient aggregation with the graph
-    //otherwise just use the parent
-    //Todo: Do I need to change that?
-    super.aggregateByTime(c, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[HybridGraph[VD,ED]]
-
+  override  def aggregateByTime(c: TimeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): HybridGraph[VD, ED] = {
+    defaultValue match {
+      case a: StructureOnlyAttr => aggregateByTimeStructureOnly(c, vquant, equant)
+      case _ => super.aggregateByTime(c, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[HybridGraph[VD, ED]]
+    }
   }
 
   private def aggregateByTimeStructureOnly(c: TimeSpec, vquant: Quantification, equant: Quantification): HybridGraph[VD, ED] = {
@@ -322,11 +323,16 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
 
 
   override def createAttributeNodes(vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): HybridGraph[VD, ED]={
+    //TODO: Implement
     throw  new NotImplementedError()
   }
 
   override def createTemporalNodes(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): HybridGraph[VD, ED]={
-    throw  new NotImplementedError()
+    res match {
+      case c : ChangeSpec => coalesce().aggregateByChange(c, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[HybridGraph[VD,ED]]
+      case t : TimeSpec => coalesce().aggregateByTime(t, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[HybridGraph[VD,ED]]
+      case _ => throw new IllegalArgumentException("unsupported window specification")
+    }
   }
 
 

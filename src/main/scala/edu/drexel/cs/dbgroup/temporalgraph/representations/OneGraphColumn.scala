@@ -78,12 +78,11 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
   }
 
   //assumes coalesced data
-  override protected def aggregateByChange(c: ChangeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): OneGraphColumn[VD, ED] = {
-    //if we only have the structure, we can do efficient aggregation with the graph
-    //otherwise just use the parent
-    //Todo: Do I need to change that ?
-    super.aggregateByChange(c, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[OneGraphColumn[VD,ED]]
-
+  override  def aggregateByChange(c: ChangeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): OneGraphColumn[VD, ED] = {
+    defaultValue match {
+      case a: StructureOnlyAttr  => aggregateByChangeStructureOnly(c, vquant, equant)
+      case _ => super.aggregateByChange(c, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[OneGraphColumn[VD,ED]]
+    }
   }
  
   private def aggregateByChangeStructureOnly(c: ChangeSpec, vquant: Quantification, equant: Quantification): OneGraphColumn[VD, ED] = {
@@ -136,11 +135,13 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       new OneGraphColumn(vs, es, filtered, defaultValue, storageLevel, false)
   }
 
-  override protected def aggregateByTime(c: TimeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): OneGraphColumn[VD, ED] = {
+  override  def aggregateByTime(c: TimeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): OneGraphColumn[VD, ED] = {
     //if we only have the structure, we can do efficient aggregation with the graph
     //otherwise just use the parent
-    //Todo: Do I need to change that?
-    super.aggregateByTime(c, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[OneGraphColumn[VD,ED]]
+    defaultValue match {
+      case a: StructureOnlyAttr  => aggregateByTimeStructureOnly(c, vquant, equant)
+      case _ => super.aggregateByTime(c, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[OneGraphColumn[VD,ED]]
+    }
 
   }
 
@@ -207,7 +208,11 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
   }
 
   override def createTemporalNodes(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): OneGraphColumn[VD, ED]={
-    throw  new NotImplementedError()
+    res match {
+      case c : ChangeSpec => coalesce().aggregateByChange(c, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[OneGraphColumn[VD,ED]]
+      case t : TimeSpec => coalesce().aggregateByTime(t, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[OneGraphColumn[VD,ED]]
+      case _ => throw new IllegalArgumentException("unsupported window specification")
+    }
   }
 
 
