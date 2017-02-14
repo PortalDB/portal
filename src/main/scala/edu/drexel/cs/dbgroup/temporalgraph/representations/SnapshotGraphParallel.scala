@@ -131,12 +131,12 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
 
   }
 
-
   override def vsubgraph( vpred: (VertexId, VD,Interval) => Boolean): SnapshotGraphParallel[VD,ED] = {
     //Todo: Implement this( maybe we can use two level of filtering)
     throw  new NotImplementedError()
     //new SnapshotGraphParallel(intervals, graphs.map(g => g.subgraph(vpred=vpred, defaultValue, storageLevel, false)
   }
+
   override def esubgraph(epred: (EdgeTriplet[VD,ED],Interval  ) => Boolean): SnapshotGraphParallel[VD,ED] = {
     //Todo: Implement this( maybe we can use two level of filtering)
     throw  new NotImplementedError()
@@ -226,10 +226,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
 
   }
 
-
   override def createAttributeNodes(vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId ): SnapshotGraphParallel[VD, ED]={
-    //TODO: rewrite to use the RDD insteand of seq
-    //TODO : Is this correct?
     val reduced: ParSeq[(RDD[(VertexId, VD)], RDD[((VertexId, VertexId),ED)])] = graphs.map(g =>
         (g.vertices.map( v => (vgroupby(v._1, v._2), v._2)).reduceByKey((a,b) => vAggFunc(a,b)),
           g.triplets.map{ e => ((vgroupby(e.srcId, e.srcAttr), vgroupby(e.dstId, e.dstAttr)), e.attr)}.reduceByKey((a,b) => eAggFunc(a,b))))
@@ -244,6 +241,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
   override def vmap[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): SnapshotGraphParallel[VD2, ED] = {
     new SnapshotGraphParallel(intervals, graphs.zip(intervals.collect).map(g => g._1.mapVertices((vid, attr) => map(vid, g._2, attr))), defVal, storageLevel, false)
   }
+
   override def emap[ED2: ClassTag](map: (Interval, Edge[ED]) => ED2): SnapshotGraphParallel[VD, ED2] = {
     new SnapshotGraphParallel(intervals, graphs.zip(intervals.collect).map(g => g._1.mapEdges(e => map(g._2, e))), defaultValue, storageLevel, false)
   }
@@ -298,9 +296,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: RDD[Interval], gr
       //then we just put them together
       val newIntvs = intervals.union(grp2.intervals).sortBy(c => c, true, 1)
       //need to update values for all vertices and edges
-      val gr1: ParSeq[Graph[VD, ED]] = graphs.map(g => g.mapVertices((vid, attr) => (attr)).mapEdges(e => (e.attr)))
-      val gr2: ParSeq[Graph[VD, ED]] = grp2.graphs.map(g => g.mapVertices((vid, attr) => attr).mapEdges(e => e.attr))
-      val newGraphs = if (span.start.isBefore(grp2.span.start)) gr1 ++ gr2 else gr2 ++ gr1
+      val newGraphs = if (span.start.isBefore(grp2.span.start)) graphs ++ grp2.graphs else grp2.graphs ++ graphs
       new SnapshotGraphParallel(newIntvs, newGraphs, defaultValue, storageLevel, false)
     } else {
         //if there is no temporal intersection, then we can just add them together

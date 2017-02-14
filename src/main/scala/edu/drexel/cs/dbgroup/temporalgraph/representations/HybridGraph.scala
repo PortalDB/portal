@@ -321,9 +321,6 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
 
   }
 
-
-
-
   override def vmap[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): HybridGraph[VD2, ED] = {
     val vs = allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, intv, attr)))}
     if (ProgramContext.eagerCoalesce)
@@ -342,11 +339,11 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
 
   override def union(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): HybridGraph[VD,ED] = {
     defaultValue match {
-      case a: StructureOnlyAttr => unionStructureOnly(other,vFunc,eFunc)
+      case a: StructureOnlyAttr => unionStructureOnly(other, vFunc, eFunc)
       case _ => super.union(other,vFunc,eFunc).asInstanceOf[HybridGraph[VD,ED]]
     }
   }
-  //TODO: Do we need to add aggregate functions here? Or should we send a default value
+
   private def unionStructureOnly(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): HybridGraph[VD,ED] = {
     var grp2: HybridGraph[VD, ED] = other match {
       case grph: HybridGraph[VD, ED] => grph
@@ -613,13 +610,14 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, V
         this
     }
   }
+
   override def intersection(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): HybridGraph[VD, ED] = {
     defaultValue match {
-      case a: StructureOnlyAttr => intersectionStructureOnly(other,vFunc,eFunc)
+      case a: StructureOnlyAttr => intersectionStructureOnly(other, vFunc, eFunc)
       case _ => super.intersection(other,vFunc,eFunc).asInstanceOf[HybridGraph[VD,ED]]
     }
   }
-  //TODO: Do we need to add aggregate functions here? Or should we send a default value
+
   private def intersectionStructureOnly(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): HybridGraph[VD,ED] = {
     val grp2: HybridGraph[VD, ED] = other match {
       case grph: HybridGraph[VD, ED] => grph

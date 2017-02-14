@@ -124,6 +124,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     val newEdges = TGraphNoSchema.constrainEdges(newVerts, allEdges)
     fromRDDs(newVerts, newEdges, defaultValue, storageLevel, coalesced)
   }
+
   override def esubgraph(epred: (EdgeTriplet[VD,ED],Interval) => Boolean ): VEGraph[VD,ED] = {
     throw new NotImplementedError()
     /*
@@ -264,7 +265,6 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
             None
         }
       }
-      //Todo: Add reducebykey
       val newVerts = allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}.union(grp2.allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}).reduceByKey(vFunc).map{ case (v, attr) => (v._1, (v._2, attr))}
       val newEdges = allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}.union(grp2.allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}).reduceByKey((a,b) => eFunc(a,b)).map{ case (e, attr) => ((e._1, e._2), (e._3, attr))}
       fromRDDs(newVerts, newEdges, (defaultValue), storageLevel, false)

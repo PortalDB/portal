@@ -46,8 +46,6 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
       .reduceByKey((a: Map[Interval, ED], b: Map[Interval, ED]) => a ++ b)
   }
 
-
-
   override def createTemporalNodes(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED]={
     res match {
       case c : ChangeSpec => coalesce().asInstanceOf[TGraphNoSchema[VD,ED]].aggregateByChange(c, vquant, equant, vAggFunc, eAggFunc)
@@ -56,10 +54,8 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
     }
   }
 
-
   protected def aggregateByChange(c: ChangeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED]
   protected def aggregateByTime(c: TimeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED]
-
 
   /**
     * Transforms each vertex attribute in the graph for each time period
