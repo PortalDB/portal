@@ -48,13 +48,7 @@ abstract class TGraphWProperties(spec: GraphSpec, storLevel: StorageLevel = Stor
     edges.mapValues(y => {var tmp = new Object2ObjectOpenHashMap[Interval,VertexEdgeAttribute](); tmp.put(y._1, y._2); tmp.asInstanceOf[Map[Interval, VertexEdgeAttribute]]})
       .reduceByKey((a: Map[Interval, VertexEdgeAttribute], b: Map[Interval, VertexEdgeAttribute]) => a ++ b)
   }
-
-
-  override def createAttributeNodes( vAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute, eAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute)(vgroupby: (VertexId, VertexEdgeAttribute) => VertexId = vgb): TGraphWProperties
-
-  override def createTemporalNodes(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute, eAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute): TGraphWProperties
-
-
+  
 
   protected def aggregateByChange(c: ChangeSpec, vgroupby: (VertexId, VertexEdgeAttribute) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute, eAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute): TGraphWProperties
   protected def aggregateByTime(c: TimeSpec, vgroupby: (VertexId, VertexEdgeAttribute) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute, eAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute): TGraphWProperties

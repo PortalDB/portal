@@ -78,12 +78,11 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
   }
 
   //assumes coalesced data
-  override protected def aggregateByChange(c: ChangeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): OneGraphColumn[VD, ED] = {
-    //if we only have the structure, we can do efficient aggregation with the graph
-    //otherwise just use the parent
-    //Todo: Do I need to change that ?
-    super.aggregateByChange(c, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[OneGraphColumn[VD,ED]]
-
+  override  protected  def aggregateByChange(c: ChangeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): OneGraphColumn[VD, ED] = {
+    defaultValue match {
+      case a: StructureOnlyAttr  => aggregateByChangeStructureOnly(c, vquant, equant)
+      case _ => super.aggregateByChange(c, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[OneGraphColumn[VD,ED]]
+    }
   }
  
   private def aggregateByChangeStructureOnly(c: ChangeSpec, vquant: Quantification, equant: Quantification): OneGraphColumn[VD, ED] = {
@@ -136,11 +135,13 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       new OneGraphColumn(vs, es, filtered, defaultValue, storageLevel, false)
   }
 
-  override protected def aggregateByTime(c: TimeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): OneGraphColumn[VD, ED] = {
+  override  protected def aggregateByTime(c: TimeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): OneGraphColumn[VD, ED] = {
     //if we only have the structure, we can do efficient aggregation with the graph
     //otherwise just use the parent
-    //Todo: Do I need to change that?
-    super.aggregateByTime(c, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[OneGraphColumn[VD,ED]]
+    defaultValue match {
+      case a: StructureOnlyAttr  => aggregateByTimeStructureOnly(c, vquant, equant)
+      case _ => super.aggregateByTime(c, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[OneGraphColumn[VD,ED]]
+    }
 
   }
 
@@ -202,15 +203,6 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
 
   }
 
-  override def createAttributeNodes(vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): OneGraphColumn[VD, ED]={
-    throw  new NotImplementedError()
-  }
-
-  override def createTemporalNodes(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): OneGraphColumn[VD, ED]={
-    throw  new NotImplementedError()
-  }
-
-
 
   override def vmap[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): OneGraphColumn[VD2, ED] = {
     val vs = allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, intv, attr)))}
@@ -228,17 +220,17 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       new OneGraphColumn(allVertices, es, graphs, defaultValue, storageLevel, false)
   }
 
-  override def union(other: TGraphNoSchema[VD, ED]): OneGraphColumn[Set[VD],Set[ED]] = {
+  override def union(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): OneGraphColumn[VD,ED] = {
     defaultValue match {
-      case a: StructureOnlyAttr => unionStructureOnly(other)
-      case _ => super.union(other).asInstanceOf[OneGraphColumn[Set[VD],Set[ED]]]
+      case a: StructureOnlyAttr => unionStructureOnly(other, vFunc, eFunc)
+      case _ => super.union(other,vFunc,eFunc).asInstanceOf[OneGraphColumn[VD,ED]]
     }
   }
 
-  private def unionStructureOnly(other: TGraphNoSchema[VD, ED]): OneGraphColumn[Set[VD],Set[ED]] = {
+  private def unionStructureOnly(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): OneGraphColumn[VD,ED] = {
     var grp2: OneGraphColumn[VD, ED] = other match {
       case grph: OneGraphColumn[VD, ED] => grph
-      case _ => return super.union(other).asInstanceOf[OneGraphColumn[Set[VD],Set[ED]]]
+      case _ => return super.union(other,vFunc,eFunc).asInstanceOf[OneGraphColumn[VD,ED]]
     }
 
     if (graphs == null) computeGraph()
@@ -268,9 +260,9 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       }
 
       val newGraphs: Graph[BitSet,BitSet] = Graph(gp1.vertices.union(gp2.vertices).reduceByKey((a,b) => a ++ b), gp1.edges.union(gp2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey((a,b) => a ++ b).map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storageLevel, storageLevel)
-      val newDefVal = Set[VD](defaultValue)
+      val newDefVal = defaultValue
       val vs = newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}
-      val tmp = Set[ED](defaultValue.asInstanceOf[ED])
+      val tmp = defaultValue.asInstanceOf[ED]
       val es = newGraphs.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp))))
 
       if (ProgramContext.eagerCoalesce)
@@ -301,9 +293,9 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       val newGraphs: Graph[BitSet,BitSet] = Graph(gp1.vertices.union(gp2.vertices).reduceByKey((a,b) => a ++ b),
         gp1.edges.union(gp2.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey((a,b) => a ++ b)
           .map(e => Edge(e._1._1, e._1._2, e._2)), BitSet(), storageLevel, storageLevel)
-      val newDefVal = Set[VD](defaultValue)
+      val newDefVal = defaultValue
       val vs = newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}
-      val tmp = Set[ED](defaultValue.asInstanceOf[ED])
+      val tmp = defaultValue.asInstanceOf[ED]
       val es = newGraphs.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp))))
 
       //whether the result is coalesced depends on whether the two inputs are coalesced and whether their spans meet
@@ -373,17 +365,18 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
         this
     }
   }
-  override def intersection(other: TGraphNoSchema[VD, ED]): OneGraphColumn[Set[VD],Set[ED]] = {
+
+  override def intersection(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): OneGraphColumn[VD,ED] = {
     defaultValue match {
-      case a: StructureOnlyAttr => intersectionStructureOnly(other)
-      case _ => super.intersection(other).asInstanceOf[OneGraphColumn[Set[VD],Set[ED]]]
+      case a: StructureOnlyAttr => intersectionStructureOnly(other, vFunc, eFunc)
+      case _ => super.intersection(other,vFunc,eFunc).asInstanceOf[OneGraphColumn[VD,ED]]
     }
   }
 
-  private def intersectionStructureOnly(other: TGraphNoSchema[VD, ED]): OneGraphColumn[Set[VD],Set[ED]] = {
+  private def intersectionStructureOnly(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): OneGraphColumn[VD,ED] = {
     var grp2: OneGraphColumn[VD, ED] = other match {
       case grph: OneGraphColumn[VD, ED] => grph
-      case _ => return super.intersection(other).asInstanceOf[OneGraphColumn[Set[VD],Set[ED]]]
+      case _ => return super.intersection(other,vFunc,eFunc).asInstanceOf[OneGraphColumn[VD,ED]]
     }
 
     if (span.intersects(grp2.span)) {
@@ -417,9 +410,9 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       //but it requires the exact same number of partitions and partition strategy
       //see whether repartitioning and innerJoin is better
       val newGraphs = Graph(gp1.vertices.join(gp2.vertices).mapValues{ case (a,b) => a & b}.filter(v => !v._2.isEmpty), gp1.edges.map(e => ((e.srcId, e.dstId), e.attr)).join(gp2.edges.map(e => ((e.srcId, e.dstId), e.attr))).map{ case (k, v) => Edge(k._1, k._2, v._1 & v._2)}.filter(e => !e.attr.isEmpty), BitSet(), storageLevel, storageLevel)
-      val newDefVal = Set[VD](defaultValue)
+      val newDefVal = defaultValue
       val vs = newGraphs.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}
-      val tmp = Set[ED](defaultValue.asInstanceOf[ED])
+      val tmp = defaultValue.asInstanceOf[ED]
       val es = newGraphs.edges.flatMap(e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp))))
 
       //intersection of two coalesced structure-only graphs is not coalesced
@@ -429,7 +422,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
         new OneGraphColumn(vs, es, newGraphs, newDefVal, storageLevel, false)
 
     } else {
-      emptyGraph(Set(defaultValue))
+      emptyGraph(defaultValue)
     }
   }
 

@@ -46,15 +46,16 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
       .reduceByKey((a: Map[Interval, ED], b: Map[Interval, ED]) => a ++ b)
   }
 
-
-  override def createAttributeNodes(vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): TGraphNoSchema[VD, ED]
-
-  override def createTemporalNodes(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED]
-
+  override def createTemporalNodes(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED]={
+    res match {
+      case c : ChangeSpec => coalesce().asInstanceOf[TGraphNoSchema[VD,ED]].aggregateByChange(c, vquant, equant, vAggFunc, eAggFunc)
+      case t : TimeSpec => coalesce().asInstanceOf[TGraphNoSchema[VD,ED]].aggregateByTime(t, vquant, equant, vAggFunc, eAggFunc)
+      case _ => throw new IllegalArgumentException("unsupported window specification")
+    }
+  }
 
   protected def aggregateByChange(c: ChangeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED]
   protected def aggregateByTime(c: TimeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED]
-
 
   /**
     * Transforms each vertex attribute in the graph for each time period
@@ -62,7 +63,6 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
     * Special case of general transform, included here for better compatibility with GraphX.
     *
     * @param map the function from a vertex object to a new vertex value
-    * @param defaultValue The default value for attribute VD2. Should be something that is not an available value, like Null
     * @tparam VD2 the new vertex data type
     *
     */
@@ -88,9 +88,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
     * @param eFunc The aggregate function on edges
     * @return new TGraph with the union of entities from both graphs within each chronon.
     */
-  //Todo: Modify Union and Intersection so they can accept aggregate function(s)
-  def union(other: TGraphNoSchema[VD, ED]): TGraphNoSchema[Set[VD], Set[ED]]
-  //def union(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD , eFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED]
+  def union(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD , eFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED]
 
 
   /**
@@ -108,8 +106,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
     * @param eFunc The aggregate function on edges
     * @return new TemporaGraph with the intersection of entities from both graphs within each chronon.
     */
-  def intersection(other: TGraphNoSchema[VD, ED]): TGraphNoSchema[Set[VD], Set[ED]]
-  //def intersection(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TGraphNoSchema[Set[VD], Set[ED]]
+  def intersection(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED]
 
   /**
     * The analytics methods
