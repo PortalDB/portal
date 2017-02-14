@@ -93,17 +93,6 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
   def slice(bound: Interval): TGraph[VD, ED]
 
   /**
-    * Select a subgraph based on the vertex and/or edge attributes.
-    * @param epred Edge predicate.
-    * @param vpred Vertex predicate.
-    * Foreign key constraint is enforced.
-
-  protected val defvp2 = (vid: VertexId, attrs: VD) => true
-  protected val defep2 = (ids: (VertexId, VertexId), attrs: ED) => true
-  def subgraph(epred: ((VertexId, VertexId), ED) => Boolean = defep2, vpred: (VertexId, VD) => Boolean = defvp2): TGraph[VD,ED]
-  */
-
-  /**
     * Select a subgraph based on the vertex attributes.
     * @param vpred Vertex predicate.
     * Foreign key constraint is enforced.
@@ -120,24 +109,33 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
 
 
   /**
-    * Aggregate into representative graphs over time windows.
-    * @param resolution The desired duration of time intervals in the temporal sequence in sematic units (days, months, years) or number of changes
-    * @param vgroupby The grouping function for vertices for structural aggregation
+    * Create a temporal node
+    * @param window The desired duration of time intervals in the temporal sequence in sematic units (days, months, years) or number of changes
     * @param vquant The quantification over vertices
     * @param equant The quantification over edges
-    * @param vAggFunction The function to apply to vertex attributes during aggregation.
+    * @param vAggFunc The function to apply to vertex attributes during aggregation.
     * Any associative function can be supported, since the attribute aggregation is
     * performed in pairs (ala reduce).
-    * @param eAggFunction The function to apply to edge attributes during aggregation.
+    * @param eAggFunct The function to apply to edge attributes during aggregation.
     * Any associative function can be supported, since the attribute aggregation is
     * performed in pairs (ala reduce).
     * @return New tgraph 
     */
-  protected val vgb = (vid: VertexId, attr: Any) => vid
-  //Todo: remove this function
-  def createNodes(window: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): TGraph[VD, ED]
-  def createAttributeNodes(window: WindowSpecification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId = vgb): TGraph[VD, ED]
+
   def createTemporalNodes(window: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraph[VD, ED]
+
+  /**
+    * create a attribute node
+    * @param vgroupby The grouping function for vertices for structural aggregation
+    * @param vAggFunc The function to apply to vertex attributes during aggregation.
+    * Any associative function can be supported, since the attribute aggregation is
+    * performed in pairs (ala reduce).
+    * @param eAggFunc The function to apply to edge attributes during aggregation.
+    * Any associative function can be supported, since the attribute aggregation is
+    * performed in pairs (ala reduce).
+    * @return New tgraph
+    */
+  def createAttributeNodes( vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId ): TGraph[VD, ED]
 
   /**
     * The analytics methods

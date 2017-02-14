@@ -109,13 +109,14 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
   }
 
   //assumes the data is coalesced
-  override protected def aggregateByChange(c: ChangeSpec, vgroupby: (VertexId, VD) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): HybridGraph[VD, ED] = {
+  override protected def aggregateByChange(c: ChangeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): HybridGraph[VD, ED] = {
     //if we only have the structure, we can do efficient aggregation with the graph
     //otherwise just use the parent
     defaultValue match {
-      case a: StructureOnlyAttr if (vgroupby == vgb) => aggregateByChangeStructureOnly(c, vquant, equant)
-      case _ => super.aggregateByChange(c, vgroupby, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[HybridGraph[VD,ED]]
+      case a: StructureOnlyAttr  => aggregateByChangeStructureOnly(c, vquant, equant)
+      case _ => super.aggregateByChange(c, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[HybridGraph[VD,ED]]
     }
+
   }
  
   private def aggregateByChangeStructureOnly(c: ChangeSpec, vquant: Quantification, equant: Quantification): HybridGraph[VD, ED] = {
@@ -212,12 +213,10 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
 
   }
 
-  override protected def aggregateByTime(c: TimeSpec, vgroupby: (VertexId, VD) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): HybridGraph[VD, ED] = {
-    //if we only have the structure, we can do efficient aggregation with the graph
-    //otherwise just use the parent
+  override  protected def aggregateByTime(c: TimeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): HybridGraph[VD, ED] = {
     defaultValue match {
-      case a: StructureOnlyAttr if (vgroupby == vgb) => aggregateByTimeStructureOnly(c, vquant, equant)
-      case _ => super.aggregateByTime(c, vgroupby, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[HybridGraph[VD,ED]]
+      case a: StructureOnlyAttr => aggregateByTimeStructureOnly(c, vquant, equant)
+      case _ => super.aggregateByTime(c, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[HybridGraph[VD, ED]]
     }
   }
 
@@ -320,16 +319,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
 
   }
 
-  override def map[ED2: ClassTag, VD2: ClassTag](emap: Edge[ED] => ED2, vmap: (VertexId, VD) => VD2, defVal: VD2): HybridGraph[VD2, ED2] = {
-    val vs = allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vmap(vid, attr)))}
-    val es = allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, emap(Edge(ids._1, ids._2, attr))))}
-    if (ProgramContext.eagerCoalesce)
-      fromRDDs(vs, es, defVal, storageLevel, false)
-    else
-      new HybridGraph(collectedIntervals, vs, es, widths, graphs, defVal, storageLevel, false)
-  }
-
-  override def mapVertices[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): HybridGraph[VD2, ED] = {
+  override def vmap[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): HybridGraph[VD2, ED] = {
     val vs = allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, map(vid, intv, attr)))}
     if (ProgramContext.eagerCoalesce)
       fromRDDs(vs, allEdges, defVal, storageLevel, false)
@@ -337,7 +327,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
       new HybridGraph(collectedIntervals, vs, allEdges, widths, graphs, defVal, storageLevel, false)
   }
 
-  override def mapEdges[ED2: ClassTag](map: (Interval, Edge[ED]) => ED2): HybridGraph[VD, ED2] = {
+  override def emap[ED2: ClassTag](map: (Interval, Edge[ED]) => ED2): HybridGraph[VD, ED2] = {
     val es = allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(intv, Edge(ids._1, ids._2, attr))))}
     if (ProgramContext.eagerCoalesce)
       fromRDDs(allVertices, es, defaultValue, storageLevel, false)
@@ -345,17 +335,17 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
       new HybridGraph(collectedIntervals, allVertices, es, widths, graphs, defaultValue, storageLevel, false)
   }
 
-  override def union(other: TGraphNoSchema[VD, ED]): HybridGraph[Set[VD],Set[ED]] = {
+  override def union(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): HybridGraph[VD,ED] = {
     defaultValue match {
-      case a: StructureOnlyAttr => unionStructureOnly(other)
-      case _ => super.union(other).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
+      case a: StructureOnlyAttr => unionStructureOnly(other, vFunc, eFunc)
+      case _ => super.union(other,vFunc,eFunc).asInstanceOf[HybridGraph[VD,ED]]
     }
   }
 
-  private def unionStructureOnly(other: TGraphNoSchema[VD, ED]): HybridGraph[Set[VD],Set[ED]] = {
+  private def unionStructureOnly(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): HybridGraph[VD,ED] = {
     var grp2: HybridGraph[VD, ED] = other match {
       case grph: HybridGraph[VD, ED] => grph
-      case _ => return super.union(other).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
+      case _ => return super.union(other,vFunc,eFunc).asInstanceOf[HybridGraph[VD,ED]]
     }
 
     if (graphs.size < 1) computeGraphs()
@@ -441,8 +431,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
       }
 
       //collect vertices and edges
-      val newDefVal = Set[VD](defaultValue)
-      val tmp = Set[ED](defaultValue.asInstanceOf[ED])
+      val newDefVal = defaultValue
+      val tmp =defaultValue.asInstanceOf[ED]
       val vs = gps.map(g => g.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}).reduce(_ union _)
       val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))}).reduce(_ union _)
 
@@ -477,8 +467,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
       }
 
       //collect vertices and edges
-      val newDefVal = Set[VD](defaultValue)
-      val tmp = Set[ED](defaultValue.asInstanceOf[ED])
+      val newDefVal = defaultValue
+      val tmp = defaultValue.asInstanceOf[ED]
       val vs = gps.map(g => g.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}).reduce(_ union _)
       val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))}).reduce(_ union _)
 
@@ -608,17 +598,17 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
     }
   }
 
-  override def intersection(other: TGraphNoSchema[VD, ED]): HybridGraph[Set[VD], Set[ED]] = {
+  override def intersection(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): HybridGraph[VD, ED] = {
     defaultValue match {
-      case a: StructureOnlyAttr => intersectionStructureOnly(other)
-      case _ => super.intersection(other).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
+      case a: StructureOnlyAttr => intersectionStructureOnly(other, vFunc, eFunc)
+      case _ => super.intersection(other,vFunc,eFunc).asInstanceOf[HybridGraph[VD,ED]]
     }
   }
 
-  private def intersectionStructureOnly(other: TGraphNoSchema[VD, ED]): HybridGraph[Set[VD],Set[ED]] = {
+  private def intersectionStructureOnly(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): HybridGraph[VD,ED] = {
     val grp2: HybridGraph[VD, ED] = other match {
       case grph: HybridGraph[VD, ED] => grph
-      case _ => return super.intersection(other).asInstanceOf[HybridGraph[Set[VD],Set[ED]]]
+      case _ => return super.intersection(other,vFunc,eFunc).asInstanceOf[HybridGraph[VD,ED]]
     }
 
     if (span.intersects(grp2.span)) {
@@ -721,8 +711,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
       }
 
       //collect vertices and edges
-      val newDefVal = Set[VD](defaultValue)
-      val tmp = Set[ED](defaultValue.asInstanceOf[ED])
+      val newDefVal = defaultValue
+      val tmp = defaultValue.asInstanceOf[ED]
       val vs = gps.map(g => g.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}).reduce(_ union _)
       val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))}).reduce(_ union _)
 
@@ -733,7 +723,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
         new HybridGraph(newIntvs, vs, es, runs, gps, newDefVal, storageLevel, false)
 
     } else {
-      emptyGraph(Set(defaultValue))
+      emptyGraph(defaultValue)
     }
 
   }

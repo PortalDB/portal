@@ -48,27 +48,7 @@ abstract class TGraphWProperties(spec: GraphSpec, storLevel: StorageLevel = Stor
     edges.mapValues(y => {var tmp = new Object2ObjectOpenHashMap[Interval,VertexEdgeAttribute](); tmp.put(y._1, y._2); tmp.asInstanceOf[Map[Interval, VertexEdgeAttribute]]})
       .reduceByKey((a: Map[Interval, VertexEdgeAttribute], b: Map[Interval, VertexEdgeAttribute]) => a ++ b)
   }
-
-  //Todo: Remove this function
-  override def createNodes(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute, eAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute)(vgroupby: (VertexId, VertexEdgeAttribute) => VertexId = vgb): TGraphWProperties = {
-    //aggregateByChange requires coalesced tgraph for correctness
-    //both produce potentially uncoalesced TGraph
-    res match {
-      case c : ChangeSpec => coalesce().asInstanceOf[TGraphWProperties].aggregateByChange(c, vgroupby, vquant, equant, vAggFunc, eAggFunc)
-      case t : TimeSpec => aggregateByTime(t, vgroupby, vquant, equant, vAggFunc, eAggFunc)
-      case _ => throw new IllegalArgumentException("unsupported window specification")
-    }
-  }
-
-  override def createAttributeNodes(res: WindowSpecification , vAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute, eAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute)(vgroupby: (VertexId, VertexEdgeAttribute) => VertexId = vgb): TGraphWProperties = {
-    //Todo: Implement
-    throw new NotImplementedError()
-  }
-  override def createTemporalNodes(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute, eAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute): TGraphWProperties = {
-    //Todo: Implement
-    throw new NotImplementedError()
-  }
-
+  
 
   protected def aggregateByChange(c: ChangeSpec, vgroupby: (VertexId, VertexEdgeAttribute) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute, eAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute): TGraphWProperties
   protected def aggregateByTime(c: TimeSpec, vgroupby: (VertexId, VertexEdgeAttribute) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute, eAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute): TGraphWProperties
