@@ -26,9 +26,7 @@ import edu.drexel.cs.dbgroup.temporalgraph._
 import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
 
 import java.time.LocalDate
-import java.util
 import java.util.Map
-import java.util.HashSet
 import it.unimi.dsi.fastutil.ints._
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap
 

@@ -110,7 +110,6 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
 
     //slice is correct on coalesced and uncoalesced data
     //and maintains the coalesced/uncoalesced state
-    val redFactor = span.ratio(selectBound)
     fromRDDs(allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}
                   .mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), 
              allEdges.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}

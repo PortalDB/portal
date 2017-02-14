@@ -22,6 +22,12 @@ import scala.reflect._
 
 object GraphLoader {
 
+  //TODO: make a type for Node and type for Link(Edge) so that representations can
+  //deal directly with Dataset[Node] and Dataset[Link] which will be
+  //type-safer and easier to understand.
+  //Issue: for the attribute, Node/Link has to be a template, but we don't know
+  //its type until we load the schema from the dataset, by which point is too late
+
   def buildRG(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval): SnapshotGraphParallel[Any, Any] = {
     //get the configuration option for snapshot groups
     val sg = ProgramContext.sc.getConf.get("portal.partitions.sgroup", "")

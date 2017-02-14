@@ -19,6 +19,49 @@ object TempGraphOps extends Serializable {
 
   implicit def dateWrapper(dt: LocalDate): Date = Date.valueOf(dt)
 
+  def coalesceIntervals[T: ClassTag](intervals: List[(Interval, T)]): List[(Interval, T)] = {
+    implicit val ord = dateOrdering
+    intervals.sortBy(x => x._1.start)
+      .foldLeft(List[(Interval, T)]()){ (r,c) => r match {
+        case head :: tail =>
+          if (head._2 == c._2 && (head._1.end == c._1.start || head._1.intersects(c._1))) (Interval(head._1.start, c._1.end), head._2) :: tail
+          else c :: r
+        case Nil => List(c)
+      }
+    }
+  }
+
+  def mergeIntervalLists[T: ClassTag](mergeFunc: (T, T) => T, list1: List[(Interval, T)], list2: List[(Interval, T)]) = {
+//we have two lists. for each period of intersection, we apply the merge
+    val l = List.concat(list1,list2).sortBy(v => v._1)
+    l.foldLeft(List[(Interval,T)]()) { (list, elem) =>
+      list match {
+        //base case and non-intersection are easy
+        case Nil => List(elem)
+        case (head :: tail) if !head._1.intersects(elem._1) => {
+          elem :: head :: tail
+        }
+        //intersection
+        case (head :: tail) => {
+          //handle the empty interval in the case both have the same start date
+          val leftSide = Interval.applyOption(head._1.start,elem._1.start) match {
+            case None => List[(Interval, T)]()
+            case Some(intv) => List[(Interval, T)]((intv,head._2))
+          }
+          //handle head intersecting elem vs. head containing elem
+          val rightSide = head._1.end.compareTo(elem._1.end) match {
+            case 0 => List[(Interval, T)]()
+            //right side of intersection
+            case -1 => List[(Interval,T)]((Interval(head._1.end,elem._1.end),elem._2))
+            //right side of contains
+            case _ => List[(Interval,T)]((Interval(elem._1.end,head._1.end),head._2))
+          }
+          rightSide ::: (elem._1,mergeFunc(elem._2,head._2)) :: leftSide ::: tail
+        }
+      }
+    }
+  }
+
   def intervalUnion(intervals: RDD[Interval], other: RDD[Interval]): RDD[Interval] = {
     val spanend = intervals.max.end
     implicit val ord = dateOrdering

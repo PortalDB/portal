@@ -157,6 +157,8 @@ object Interval {
     else
       new Interval(LocalDate.ofEpochDay(math.floor(mn.toDouble/SECONDS_PER_DAY).toLong), LocalDate.ofEpochDay(math.floor(mx.toDouble / SECONDS_PER_DAY).toLong))
 
+  def empty = new Interval(LocalDate.MAX, LocalDate.MAX)
+
   //TODO: need to add unit test for this
   def parse(str: String): Interval = {
     try {
@@ -167,4 +169,10 @@ object Interval {
       throw new IllegalArgumentException("Invalid interval string. Format:yyy-mm-dd-yyyy-mm-dd")
     }    
   }
+
+  def applyOption(mn: LocalDate, mx: LocalDate) : Option[Interval] =
+    if(mn.after(mx) || mn.equals(mx))
+      None
+    else
+      Some(new Interval(mn,mx))
 }

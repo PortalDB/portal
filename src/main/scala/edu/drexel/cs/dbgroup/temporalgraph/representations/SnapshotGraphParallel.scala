@@ -250,7 +250,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
 
       var ii: Integer = 0
       var jj: Integer = 0
-      val empty: Interval = new Interval(LocalDate.MAX, LocalDate.MAX)
+      val empty: Interval = Interval.empty
       implicit val ord2: Ordering[Interval] = Ordering.fromLessThan((a,b) => a.start.isBefore(b.start))
 
       val newGraphs: ParSeq[Graph[Set[VD],Set[ED]]] = newIntvs.map { intv =>
