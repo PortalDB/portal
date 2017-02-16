@@ -52,11 +52,11 @@ object TempGraphOps extends Serializable {
           val rightSide = head._1.end.compareTo(elem._1.end) match {
             case 0 => List[(Interval, T)]()
             //right side of intersection
-            case -1 => List[(Interval,T)]((Interval(head._1.end,elem._1.end),elem._2))
+            case x if x < 0 => List[(Interval,T)]((Interval(head._1.end,elem._1.end),elem._2))
             //right side of contains
-            case _ => List[(Interval,T)]((Interval(elem._1.end,head._1.end),head._2))
+            case x if x > 0 => List[(Interval,T)]((Interval(elem._1.end,head._1.end),head._2))
           }
-          rightSide ::: (elem._1,mergeFunc(elem._2,head._2)) :: leftSide ::: tail
+          rightSide ::: (elem._1.intersection(head._1).get,mergeFunc(elem._2,head._2)) :: leftSide ::: tail
         }
       }
     }

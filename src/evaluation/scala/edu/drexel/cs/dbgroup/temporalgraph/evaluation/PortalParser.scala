@@ -57,6 +57,7 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
 
   lazy val structure = ( "RG" ^^^ RG()
     | "OG" ^^^ OG()
+    | "OGC" ^^^ OGC()
     | "HG" ^^^ HG()
     | "VE" ^^^ VE()
   )
@@ -597,7 +598,8 @@ object Interpreter {
   def convertGraph(gr: TGraphNoSchema[Any,Any], c: Convert) = {
     val (verts, edgs, coal) = gr match {
       case rg: SnapshotGraphParallel[Any,Any] => (rg.verticesRaw, rg.edgesRaw, false)
-      case og: OneGraphColumn[Any,Any] => (og.allVertices, og.allEdges, og.coalesced)
+      case ogc: OneGraphColumn[Any,Any] => (ogc.allVertices, ogc.allEdges, ogc.coalesced)
+      case og: OneGraph[Any,Any] => (og.verticesRaw, og.edgesRaw, og.coalesced)
       case hg: HybridGraph[Any,Any] => (hg.allVertices, hg.allEdges, hg.coalesced)
       case ve: VEGraph[Any,Any] => (ve.allVertices, ve.allEdges, ve.coalesced)
       case _ => throw new IllegalArgumentException("oops, something went wrong and is a bug, unknown data type")
@@ -605,7 +607,8 @@ object Interpreter {
 
     val res = c.ds match {
       case r: RG => SnapshotGraphParallel.fromRDDs(verts, edgs, gr.defaultValue, gr.storageLevel, coal)
-      case o: OG => OneGraphColumn.fromRDDs(verts, edgs, gr.defaultValue, gr.storageLevel, coal)
+      case o: OG => OneGraph.fromRDDs(verts, edgs, gr.defaultValue, gr.storageLevel, coal)
+      case o: OGC => OneGraphColumn.fromRDDs(verts, edgs, gr.defaultValue, gr.storageLevel, coal)
       case h: HG => HybridGraph.fromRDDs(verts, edgs, gr.defaultValue, gr.storageLevel, coal)
       case v: VE => VEGraph.fromRDDs(verts, edgs, gr.defaultValue, gr.storageLevel, coal)
       case s: Same => gr
@@ -625,6 +628,7 @@ object Interpreter {
     val res = PortalParser.graphType match {
       case "RG" => GraphLoader.buildRG(PortalShell.uri + "/" + name.split("structure").head, vattrcol, eattrcol, bound)
       case "OG" => GraphLoader.buildOG(PortalShell.uri + "/" + name.split("structure").head, vattrcol, eattrcol, bound)
+      case "OGC" => GraphLoader.buildOGC(PortalShell.uri + "/" + name.split("structure").head, vattrcol, eattrcol, bound)
       case "HG" => GraphLoader.buildHG(PortalShell.uri + "/" + name.split("structure").head, vattrcol, eattrcol, bound)
       case "VE" => GraphLoader.buildVE(PortalShell.uri + "/" + name.split("structure").head, vattrcol, eattrcol, bound)
     }
@@ -708,6 +712,7 @@ sealed abstract class DataStructure
 case class Same() extends DataStructure
 case class RG() extends DataStructure
 case class OG() extends DataStructure
+case class OGC() extends DataStructure
 case class HG() extends DataStructure
 case class VE() extends DataStructure
 

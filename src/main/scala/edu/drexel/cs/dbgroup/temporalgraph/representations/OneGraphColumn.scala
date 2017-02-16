@@ -157,7 +157,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       val tmp = indexed.filter(ii => ii._1.intersects(intv))
       (tmp.head._2, tmp.last._2)
     }
-    val empty: Interval = new Interval(LocalDate.MAX, LocalDate.MAX)
+    val empty: Interval = Interval.empty
     val newIntvsb = ProgramContext.sc.broadcast(newIntvs)
     val intvs = ProgramContext.sc.broadcast(collectedIntervals)
     val countSumsB = ProgramContext.sc.broadcast(countSums)

@@ -235,7 +235,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
     }
 
     val runsSum: Seq[Int] = widths.scanLeft(0)(_ + _).tail
-    val empty: Interval = new Interval(LocalDate.MAX, LocalDate.MAX)
+    val empty: Interval = Interval.empty
     val newIntvsb = ProgramContext.sc.broadcast(newIntvs)
     val intvs = ProgramContext.sc.broadcast(collectedIntervals)
 

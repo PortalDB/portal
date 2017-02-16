@@ -36,6 +36,8 @@ object PortalShell {
               println("Running experiments with SnapshotGraph")
             case "OG" =>
               println("Running experiments with OneGraph")
+            case "OGC" =>
+              println("Running experiments with OneGraphColumn")
             case "HG" =>
               println("Running experiments with HybridGraph")
             case "VE" =>

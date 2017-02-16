@@ -43,7 +43,23 @@ object GraphLoader {
     SnapshotGraphParallel.fromDataFrames[Any,Any](nodes, edges, deflt, StorageLevel.MEMORY_ONLY_SER, col)
   }
 
-  def buildOG(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval): OneGraphColumn[Any, Any] = {
+  def buildOG(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval): OneGraph[Any, Any] = {
+    //get the configuration option for snapshot groups
+    val sg = ProgramContext.sc.getConf.get("portal.partitions.sgroup", "")
+    //make a filter. OG needs "temporal" layout, i.e. one sorted by id
+    val filter = "_t_" + sg
+
+    val (nodes, edges, deflt) = loadDataParquet(url, vattrcol, eattrcol, bounds, filter)
+    val col = sg match {
+      case "" => true
+      case _ => false
+    }
+
+    OneGraph.fromDataFrames[Any,Any](nodes, edges, deflt, StorageLevel.MEMORY_ONLY_SER, col)
+
+  }
+
+  def buildOGC(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval): OneGraphColumn[Any, Any] = {
     //get the configuration option for snapshot groups
     val sg = ProgramContext.sc.getConf.get("portal.partitions.sgroup", "")
     //make a filter. OG needs "temporal" layout, i.e. one sorted by id

@@ -3,9 +3,8 @@ package edu.drexel.cs.dbgroup.temporalgraph
 /** 
   Property model.
   Key-value pairs with set semantics.
-  Not meant to be mutable since Graphs are not mutable.
+  Mutable.
 */
-//TODO: it may be more efficient to have a mutable version because of memory churn
 trait VertexEdgeAttribute extends Serializable {
     /**
     * How many entries, with set semantics, which does not include duplicates.

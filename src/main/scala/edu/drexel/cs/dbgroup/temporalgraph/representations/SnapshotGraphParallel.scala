@@ -161,19 +161,19 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
 
     //for each group, reduce into vertices and edges
     //compute new value, filter by quantification
-    val reduced: ParSeq[(RDD[(VertexId, (VD, List[Interval]))], RDD[((VertexId, VertexId),(ED, List[Interval]))])] = groups.map(group =>
+    val reduced: ParSeq[(RDD[(VertexId, (VD, Double))], RDD[((VertexId, VertexId),(ED, Double))])] = groups.map{group =>
+      val intv = Interval(group.head._2.start, group.last._2.end)
       group.map{ case (g,ii) =>
         //map each vertex into its new key
-        (g.vertices.map{ case (vid, vattr) => (vid, (vattr, List(ii)))},
-          g.triplets.map{ e => ((e.srcId, e.dstId), (e.attr, List(ii)))}, ii)}
-        .reduce((a: (RDD[(VertexId, (VD, List[Interval]))], RDD[((VertexId, VertexId), (ED, List[Interval]))], Interval), b: (RDD[(VertexId, (VD, List[Interval]))], RDD[((VertexId, VertexId),(ED, List[Interval]))], Interval)) => (a._1.union(b._1), a._2.union(b._2), a._3.union(b._3)))
+        (g.vertices.map{ case (vid, vattr) => (vid, (vattr, ii.ratio(intv)))},
+          g.triplets.map{ e => ((e.srcId, e.dstId), (e.attr, ii.ratio(intv)))})}
+        .reduce((a: (RDD[(VertexId, (VD, Double))], RDD[((VertexId, VertexId), (ED, Double))]), b: (RDD[(VertexId, (VD, Double))], RDD[((VertexId, VertexId),(ED, Double))])) => (a._1.union(b._1), a._2.union(b._2)))
       //reduce by key with aggregate functions
-    ).map{ case (vs, es, intv) =>
-      (vs.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 ++ b._2))
-        .filter(v => vquant.keep(TempGraphOps.combine(v._2._2).map(ii => ii.ratio(intv)).reduce(_ + _))),
-        es.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 ++ b._2))
-          .filter(e => equant.keep(TempGraphOps.combine(e._2._2).map(ii => ii.ratio(intv)).reduce(_ + _)))
-        )
+    }.map{ case (vs, es) =>
+      (vs.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 + b._2))
+        .filter(v => vquant.keep(v._2._2)),
+        es.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 + b._2))
+          .filter(e => equant.keep(e._2._2)))
     }
 
     //now we can create new graphs
@@ -196,18 +196,18 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
     val groups: ParSeq[(Interval, List[(Graph[VD, ED], Interval)])] = graphs.zip(intervals).flatMap{ case (g,ii) => ii.split(c.res, start).map(x => (x._2, (g, ii)))}.toList.groupBy(_._1).toList.map(x => (x._1, x._2.map(y => y._2))).sortBy(x => x._1).par
     //for each group, reduce into vertices and edges
     //compute new value, filter by quantification
-    val reduced: ParSeq[(RDD[(VertexId, (VD, List[Interval]))], RDD[((VertexId, VertexId),(ED, List[Interval]))])] = groups.map{ case (intv, group) =>
+    val reduced: ParSeq[(RDD[(VertexId, (VD, Double))], RDD[((VertexId, VertexId),(ED, Double))])] = groups.map{ case (intv, group) =>
       group.map{ case (g,ii) =>
         //map each vertex into its new key
-        (g.vertices.map{ case (vid, vattr) => (vid, (vattr, List(ii)))},
-          g.triplets.map{ e => ((e.srcId,e.dstId), (e.attr, List(ii)))}, intv)}
-        .reduce((a: (RDD[(VertexId, (VD, List[Interval]))], RDD[((VertexId, VertexId), (ED, List[Interval]))], Interval), b: (RDD[(VertexId, (VD, List[Interval]))], RDD[((VertexId, VertexId),(ED, List[Interval]))], Interval)) => (a._1.union(b._1), a._2.union(b._2), a._3))
+        (g.vertices.map{ case (vid, vattr) => (vid, (vattr, ii.ratio(intv)))},
+          g.triplets.map{ e => ((e.srcId,e.dstId), (e.attr, ii.ratio(intv)))})}
+        .reduce((a: (RDD[(VertexId, (VD, Double))], RDD[((VertexId, VertexId), (ED, Double))]), b: (RDD[(VertexId, (VD, Double))], RDD[((VertexId, VertexId),(ED, Double))])) => (a._1.union(b._1), a._2.union(b._2)))
       //reduce by key with aggregate functions
-    }.map{ case (vs, es, intv) =>
-      (vs.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 ++ b._2))
-        .filter(v => vquant.keep(TempGraphOps.combine(v._2._2).map(ii => ii.ratio(intv)).reduce(_ + _))),
-        es.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 ++ b._2))
-          .filter(e => equant.keep(TempGraphOps.combine(e._2._2).map(ii => ii.ratio(intv)).reduce(_ + _)))
+    }.map{ case (vs, es) =>
+      (vs.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 + b._2))
+        .filter(v => vquant.keep(v._2._2)),
+        es.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 + b._2))
+          .filter(e => equant.keep(e._2._2))
         )
     }
     //now we can create new graphs
@@ -314,7 +314,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
 
       var ii: Integer = 0
       var jj: Integer = 0
-      val empty: Interval = new Interval(LocalDate.MAX, LocalDate.MAX)
+      val empty: Interval = Interval.empty
 
       val head = newIntvs.min
        val newGraphs: ParSeq[Graph[VD, ED]] =
@@ -366,7 +366,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
 
       var ii: Integer = 0
       var jj: Integer = 0
-      val empty: Interval = new Interval(LocalDate.MAX, LocalDate.MAX)
+      val empty: Interval = Interval.empty
 
       val head = newIntvs.min
 

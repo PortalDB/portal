@@ -148,10 +148,8 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
           Some(intv, res.get)
       }
     }
-    val splitVerts: RDD[((VertexId, Interval), (VD, List[Interval]))] = allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii._1), (attr, List(ii._2))))}
-
-
-    val splitEdges: RDD[((VertexId, VertexId, Interval),(ED, List[Interval]))] = allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii._1), (attr, List(ii._2))))}
+    val splitVerts: RDD[((VertexId, Interval), (VD, Double))] = allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii._1), (attr, ii._2.ratio(ii._1))))}
+    val splitEdges: RDD[((VertexId, VertexId, Interval),(ED, Double))] = allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii._1), (attr, ii._2.ratio(ii._1))))}
 
 
     //reduce vertices by key, also computing the total period occupied
@@ -159,9 +157,9 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     //map to final result
     implicit val ord = TempGraphOps.dateOrdering
 
-    val newVerts: RDD[(VertexId, (Interval, VD))] = splitVerts.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 ++ b._2)).filter(v => vquant.keep(v._2._2.map(ii => ii.ratio(v._1._2)).reduce(_ + _))).map(v => (v._1._1, (v._1._2, v._2._1)))
+    val newVerts: RDD[(VertexId, (Interval, VD))] = splitVerts.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 + b._2)).filter(v => vquant.keep(v._2._2)).map(v => (v._1._1, (v._1._2, v._2._1)))
     //same for edges
-    val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 ++ b._2)).filter(e => equant.keep(e._2._2.map(ii => ii.ratio(e._1._3)).reduce(_ + _))).map(e => ((e._1._1, e._1._2), (e._1._3, e._2._1)))
+    val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 + b._2)).filter(e => equant.keep(e._2._2)).map(e => ((e._1._1, e._1._2), (e._1._3, e._2._1)))
 
     //we only need to enforce the integrity constraint on edges if the vertices have all quantification but edges have exists; otherwise it's maintained naturally
     val newEdges = if (vquant.threshold <= equant.threshold) aggEdges else TGraphNoSchema.constrainEdges(newVerts, aggEdges)
@@ -173,24 +171,24 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     val start = span.start
     //if there is no structural aggregation, i.e. vgroupby is vid => vid
     //then we can skip the expensive joins
-    val splitVerts: RDD[((VertexId, Interval), (VD, List[Interval]))] = allVertices.flatMap{ case (vid, (intv, attr)) => intv.split(c.res, start).map(ii => ((vid, ii._2), (attr, List(ii._1))))}
+    val splitVerts: RDD[((VertexId, Interval), (VD, Double))] = allVertices.flatMap{ case (vid, (intv, attr)) => intv.split(c.res, start).map(ii => ((vid, ii._2), (attr, ii._1.ratio(ii._2))))}
 
-    val splitEdges: RDD[((VertexId, VertexId, Interval),(ED, List[Interval]))] = allEdges.flatMap{ case (ids, (intv, attr)) => intv.split(c.res, start).map(ii => ((ids._1, ids._2, ii._2), (attr, List(ii._1))))}
+    val splitEdges: RDD[((VertexId, VertexId, Interval),(ED, Double))] = allEdges.flatMap{ case (ids, (intv, attr)) => intv.split(c.res, start).map(ii => ((ids._1, ids._2, ii._2), (attr, ii._1.ratio(ii._2))))}
 
     //reduce vertices by key, also computing the total period occupied
     //filter out those that do not meet quantification criteria
     //map to final result
     implicit val ord = TempGraphOps.dateOrdering
 
-    val newVerts: RDD[(VertexId, (Interval, VD))] = splitVerts.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 ++ b._2)).filter(v => vquant.keep(v._2._2.map(ii => ii.ratio(v._1._2)).reduce(_ + _))).map(v => (v._1._1, (v._1._2, v._2._1)))
+    val newVerts: RDD[(VertexId, (Interval, VD))] = splitVerts.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 + b._2)).filter(v => vquant.keep(v._2._2)).map(v => (v._1._1, (v._1._2, v._2._1)))
     //same for edges
-    val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 ++ b._2)).filter(e => equant.keep(e._2._2.map(ii => ii.ratio(e._1._3)).reduce(_ + _))).map(e => ((e._1._1, e._1._2), (e._1._3, e._2._1)))
+    val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 + b._2)).filter(e => equant.keep(e._2._2)).map(e => ((e._1._1, e._1._2), (e._1._3, e._2._1)))
     val newEdges = if (vquant.threshold <= equant.threshold) aggEdges else TGraphNoSchema.constrainEdges(newVerts, aggEdges)
     fromRDDs(newVerts, newEdges, defaultValue, storageLevel, false)
   }
 
 
-  override def createAttributeNodes(vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId ): VEGraph[VD, ED]={
+  override def createAttributeNodes(vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId ): VEGraph[VD, ED] = {
 
     val splitVerts:  RDD[((VertexId, Interval), VD)]=
       allVertices.map(v=>((vgroupby(v._1,v._2._2),v._2._1),v._2._2))
@@ -254,7 +252,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
       //compute new intervals
       val newIntvs: RDD[Interval] = TempGraphOps.intervalUnion(intervals, grp2.intervals)
 
-      //TODO: rewrite to use the newIntvs rdd instead of materializing
+      //TODO: it is more efficient to split intervals only within their respective groups
       val newIntvsc = ProgramContext.sc.broadcast(newIntvs.collect)
       val split = (interval: Interval) => {
         newIntvsc.value.flatMap{ intv =>
