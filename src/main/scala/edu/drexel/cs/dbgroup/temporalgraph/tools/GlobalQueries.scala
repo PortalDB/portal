@@ -25,7 +25,7 @@ class GlobalPointQueries(dataset: String) {
 
     //TODO: move this logic elsewhere
     val sg = ProgramContext.sc.getConf.get("portal.partitions.sgroup", "")
-    val nodePath = GraphLoader.getPaths(dataset, Interval(point, point), "nodes_t_" + sg)
+    val nodePath = GraphLoader.getPaths(dataset, Interval(point, point), "nodes_s_" + sg)
     //this is a dataframe of all nodes in the snapshot group, need to filter
     val vdfs = GraphLoader.getParquet(nodePath, point)
     val nodes = if (vdfs.schema.fields.size > 2)
@@ -33,7 +33,7 @@ class GlobalPointQueries(dataset: String) {
     else
       ProgramContext.sc.emptyRDD[(VertexId,Any)]
 
-    val edgePath = GraphLoader.getPaths(dataset, Interval(point, point), "edges_t_" + sg)
+    val edgePath = GraphLoader.getPaths(dataset, Interval(point, point), "edges_s_" + sg)
     val edfs = GraphLoader.getParquet(edgePath, point)
     val edges = if (edfs.schema.fields.size > 3)
       edfs.filter("estart <= " + secs + " and eend > " + secs).rdd.map(r => Edge(r.getLong(0), r.getLong(1), r.get(4)))

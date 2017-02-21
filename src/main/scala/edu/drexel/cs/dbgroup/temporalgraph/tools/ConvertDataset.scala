@@ -106,7 +106,7 @@ class ConvertDataset(source: String, locality: Locality.Value, split: SnapshotGr
       case SnapshotGroup.WidthTime => Interval(minDate, maxDate).split(widthTime, minDate).map(_._1)
       case SnapshotGroup.WidthRGs => 
         implicit val ord = TempGraphOps.dateOrdering
-        nodes.select("estart").distinct().rdd.map(r => r.getDate(0).toLocalDate()).union(nodes.select("eend").distinct().rdd.map(r => r.getDate(0).toLocalDate())).union(edges.select("estart").distinct().rdd.map(r => r.getDate(0).toLocalDate())).union(edges.select("eend").distinct().rdd.map(r => r.getDate(0).toLocalDate())).distinct().sortBy(c => c, true, 1).sliding(widthRGs+1, widthRGs).map(lst => Interval(lst(0), lst.last)).collect().toSeq
+        nodes.select("estart").distinct().rdd.map(r => r.getDate(0).toLocalDate()).union(nodes.select("eend").distinct().rdd.map(r => r.getDate(0).toLocalDate())).union(edges.select("estart").distinct().rdd.map(r => r.getDate(0).toLocalDate())).union(edges.select("eend").distinct().rdd.map(r => r.getDate(0).toLocalDate())).distinct().sortBy(c => c, true, 1).collect.sliding(widthRGs+1, widthRGs).map(lst => Interval(lst(0), lst.last)).toSeq
       case SnapshotGroup.Depth =>
         val splitter = new GraphSplitter(nodes.select("estart", "eend").rdd.map(r => Interval(r.getDate(0), r.getDate(1))).union(edges.select("estart", "eend").rdd.map(r => Interval(r.getDate(0), r.getDate(1)))))
         val (c, splitters) = splitter.findSplit(buckets-1)
@@ -122,8 +122,8 @@ class ConvertDataset(source: String, locality: Locality.Value, split: SnapshotGr
         //is no more than threshold percent similar to the previous one
         var buffer = ArrayBuffer.empty[Interval]
         var rgCount:Int = 1
-        var headnodes = nodes.filter("estart < '" + rgs.head.end + "'")
-        var headedges = edges.filter("estart < '" + rgs.head.end + "'")
+        var headnodes = nodes.filter("estart < '" + rgs.head.end + "'").cache()
+        var headedges = edges.filter("estart < '" + rgs.head.end + "'").cache()
         var nodescnt = headnodes.count
         var edgescnt = headedges.count
         for (i <- 1 until rgs.size) {
@@ -141,8 +141,10 @@ class ConvertDataset(source: String, locality: Locality.Value, split: SnapshotGr
             rgCount = 1
             println("not very common, cutting group")
             buffer = if (buffer.size > 0) buffer :+ Interval(buffer.last.end, rgs(i).start) else buffer :+ Interval(rgs.head.start, rgs(i).start)
-            headnodes = nxtnodes
-            headedges = nxtedgs
+            headnodes.unpersist()
+            headedges.unpersist()
+            headnodes = nxtnodes.cache()
+            headedges = nxtedgs.cache()
             nodescnt = nxtncnt
             edgescnt = nxtecnt
           } else rgCount += 1
@@ -222,7 +224,7 @@ class ConvertDataset(source: String, locality: Locality.Value, split: SnapshotGr
       val buckets = Vector.fill(intervals.size) { ArrayBuffer.empty[Row] }
       itr.foreach { r => intvs.filter(y => y._1.intersects(Interval(r.getDate(startIndex), r.getDate(startIndex+1)))).foreach(y => buckets(y._2) += r)} //should only go into one bucket if the split was done properly
       Iterator.single(buckets)
-    }
+    }.cache(StorageLevel.MEMORY_ONLY_SER)
     Vector.tabulate(intervals.size) { j => mux.mapPartitions { itr => itr.next()(j).toIterator }}
   }
 }
