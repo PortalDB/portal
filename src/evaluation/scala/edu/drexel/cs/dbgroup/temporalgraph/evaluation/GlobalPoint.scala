@@ -19,7 +19,7 @@ object GlobalPoint {
     val sqlContext = ProgramContext.getSession
     //sqlContext.conf.set("spark.sql.files.maxPartitionBytes", "16777216")
 
-    println("using " + conf.get("portal.partitions.sgroup", "") + " sg group")
+    println("using " + System.getProperty("portal.partitions.sgroup", "") + " sg group")
 
     sqlContext.emptyDataFrame.count
 
@@ -35,7 +35,7 @@ object GlobalPoint {
 
     for (i <- 0 to 100) {
       //pick random year from minYear to maxYear
-      val year = LocalDate.of(r.nextInt(range) + minYear, r.nextInt(12), 1)
+      val year = LocalDate.of(r.nextInt(range) + minYear, r.nextInt(12)+1, 1)
       println("materializing snapshot at " + year)
       lq.getSnapshot(year).numEdges
     }

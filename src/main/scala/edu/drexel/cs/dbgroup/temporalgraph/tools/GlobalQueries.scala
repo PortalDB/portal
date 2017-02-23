@@ -4,6 +4,7 @@ import java.time.LocalDate
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.graphx._
+import org.apache.spark.sql.catalyst.util.DateTimeUtils
 
 import edu.drexel.cs.dbgroup.temporalgraph.ProgramContext
 import edu.drexel.cs.dbgroup.temporalgraph.Interval
@@ -16,15 +17,12 @@ import edu.drexel.cs.dbgroup.temporalgraph.util.GraphLoader
 */
 
 class GlobalPointQueries(dataset: String) {
-  //TODO: move this conversion logic elsewhere
-  final val SECONDS_PER_DAY = 60 * 60 * 24L
 
   def getSnapshot(point: LocalDate): Graph[Any,Any] = {
-    //TODO: move this logic elsewhere
-    val secs = point.toEpochDay()*SECONDS_PER_DAY
+    val secs = math.floor(DateTimeUtils.daysToMillis(point.toEpochDay().toInt).toDouble / 1000L).toLong
 
     //TODO: move this logic elsewhere
-    val sg = ProgramContext.sc.getConf.get("portal.partitions.sgroup", "")
+    val sg = System.getProperty("portal.partitions.sgroup", "")
     val nodePath = GraphLoader.getPaths(dataset, Interval(point, point), "nodes_s_" + sg)
     //this is a dataframe of all nodes in the snapshot group, need to filter
     val vdfs = GraphLoader.getParquet(nodePath, point)

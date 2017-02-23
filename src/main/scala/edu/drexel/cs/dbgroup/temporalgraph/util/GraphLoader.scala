@@ -30,7 +30,7 @@ object GraphLoader {
 
   def buildRG(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval): SnapshotGraphParallel[Any, Any] = {
     //get the configuration option for snapshot groups
-    val sg = ProgramContext.sc.getConf.get("portal.partitions.sgroup", "")
+    val sg = System.getProperty("portal.partitions.sgroup", "")
     //make a filter. RG needs "spatial" layout, i.e. one sorted by time
     val filter = "_s_" + sg
 
@@ -45,7 +45,7 @@ object GraphLoader {
 
   def buildOG(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval): OneGraph[Any, Any] = {
     //get the configuration option for snapshot groups
-    val sg = ProgramContext.sc.getConf.get("portal.partitions.sgroup", "")
+    val sg = System.getProperty("portal.partitions.sgroup", "")
     //make a filter. OG needs "temporal" layout, i.e. one sorted by id
     val filter = "_t_" + sg
 
@@ -61,7 +61,7 @@ object GraphLoader {
 
   def buildOGC(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval): OneGraphColumn[Any, Any] = {
     //get the configuration option for snapshot groups
-    val sg = ProgramContext.sc.getConf.get("portal.partitions.sgroup", "")
+    val sg = System.getProperty("portal.partitions.sgroup", "")
     //make a filter. OG needs "temporal" layout, i.e. one sorted by id
     val filter = "_t_" + sg
 
@@ -77,7 +77,7 @@ object GraphLoader {
 
   def buildHG(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval): HybridGraph[Any, Any] = {
     //get the configuration option for snapshot groups
-    val sg = ProgramContext.sc.getConf.get("portal.partitions.sgroup", "")
+    val sg = System.getProperty("portal.partitions.sgroup", "")
     //want one graph in HG per SG group
 
     //make a filter. HG needs "temporal" layout, i.e. one sorted by id
@@ -126,7 +126,7 @@ object GraphLoader {
 
   def buildVE(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval): VEGraph[Any, Any] = {
     //get the configuration option for snapshot groups
-    val sg = ProgramContext.sc.getConf.get("portal.partitions.sgroup", "")
+    val sg = System.getProperty("portal.partitions.sgroup", "")
     //make a filter. VE needs "temporal" layout, i.e. one sorted by id
     val filter = "_t_" + sg
 

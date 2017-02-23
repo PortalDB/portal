@@ -4,6 +4,7 @@ import scala.math.Ordering._
 import java.time.LocalDate
 import java.sql.Date
 import java.time.temporal.ChronoUnit
+import org.apache.spark.sql.catalyst.util.DateTimeUtils
 
 import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
 
@@ -15,8 +16,8 @@ class Interval(st: LocalDate, en: LocalDate) extends Serializable {
   val start:LocalDate = st
   val end:LocalDate = en
 
-  def getStartSeconds:Long = start.toEpochDay()*Interval.SECONDS_PER_DAY
-  def getEndSeconds:Long = end.toEpochDay()*Interval.SECONDS_PER_DAY
+  def getStartSeconds:Long = math.floor(DateTimeUtils.daysToMillis(start.toEpochDay().toInt).toDouble / 1000L).toLong
+  def getEndSeconds:Long = math.floor(DateTimeUtils.daysToMillis(end.toEpochDay().toInt).toDouble / 1000L).toLong
 
   override def toString():String = {
     "[" + start.toString + "-" + end.toString + ")"
