@@ -2,7 +2,9 @@ package edu.drexel.cs.dbgroup.temporalgraph.representations
 
 import java.time.LocalDate
 
-import edu.drexel.cs.dbgroup.temporalgraph.{Interval, ProgramContext}
+import edu.drexel.cs.dbgroup.temporalgraph.AggregateMessagesTestUtil
+import edu.drexel.cs.dbgroup.temporalgraph.Interval
+import edu.drexel.cs.dbgroup.temporalgraph.ProgramContext
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
@@ -344,5 +346,38 @@ class VEGraphSuite  extends FunSuite with BeforeAndAfter {
     assert(resultVEGDifference.getTemporalSequence.collect === expectedVEGDifference.getTemporalSequence.collect)
   }
 
+  test("aggregateMessages - no predicate") {
 
+    val nodesAndEdges = AggregateMessagesTestUtil.getNodesAndEdges_v1
+
+    var g = VEGraph.fromRDDs(nodesAndEdges._1,nodesAndEdges._2,"Default")
+
+    val result = g.aggregateMessages[Int](AggregateMessagesTestUtil.sendMsg_noPredicate, (a, b) => {a+b}, 0, TripletFields.None)
+      .asInstanceOf[VEGraph[(String,Int),Int]]
+
+    AggregateMessagesTestUtil.assertions_noPredicate(result)
+  }
+
+  test("aggregateMessages - edge predicate") {
+
+    val nodesAndEdges = AggregateMessagesTestUtil.getNodesAndEdges_v1
+
+    var g = VEGraph.fromRDDs(nodesAndEdges._1,nodesAndEdges._2,"Default")
+
+    val result = g.aggregateMessages[Int](AggregateMessagesTestUtil.sendMsg_edgePredicate, (a, b) => {a+b}, 0, TripletFields.EdgeOnly)
+      .asInstanceOf[VEGraph[(String,Int),Int]]
+
+    AggregateMessagesTestUtil.assertions_edgePredicate(result)
+  }
+
+  test("aggregateMessages - vertex predicate") {
+
+    val nodesAndEdges = AggregateMessagesTestUtil.getNodesAndEdges_v1
+
+    var g = VEGraph.fromRDDs(nodesAndEdges._1,nodesAndEdges._2,"Default")
+
+    val result = intercept[UnsupportedOperationException] {g.aggregateMessages[Int](AggregateMessagesTestUtil.sendMsg_vertexPredicate, (a, b) => {a+b}, 0, TripletFields.All)
+      .asInstanceOf[VEGraph[(String,Int),Int]]}
+    assert(result.getMessage().contentEquals("aggregateMsg not supported"))
+  }
 }
