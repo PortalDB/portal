@@ -3,17 +3,17 @@
 //cannot compute analytics
 package edu.drexel.cs.dbgroup.temporalgraph.representations
 
-import scala.reflect.ClassTag
-import java.util.Map
 import java.time.LocalDate
-
-import org.apache.spark.rdd._
-import org.apache.spark.storage.StorageLevel
-import org.apache.spark.storage.StorageLevel._
-import org.apache.spark.graphx._
+import java.util.Map
 
 import edu.drexel.cs.dbgroup.temporalgraph._
 import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps
+import org.apache.spark.graphx.{VertexId, _}
+import org.apache.spark.rdd._
+import org.apache.spark.storage.StorageLevel
+import org.apache.spark.storage.StorageLevel._
+
+import scala.reflect.ClassTag
 
 class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraphNoSchema[VD,ED](defValue, storLevel, coal) {
 
@@ -366,30 +366,72 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
   }
 
   override def aggregateMessages[A: ClassTag](sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
-    mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): VEGraph[(VD, A), ED] = {
-    if (tripletFields == TripletFields.None) {
+                                              mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): VEGraph[(VD, A), ED] = {
+    if (tripletFields == TripletFields.None || tripletFields == TripletFields.EdgeOnly) {
       //for each edge get a message
-      val res: RDD[(VertexId, (Interval, A))] = allEdges.flatMap{e =>
-        val et = new EdgeTriplet[VD,ED]
+      var messages: RDD[(VertexId, (Interval, A))] = allEdges.flatMap { e =>
+        val et = new EdgeTriplet[VD, ED]
         et.srcId = e._1._1
         et.dstId = e._1._2
         et.attr = e._2._2
-        sendMsg(et).map(x => (x._1, List[(Interval,A)]((e._2._1, x._2)))).toSeq
-      }.reduceByKey{(a,b) => //group by destination with the merge
+        sendMsg(et).map(x => (x._1, List[(Interval, A)]((e._2._1, x._2)))).toSeq
+      }.reduceByKey { (a, b) => //group by destination with the merge
         //we have two lists. for each period of intersection, we apply the merge
-        val res = for {
-          x <- a; y <- b
-          if x._1.intersects(y._1)
-        } yield x._1.difference(y._1).map((_, x._2)) ++ List[(Interval,A)]((x._1.intersection(y._1).get, mergeMsg(x._2, y._2))) ++ y._1.difference(x._1).map((_, y._2))
-          res.flatten
-      }.flatMap{vl =>
+        var c = List.concat(a, b).sortBy(v => v._1)
+
+        c.foldLeft(List[(Interval, A)]()) { (list, elem) =>
+          list match {
+            //base case and non-intersection are easy
+            case Nil => List(elem)
+            case (head :: tail) if !head._1.intersects(elem._1) => {
+              elem :: head :: tail
+            }
+            //intersection
+            case (head :: tail) => {
+              //handle the empty interval in the case both have the same start date
+              val leftSide = Interval.applyOption(head._1.start, elem._1.start) match {
+                case None => List[(Interval, A)]()
+                case Some(intv) => List[(Interval, A)]((intv, head._2))
+              }
+              //handle head intersecting elem vs. head containing elem
+              val rightSide = head._1.end.compareTo(elem._1.end) match {
+                case 0 => List[(Interval, A)]()
+                //right side of intersection
+                case -1 => List[(Interval, A)]((Interval(head._1.end, elem._1.end), elem._2))
+                //right side of contains
+                case _ => List[(Interval, A)]((Interval(elem._1.end, head._1.end), head._2))
+              }
+
+              rightSide ::: (elem._1, mergeMsg(elem._2, head._2)) :: leftSide ::: tail
+            }
+          }
+        }
+      }.flatMap { vl =>
         vl._2.map(x => (vl._1, x))
       }
 
       //now join with the old values
-      //FIXME: this assumes that there is a new value generated for each possible old interval of an attribute, which is not a given - this potentially throws away values!
-      val newverts: RDD[(VertexId, (Interval, (VD, A)))] = allVertices.leftOuterJoin(TGraphNoSchema.coalesce(res)).filter{ case (k, (v,u)) => u.isEmpty || v._1.intersects(u.get._1)}
-        .mapValues{ case (v, u) => if (u.isEmpty) (v._1, (v._2, defVal)) else (v._1.intersection(u.get._1).get, (v._2, u.get._2))}
+      var newverts: RDD[(VertexId, (Interval, (VD, A)))] = allVertices.leftOuterJoin(TGraphNoSchema.coalesce(messages))
+      //first get things grouped by the original (VertexId,Interval), and a list of edge messages
+      //we also have to retain VD for later, so we end up with ((VertexId,Interval), (VD, List[(Interval,A)])
+      .map { v => ((v._1, v._2._1._1), (v._2._1._2,List[(Interval, A)](v._2._2.get))) }
+      .reduceByKey { (a, b) => (a._1, a._2 ::: b._2) }
+      .map{ v =>
+        //filtering messages that are outside the vertex interval (since we join on only vid, and we could have vertices with multiple
+        //intervals, each (v,interval) could otherwise contain messages from other intervals that don't pertain
+        val contained =  v._2._2.filter { i =>
+            ((i._1.start.equals(v._1._2.start) || i._1.start.isAfter(v._1._2.start))
+              && (i._1.end.equals(v._1._2.end) || i._1.end.isBefore(v._1._2.end)))
+        }
+        //now append any intervals that got no messages with the default value
+        (v._1, (v._2._1, contained ::: Interval.differenceList(v._1._2, contained.map(t => t._1)).map(i => (i, defVal))))
+      }
+      //produce the result in the proper format
+      .flatMap{ v =>
+        (v._2._2.map { i =>
+          (v._1._1, (i._1, (v._2._1, i._2)))
+        })
+      }
 
       fromRDDs(newverts, allEdges, (defaultValue, defVal), storageLevel, coalesced)
 

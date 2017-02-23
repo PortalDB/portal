@@ -3,23 +3,23 @@ package edu.drexel.cs.dbgroup.temporalgraph.tools
 import java.time.Period
 import java.time.LocalDate
 import java.sql.Date
+
 import scala.collection.mutable.ArrayBuffer
 import org.apache.log4j.Logger
 import org.apache.log4j.Level
 import org.apache.hadoop.fs._
-
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.SparkConf
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{Row,DataFrame}
+import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.mllib.rdd.RDDFunctions._
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{LongType,TimestampType}
+import org.apache.spark.sql.types.{LongType, TimestampType}
 import org.apache.spark.util.SizeEstimator
-
 import edu.drexel.cs.dbgroup.temporalgraph._
-import edu.drexel.cs.dbgroup.temporalgraph.util.{TempGraphOps,GraphSplitter}
+import edu.drexel.cs.dbgroup.temporalgraph.util.{GraphSplitter, TempGraphOps}
+import org.apache.spark.storage.StorageLevel
 
 /**
   * Takes parquet datasets and produces either structual
@@ -224,7 +224,7 @@ class ConvertDataset(source: String, locality: Locality.Value, split: SnapshotGr
       val buckets = Vector.fill(intervals.size) { ArrayBuffer.empty[Row] }
       itr.foreach { r => intvs.filter(y => y._1.intersects(Interval(r.getDate(startIndex), r.getDate(startIndex+1)))).foreach(y => buckets(y._2) += r)} //should only go into one bucket if the split was done properly
       Iterator.single(buckets)
-    }.cache(StorageLevel.MEMORY_ONLY_SER)
+    }.cache()
     Vector.tabulate(intervals.size) { j => mux.mapPartitions { itr => itr.next()(j).toIterator }}
   }
 }

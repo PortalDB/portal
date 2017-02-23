@@ -1763,4 +1763,40 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       assert(Math.abs(difference) < 0.0000001)
     }
   }
+
+  test("aggregateMessages - no predicate") {
+
+    val nodesAndEdges = AggregateMessagesTestUtil.getNodesAndEdges_v1
+
+    var g = SnapshotGraphParallel.fromRDDs(nodesAndEdges._1,nodesAndEdges._2,"Default")
+
+    val result = g.aggregateMessages[Int](AggregateMessagesTestUtil.sendMsg_noPredicate, (a, b) => {a+b}, 0, TripletFields.None)
+      .asInstanceOf[SnapshotGraphParallel[(String,Int),Int]]
+
+    AggregateMessagesTestUtil.assertions_noPredicate(result)
+  }
+
+  test("aggregateMessages - edge predicate") {
+
+    val nodesAndEdges = AggregateMessagesTestUtil.getNodesAndEdges_v1
+
+    var g = SnapshotGraphParallel.fromRDDs(nodesAndEdges._1,nodesAndEdges._2,"Default")
+
+    val result = g.aggregateMessages[Int](AggregateMessagesTestUtil.sendMsg_edgePredicate, (a, b) => {a+b}, 0, TripletFields.EdgeOnly)
+      .asInstanceOf[SnapshotGraphParallel[(String,Int),Int]]
+
+    AggregateMessagesTestUtil.assertions_edgePredicate(result)
+  }
+
+  test("aggregateMessages - vertex predicate") {
+
+    val nodesAndEdges = AggregateMessagesTestUtil.getNodesAndEdges_v1
+
+    var g = SnapshotGraphParallel.fromRDDs(nodesAndEdges._1,nodesAndEdges._2,"Default")
+
+    val result = g.aggregateMessages[Int](AggregateMessagesTestUtil.sendMsg_vertexPredicate, (a, b) => {a+b}, 0, TripletFields.All)
+      .asInstanceOf[SnapshotGraphParallel[(String,Int),Int]]
+
+    AggregateMessagesTestUtil.assertions_vertexPredicate(result)
+  }
 }

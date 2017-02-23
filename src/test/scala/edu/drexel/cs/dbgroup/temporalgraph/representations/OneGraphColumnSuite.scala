@@ -1948,4 +1948,52 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     }
   }
 
+  //TODO: fix ogc.aggregateMessages
+  test("aggregateMessages - no predicate") {
+
+    val nodesAndEdges = AggregateMessagesTestUtil.getNodesAndEdges_v1
+
+    var g = OneGraphColumn.fromRDDs(nodesAndEdges._1,nodesAndEdges._2,"Default")
+
+    val result = g.aggregateMessages[Int](AggregateMessagesTestUtil.sendMsg_noPredicate, (a, b) => {a+b}, 0, TripletFields.None)
+      .asInstanceOf[OneGraphColumn[(String,Int),Int]]
+
+    AggregateMessagesTestUtil.assertions_noPredicate(result)
+  }
+
+  test("aggregateMessages - edge predicate") {
+
+    val nodesAndEdges = AggregateMessagesTestUtil.getNodesAndEdges_v1
+
+    var g = OneGraphColumn.fromRDDs(nodesAndEdges._1,nodesAndEdges._2,"Default")
+
+    val result = g.aggregateMessages[Int](AggregateMessagesTestUtil.sendMsg_edgePredicate, (a, b) => {a+b}, 0, TripletFields.EdgeOnly)
+      .asInstanceOf[OneGraphColumn[(String,Int),Int]]
+
+    AggregateMessagesTestUtil.assertions_edgePredicate(result)
+  }
+
+  test("aggregateMessages - vertex predicate") {
+
+    val nodesAndEdges = AggregateMessagesTestUtil.getNodesAndEdges_v1
+
+    var g = OneGraphColumn.fromRDDs(nodesAndEdges._1,nodesAndEdges._2,"Default")
+
+    val result = g.aggregateMessages[Int](AggregateMessagesTestUtil.sendMsg_vertexPredicate, (a, b) => {a+b}, 0, TripletFields.All)
+      .asInstanceOf[OneGraphColumn[(String,Int),Int]]
+
+    AggregateMessagesTestUtil.assertions_vertexPredicate(result)
+  }
+
+  test("aggregateMessages - vertex predicate") {
+
+    val nodesAndEdges = AggregateMessagesTestUtil.getNodesAndEdges_v1
+
+    var g = OneGraphColumn.fromRDDs(nodesAndEdges._1,nodesAndEdges._2,"Default")
+
+    val result = intercept[UnsupportedOperationException] {g.aggregateMessages[Int](AggregateMessagesTestUtil.sendMsg_vertexPredicate, (a, b) => {a+b}, 0, TripletFields.All)
+      .asInstanceOf[OneGraphColumn[(String,Int),Int]]}
+    assert(result.getMessage().contentEquals("aggregateMsg not supported"))
+  }
+
 }
