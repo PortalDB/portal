@@ -2052,4 +2052,53 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       assert(Math.abs(difference) < 0.0000001)
     }
   }
+
+  //TODO: fix hg.aggregateMessages
+  test("aggregateMessages - no predicate") {
+
+    val nodesAndEdges = AggregateMessagesTestUtil.getNodesAndEdges_v1
+
+    var g = HybridGraph.fromRDDs(nodesAndEdges._1,nodesAndEdges._2,"Default")
+
+    val result = g.aggregateMessages[Int](AggregateMessagesTestUtil.sendMsg_noPredicate, (a, b) => {a+b}, 0, TripletFields.None)
+      .asInstanceOf[HybridGraph[(String,Int),Int]]
+
+    AggregateMessagesTestUtil.assertions_noPredicate(result)
+  }
+
+  test("aggregateMessages - edge predicate") {
+
+    val nodesAndEdges = AggregateMessagesTestUtil.getNodesAndEdges_v1
+
+    var g = HybridGraph.fromRDDs(nodesAndEdges._1,nodesAndEdges._2,"Default")
+
+    val result = g.aggregateMessages[Int](AggregateMessagesTestUtil.sendMsg_edgePredicate, (a, b) => {a+b}, 0, TripletFields.EdgeOnly)
+      .asInstanceOf[HybridGraph[(String,Int),Int]]
+
+    AggregateMessagesTestUtil.assertions_edgePredicate(result)
+
+  }
+
+  test("aggregateMessages - vertex predicate") {
+
+    val nodesAndEdges = AggregateMessagesTestUtil.getNodesAndEdges_v1
+
+    var g = HybridGraph.fromRDDs(nodesAndEdges._1,nodesAndEdges._2,"Default")
+
+    val result = g.aggregateMessages[Int](AggregateMessagesTestUtil.sendMsg_vertexPredicate, (a, b) => {a+b}, 0, TripletFields.All)
+      .asInstanceOf[HybridGraph[(String,Int),Int]]
+
+    AggregateMessagesTestUtil.assertions_vertexPredicate(result)
+  }
+
+  test("aggregateMessages - vertex predicate") {
+
+    val nodesAndEdges = AggregateMessagesTestUtil.getNodesAndEdges_v1
+
+    var g = HybridGraph.fromRDDs(nodesAndEdges._1,nodesAndEdges._2,"Default")
+
+    val result = intercept[UnsupportedOperationException] {g.aggregateMessages[Int](AggregateMessagesTestUtil.sendMsg_vertexPredicate, (a, b) => {a+b}, 0, TripletFields.All)
+      .asInstanceOf[HybridGraph[(String,Int),Int]]}
+    assert(result.getMessage().contentEquals("aggregateMsg not supported"))
+  }
 }

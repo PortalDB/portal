@@ -19,7 +19,7 @@ class Interval(st: LocalDate, en: LocalDate) extends Serializable {
   def getEndSeconds:Long = end.toEpochDay()*Interval.SECONDS_PER_DAY
 
   override def toString():String = {
-    "[" + start.toString + "-" + end.toString + ")"
+    "[" + start.toString + "-" + end.toString + "]"
   }
 
   override def equals(other:Any):Boolean = {
@@ -58,6 +58,14 @@ class Interval(st: LocalDate, en: LocalDate) extends Serializable {
   //if the other interval has any (including complete) overlap in years, return true
   def intersects(other: Interval):Boolean = {
     if (other.start.isAfter(end) || other.start.equals(end) || other.end.isBefore(start) || other.end.equals(start))
+      false
+    else
+      true
+  }
+
+  //like intersects, but returns true if start/end are equal
+  def touches(other: Interval):Boolean = {
+    if(other.start.isAfter(end) || other.end.isBefore(start))
       false
     else
       true
@@ -175,4 +183,62 @@ object Interval {
       None
     else
       Some(new Interval(mn,mx))
+
+  /**
+    * gets the difference between an interval and another list of intervals.
+    * @param vertexInterval should CONTAIN every one of the edgeIntervals
+    * @param edgeIntervals each one should be CONTAINED BY vertexInterval
+    * @return
+    */
+  def differenceList(vertexInterval: Interval, edgeIntervals: List[Interval]) : List[Interval] = {
+    var returnVal = List[Interval]()
+    if(edgeIntervals.size == 0) returnVal = returnVal
+    else if(edgeIntervals.size == 1) returnVal = vertexInterval.difference(edgeIntervals(0))
+    else{
+      var coalescedEdgeIntervals = Interval.coalesce(edgeIntervals)
+      var i = 0
+      while(i < coalescedEdgeIntervals.size){
+        val prevInterval = if(i == 0) None else Some[Interval](coalescedEdgeIntervals(i-1))
+        val thisInterval = coalescedEdgeIntervals(i)
+        val nextInterval = if(i+1 < coalescedEdgeIntervals.size) Some[Interval](coalescedEdgeIntervals(i+1)) else None
+        //beginning
+        if(prevInterval == None){
+          Interval.applyOption(vertexInterval.start,thisInterval.start) +: returnVal
+        }
+        //end
+        else if(nextInterval == None){
+          List[Interval](Interval.applyOption(prevInterval.get.end,thisInterval.start).get,
+            Interval.applyOption(thisInterval.end,vertexInterval.end).get) ::: returnVal
+        }
+        //middle
+        else{
+          Interval.applyOption(prevInterval.get.start,thisInterval.start) +: returnVal
+        }
+        i += 1
+      }
+    }
+    returnVal
+  }
+
+  /**
+    * given a list of intervals, produces the sorted list of non-intersecting, non-touching intervals
+    * @param original
+    * @return
+    */
+  def coalesce(original: List[Interval]) : List[Interval] = {
+    var res = List[Interval]()
+    val srt = original.sorted
+    val fld = srt.foldLeft(List[Interval]()){(list,elem) =>
+      list match{
+        case Nil => List(elem)
+        case head :: tail if(!head.touches(elem)) => elem :: head :: tail
+        case head :: tail => {
+          val newStart = if(head.start.compareTo(elem.start) < 0) head.start else elem.start
+          val newEnd = if(head.end.compareTo(elem.end) > 0) head.end else elem.end
+          Interval.apply(newStart,newEnd) :: tail
+        }
+      }
+    }
+    fld.sorted
+  }
 }

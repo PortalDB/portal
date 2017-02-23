@@ -910,50 +910,56 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
   override def aggregateMessages[A: ClassTag](sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
     mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): HybridGraph[(VD, A), ED] = {
     if (graphs.size < 1) computeGraphs()
-
-    val aggMap = (grp: Graph[BitSet,BitSet]) => {
-      grp.aggregateMessages[Int2ObjectOpenHashMap[A]](
-        ctx => {
-          val edge = ctx.toEdgeTriplet
-          val triplet = new EdgeTriplet[VD, ED]
-          triplet.srcId = edge.srcId
-          triplet.dstId = edge.dstId
-          //FIXME: we don't have the src and dst attributes, so this will work only for cases when TripletFields is none.
-          sendMsg(triplet).foreach{x =>
-            val tmp = new Int2ObjectOpenHashMap[A]()
-            ctx.attr.seq.foreach {index => tmp.put(index, x._2)}
-            if (x._1 == edge.srcId)
-              ctx.sendToSrc(tmp)
-            else if (x._1 == edge.dstId)
-              ctx.sendToDst(tmp)
-            else
-              throw new IllegalArgumentException("trying to send message to a vertex that is neither a source nor a destination")
-          }
-        },
-        (a, b) => {
-          val itr = a.iterator
-          while (itr.hasNext) {
-            val (index,vl) = itr.next()
-            b.update(index, mergeMsg(vl, b.getOrElse(index, defVal)))
-          }
-          b
-        }, tripletFields)
+    if (tripletFields != TripletFields.None) {
+      super.aggregateMessages(sendMsg,mergeMsg,defVal,tripletFields).asInstanceOf[HybridGraph[(VD,A),ED]]
     }
+    else {
 
-    val allgs = graphs.zipWithIndex.map{ case (g,i) => aggMap(g)}
+      val aggMap = (grp: Graph[BitSet, BitSet]) => {
+        grp.aggregateMessages[Int2ObjectOpenHashMap[A]](
+          ctx => {
+            val edge = ctx.toEdgeTriplet
+            val triplet = new EdgeTriplet[VD, ED]
+            triplet.srcId = edge.srcId
+            triplet.dstId = edge.dstId
+            //FIXME: we don't have the src and dst attributes, so this will work only for cases when TripletFields is none.
+            sendMsg(triplet).foreach { x =>
+              val tmp = new Int2ObjectOpenHashMap[A]()
+              ctx.attr.seq.foreach { index =>
+                tmp.put(index, x._2)
+              }
+              if (x._1 == edge.srcId)
+                ctx.sendToSrc(tmp)
+              else if (x._1 == edge.dstId)
+                ctx.sendToDst(tmp)
+              else
+                throw new IllegalArgumentException("trying to send message to a vertex that is neither a source nor a destination")
+            }
+          },
+          (a, b) => {
+            val itr = a.iterator
+            while (itr.hasNext) {
+              val (index, vl) = itr.next()
+              b.update(index, mergeMsg(vl, b.getOrElse(index, defVal)))
+            }
+            b
+          }, tripletFields)
+      }
 
-    //now extract values
-    val intvs = ProgramContext.sc.broadcast(collectedIntervals)
-    val vattrs = allgs.map{ g => g.flatMap{ case (vid,vattr) => vattr.asInstanceOf[Map[TimeIndex, A]].toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}}}.reduce(_ union _)
-    //now need to join with the previous value
-    val newverts = allVertices.leftOuterJoin(vattrs)
-      .filter{ case (k, (v, u)) => u.isEmpty || v._1.intersects(u.get._1)}
-      .mapValues{ case (v, u) => if (u.isEmpty) (v._1, (v._2, defVal)) else (v._1.intersection(u.get._1).get, (v._2, u.get._2))}
+      val allgs = graphs.zipWithIndex.map { case (g, i) => aggMap(g) }
+      //now extract values
+      val intvs = ProgramContext.sc.broadcast(collectedIntervals)
+      val vattrs = allgs.map{ g => g.flatMap{ case (vid,vattr) => vattr.asInstanceOf[Map[TimeIndex, A]].toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}}}.reduce(_ union _)
+      //now need to join with the previous value
+      val newverts = allVertices.leftOuterJoin(vattrs)
+        .filter{ case (k, (v, u)) => u.isEmpty || v._1.intersects(u.get._1)}
+        .mapValues{ case (v, u) => if (u.isEmpty) (v._1, (v._2, defVal)) else (v._1.intersection(u.get._1).get, (v._2, u.get._2))}
 
-    if (ProgramContext.eagerCoalesce)
-      fromRDDs(newverts, allEdges, (defaultValue, defVal), storageLevel, false)
-    else
-      new HybridGraph(collectedIntervals, newverts, allEdges, widths, graphs, (defaultValue, defVal), storageLevel, false)
+      if (ProgramContext.eagerCoalesce)
+        fromRDDs(newverts, allEdges, (defaultValue, defVal), storageLevel, false)
+      else
+        new HybridGraph(collectedIntervals, newverts, allEdges, widths, graphs, (defaultValue, defVal), storageLevel, false)
+    }
   }
 
   /** Spark-specific */
