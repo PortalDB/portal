@@ -1,0 +1,337 @@
+%\section{\ql by example}
+\section{Demonstration Details}
+\label{sec:cases}
+
+We will present an end-to-end implementation of \sys and will
+demonstrate that our system is efficient and usable, by showing that
+sophisticated kinds of exploratory analysis of large evolving graphs
+can be expressed intuitively and concisely, and executed efficiently.
+We do not list performance results here due to space constraints, and
+point an interested reader to~\cite{PortalarXiv2016}, where system
+performance is evaluated thoroughly.  We note that all queries
+described here, and many others, execute in interactive time.
+
+{\bf Demo set-up.} Users will interact with the \sys system via an
+interactive shell, where they will compose queries and define \tg
+views, exploring language features.  Users will inspect query
+execution plans and execute queries.
+
+We will have a local cluster on a single laptop with three evolving
+graph datasets that allow interactive-speed data exploration. DBLP
+contains co-authorship information from 1936 through 2015, with 2.4
+million author nodes and 7.2 million undirected co-authorship edges.
+arXiv contains co-authorship information from 1993 through 2016,
+filtered to Computer Science publications with 0.26 million user nodes
+and 0.4 million messaging edges.  wiki-talk contains over 10 million
+messaging events among 3 million wiki-en users\eat{2002 through 2015},
+aggregated at 1-month resolution.
+
+{\bf Demo scenarios.} The demonstration will consist of three parts.
+In Part 1, we will offer an introduction to \ql.  In Part 2, we will
+showcase the queries presented in the remainder of this section.\eat{
+  For each example, we will give a declarative query, and a
+  corresponding \tga expression. } We will start with single-operator
+queries, and will then combine them into complex queries.  During the
+demonstration, we will examine the query execution plans, including
+the order of execution of \tga operators and the selected access
+methods.  In Part 3, we will encourage the audience to use the
+interactive shell and define new queries on the demo datasets with our
+help.
+
+{\bf \ql by example.}  All queries in this section analyze over
+interaction and co-authorship networks, which represent people as
+vertices, and interactions between them (messages, conversations and
+endorsements) as edges.  Information describing people and their
+interactions is represented by vertex and edge attributes,
+respectively. For example, wiki-talk
+dataset\footnote{http://dx.doi.org/10.5281/zenodo.49561} contains
+messaging events among Wikipedia contributors over a 13-year period
+which occur when users pos on each other's talk pages.  Information
+available about the users includes username, group membership, and the
+number of Wikipedia edits they made.
+
+%Communities over time.
+Interaction networks are sparse because edges are short-lived.  As
+part of exploratory analysis, we can consider the network at different
+temporal resolutions, run a community detection algorithm such as
+connected components, and then consider the number of
+components and their sizes.
+
+\eat{To see whether communities form and at what time scale, we can vary
+the time scale and compute communities, e.g. through connected
+components detection, group the vertices by the community they form
+and calculate their size.  We can filter out vertices that represent
+communities below a reasonable threshold, for example of size smaller
+than two.}
+
+\eat{This example demonstrates a need to compute graph-wide analytics
+  such as connected components for each point in time, create new
+  vertices that represent some aspect of data of existing vertices,
+  and compute subgraphs.  Graph-wide analytics on evolving graphs have
+  been proposed previously in ImmortalGraph~\cite{Miao2015} and
+  G*~\cite{Labouseur2015}, including PageRank, weakly connected
+  components, and source-source shortest path.}
+
+\eat{{\bf Question:} In a sparse communication network, on what time scale
+can we detect communities?}
+
+\begin{example}
+\vspace{-0.1cm}
+\label{ex:slice}
+To start, load a 5-year subset of the data:
+\begin{small}
+\begin{verbatim}
+Create TGraph T1 As {
+   VSelect * ESelect *  
+   From 'path/to/data' as wiki
+   When start>='2010' AND end<'2015'}
+\end{verbatim}
+\vspace{-0.1cm}
+\end{small}
+
+The corresponding algebraic expression in \tga uses the common
+temporal slice operator: $\ttt_1 = \slice{[2010, 2015)}{wiki}$.
+
+\vspace{-0.1cm}
+\end{example}
+
+We use the Apache Parquet format for on-disk storage, with one archive
+for vertices and another for edges, temporally coalesced.  We provide
+a loader utility that can initialize any of the available physical
+representations of \tgs (see~\cite{PortalarXiv2016}) from the HDFS or
+local disk.
+
+\begin{example}
+\label{ex:nodecrt}
+\vspace{-0.1cm}
+
+Compute a temporally aggregated view of T1 into 6-month windows.  A
+window includes vertices and edges that correspond to users who
+communicated regularly: a vertex and an edge are each present if they
+exist in every snapshot during the 6-month period.
+
+\begin{small} 
+\begin{verbatim}
+Create TGView T2 As { 
+   VSelect * ESelect *
+   From T1
+   TGroup By 6 months
+   VExists always EExists always }
+\end{verbatim}
+\vspace{-0.1cm}
+\end{small}
+
+This query corresponds to a \tga expression that invokes window-based
+node creation, an evolving graph operation similar to moving window
+temporal aggregation for relations:
+$\ttt_2 = \insql{node}^T_w(\mathsf{w=6~mon},\mathsf{q_v=always},\mathsf{q_e=always},\ttt_1)$.
+
+\vspace{-0.1cm}
+\end{example}
+
+Node creation enables the user to analyze an evolving graph at
+different levels of granularity.  This operator comes in two variants
+--- based on temporal window (Example~\ref{ex:nodecrt}) or based
+on vertex attributes, illustrated in Example~\ref{ex:nodecra}.
+
+\begin{example}
+\label{ex:cc}
+\vspace{-0.1cm}
+
+Compute connected components (a Pregel-style analytic) at each time
+point. 
+
+\begin{small} 
+\begin{verbatim}
+Create TGView T3 As { 
+   VSelect components() as comp, *  ESelect *
+   From T2 }
+\end{verbatim}
+\vspace{-0.1cm}
+\end{small}
+
+This query correspond to the following \tga expression:
+$\ttt_3 = \insql{pregel}^T_{cc} (\mathsf{pname=comp}, \ttt_2)$.
+
+\vspace{-0.1cm}
+\end{example}
+
+\eat{
+Note the use of $*$ after invocation of the components analytic.  With
+the property model, different nodes may have different properties, so
+listing them all may be burdensome for the user.}
+
+\eat{ We need to compute graph-wide analytics such as connected
+  components for each point in time.  Graph-wide analytics on evolving
+  graphs have been proposed previously in
+  ImmortalGraph~\cite{Miao2015} and G*~\cite{Labouseur2015}, including
+  PageRank, weakly connected components, and source-source shortest
+  path.}
+
+\begin{example}
+\label{ex:nodecra}
+
+Generate a new \tg, in which a vertex corresponds to a connected
+component, and compute the size of the connected component.  
+
+\begin{small} 
+\begin{verbatim}
+Create TGView T4 As { 
+   VSelect count(*) as cnt  ESelect *
+   From T3
+   VGroup By comp }
+\end{verbatim}
+\end{small}
+
+\end{example}
+\vspace{-0.07in}
+
+This operation allows the user to generate a \tg in which a vertex
+corresponds to a group of vertices in the input that agree on the
+values of all grouping attributes.  An edge in the output is
+introduced between vertices $g_1$ and $g_2$ if some pair of vertices
+$v_1$ and $v_2$ in the input \tg were connected by an edge, $v_1$ is
+in group $g_1$ and $v_2$ is in group $g_2$.  We do not add any
+self-loops to the output \tg. The corresponding \tga expression is
+$\ttt_4 =
+\insql{node}^T_a(\mathsf{g=comp,f_v=count(1)},\ttt_3)$. \eat{Vertices
+  of the input are partitioned on their values of the grouping
+  attributes.  An edge is created between a pair of vertices in the
+  output if some two input Partitioning of the vertices also induces a
+  partitioning of the edges.}
+
+\begin{example}
+\label{ex:subg}
+\vspace{-0.1cm}
+
+Filter out vertices that represent communities too small to be of
+interest (e.g., of 1-2 people).  
+
+\begin{small} 
+\begin{verbatim}
+Create TGView T5 As {
+   VSelect * ESelect *
+   From T4
+   VWhere cnt > 2 }
+\end{verbatim}
+\vspace{-0.1cm}
+\end{small}
+
+This query corresponds to a \tga expression that invokes the vertex
+subgraph operation $\ttt_5 = \subv{\mathsf{v.a.count > 2}}{\ttt_4}$.
+
+\vspace{-0.1cm}
+\end{example}
+
+The queries of Examples~\ref{ex:slice} --- \ref{ex:subg} can be
+combined into a single complex query:
+
+\begin{small}
+\begin{verbatim}
+VSelect * ESelect *
+From (
+    VSelect count(*) as cnt  ESelect *
+    From (
+        VSelect components() as comp, * ESelect *
+        From 'path/to/data' as wiki
+        When start>='2010' AND end<'2015' 
+        TGroup By 6 months
+        VExists always EExists always)
+    VGroup By comp)
+VWhere cnt > 2 
+\end{verbatim}
+\vspace{-0.1cm}
+\end{small}
+
+In a \ql query, slice and subgraph take precedence over the other
+operations, followed by node creation, and then by aggregation (see
+Example~\ref{ex:agg}) and analytics.  Multiple orders of execution are
+possible, as discussed in Section~\ref{sec:sys}.\eat{ in queries that
+  include node creation by both temporal window and vertex attributes,
+  and in queries that join two \tgs by means of an intersection or a
+  union (see Example~\ref{ex:union} below), and execute node creation,
+  selection or subgraph on the result.  We discuss this further in
+  Section~\ref{sec:sys}.}
+
+\eat{The order of precedence in a single statement is selection and
+  slice (\insql{vwhere}, \insql{ewhere}), node creation, analytics,
+  map, and then binary operations.  Multiple orders of execution are
+  possible since slice can be performed at any point, but it is most
+  efficient to perform slice first to reduce the amount of data for
+  further evaluation.}
+
+Another use case demonstrates some of the remaining operations of
+\tga.  DBLP and arXiv datasets contain co-authorship information and
+can provide interesting insights into the CS research community.
+Nodes represent authors, and edges --- a joint publication between a
+pair of authors.
+
+\begin{example}
+\label{ex:union}
+\vspace{-0.1cm}
+
+Assuming that author ids are drawn from the same domain, i.e., are
+assigned consistently in DBLP and arXiv, we can combine the two
+datasets for a more comprehensive view using temporal graph union:
+
+\begin{small}
+\begin{verbatim}
+Create TGView T6 As {
+   VSelect left(name)  ESelect max(cnt)
+   From dblp Union arXiv }
+\end{verbatim}
+\vspace{-0.1cm}
+\end{small}
+
+The corresponding \tga expression is\\$\ttt_6 = dblp~\cap^T~arXiv(f_v=left(name),f_E=max(cnt))$.
+\vspace{-0.1cm}
+\end{example}
+
+Unlike in relational algebra, \tga union requires aggregate functions
+to resolve multiple property values for the same node or edge.  If a
+vertex exists in both DBLP and arXiv, \insql{left} takes the value of
+the vertex property \insql{name} from the left operand, DBLP.
+
+\begin{example}
+\label{ex:agg}
+\vspace{-0.1cm}
+
+Finally, we compute an in-degree of each vertex during each time
+point.  This is an example of the {\em aggregation} operation, a
+common operation on non-temporal graphs, as defined by the taxonomy of
+Wood~\cite{Wood2012}.  Aggregation computes a value for each vertex
+based on its neighbors.
+
+\begin{small} 
+\begin{verbatim}
+Create TGView T7 As { 
+   VSelect count(*) as deg, * ESelect *
+   From T6
+   Aggregate Right }
+\end{verbatim}
+\vspace{-0.1cm}
+\end{small}
+
+This query corresponds to a \tga expression that uses temporal
+aggregation, listed here with default arguments: $\ttt_7 =
+\insql{agg}^T(\mathsf{dir=right},\mathsf{f_m=1},\mathsf{f_a=count},\mathsf{pname=deg},\ttt_6)$.
+
+\vspace{-0.1cm}
+\end{example}
+
+\eat{Besides the examples above, graph queries commonly include retrieving
+a specific node (which can be accomplished through a subgraph) and
+k-hop neighborhood of a node.  While general transitive closure
+requires recursion, which we do not support, k-hop neighborhoods can
+be computed using composition operations like the one defined in
+SocialScope~\cite{Amer-Yahia2009}.  We provide temporal versions of
+subgraph and generalized edge creation.  Additionally, if multiple
+sources of the same graph are available, it is useful to combine or
+compare them, which dictates the need for temporal set-theoretic
+operators.}
+
+\eat{In Section~\ref{sec:algebra} we formally define the operators of our
+graph algebra.  In Section~\ref{sec:exp} we return to these three use
+cases. 
+}
+
