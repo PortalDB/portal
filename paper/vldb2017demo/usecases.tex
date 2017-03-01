@@ -7,9 +7,12 @@ demonstrate that our system is efficient and usable, by showing that
 sophisticated kinds of exploratory analysis of large evolving graphs
 can be expressed intuitively and concisely, and executed efficiently.
 We do not list performance results here due to space constraints, and
-point an interested reader to~\cite{PortalarXiv2016}, where system
-performance is evaluated thoroughly.  We note that all queries
-described here, and many others, execute in interactive time.
+point an interested reader to~\cite{PortalarXiv2016}, where we
+describe the systems contributions of our work, including novel
+in-memory representations and access methods that enable us to achieve
+interactive response times for sophisticated analysis tasks over large
+evolving graphs.  We note that all queries described here, and many
+others, execute in interactive time.
 
 {\bf Demo set-up.} Users will interact with the \sys system via an
 interactive shell, where they will compose queries and define \tg
@@ -18,13 +21,12 @@ execution plans and execute queries.
 
 We will have a local cluster on a single laptop with three evolving
 graph datasets that allow interactive-speed data exploration. DBLP
-contains co-authorship information from 1936 through 2015, with 2.4
-million author nodes and 7.2 million undirected co-authorship edges.
-arXiv contains co-authorship information from 1993 through 2016,
-filtered to Computer Science publications with 0.26 million user nodes
-and 0.4 million messaging edges.  wiki-talk contains over 10 million
-messaging events among 3 million wiki-en users\eat{2002 through 2015},
-aggregated at 1-month resolution.
+contains co-authorship information from 1936 through 2015, with 2.4M
+author nodes and 7.2M co-authorship edges.  arXiv contains
+co-authorship information from 1993 through 2016, filtered to Computer
+Science publications with 0.26M user nodes and 0.4M messaging edges.
+wiki-talk contains over 10M messaging events among 3M wiki-en
+users\eat{2002 through 2015}, aggregated at 1-month resolution.
 
 {\bf Demo scenarios.} The demonstration will consist of three parts.
 In Part 1, we will offer an introduction to \ql.  In Part 2, we will
@@ -38,17 +40,16 @@ methods.  In Part 3, we will encourage the audience to use the
 interactive shell and define new queries on the demo datasets with our
 help.
 
-{\bf \ql by example.}  All queries in this section analyze over
-interaction and co-authorship networks, which represent people as
-vertices, and interactions between them (messages, conversations and
-endorsements) as edges.  Information describing people and their
-interactions is represented by vertex and edge attributes,
-respectively. For example, wiki-talk
-dataset\footnote{http://dx.doi.org/10.5281/zenodo.49561} contains
-messaging events among Wikipedia contributors over a 13-year period
-which occur when users post on each other's talk pages.  Information
-available about the users includes username, group membership, and the
-number of Wikipedia edits they made.
+{\bf \ql by example.}  All queries in this section analyze interaction
+and co-authorship networks, which represent people as vertices, and
+interactions between them (messages, conversations and endorsements)
+as edges.  Information describing people and their interactions is
+represented by vertex and edge attributes, respectively. For example,
+wiki-talk dataset\footnote{http://dx.doi.org/10.5281/zenodo.49561}
+contains messaging events among Wikipedia contributors over a 13-year
+period that occur when users post on each other's talk pages.
+Information available about the users includes username, group
+membership, and the number of Wikipedia edits they made.
 
 %Communities over time.
 Interaction networks are sparse because edges are short-lived.  As
@@ -92,7 +93,7 @@ Create TGraph T1 As {
 The corresponding algebraic expression in \tga uses the common
 temporal slice operator: $\ttt_1 = \slice{[2010, 2015)}{wiki}$.
 
-\vspace{-0.1cm}
+\vspace{-0.3cm}
 \end{example}
 
 We use the Apache Parquet format for on-disk storage, with one archive
@@ -121,12 +122,15 @@ Create TGView T2 As {
 \vspace{-0.1cm}
 \end{small}
 
-This query corresponds to a \tga expression that invokes window-based
-node creation, an evolving graph operation similar to moving window
-temporal aggregation for relations:
-$\ttt_2 = \insql{node}^T_w(\mathsf{w=6~mon},\mathsf{q_v=always},\mathsf{q_e=always},\ttt_1)$.
+This query corresponds to window-based node creation, an evolving
+graph operation similar to moving window temporal aggregation for
+relations.  Users can specify node and edge quantifiers
+(\insql{always, most, at least n,} and \insql{exists}) on the minimum
+lifetime of the entity within the window in order for it to be
+included in the result.  \\$\ttt_2 =
+\insql{node}^T_w(\mathsf{w=6~mon},\mathsf{q_v=always},\mathsf{q_e=always},\ttt_1)$.
 
-\vspace{-0.1cm}
+\vspace{-0.3cm}
 \end{example}
 
 Node creation enables the user to analyze an evolving graph at
@@ -191,8 +195,8 @@ corresponds to a group of vertices in the input that agree on the
 values of all grouping attributes.  An edge in the output is
 introduced between vertices $g_1$ and $g_2$ if some pair of vertices
 $v_1$ and $v_2$ in the input \tg were connected by an edge, $v_1$ is
-in group $g_1$ and $v_2$ is in group $g_2$.  We do not add any
-self-loops to the output \tg. The corresponding \tga expression is
+in group $g_1$ and $v_2$ is in group $g_2$.  \eat{We do not add any
+self-loops to the output \tg. }The corresponding \tga expression is
 $\ttt_4 =
 \insql{node}^T_a(\mathsf{g=comp,f_v=count(1)},\ttt_3)$. \eat{Vertices
   of the input are partitioned on their values of the grouping
@@ -229,15 +233,13 @@ combined into a single complex query:
 \begin{small}
 \begin{verbatim}
 VSelect * ESelect *
-From (
-    VSelect count(*) as cnt  ESelect *
-    From (
-        VSelect components() as comp, * ESelect *
-        From 'path/to/data' as wiki
-        When start>='2010' AND end<'2015' 
-        TGroup By 6 months
-        VExists always EExists always)
-    VGroup By comp)
+From (VSelect count(*) as cnt  ESelect *
+      From (VSelect components() as comp, * ESelect *
+            From 'path/to/data' as wiki
+            When start>='2010' AND end<'2015' 
+            TGroup By 6 months
+            VExists always EExists always)
+      VGroup By comp)
 VWhere cnt > 2 
 \end{verbatim}
 \vspace{-0.1cm}
@@ -262,9 +264,9 @@ possible, as discussed in Section~\ref{sec:sys}.\eat{ in queries that
 
 Another use case demonstrates some of the remaining operations of
 \tga.  DBLP and arXiv datasets contain co-authorship information and
-can provide interesting insights into the CS research community.
-Nodes represent authors, and edges --- a joint publication between a
-pair of authors.
+can provide interesting insights into the dynamics of the CS research
+community.  Nodes represent authors, and edges --- a joint publication
+between a pair of authors.
 
 \begin{example}
 \label{ex:union}
@@ -297,8 +299,8 @@ the vertex property \insql{name} from the left operand, DBLP.
 \vspace{-0.1cm}
 
 Finally, we compute an in-degree of each vertex during each time
-point.  This is an example of the {\em aggregation} operation, a
-common operation on non-temporal graphs, as defined by the taxonomy of
+point.  This is an example of {\em aggregation}, a common operation on
+non-temporal graphs, as defined by the taxonomy of
 Wood~\cite{Wood2012}.  Aggregation computes a value for each vertex
 based on its neighbors.
 

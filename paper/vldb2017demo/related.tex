@@ -2,39 +2,47 @@
 \label{sec:related}
 
 Three systems in the literature focus on systematic support of
-evolving graphs, all of them non-compositional.  None of the three
+evolving graphs, all of them non-compositional.  \eat{None of the three
 systems are publicly available, so a direct comparison with them is
-impossible.
+impossible.}
 
 Miao et al.~\cite{Miao2015} developed ImmortalGraph, a proprietary
 in-memory execution engine for temporal graph analytics.
-ImmortalGraph does not provide a query language, focusing primarily on
-efficient physical data layout.\eat{ The batching method for snapshot
-  analytics we use is similar to the one proposed in ImmortalGraph.
-  However,} Further, ImmortalGraph was developed with the focus on
-centralized rather than distributed computation.\eat{ and does not
-  explore the effect of distribution on batching performance.}
+It\eat{ImmortalGraph} does not provide a query language, focusing
+primarily on efficient physical data layout.  In contrast, \sys is an
+open source system and supports the full TGA. \eat{ The batching
+  method for snapshot analytics we use is similar to the one proposed
+  in ImmortalGraph.  However,} Further, ImmortalGraph was developed
+with the focus on centralized rather than distributed computation, but
+we leverage their insights about data locality, adapting them for
+HDFS.
 
 The G* system~\cite{Labouseur2015} manages graphs that correspond to
 periodic snapshots, with the focus on efficient data layout.  It takes
 advantage of the similarity between successive snapshots by storing
 shared vertices once and maintaining per-graph indexes. G* provides
-two query languages: procedural PGQL and declarative DGQL. Unlike in
-\tga, time is not an intrinsic part of the G* model, and thus temporal
-queries with time predicates like node creation are not supported.
-\eat{ PGQL supports graph operators like retrieving vertices and
-  their edges from disk and non-graph operators like aggregate, union,
-  projection, and join.}\eat{ All operators use a streaming model,
-  i.e., like in a traditional DBMS, they pipeline.}\eat{ DGQL is
-  similar to SQL and is converted into PGQL by the system.}
+two query languages: procedural PGQL and declarative DGQL. Time is not
+an intrinsic part of the G* model, and thus temporal queries with time
+predicates are not supported.  In contrast, \sys supports temporal
+window node creation, temporal subgraph, and other intrinsically
+time-based operations.  \eat{ PGQL supports graph operators like
+  retrieving vertices and their edges from disk and non-graph
+  operators like aggregate, union, projection, and join.}\eat{ All
+  operators use a streaming model, i.e., like in a traditional DBMS,
+  they pipeline.}\eat{ DGQL is similar to SQL and is converted into
+  PGQL by the system.}
 
 Finally, the Historical Graph Store (HGS) is an evolving graph query
 system based on Spark.  It uses the property graph model and supports
 retrieval tasks along time and entity dimensions through Java/Python
 APIs.  HGS supports slice, selection and nodecompute (like \tga
 subgraph and map, respectively, but with no temporal predicates), and
-various evolution-centered operators.  HGS does not provide formal
+various evolution-centered operators.  In contrast, in addition to a
+principled support for temporal predicates, \sys also supports node
+and edge creation operations which allow for complex analyses such as
+journeys and aggregations of desired structural and temporal
+resolution.
+
+\eat{HGS does not provide formal
 semantics for its operations, the main focus is on efficient on-disk
-representation for retrieval.
-
-
+representation for retrieval.}
