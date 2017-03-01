@@ -1376,42 +1376,6 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     assert(actualHG.getTemporalSequence.collect === expectedHG.getTemporalSequence.collect)
   }
 
-  test("verticesAggregated and edgesAggregated functions") {
-    val vertices: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2022-01-01")), "John")),
-      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), "Mike")),
-      (3L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2014-01-01")), "Ron")),
-      (2L, (Interval(LocalDate.parse("2018-02-01"), LocalDate.parse("2020-01-01")), "Mike")),
-      (3L, (Interval(LocalDate.parse("2019-01-01"), LocalDate.parse("2022-01-01")), "Ron")),
-      (4L, (Interval(LocalDate.parse("2006-01-01"), LocalDate.parse("2017-01-01")), "Julia")),
-      (4L, (Interval(LocalDate.parse("2017-01-01"), LocalDate.parse("2019-07-14")), "Vera"))
-    ))
-
-    val expectedVertices: RDD[(VertexId, Map[Interval, String])] = ProgramContext.sc.parallelize(Array(
-      (1L, new Object2ObjectOpenHashMap[Interval,String](Array(Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2022-01-01"))), Array("John"))),
-      (2L, new Object2ObjectOpenHashMap[Interval,String](Array(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), Interval(LocalDate.parse("2018-02-01"), LocalDate.parse("2020-01-01"))), Array("Mike", "Mike"))),
-      (3L, new Object2ObjectOpenHashMap[Interval,String](Array(Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2014-01-01")), Interval(LocalDate.parse("2019-01-01"), LocalDate.parse("2022-01-01"))), Array("Ron", "Ron"))),
-      (4L, new Object2ObjectOpenHashMap[Interval,String](Array(Interval(LocalDate.parse("2006-01-01"), LocalDate.parse("2017-01-01")), Interval(LocalDate.parse("2017-01-01"), LocalDate.parse("2019-07-14"))), Array("Julia",  "Vera")))
-    ))
-
-    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01")), 42)),
-      ((1L, 2L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22)),
-      ((1L, 4L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2015-01-01")), 56)),
-      ((1L, 4L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 12))
-    ))
-
-    val expectedEdges: RDD[((VertexId, VertexId), Map[Interval, Int])] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), new Object2IntOpenHashMap[Interval](Array(Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01")), Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2015-01-01"))), Array(42, 12, 56)).asInstanceOf[Map[Interval,Int]]),
-      ((1L, 2L), new Object2IntOpenHashMap[Interval](Array(Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01"))), Array(22)).asInstanceOf[Map[Interval,Int]])
-    ))
-
-    val actualHG = HybridGraph.fromRDDs(vertices, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
-
-    assert(actualHG.verticesAggregated.collect.toSet === expectedVertices.collect.toSet)
-    assert(actualHG.edgesAggregated.collect.toSet === expectedEdges.collect.toSet)
-  }
-
   test("from RDD") {
     //Checks if the fromRDD function creates the correct graphs. Graphs variable is protected so to get the graphs, we use getSnapshot function
     val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(

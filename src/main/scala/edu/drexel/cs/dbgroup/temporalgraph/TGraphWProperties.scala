@@ -29,27 +29,6 @@ abstract class TGraphWProperties(spec: GraphSpec, storLevel: StorageLevel = Stor
   //this does not mean each property is contained in each vertex or edge
   val graphSpec: GraphSpec = spec
 
-  /**
-    * An RDD containing the vertices and their associated attributes.
-    * @return an RDD containing the vertices in this graph, across all intervals.
-    * The vertex attributes are in a Map of Interval->value.
-    * The interval is maximal.
-    */
-  override def verticesAggregated: RDD[(VertexId,Map[Interval, VertexEdgeAttribute])] = {
-    vertices.mapValues(y => {var tmp = new Object2ObjectOpenHashMap[Interval,VertexEdgeAttribute](); tmp.put(y._1, y._2); tmp.asInstanceOf[Map[Interval, VertexEdgeAttribute]]})
-      .reduceByKey((a: Map[Interval, VertexEdgeAttribute], b: Map[Interval, VertexEdgeAttribute]) => a ++ b)
-  }
-
-  /**
-    * An RDD containing the edges and their associated attributes.
-    * @return an RDD containing the edges in this graph, across all intervals.
-    */
-  override def edgesAggregated: RDD[((VertexId,VertexId),Map[Interval, VertexEdgeAttribute])] = {
-    edges.mapValues(y => {var tmp = new Object2ObjectOpenHashMap[Interval,VertexEdgeAttribute](); tmp.put(y._1, y._2); tmp.asInstanceOf[Map[Interval, VertexEdgeAttribute]]})
-      .reduceByKey((a: Map[Interval, VertexEdgeAttribute], b: Map[Interval, VertexEdgeAttribute]) => a ++ b)
-  }
-  
-
   protected def aggregateByChange(c: ChangeSpec, vgroupby: (VertexId, VertexEdgeAttribute) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute, eAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute): TGraphWProperties
   protected def aggregateByTime(c: TimeSpec, vgroupby: (VertexId, VertexEdgeAttribute) => VertexId, vquant: Quantification, equant: Quantification, vAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute, eAggFunc: (VertexEdgeAttribute, VertexEdgeAttribute) => VertexEdgeAttribute): TGraphWProperties
 

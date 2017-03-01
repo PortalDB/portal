@@ -25,26 +25,6 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
   //whereas true means definitely coalesced
   val coalesced: Boolean = coal
 
-  /**
-    * An RDD containing the vertices and their associated attributes.
-    * @return an RDD containing the vertices in this graph, across all intervals.
-    * The vertex attributes are in a Map of Interval->value.
-    * The interval is maximal.
-    */
-  override def verticesAggregated: RDD[(VertexId,Map[Interval, VD])] = {
-    vertices.mapValues(y => {var tmp = new Object2ObjectOpenHashMap[Interval,VD](); tmp.put(y._1, y._2); tmp.asInstanceOf[Map[Interval, VD]]})
-      .reduceByKey((a: Map[Interval, VD], b: Map[Interval, VD]) => a ++ b)
-  }
-
-  /**
-    * An RDD containing the edges and their associated attributes.
-    * @return an RDD containing the edges in this graph, across all intervals.
-    */
-  override def edgesAggregated: RDD[((VertexId,VertexId),Map[Interval, ED])] = {
-    edges.mapValues(y => {var tmp = new Object2ObjectOpenHashMap[Interval,ED](); tmp.put(y._1, y._2); tmp.asInstanceOf[Map[Interval, ED]]})
-      .reduceByKey((a: Map[Interval, ED], b: Map[Interval, ED]) => a ++ b)
-  }
-
   override def createTemporalNodes(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED]={
     res match {
       case c : ChangeSpec => coalesce().asInstanceOf[TGraphNoSchema[VD,ED]].aggregateByChange(c, vquant, equant, vAggFunc, eAggFunc)

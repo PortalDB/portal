@@ -39,26 +39,10 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
   def vertices: RDD[(VertexId,(Interval, VD))]
 
   /**
-    * An RDD containing the vertices and their associated attributes.
-    * @return an RDD containing the vertices in this graph, across all intervals.
-    * The vertex attributes are in a Map of Interval->value.
-    * The interval is maximal.
-    */
-  def verticesAggregated: RDD[(VertexId,Map[Interval, VD])]
-
-  /**
     * An RDD containing the edges and their associated attributes.
     * @return an RDD containing the edges in this graph, across all intervals.
     */
   def edges: RDD[((VertexId,VertexId),(Interval, ED))]
-
-  /**
-    * An RDD containing the edges and their associated attributes.
-    * @return an RDD containing the edges in this graph, across all intervals.
-    * The edge attributes are in a Map of Interval->value.
-    * The interval is maximal.
-    */
-  def edgesAggregated: RDD[((VertexId,VertexId),Map[Interval, ED])]
 
   /**
     * Get the temporal sequence for the representative graphs
