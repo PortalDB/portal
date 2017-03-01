@@ -4,6 +4,11 @@ import org.apache.spark.SparkContext
 import org.apache.spark.sql.SparkSession
 
 package object temporalgraph {
+
+  /**
+    * Unique Identifier for an Edge
+    */
+  type EdgeId = Long
   /**
     * A time interval identifier, 0-indexed.
     */
