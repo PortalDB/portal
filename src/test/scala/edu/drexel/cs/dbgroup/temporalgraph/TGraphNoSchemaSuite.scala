@@ -7,10 +7,9 @@ import org.apache.log4j.{Level, Logger}
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
-import org.apache.spark.{SparkContext, SparkConf}
+import org.apache.spark.{SparkConf, SparkContext}
 import org.scalatest.{BeforeAndAfter, FunSuite}
-
-import scala.collection.parallel.ParSeq
+import src.main.scala.edu.drexel.cs.dbgroup.temporalgraph.TEdge
 
 class TGraphNoSchemaSuite extends FunSuite with BeforeAndAfter{
 
@@ -95,28 +94,28 @@ class TGraphNoSchemaSuite extends FunSuite with BeforeAndAfter{
       (8L, (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), "Lovro")),
       (9L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), "Ke"))
     ))
-    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 22)),
-    //partially outside, completely inside
-      ((3L, 5L), (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2015-01-01")), 22)),
-      ((1L, 2L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22)),
-    //completely outside
-      ((5L, 7L), (Interval(LocalDate.parse("2008-01-01"), LocalDate.parse("2009-01-01")), 22)),
-    //inside in the boundries
-      ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 22)),
-    //partially outside, partially inside
-      ((4L, 9L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2016-01-01")), 22))
+    val edges: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 4L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 22),
+      //partially outside, completely inside
+      TEdge[Int](2L, 3L, 5L, Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2015-01-01")), 22),
+      TEdge[Int](3L, 1L, 2L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22),
+      //completely outside
+      TEdge[Int](4L, 5L, 7L, Interval(LocalDate.parse("2008-01-01"), LocalDate.parse("2009-01-01")), 22),
+      //inside in the boundries
+      TEdge[Int](5L, 4L, 8L, Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 22),
+      //partially outside, partially inside
+      TEdge[Int](6L, 4L, 9L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2016-01-01")), 22)
     ))
     val sgp = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER )
 
     val actualEdges = TGraphNoSchema.constrainEdges(users, edges)
 
-    val expectedEdges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 22)),
-      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 22)),
-      ((1L, 2L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22)),
-      ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 22)),
-      ((4L, 9L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 22))
+    val expectedEdges: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 4L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 22),
+      TEdge[Int](2L, 3L, 5L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 22),
+      TEdge[Int](3L, 1L, 2L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22),
+      TEdge[Int](5L, 4L, 8L, Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 22),
+      TEdge[Int](6L, 4L, 9L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 22)
     ))
 
     assert(actualEdges.collect.toSet === expectedEdges.collect.toSet)
