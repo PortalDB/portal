@@ -16,6 +16,7 @@ import org.apache.spark.{HashPartitioner,RangePartitioner}
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 
 import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps
+import src.main.scala.edu.drexel.cs.dbgroup.temporalgraph.TEdge
 
 abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraph[VD, ED] {
   val storageLevel = storLevel
@@ -58,7 +59,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
    * @tparam ED2 the new edge data type
    *
    */
-  def emap[ED2: ClassTag](map: (Interval, Edge[ED]) => ED2): TGraphNoSchema[VD, ED2]
+  def emap[ED2: ClassTag](map: (Interval, Edge[(EdgeId,ED)]) => (EdgeId,ED2)): TGraphNoSchema[VD, ED2]
 
   /**
     * Produce a union of two temporal graphs. 
@@ -142,15 +143,15 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
    *
    */
 //TODO: can we have a simpler version where there's a predicate on the vertex and a predicate on the edge and the edge direction and the message and the aggregation function
-  def aggregateMessages[A: ClassTag](sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
+  def aggregateMessages[A: ClassTag](sendMsg: EdgeTriplet[VD, (EdgeId,ED)] => Iterator[(VertexId, A)],
     mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): TGraphNoSchema[(VD, A), ED]
   protected def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): TGraphNoSchema[V, E]
 
 }
 
 object TGraphNoSchema {
-  def computeIntervals[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))]): RDD[Interval] = {
-    val dates: RDD[LocalDate] = verts.flatMap{ case (id, (intv, attr)) => List(intv.start, intv.end)}.union(edgs.flatMap { case (ids, (intv, attr)) => List(intv.start, intv.end)}).distinct
+  def computeIntervals[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[TEdge[E]]): RDD[Interval] = {
+    val dates: RDD[LocalDate] = verts.flatMap{ case (id, (intv, attr)) => List(intv.start, intv.end)}.union(edgs.flatMap { case e => List(e.interval.start, e.interval.end)}).distinct
     implicit val ord = TempGraphOps.dateOrdering
     dates.sortBy(c => c, true, 1).sliding(2).map(lst => Interval(lst(0), lst(1)))
   }
@@ -209,8 +210,8 @@ object TGraphNoSchema {
    * shorten the periods as needed to meet the integrity constraint.
    * Warning: This is a very expensive operation, use only when needed.
    */
-  def constrainEdges[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))]): RDD[((VertexId, VertexId), (Interval, E))] = {
-    if (verts.isEmpty) return ProgramContext.sc.emptyRDD[((VertexId, VertexId), (Interval, E))]
+  def constrainEdges[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[TEdge[E]]): RDD[TEdge[E]] = {
+    if (verts.isEmpty) return ProgramContext.sc.emptyRDD[TEdge[E]]
 
     //if we don't have many vertices, we can do a better job with broadcasts
     //FIXME: what should this number be? it should depend on memory size
@@ -228,11 +229,11 @@ object TGraphNoSchema {
       edgs.mapPartitions({ iter =>
         val m: scala.collection.Map[VertexId, List[Interval]] = bverts.value
         for {
-          ((vid1, vid2), (p, v)) <- iter
-          val l1 = m.get(vid1).getOrElse(List[Interval]()).filter(ii => ii.intersects(p))
-          val l2 = m.get(vid2).getOrElse(List[Interval]()).filter(ii => ii.intersects(p))
+          e <- iter
+          val l1 = m.get(e.srcId).getOrElse(List[Interval]()).filter(ii => ii.intersects(e.interval))
+          val l2 = m.get(e.dstId).getOrElse(List[Interval]()).filter(ii => ii.intersects(e.interval))
           if l1.size == 1 && l2.size == 1 && l1.head.intersects(l2.head)
-        } yield ((vid1, vid2), (Interval(TempGraphOps.maxDate(p.start, m(vid1).find(_.intersects(p)).get.start, m(vid2).find(_.intersects(p)).get.start), TempGraphOps.minDate(p.end, m(vid1).find(_.intersects(p)).get.end, m(vid2).find(_.intersects(p)).get.end)), v))
+        } yield TEdge.apply((e.eId,e.srcId, e.dstId), (Interval(TempGraphOps.maxDate(e.interval.start, m(e.srcId).find(_.intersects(e.interval)).get.start, m(e.dstId).find(_.intersects(e.interval)).get.start), TempGraphOps.minDate(e.interval.end, m(e.srcId).find(_.intersects(e.interval)).get.end, m(e.dstId).find(_.intersects(e.interval)).get.end)), e.attr))
       }, preservesPartitioning = true)
 
     } else {
@@ -240,13 +241,15 @@ object TGraphNoSchema {
       val coalescV = TGraphNoSchema.coalesceStructure(verts).partitionBy(new HashPartitioner(edgs.getNumPartitions))
 
       //get edges that are valid for each of their two vertices
-      edgs.map(e => (e._1._1, e))
-        .join(coalescV) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
-        .filter{case (vid, (e, v)) => e._2._1.intersects(v) } //this keeps only matches of vertices and edges where periods overlap
-        .map{case (vid, (e, v)) => (e._1._2, (e, v))}       //((e._1, e._2._1), (e._2._2, v))}
-        .join(coalescV) //this creates RDD[(VertexId, ((((VertexId, VertexId), (Interval, ED)), Interval), Interval)
-        .filter{ case (vid, (e, v)) => e._1._2._1.intersects(v) && e._2.intersects(v)}
-        .map{ case (vid, (e, v)) => (e._1._1, (Interval(TempGraphOps.maxDate(v.start, e._1._2._1.start, e._2.start), TempGraphOps.minDate(v.end, e._1._2._1.end, e._2.end)), e._1._2._2))}
+      edgs.map(e => (e.srcId, e))
+        .join(coalescV) //this creates RDD[(VertexId, (TEdge[E], Interval))]
+        .filter{case (vid, (e, v)) => e.interval.intersects(v) } //this keeps only matches of vertices and edges where periods overlap
+        .map{case (vid, (e, v)) => (e.dstId, (e, v))}       //((e._1, e._2._1), (e._2._2, v))}
+        .join(coalescV) //this creates RDD[(VertexId, ((TEdge[E], Interval), Interval)
+        .filter{ case (vid, (e, v)) => e._1.interval.intersects(v) && e._2.intersects(v)}
+        .map{ case (vid, (e, v)) =>
+          TEdge.apply((e._1.eId, e._1.srcId, e._1.dstId),
+            ((Interval(TempGraphOps.maxDate(v.start, e._1.interval.start, e._2.start), TempGraphOps.minDate(v.end, e._1.interval.end, e._2.end)), e._1.attr)))}
 
     }
   }

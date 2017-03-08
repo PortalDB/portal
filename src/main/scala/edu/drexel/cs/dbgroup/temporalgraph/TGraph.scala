@@ -11,6 +11,8 @@ import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
 
 import java.time.LocalDate
 
+import src.main.scala.edu.drexel.cs.dbgroup.temporalgraph.TEdge
+
 //TODO: this really should be a trait but traits do not allow type parameters
 //so this would require defining implicit evidence, etc.
 abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
@@ -42,7 +44,7 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * An RDD containing the edges and their associated attributes.
     * @return an RDD containing the edges in this graph, across all intervals.
     */
-  def edges: RDD[((VertexId,VertexId),(Interval, ED))]
+  def edges: RDD[TEdge[ED]]
 
   /**
     * Get the temporal sequence for the representative graphs
@@ -55,7 +57,7 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * Get a snapshot for a point in time
     * if the time is outside the graph bounds, an empty graph is returned
     */
-  def getSnapshot(time: LocalDate):Graph[VD,ED]
+  def getSnapshot(time: LocalDate):Graph[VD,(EdgeId,ED)]
 
   /**
     * Query operations
@@ -180,7 +182,7 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
      (initialMsg: A, defaultValue: A, maxIterations: Int = Int.MaxValue,
        activeDirection: EdgeDirection = EdgeDirection.Either)
      (vprog: (VertexId, VD, A) => VD,
-       sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
+       sendMsg: EdgeTriplet[VD, (EdgeId,ED)] => Iterator[(VertexId, A)],
        mergeMsg: (A, A) => A): TGraph[VD, ED]
 
   /**
