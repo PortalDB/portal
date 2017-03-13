@@ -125,14 +125,20 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
   }
 
   override def esubgraph(epred: (EdgeTriplet[VD,ED],Interval) => Boolean ): VEGraph[VD,ED] = {
-    throw new NotImplementedError()
-    /*
-    val newVerts: RDD[(VertexId, (Interval, VD))] = allVertices
-    val newEdges =  allEdges.filter{ e =>epred((e._1._1,e._1._2,e._2._2),e._2._1)}
-    fromRDDs(newVerts, newEdges, defaultValue, storageLevel, coalesced)
-    */
-  }
 
+    val newVerts: RDD[(VertexId, (Interval, VD))] = allVertices
+    val newEdges =  allEdges.map(e => {
+          var et=new EdgeTriplet[VD,ED]
+          et.srcId = e._1._1
+          et.dstId = e._1._2
+          et.attr = e._2._2
+          (et,e._2._1)
+        }
+      ).filter(e=> epred(e._1,e._2))
+    fromRDDs(newVerts, newEdges.map{ case (e,intv) => ((e.srcId,e.dstId), (intv,e.attr))}, defaultValue, storageLevel, coalesced)
+
+
+  }
   override  protected  def aggregateByChange(c: ChangeSpec,  vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): VEGraph[VD, ED] = {
     val size: Integer = c.num
 
