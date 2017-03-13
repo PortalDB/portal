@@ -18,6 +18,7 @@ import java.util.Map
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap
+import src.main.scala.edu.drexel.cs.dbgroup.temporalgraph.TEdge
 
 import collection.JavaConverters._
 
@@ -49,14 +50,7 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (8L, (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), "Lovro")),
       (9L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), "Ke"))
     ))
-    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 22)),
-      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 22)),
-      ((1L, 2L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22)),
-      ((5L, 7L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), 22)),
-      ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 22)),
-      ((4L, 9L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 22))
-    ))
+    val edges: RDD[TEdge[Int]] = getTestEdges_Int_1b()
     val SGP = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     val expectedUsers: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
@@ -68,11 +62,11 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (6L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), "Halima")),
       (9L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), "Ke"))
     ))
-    val expectedEdges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 22)),
-      ((3L, 5L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01")), 22)),
-      ((1L, 2L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2015-01-01")), 22)),
-      ((4L, 9L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 22))
+    val expectedEdges: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 4L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 22),
+      TEdge[Int](2L, 3L, 5L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01")), 22),
+      TEdge[Int](3L, 1L, 2L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2015-01-01")), 22),
+      TEdge[Int](6L, 4L, 9L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 22)
     ))
     val expectedSGP = SnapshotGraphParallel.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
@@ -169,14 +163,7 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (8L, (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), "Lovro")),
       (9L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), "Ke"))
     ))
-    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 42)),
-      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42)),
-      ((1L, 2L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22)),
-      ((5L, 7L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), 22)),
-      ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42)),
-      ((4L, 9L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 22))
-    ))
+    val edges: RDD[TEdge[Int]] = getTestEdges_Int_1a()
     val SGP = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     val expectedUsers: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
@@ -190,9 +177,9 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (8L, (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), "Lovro")),
       (9L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), "Ke"))
     ))
-    val expectedEdges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42)),
-      ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
+    val expectedEdges: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](2L, 3L, 5L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42),
+      TEdge[Int](5L, 4L, 8L, Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42)
     ))
     val expectedSGP = SnapshotGraphParallel.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
     var actualSGP = SGP.esubgraph(epred =  (edgeTriplet: EdgeTriplet[String,Int],interval: Interval)=> edgeTriplet.srcId > 2 && edgeTriplet.attr == 42)
@@ -213,14 +200,7 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (8L, (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), "Lovro")),
       (9L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), "Ke"))
     ))
-    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 42)),
-      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42)),
-      ((1L, 2L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22)),
-      ((5L, 7L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), 22)),
-      ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42)),
-      ((4L, 9L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 22))
-    ))
+    val edges: RDD[TEdge[Int]] = getTestEdges_Int_1a()
     val SGP = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     val expectedUsers: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
@@ -230,9 +210,9 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (7L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2011-01-01")), "Sanjana")),
       (8L, (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), "Lovro"))
     ))
-    val expectedEdges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((5L, 7L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), 22)),
-      ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
+    val expectedEdges: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](4L, 5L, 7L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), 22),
+      TEdge[Int](5L, 4L, 8L, Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42)
     ))
     val expectedSGP = SnapshotGraphParallel.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
     var actualSGP = SGP.vsubgraph(vpred = (id: VertexId, attrs: String,interval: Interval) => id > 3 && attrs != "Ke")
@@ -254,14 +234,7 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (8L, (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), "Lovro")),
       (9L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), "Ke"))
     ))
-    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 42)),
-      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42)),
-      ((1L, 2L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22)),
-      ((5L, 7L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), 22)),
-      ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42)),
-      ((4L, 9L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 22))
-    ))
+    val edges: RDD[TEdge[Int]] = getTestEdges_Int_1a()
     val SGP = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     val expectedUsers: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
@@ -271,8 +244,8 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (7L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2011-01-01")), "Sanjana")),
       (8L, (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), "Lovro"))
     ))
-    val expectedEdges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
+    val expectedEdges: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](5L, 4L, 8L, Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42)
     ))
     val expectedSGP = SnapshotGraphParallel.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
     var actualSGP = SGP.vsubgraph(vpred = (id: VertexId, attrs: String,interval: Interval) => id > 3 && attrs != "Ke").esubgraph(epred = (edgeTriplet: EdgeTriplet[String,Int], interval: Interval) => edgeTriplet.srcId > 2 && edgeTriplet.attr == 42)
@@ -294,14 +267,7 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (8L, (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), "Lovro")),
       (9L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), "Ke"))
     ))
-    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 42)),
-      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42)),
-      ((1L, 2L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22)),
-      ((5L, 7L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), 22)),
-      ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42)),
-      ((4L, 9L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 22))
-    ))
+    val edges: RDD[TEdge[Int]] = getTestEdges_Int_1a()
     val SGP = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     val expectedUsers = ProgramContext.sc.parallelize(Array(
@@ -312,8 +278,8 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (6L, "Halima")
     ))
     val expectedEdges = ProgramContext.sc.parallelize(Array(
-      Edge(1L, 4L, 42),
-      Edge(3L, 5L, 42)
+      Edge(1L, 4L, (1L, 42)),
+      Edge(3L, 5L, (2L, 42))
     ))
     var actualSGP = SGP.getSnapshot((LocalDate.parse("2012-07-01")))
 
@@ -333,17 +299,7 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (8L, (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), "Lovro")),
       (9L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), "Ke"))
     ))
-    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 42)),
-      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42)),
-      ((1L, 2L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22)),
-      ((5L, 7L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), 22)),
-      ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42)),
-      ((4L, 9L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 22)),
-      ((4L, 6L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), 22)),
-      ((4L, 6L), (Interval(LocalDate.parse("2012-06-01"), LocalDate.parse("2013-01-01")), 72))
-
-    ))
+    val edges: RDD[TEdge[Int]] = getTestEdges_Int_1a().union(getTestEdges_Int_2())
     val SGP = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     val resolution1Month = Resolution.between(LocalDate.parse("2011-01-01"), LocalDate.parse("2011-02-01"))
@@ -360,8 +316,8 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (2L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), "Mike"))
     ))
 
-    val expectedEdges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 42))
+    val expectedEdges: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 4L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 42)
     ))
     val expectedSGP = SnapshotGraphParallel.fromRDDs(expectedVertices, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
@@ -380,9 +336,10 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (2L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), "Mike"))
     ))
 
-    val expectedEdges2: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 42)),
-      ((4L, 6L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 72))
+    val expectedEdges2: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 4L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 42),
+      TEdge[Int](7L, 4L, 6L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 22),
+      TEdge[Int](8L, 4L, 6L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 72)
     ))
     val expectedSGP2 = SnapshotGraphParallel.fromRDDs(expectedVertices2, expectedEdges2, "Default", StorageLevel.MEMORY_ONLY_SER)
 
@@ -403,17 +360,7 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (8L, (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), true)),
       (9L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), true))
     ))
-    val edges: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), true)),
-      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), true)),
-      ((1L, 2L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), true)),
-      ((5L, 7L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), true)),
-      ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), true)),
-      ((4L, 9L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), true)),
-      ((4L, 6L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), true)),
-      ((4L, 6L), (Interval(LocalDate.parse("2012-06-01"), LocalDate.parse("2013-01-01")), true))
-
-    ))
+    val edges: RDD[TEdge[StructureOnlyAttr]] = getTestEdges_Bool_1()
     val SGP = SnapshotGraphParallel.fromRDDs(users, edges, true, StorageLevel.MEMORY_ONLY_SER)
 
     val resolution1Month = Resolution.between(LocalDate.parse("2011-01-01"), LocalDate.parse("2011-02-01"))
@@ -430,8 +377,8 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (2L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), true))
     ))
 
-    val expectedEdges: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), true))
+    val expectedEdges: RDD[TEdge[StructureOnlyAttr]] = ProgramContext.sc.parallelize(Array(
+      TEdge[StructureOnlyAttr](1L, 1L, 4L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), true)
     ))
     val expectedSGP = SnapshotGraphParallel.fromRDDs(expectedVertices, expectedEdges, true, StorageLevel.MEMORY_ONLY_SER)
 
@@ -450,9 +397,10 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (2L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), true))
     ))
 
-    val expectedEdges2: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), true)),
-      ((4L, 6L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), true))
+    val expectedEdges2: RDD[TEdge[StructureOnlyAttr]] = ProgramContext.sc.parallelize(Array(
+      TEdge[StructureOnlyAttr](1L, 1L, 4L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), true),
+      TEdge[StructureOnlyAttr](7L, 4L, 6L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), true),
+      TEdge[StructureOnlyAttr](8L, 4L, 6L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), true)
     ))
     val expectedSGP2 = SnapshotGraphParallel.fromRDDs(expectedVertices2, expectedEdges2, true, StorageLevel.MEMORY_ONLY_SER)
 
@@ -473,16 +421,12 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (8L, (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), "Lovro")),
       (9L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), "Ke"))
     ))
-    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 42)),
-      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42)),
-      ((1L, 2L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22)),
-      ((5L, 7L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), 22)),
-      ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42)),
-      ((4L, 9L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 22)),
-      ((4L, 6L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), 22)),
-      ((4L, 6L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01")), 72))
-    ))
+    val edges: RDD[TEdge[Int]] = getTestEdges_Int_1a().union(//part 2 is slightly different here
+      ProgramContext.sc.parallelize(Array(
+        TEdge[Int](7L, 4L, 6L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), 22),
+        TEdge[Int](8L, 4L, 6L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01")), 72)
+      ))
+    )
 
     val SGP = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
     val actualSGP = SGP.createTemporalNodes(new ChangeSpec(1), Exists(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => attr1)
@@ -503,15 +447,15 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (8L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2017-01-01")), "Lovro")),
       (9L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), "Ke"))
     ))
-    val expectedEdges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2015-01-01")), 42)),
-      ((3L, 5L), (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2013-01-01")), 42)),
-      ((1L, 2L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2017-01-01")), 22)),
-      ((5L, 7L), (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2011-01-01")), 22)),
-      ((4L, 8L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2017-01-01")), 42)),
-      ((4L, 9L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), 22)),
-      ((4L, 6L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), 22)),
-      ((4L, 6L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2013-01-01")), 72))
+    val expectedEdges: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L ,1L, 4L, Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2015-01-01")), 42),
+      TEdge[Int](2L, 3L, 5L, Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2013-01-01")), 42),
+      TEdge[Int](3L, 1L, 2L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2017-01-01")), 22),
+      TEdge[Int](4L, 5L, 7L, Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2011-01-01")), 22),
+      TEdge[Int](5L, 4L, 8L, Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2017-01-01")), 42),
+      TEdge[Int](6L, 4L, 9L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), 22),
+      TEdge[Int](7L, 4L, 6L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), 22),
+      TEdge[Int](8L, 4L, 6L, Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2013-01-01")), 72)
     ))
     val expectedSGP2 = SnapshotGraphParallel.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
@@ -530,11 +474,11 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (6L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), "Halima")),
       (7L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2011-01-01")), "Sanjana"))
     ))
-    val expectedEdges3: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), 42)),
-      ((3L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2013-01-01")), 42)),
-      ((1L, 2L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2017-01-01")), 22)),
-      ((4L, 6L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), 22))
+    val expectedEdges3: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 4L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), 42),
+      TEdge[Int](2L, 3L, 5L, Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2013-01-01")), 42),
+      TEdge[Int](3L, 1L, 2L, Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2017-01-01")), 22),
+      TEdge[Int](7L, 4L, 6L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), 22)
     ))
     val expectedSGP3 = SnapshotGraphParallel.fromRDDs(expectedUsers3, expectedEdges3, "Default", StorageLevel.MEMORY_ONLY_SER)
 
@@ -557,15 +501,7 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (8L, (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), true)),
       (9L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), true))
     ))
-    val edges: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), true)),
-      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), true)),
-      ((1L, 2L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), true)),
-      ((5L, 7L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), true)),
-      ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), true)),
-      ((4L, 9L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), true)),
-      ((4L, 6L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), true))
-    ))
+    val edges: RDD[TEdge[StructureOnlyAttr]] = getTestEdges_Bool_1a
 
     val SGP = SnapshotGraphParallel.fromRDDs(users, edges, true, StorageLevel.MEMORY_ONLY_SER)
     val actualSGP = SGP.createTemporalNodes(new ChangeSpec(1), Exists(), Exists(), (attr1, attr2) => attr1, (attr1, attr2) => attr1)
@@ -587,14 +523,14 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (8L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2017-01-01")), true)),
       (9L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), true))
     ))
-    val expectedEdges: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2015-01-01")), true)),
-      ((3L, 5L), (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2013-01-01")), true)),
-      ((1L, 2L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2017-01-01")), true)),
-      ((5L, 7L), (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2011-01-01")), true)),
-      ((4L, 8L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2017-01-01")), true)),
-      ((4L, 9L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), true)),
-      ((4L, 6L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2015-01-01")), true))
+    val expectedEdges: RDD[TEdge[StructureOnlyAttr]] = ProgramContext.sc.parallelize(Array(
+      TEdge[StructureOnlyAttr](1L, 1L, 4L, Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2015-01-01")), true),
+      TEdge[StructureOnlyAttr](2L, 3L, 5L, Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2013-01-01")), true),
+      TEdge[StructureOnlyAttr](3L, 1L, 2L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2017-01-01")), true),
+      TEdge[StructureOnlyAttr](4L, 5L, 7L, Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2011-01-01")), true),
+      TEdge[StructureOnlyAttr](5L, 4L, 8L, Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2017-01-01")), true),
+      TEdge[StructureOnlyAttr](6L, 4L, 9L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), true),
+      TEdge[StructureOnlyAttr](7L, 4L, 6L, Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2015-01-01")), true)
     ))
     val expectedSGP2 = SnapshotGraphParallel.fromRDDs(expectedUsers, expectedEdges, true, StorageLevel.MEMORY_ONLY_SER)
 
@@ -613,11 +549,11 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (6L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), true)),
       (7L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2011-01-01")), true))
     ))
-    val expectedEdges3: RDD[((VertexId, VertexId), (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 4L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), true)),
-      ((3L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2013-01-01")), true)),
-      ((1L, 2L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2017-01-01")), true)),
-      ((4L, 6L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), true))
+    val expectedEdges3: RDD[TEdge[StructureOnlyAttr]] = ProgramContext.sc.parallelize(Array(
+      TEdge[StructureOnlyAttr](1L, 1L, 4L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), true),
+      TEdge[StructureOnlyAttr](2L, 3L, 5L, Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2013-01-01")), true),
+      TEdge[StructureOnlyAttr](3L, 1L, 2L, Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2017-01-01")), true),
+      TEdge[StructureOnlyAttr](7L, 4L, 6L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), true)
     ))
     val expectedSGP3 = SnapshotGraphParallel.fromRDDs(expectedUsers3, expectedEdges3, true, StorageLevel.MEMORY_ONLY_SER)
 
@@ -640,13 +576,13 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
 
     ))
 
-    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L,2L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), 40)),
-      ((2L,3L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01")), 50)),
-      ((3L,4L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 60)),
-      ((4L,5L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2015-01-01")), 70)),
-      ((5L,6L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2016-01-01")), 80)),
-      ((6L,7L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 90))
+    val edges: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L,2L, Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), 40),
+      TEdge[Int](2L, 2L,3L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01")), 50),
+      TEdge[Int](3L, 3L,4L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 60),
+      TEdge[Int](4L, 4L,5L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2015-01-01")), 70),
+      TEdge[Int](5L, 5L,6L, Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2016-01-01")), 80),
+      TEdge[Int](6L, 6L,7L, Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 90)
     ))
 
     val SGP = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
@@ -667,13 +603,13 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
 
     ))
 
-    val expectedEdges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L,1L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), 40)),
-      ((1L,1L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01")), 50)),
-      ((1L,1L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 60)),
-      ((1L,2L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2015-01-01")), 70)),
-      ((2L,2L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2016-01-01")), 80)),
-      ((2L,2L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 90))
+    val expectedEdges: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L,1L, Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), 40),
+      TEdge[Int](2L, 1L,1L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01")), 50),
+      TEdge[Int](3L, 1L,1L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 60),
+      TEdge[Int](4L, 1L,2L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2015-01-01")), 70),
+      TEdge[Int](5L, 2L,2L, Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2016-01-01")), 80),
+      TEdge[Int](6L, 2L,2L, Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 90)
     ))
     val expectedSGP = SnapshotGraphParallel.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
@@ -682,15 +618,16 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
     assert(expectedSGP.getTemporalSequence.collect === actualSGP.getTemporalSequence.collect)
 
   }
+
   test("size, getTemporalSequence.collect") {
     val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2017-01-01")), "John")),
       (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), "Mike")),
       (3L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2014-01-01")), "Ron"))
     ))
-    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2012-01-01")), 42)),
-      ((1L, 2L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22))
+    val edges: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 3L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2012-01-01")), 42),
+      TEdge[Int](2L, 1L, 2L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22)
     ))
     val SGP = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
@@ -717,10 +654,10 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (2L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2018-01-01")), "Mike")),
       (3L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2014-01-01")), "Ron"))
     ))
-    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((1L, 2L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2016-01-01")), 22)),
-      ((1L, 2L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
+    val edges: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 3L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42),
+      TEdge[Int](2L, 1L, 2L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2016-01-01")), 22),
+      TEdge[Int](3L, 1L, 2L, Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42)
 
     ))
     val SGP = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
@@ -748,12 +685,12 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "e"))
     ))
 
-    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((3L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((2L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42))
+    val edges: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 2L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42),
+      TEdge[Int](2L, 2L, 3L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42),
+      TEdge[Int](3L, 3L, 3L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42),
+      TEdge[Int](4L, 4L, 4L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42),
+      TEdge[Int](5L, 2L, 5L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)
     ))
 
     val SGP = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
@@ -766,12 +703,12 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (5L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), "E"))
     ))
 
-    val edges2: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), 22)),
-      ((2L, 3L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 52)),
-      ((3L, 3L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2018-01-01")), 22)),
-      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 52)),
-      ((5L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), 22))
+    val edges2: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 2L, Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), 22),
+      TEdge[Int](2L, 2L, 3L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 52),
+      TEdge[Int](3L, 3L, 3L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2018-01-01")), 22),
+      TEdge[Int](4L, 4L, 4L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 52),
+      TEdge[Int](5L, 5L, 5L, Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), 22)
     ))
 
     val SGP2 = SnapshotGraphParallel.fromRDDs(users2, edges2, "Default", StorageLevel.MEMORY_ONLY_SER)
@@ -790,16 +727,16 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (5L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2014-01-01")), "e"))
     ))
 
-    val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((1L, 2L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), 22)),
-      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((2L, 3L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 52)),
-      ((3L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((3L, 3L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 22)),
-      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 52)),
-      ((2L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((5L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), 22))
+    val expectedEdgesUnion: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 2L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42),
+      TEdge[Int](1L, 1L, 2L, Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), 22),
+      TEdge[Int](2L, 2L, 3L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42),
+      TEdge[Int](2L, 2L, 3L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 52),
+      TEdge[Int](3L, 3L, 3L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42),
+      TEdge[Int](3L, 3L, 3L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 22),
+      TEdge[Int](4L, 4L, 4L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 52),
+      TEdge[Int](5L, 2L, 5L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42),
+      TEdge[Int](5L, 5L, 5L, Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), 22)
     ))
 
     val resultSGPUnion = SGP.union(SGP2, (x,y)=>x+y , (x,y)=>math.max(x,y))
@@ -817,9 +754,9 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (5L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), "e"+"E"))
     ))
 
-    val expectedEdgesIntersection: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((3L, 3L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 52))
+    val expectedEdgesIntersection: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](3L, 3L, 3L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 42),
+      TEdge[Int](4L, 4L, 4L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 52)
     ))
     val expectedSGPIntersection = SnapshotGraphParallel.fromRDDs(expectedVerticesIntersection, expectedEdgesIntersection, "Default", StorageLevel.MEMORY_ONLY_SER)
 
@@ -838,12 +775,12 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
 
     ))
 
-    val expectedEdgesDifference: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42)),
-      ((3L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42)),
-      ((2L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), 42)),
-      ((2L, 5L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2014-01-01")), 42))
+    val expectedEdgesDifference: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 2L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42),
+      TEdge[Int](2L, 2L, 3L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42),
+      TEdge[Int](3L, 3L, 3L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42),
+      TEdge[Int](5L, 2L, 5L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), 42),
+      TEdge[Int](5L, 2L, 5L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2014-01-01")), 42)
 
     ))
     val expectedSGPDifference = SnapshotGraphParallel.fromRDDs(expectedVerticesDifference, expectedEdgesDifference, "Default", StorageLevel.MEMORY_ONLY_SER)
@@ -866,11 +803,11 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), "e"))
     ))
 
-    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), 42)),
-      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), 42)),
-      ((3L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), 42)),
-      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), 42))
+    val edges: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 2L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), 42),
+      TEdge[Int](2L, 2L, 3L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), 42),
+      TEdge[Int](3L, 3L, 3L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), 42),
+      TEdge[Int](4L, 4L, 4L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), 42)
     ))
 
     val SGP = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
@@ -883,12 +820,12 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (5L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), "E"))
     ))
 
-    val edges2: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), 22)),
-      ((2L, 3L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 52)),
-      ((3L, 3L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2018-01-01")), 22)),
-      ((4L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 52)),
-      ((5L, 5L), (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), 22))
+    val edges2: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 2L, Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), 22),
+      TEdge[Int](2L, 2L, 3L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 52),
+      TEdge[Int](3L, 3L, 3L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2018-01-01")), 22),
+      TEdge[Int](4L, 4L, 4L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 52),
+      TEdge[Int](5L, 5L, 5L, Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), 22)
     ))
 
     val SGP2 = SnapshotGraphParallel.fromRDDs(users2, edges2, "Default", StorageLevel.MEMORY_ONLY_SER)
@@ -908,14 +845,14 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
 
     ))
 
-    val expectedEdgesDifference: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((1L, 2L), (Interval(LocalDate.parse("2018-01-01"), LocalDate.parse("2019-01-01")), 42)),
-      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42)),
-      ((2L, 3L), (Interval(LocalDate.parse("2018-01-01"), LocalDate.parse("2019-01-01")), 42)),
-      ((3L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42)),
-      ((3L, 3L), (Interval(LocalDate.parse("2018-01-01"), LocalDate.parse("2019-01-01")), 42)),
-      ((4L, 4L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2019-01-01")), 42))
+    val expectedEdgesDifference: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 2L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42),
+      TEdge[Int](1L, 1L, 2L, Interval(LocalDate.parse("2018-01-01"), LocalDate.parse("2019-01-01")), 42),
+      TEdge[Int](2L, 2L, 3L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42),
+      TEdge[Int](2L, 2L, 3L, Interval(LocalDate.parse("2018-01-01"), LocalDate.parse("2019-01-01")), 42),
+      TEdge[Int](3L, 3L, 3L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42),
+      TEdge[Int](3L, 3L, 3L, Interval(LocalDate.parse("2018-01-01"), LocalDate.parse("2019-01-01")), 42),
+      TEdge[Int](4L, 4L, 4L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2019-01-01")), 42)
     ))
     val expectedSGPDifference = SnapshotGraphParallel.fromRDDs(expectedVerticesDifference, expectedEdgesDifference, "Default", StorageLevel.MEMORY_ONLY_SER)
 
@@ -932,8 +869,8 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "b"))
     ))
 
-    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42))
+    val edges: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 2L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)
     ))
 
     val SGP = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
@@ -943,8 +880,8 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), "C"))
     ))
 
-    val edges2: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), 52))
+    val edges2: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](2L, 2L, 3L, Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), 52)
     ))
 
     val SGP2 = SnapshotGraphParallel.fromRDDs(users2, edges2, "Default", StorageLevel.MEMORY_ONLY_SER)
@@ -956,9 +893,9 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), "C"))
     ))
 
-    val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), 52))
+    val expectedEdgesUnion: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 2L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42),
+      TEdge[Int](2L, 2L, 3L, Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), 52)
     ))
 
     val expectedSGPUnion = SnapshotGraphParallel.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, "Default", StorageLevel.MEMORY_ONLY_SER)
@@ -984,8 +921,8 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
 
     ))
 
-    val expectedEdgesDifference: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42))
+    val expectedEdgesDifference: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 2L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)
     ))
     val expectedSGPDifference = SnapshotGraphParallel.fromRDDs(expectedVerticesDifference, expectedEdgesDifference, "Default", StorageLevel.MEMORY_ONLY_SER)
 
@@ -996,13 +933,14 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
 
   }
 
+
   test("Union,intersection and Difference -when graph.span.start == graph2.span.end") {
     val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "a")),
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "b"))
     ))
-    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42))
+    val edges: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 2L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)
     ))
     val SGP = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
@@ -1011,8 +949,8 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), "b1")),
       (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), "C"))
     ))
-    val edges2: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), 52))
+    val edges2: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](2L, 2L, 3L, Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), 52)
     ))
     val SGP2 = SnapshotGraphParallel.fromRDDs(users2, edges2, "Default", StorageLevel.MEMORY_ONLY_SER)
 
@@ -1022,9 +960,9 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), "b1")),
       (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), "C"))
     ))
-    val expectedEdgesUnion: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((2L, 3L), (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), 52))
+    val expectedEdgesUnion: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 2L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42),
+      TEdge[Int](2L, 2L, 3L, Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), 52)
     ))
 
     val expectedSGPUnion = SnapshotGraphParallel.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, "Default", StorageLevel.MEMORY_ONLY_SER)
@@ -1051,23 +989,23 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "c")),
       (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "d"))
     ))
-    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2012-01-01")), 4)),
-      ((1L, 2L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2014-01-01")), -4)),
-      ((1L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 2))
+    val edges: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 2L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2012-01-01")), 4),
+      TEdge[Int](1L, 1L, 2L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2014-01-01")), -4),
+      TEdge[Int](2L, 1L, 3L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 2)
     ))
     val SGP = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
-    val actualSGP = SGP.emap((intv,edge) => (edge.attr * edge.attr)).vmap((vertex,intv, name) => name.toUpperCase, "Default")
+    val actualSGP = SGP.emap((intv,edge) => (edge.attr._1,(edge.attr._2 * edge.attr._2))).vmap((vertex,intv, name) => name.toUpperCase, "Default")
 
     val expectedVertices: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2016-01-01")), "B")),
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "C")),
       (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), "D"))
     ))
-    val expectedEdges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 16)),
-      ((1L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 4))
+    val expectedEdges: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 2L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 16),
+      TEdge[Int](2L, 1L, 3L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 4)
     ))
     val expectedSGP = SnapshotGraphParallel.fromRDDs(expectedVertices, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
@@ -1083,9 +1021,9 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), "Mike")),
       (3L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2014-01-01")), "Ron"))
     ))
-    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2012-01-01")), 42)),
-      ((1L, 2L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22))
+    val edges: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 3L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2012-01-01")), 42),
+      TEdge[Int](2L, 1L, 2L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22)
     ))
     val SGP = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
@@ -1113,7 +1051,7 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (3L, "Ron")
     ))
     val expectedEdges4 = ProgramContext.sc.parallelize(Array(
-      Edge(1L, 3L, 42)
+      Edge(1L, 3L, (1L, 42))
     ))
     assert(expectedUsers4.collect.toSet === graph4.vertices.collect.toSet)
     assert(expectedEdges4.collect.toSet === graph4.edges.collect.toSet)
@@ -1132,7 +1070,7 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (2L, "Mike")
     ))
     val expectedEdges6 = ProgramContext.sc.parallelize(Array(
-      Edge(1L, 2L, 22)
+      Edge(1L, 2L, (2L, 22))
     ))
     assert(expectedUsers6.collect.toSet === graph6.vertices.collect.toSet)
     assert(expectedUsers6.collect.toSet === graph6.vertices.collect.toSet)
@@ -1242,25 +1180,7 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (8L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Lovro"))
     ))
 
-    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((2L, 6L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((2L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((3L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((4L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((5L, 6L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((7L, 8L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-
-      //second representative graph
-      ((1L, 3L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((1L, 5L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((3L, 7L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((5L, 7L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((4L, 8L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((6L, 8L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42))
-    ))
+    val edges: RDD[TEdge[Int]] = getTestEdges_Int_3().union(getTestEdges_Int_4a()).union(getTestEdges_Int_4b())
 
     val expectedNodes: RDD[(VertexId, (Interval, (String, Int)))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), ("John", 1))),
@@ -1296,25 +1216,7 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (8L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Lovro"))
     ))
 
-    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((2L, 6L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((2L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((3L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((4L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((5L, 6L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((7L, 8L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-
-      //second representative graph
-      ((1L, 3L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((1L, 5L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((3L, 7L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((5L, 7L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42))
-      //I dont have the last two edges used in other tests because I want to test coalescing.
-      // Here, 8 is coalesced.
-    ))
+    val edges: RDD[TEdge[Int]] = getTestEdges_Int_3().union(getTestEdges_Int_4a())
 
     val expectedNodes: RDD[(VertexId, (Interval, (String, Map[VertexId, Int])))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), ("John", new Long2IntOpenHashMap(Array(1L, 2L), Array(0, 1)).asInstanceOf[Map[VertexId,Int]]))),
@@ -1354,25 +1256,7 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (8L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Lovro"))
     ))
 
-    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((2L, 6L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((2L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((3L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((4L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((5L, 6L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((7L, 8L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-
-      //second representative graph
-      ((1L, 3L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((1L, 5L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((3L, 7L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((5L, 7L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42))
-      //I dont have the last two edges used in other tests because I want to test coalescing.
-      // Here, 8 is coalesced.
-    ))
+    val edges: RDD[TEdge[Int]] = getTestEdges_Int_3().union(getTestEdges_Int_4a())
 
     val expectedNodes: RDD[(VertexId, (Interval, (String, Map[VertexId, Int])))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), ("John", scala.collection.Map(5L -> 3, 6L -> 2).asJava))),
@@ -1412,25 +1296,7 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (8L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Lovro"))
     ))
 
-    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((2L, 6L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((2L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((3L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((4L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((5L, 6L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((7L, 8L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-
-      //second representative graph
-      ((1L, 3L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((1L, 5L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((3L, 7L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((5L, 7L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((4L, 8L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((6L, 8L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42))
-    ))
+    val edges: RDD[TEdge[Int]] = getTestEdges_Int_3().union(getTestEdges_Int_4a()).union(getTestEdges_Int_4b())
 
     //Pagerank using spark's api
     val testNodes: RDD[(VertexId, String)] = ProgramContext.sc.parallelize(Array(
@@ -1443,16 +1309,16 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (7L, "Sanjana"),
       (8L, "Lovro")
     ))
-    val testEdges: RDD[Edge[Int]] = ProgramContext.sc.parallelize(Array(
-      Edge(1L, 2L, 42),
-      Edge(2L, 3L, 42),
-      Edge(2L, 6L, 42),
-      Edge(2L, 4L, 42),
-      Edge(3L, 5L, 42),
-      Edge(3L, 4L, 42),
-      Edge(4L, 5L, 42),
-      Edge(5L, 6L, 42),
-      Edge(7L, 8L, 42)
+    val testEdges: RDD[Edge[(EdgeId,Int)]] = ProgramContext.sc.parallelize(Array(
+      Edge(1L, 2L, (1L,42)),
+      Edge(2L, 3L, (2L,42)),
+      Edge(2L, 6L, (3L,42)),
+      Edge(2L, 4L, (4L,42)),
+      Edge(3L, 5L, (5L,42)),
+      Edge(3L, 4L, (6L,42)),
+      Edge(4L, 5L, (7L,42)),
+      Edge(5L, 6L, (8L,42)),
+      Edge(7L, 8L, (9L,42))
     ))
     val graph1 = Graph(testNodes, testEdges, "Default")
     val pageRank2010_2014 = graph1.staticPageRank(10, 0.15)
@@ -1467,15 +1333,15 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (7L, "Sanjana"),
       (8L, "Lovro")
     ))
-    val testEdges2: RDD[Edge[Int]] = ProgramContext.sc.parallelize(Array(
-      Edge(1L, 3L, 42),
-      Edge(1L, 5L, 42),
-      Edge(3L, 7L, 42),
-      Edge(5L, 7L, 42),
-      Edge(2L, 4L, 42),
-      Edge(2L, 6L, 42),
-      Edge(4L, 8L, 42),
-      Edge(6L, 8L, 42)
+    val testEdges2: RDD[Edge[(EdgeId,Int)]] = ProgramContext.sc.parallelize(Array(
+      Edge(1L, 3L, (10L,42)),
+      Edge(1L, 5L, (11L,42)),
+      Edge(3L, 7L, (12L,42)),
+      Edge(5L, 7L, (13L,42)),
+      Edge(2L, 4L, (4L,42)),
+      Edge(2L, 6L, (3L,42)),
+      Edge(4L, 8L, (14L,42)),
+      Edge(6L, 8L, (15L,42))
     ))
     val graph2 = Graph(testNodes2, testEdges2, "Default")
     val pageRank2014_2018 = graph2.staticPageRank(10, 0.15)
@@ -1521,25 +1387,7 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (8L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Lovro"))
     ))
 
-    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
-      ((1L, 2L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((2L, 3L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((2L, 6L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((2L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((3L, 4L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((4L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((5L, 6L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-      ((7L, 8L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)),
-
-      //second representative graph
-      ((1L, 3L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((1L, 5L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((3L, 7L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((5L, 7L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((4L, 8L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)),
-      ((6L, 8L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42))
-    ))
+    val edges: RDD[TEdge[Int]] = getTestEdges_Int_3().union(getTestEdges_Int_4a()).union(getTestEdges_Int_4b())
 
     //Pagerank using spark's api
     val testNodes: RDD[(VertexId, String)] = ProgramContext.sc.parallelize(Array(
@@ -1552,26 +1400,26 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (7L, "Sanjana"),
       (8L, "Lovro")
     ))
-    val testEdges: RDD[Edge[Int]] = ProgramContext.sc.parallelize(Array(
-      Edge(1L, 2L, 42),
-      Edge(2L, 3L, 42),
-      Edge(2L, 6L, 42),
-      Edge(2L, 4L, 42),
-      Edge(3L, 5L, 42),
-      Edge(3L, 4L, 42),
-      Edge(4L, 5L, 42),
-      Edge(5L, 6L, 42),
-      Edge(7L, 8L, 42),
+    val testEdges: RDD[Edge[(EdgeId,Int)]] = ProgramContext.sc.parallelize(Array(
+      Edge(1L, 2L, (1L,42)),
+      Edge(2L, 3L, (2L,42)),
+      Edge(2L, 6L, (3L,42)),
+      Edge(2L, 4L, (4L,42)),
+      Edge(3L, 5L, (5L,42)),
+      Edge(3L, 4L, (6L,42)),
+      Edge(4L, 5L, (7L,42)),
+      Edge(5L, 6L, (8L,42)),
+      Edge(7L, 8L, (9L,42)),
 
-      Edge(2L, 1L, 42),
-      Edge(3L, 2L, 42),
-      Edge(6L, 2L, 42),
-      Edge(4L, 2L, 42),
-      Edge(5L, 3L, 42),
-      Edge(4L, 3L, 42),
-      Edge(5L, 4L, 42),
-      Edge(6L, 5L, 42),
-      Edge(8L, 7L, 42)
+      Edge(2L, 1L, (1L,42)),
+      Edge(3L, 2L, (2L,42)),
+      Edge(6L, 2L, (3L,42)),
+      Edge(4L, 2L, (4L,42)),
+      Edge(5L, 3L, (5L,42)),
+      Edge(4L, 3L, (6L,42)),
+      Edge(5L, 4L, (7L,42)),
+      Edge(6L, 5L, (8L,42)),
+      Edge(8L, 7L, (9L,42))
     ))
     val graph1 = Graph(testNodes, testEdges, "Default")
     val pageRank2010_2014 = graph1.staticPageRank(10, 0.15)
@@ -1586,24 +1434,25 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
       (7L, "Sanjana"),
       (8L, "Lovro")
     ))
-    val testEdges2: RDD[Edge[Int]] = ProgramContext.sc.parallelize(Array(
-      Edge(1L, 3L, 42),
-      Edge(1L, 5L, 42),
-      Edge(3L, 7L, 42),
-      Edge(5L, 7L, 42),
-      Edge(2L, 4L, 42),
-      Edge(2L, 6L, 42),
-      Edge(4L, 8L, 42),
-      Edge(6L, 8L, 42),
+    val testEdges2: RDD[Edge[(EdgeId,Int)]] = ProgramContext.sc.parallelize(Array(
+      Edge(1L, 3L, (10L,42)),
+      Edge(1L, 5L, (11L,42)),
+      Edge(3L, 7L, (12L,42)),
+      Edge(5L, 7L, (13L,42)),
+      Edge(2L, 4L, (4L,42)),
+      Edge(2L, 6L, (3L,42)),
+      Edge(4L, 8L, (14L,42)),
+      Edge(6L, 8L, (15L,42)),
 
-      Edge(3L, 1L, 42),
-      Edge(5L, 1L, 42),
-      Edge(7L, 3L, 42),
-      Edge(7L, 5L, 42),
-      Edge(4L, 2L, 42),
-      Edge(6L, 2L, 42),
-      Edge(8L, 4L, 42),
-      Edge(8L, 6L, 42)
+      Edge(3L, 1L, (10L,42)),
+      Edge(5L, 1L, (11L,42)),
+      Edge(7L, 3L, (12L,42)),
+      Edge(7L, 5L, (13L,42)),
+      Edge(4L, 2L, (4L,42)),
+      Edge(6L, 2L, (3L,42)),
+      Edge(8L, 4L, (14L,42)),
+      Edge(8L, 6L, (15L,42))
+
     ))
     val graph2 = Graph(testNodes2, testEdges2, "Default")
     val pageRank2014_2018 = graph2.staticPageRank(10, 0.15)
@@ -1662,11 +1511,97 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
 
     val nodesAndEdges = AggregateMessagesTestUtil.getNodesAndEdges_v1
 
-    var g = SnapshotGraphParallel.fromRDDs(nodesAndEdges._1,nodesAndEdges._2,"Default")
+    var g = SnapshotGraphParallel.fromRDDs(nodesAndEdges._1, nodesAndEdges._2, "Default")
 
-    val result = g.aggregateMessages[Int](AggregateMessagesTestUtil.sendMsg_vertexPredicate, (a, b) => {a+b}, 0, TripletFields.All)
-      .asInstanceOf[SnapshotGraphParallel[(String,Int),Int]]
+    val result = g.aggregateMessages[Int](AggregateMessagesTestUtil.sendMsg_vertexPredicate, (a, b) => {
+      a + b
+    }, 0, TripletFields.All)
+      .asInstanceOf[SnapshotGraphParallel[(String, Int), Int]]
 
     AggregateMessagesTestUtil.assertions_vertexPredicate(result)
+  }
+  
+  private def getTestEdges_Int_1b(): RDD[TEdge[Int]] = {
+    ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 4L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 22),
+      TEdge[Int](2L, 3L, 5L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 22),
+      TEdge[Int](3L, 1L, 2L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22),
+      TEdge[Int](4L, 5L, 7L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), 22),
+      TEdge[Int](5L, 4L, 8L, Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 22),
+      TEdge[Int](6L, 4L, 9L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 22)
+    ))
+  }
+
+  private def getTestEdges_Int_1a(): RDD[TEdge[Int]] = {
+    ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 4L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 42),
+      TEdge[Int](2L, 3L, 5L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42),
+      TEdge[Int](3L, 1L, 2L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22),
+      TEdge[Int](4L, 5L, 7L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), 22),
+      TEdge[Int](5L, 4L, 8L, Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42),
+      TEdge[Int](6L, 4L, 9L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 22)
+    ))
+  }
+
+  private def getTestEdges_Int_2(): RDD[TEdge[Int]] = {
+    ProgramContext.sc.parallelize(Array(
+      TEdge[Int](7L, 4L, 6L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), 22),
+      TEdge[Int](8L, 4L, 6L, Interval(LocalDate.parse("2012-06-01"), LocalDate.parse("2013-01-01")), 72)
+    ))
+  }
+
+  private def getTestEdges_Int_3(): RDD[TEdge[Int]] = {
+    ProgramContext.sc.parallelize(Array(
+      TEdge[Int](1L, 1L, 2L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42),
+      TEdge[Int](2L, 2L, 3L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42),
+      TEdge[Int](3L, 2L, 6L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), 42),
+      TEdge[Int](4L, 2L, 4L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), 42),
+      TEdge[Int](5L, 3L, 5L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42),
+      TEdge[Int](6L, 3L, 4L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42),
+      TEdge[Int](7L, 4L, 5L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42),
+      TEdge[Int](8L, 5L, 6L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42),
+      TEdge[Int](9L, 7L, 8L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42)
+    ))
+  }
+
+  private def getTestEdges_Int_4a(): RDD[TEdge[Int]] = {
+    ProgramContext.sc.parallelize(Array(
+      TEdge[Int](10L, 1L, 3L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42),
+      TEdge[Int](11L, 1L, 5L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42),
+      TEdge[Int](12L, 3L, 7L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42),
+      TEdge[Int](13L, 5L, 7L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)
+    ))
+  }
+
+  private def getTestEdges_Int_4b(): RDD[TEdge[Int]] = {
+    ProgramContext.sc.parallelize(Array(
+      TEdge[Int](14L, 4L, 8L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42),
+      TEdge[Int](15L, 6L, 8L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 42)
+    ))
+  }
+
+  private def getTestEdges_Bool_1(): RDD[TEdge[StructureOnlyAttr]] = {
+    ProgramContext.sc.parallelize(Array(
+      TEdge[StructureOnlyAttr](1L, 1L, 4L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), true),
+      TEdge[StructureOnlyAttr](2L, 3L, 5L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), true),
+      TEdge[StructureOnlyAttr](3L, 1L, 2L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), true),
+      TEdge[StructureOnlyAttr](4L, 5L, 7L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), true),
+      TEdge[StructureOnlyAttr](5L, 4L, 8L, Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), true),
+      TEdge[StructureOnlyAttr](6L, 4L, 9L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), true),
+      TEdge[StructureOnlyAttr](7L, 4L, 6L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2015-01-01")), true),
+      TEdge[StructureOnlyAttr](8L, 4L, 6L, Interval(LocalDate.parse("2012-06-01"), LocalDate.parse("2013-01-01")), true)
+    ))
+  }
+
+  private def getTestEdges_Bool_1a(): RDD[TEdge[StructureOnlyAttr]] = {
+    ProgramContext.sc.parallelize(Array(
+      TEdge[StructureOnlyAttr](1L, 1L, 4L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), true),
+      TEdge[StructureOnlyAttr](2L, 3L, 5L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), true),
+      TEdge[StructureOnlyAttr](3L, 1L, 2L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), true),
+      TEdge[StructureOnlyAttr](4L, 5L, 7L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), true),
+      TEdge[StructureOnlyAttr](5L, 4L, 8L, Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), true),
+      TEdge[StructureOnlyAttr](6L, 4L, 9L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), true),
+      TEdge[StructureOnlyAttr](7L, 4L, 6L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), true)
+    ))
   }
 }

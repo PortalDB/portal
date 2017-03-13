@@ -4,6 +4,7 @@ import java.time.LocalDate
 
 import org.apache.spark.graphx.{EdgeTriplet, VertexId}
 import org.apache.spark.rdd.RDD
+import src.main.scala.edu.drexel.cs.dbgroup.temporalgraph.TEdge
 
 /**
   * Created by mtg5014 on 1/26/2017.
@@ -21,12 +22,12 @@ object AggregateMessagesTestUtil {
   val tenToFourteen = Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01"))
   val fourteenToEighteen = Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01"))
 
-  val sendMsg_noPredicate = (triplet: EdgeTriplet[String,String]) => {
+  val sendMsg_noPredicate = (triplet: EdgeTriplet[String,(EdgeId,String)]) => {
     Iterator((triplet.dstId,1),(triplet.srcId,1))
   }
 
-  val sendMsg_edgePredicate = (triplet: EdgeTriplet[String, String]) => {
-    if(triplet.attr.contentEquals("friend")) {
+  val sendMsg_edgePredicate = (triplet: EdgeTriplet[String, (EdgeId,String)]) => {
+    if(triplet.attr._2.contentEquals("friend")) {
       Iterator((triplet.dstId,1),(triplet.srcId,1))
     }
     else {
@@ -34,7 +35,7 @@ object AggregateMessagesTestUtil {
     }
   }
 
-  val sendMsg_vertexPredicate = (triplet: EdgeTriplet[String, String]) => {
+  val sendMsg_vertexPredicate = (triplet: EdgeTriplet[String, (EdgeId,String)]) => {
     if(triplet.srcAttr.contentEquals("John")){
       Iterator((triplet.srcId,1))
     }
@@ -46,7 +47,7 @@ object AggregateMessagesTestUtil {
     }
   }
 
-  def getNodesAndEdges_v1(): (RDD[(VertexId, (Interval, String))],RDD[((VertexId, VertexId),(Interval, String ))]) = {
+  def getNodesAndEdges_v1(): (RDD[(VertexId, (Interval, String))],RDD[TEdge[String]]) = {
     //edge attributes for later - for each node we have a count of friends - we ignore enemy edges
 
 
@@ -59,30 +60,30 @@ object AggregateMessagesTestUtil {
       (6l, (tenToEighteen,"Bill"))
     ))
 
-    val edges: RDD[((VertexId, VertexId),(Interval, String ))] = ProgramContext.sc.parallelize(Array(
+    val edges: RDD[TEdge[String]] = ProgramContext.sc.parallelize(Array(
       //john, mike, and bob are always friends
-      /*((1l,2l), (tenToEighteen, FRIEND)),
-      ((1l,3l), (tenToEighteen, FRIEND)),
-      ((2l,3l), (tenToEighteen, FRIEND)),
+      TEdge[String](1L,1l,2l, tenToEighteen, FRIEND),
+      TEdge[String](2L,1l,3l, tenToEighteen, FRIEND),
+      TEdge[String](3L,2l,3l, tenToEighteen, FRIEND),
       //james, matt, and bill are always enemies
-      ((4l,5l), (tenToEighteen, ENEMY)),
-      ((4l,6l), (tenToEighteen, ENEMY)),
-      ((5l,6l), (tenToEighteen, ENEMY)),
+      TEdge[String](4L,4l,5l, tenToEighteen, ENEMY),
+      TEdge[String](5L,4l,6l, tenToEighteen, ENEMY),
+      TEdge[String](6L,5l,6l, tenToEighteen, ENEMY),
       //john is friends with james, matt, and bill through 2014, but enemies after
-      ((1l,4l), (tenToFourteen, FRIEND)),
-      ((1l,5l), (tenToFourteen, FRIEND)),*/
-      ((1l,6l), (tenToFourteen, FRIEND))//,
-      /*((1l,4l), (fourteenToEighteen, ENEMY)),
-      ((1l,5l), (fourteenToEighteen, ENEMY)),
-      ((1l,6l), (fourteenToEighteen, ENEMY)),
+      TEdge[String](7L,1l,4l, tenToFourteen, FRIEND),
+      TEdge[String](8L,1l,5l, tenToFourteen, FRIEND),
+      TEdge[String](9L,1l,6l, tenToFourteen, FRIEND),
+      TEdge[String](10L,1l,4l, fourteenToEighteen, ENEMY),
+      TEdge[String](11L,1l,5l, fourteenToEighteen, ENEMY),
+      TEdge[String](12L,1l,6l, fourteenToEighteen, ENEMY),
       //mike is friends with james, matt, and bill, but only through 2014
-      ((2l,4l), (tenToFourteen, FRIEND)),
-      ((2l,5l), (tenToFourteen, FRIEND)),
-      ((2l,6l), (tenToFourteen, FRIEND)),
+      TEdge[String](13L,2l,4l, tenToFourteen, FRIEND),
+      TEdge[String](14L,2l,5l, tenToFourteen, FRIEND),
+      TEdge[String](15L,2l,6l, tenToFourteen, FRIEND),
       //bob is enemies with james, matt, and bill after 2014
-      ((3l,4l), (fourteenToEighteen, ENEMY)),
-      ((4l,5l), (fourteenToEighteen, ENEMY)),
-      ((5l,6l), (fourteenToEighteen, ENEMY))*/
+      TEdge[String](16L,3l,4l, fourteenToEighteen, ENEMY),
+      TEdge[String](17L,4l,5l, fourteenToEighteen, ENEMY),
+      TEdge[String](18L,5l,6l, fourteenToEighteen, ENEMY)
     ))
     (nodes,edges)
   }
@@ -109,7 +110,7 @@ object AggregateMessagesTestUtil {
 
     assert(resultList.size == 10)
 
-    /*for(i <- 0 until resultList.size) {
+    for(i <- 0 until resultList.size) {
       var node = resultList(i)
       i match {
         case 0 => assertSingle(node,1,tenToEighteen,"John",5)
@@ -123,7 +124,7 @@ object AggregateMessagesTestUtil {
         case 8 => assertSingle(node,5,fourteenToEighteen,"Matt",5)
         case 9 => assertSingle(node,6,tenToEighteen,"Bill",4)
       }
-    }*/
+    }
   }
 
   def assertions_edgePredicate(result: TGraphNoSchema[(String,Int),Int]) : Unit = {
