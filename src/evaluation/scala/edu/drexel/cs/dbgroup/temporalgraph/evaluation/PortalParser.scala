@@ -369,7 +369,7 @@ object Interpreter {
       }
       case SWhere(g, w, st) => {
         val gr = st match {
-          case s: NoConvert => parseGraph(g)
+          case s: NoConvert => parseGraph(g, w)
           case c: Convert => convertGraph(parseGraph(g), c)
         }
         w match {
@@ -587,10 +587,14 @@ object Interpreter {
     }
   }
 
-  def parseGraph(g: Graph): TGraphNoSchema[Any,Any] = {
+  def parseGraph(g: Graph, c: Where = NoWhere()): TGraphNoSchema[Any,Any] = {
     g match {
-      //TODO: push time selection into load
-      case DataSet(nm, col) => load(nm, col, Interval(LocalDate.MIN, LocalDate.MAX))
+      case DataSet(nm, col) => {
+         c match {
+           case t: TWhere => load(nm, col, Interval(t.start, t.end))
+           case _ =>  load(nm, col, Interval(LocalDate.MIN, LocalDate.MAX))
+         }
+      }
       case Nested(sel) => parseSelect(sel)
     }
   }
@@ -739,6 +743,7 @@ case class ConnectedComponents() extends Compute
 case class ShortestPaths(dir: Direction, ids: Seq[String]) extends Compute
 
 sealed abstract class Where
+case class NoWhere() extends Where
 case class TWhere(datec: Datecond) extends Where {
   var start: LocalDate = datec match {
     case StartDate(dt) => dt.value

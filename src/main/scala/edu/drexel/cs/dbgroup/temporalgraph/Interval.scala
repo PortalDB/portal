@@ -20,7 +20,7 @@ class Interval(st: LocalDate, en: LocalDate) extends Serializable {
   def getEndSeconds:Long = math.floor(DateTimeUtils.daysToMillis(end.toEpochDay().toInt).toDouble / 1000L).toLong
 
   override def toString():String = {
-    "[" + start.toString + "-" + end.toString + "]"
+    "[" + start.toString + "-" + end.toString + ")"
   }
 
   override def equals(other:Any):Boolean = {

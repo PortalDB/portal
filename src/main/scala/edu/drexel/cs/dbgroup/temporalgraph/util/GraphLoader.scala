@@ -10,6 +10,7 @@ import org.apache.spark.storage.StorageLevel
 import org.apache.spark.graphx.VertexId
 import org.apache.spark.HashPartitioner
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.catalyst.util.DateTimeUtils
 
 import org.apache.hadoop.conf._
 import org.apache.hadoop.fs._
@@ -87,6 +88,14 @@ object GraphLoader {
     var nodeDFs = getPaths(url, bounds, "nodes" + filter).map(nf => ProgramContext.getSession.read.parquet(nf))
     var edgeDFs = getPaths(url, bounds, "edges" + filter).map(nf => ProgramContext.getSession.read.parquet(nf))
 
+    //select within bounds
+    if (bounds.start != LocalDate.MIN || bounds.end != LocalDate.MAX) {
+       val secs1 = math.floor(DateTimeUtils.daysToMillis(bounds.start.toEpochDay().toInt).toDouble / 1000L).toLong
+       val secs2 = math.floor(DateTimeUtils.daysToMillis(bounds.end.toEpochDay().toInt).toDouble / 1000L).toLong
+       nodeDFs = nodeDFs.map(nf => nf.filter("NOT (estart >= " + secs2 + " OR eend <= " + secs1 + ")"))
+       edgeDFs = edgeDFs.map(nf => nf.filter("NOT (estart >= " + secs1 + " OR eend <= " + secs1 + ")"))
+    } 
+
     //the schema should be the same in each df
     val vattr = 2 + vattrcol
     if (nodeDFs.head.schema.fields.size <= vattr)
@@ -146,6 +155,14 @@ object GraphLoader {
 
     var users = ProgramContext.getSession.read.parquet(nodesFiles:_*)
     var links = ProgramContext.getSession.read.parquet(edgesFiles:_*)
+
+    //select within bounds
+    if (bounds.start != LocalDate.MIN || bounds.end != LocalDate.MAX) {
+       val secs1 = math.floor(DateTimeUtils.daysToMillis(bounds.start.toEpochDay().toInt).toDouble / 1000L).toLong
+       val secs2 = math.floor(DateTimeUtils.daysToMillis(bounds.end.toEpochDay().toInt).toDouble / 1000L).toLong
+       users = users.filter("NOT (estart >= " + secs2 + " OR eend <= " + secs1 + ")")
+       links = links.filter("NOT (estart >= " + secs1 + " OR eend <= " + secs1 + ")")
+    }
 
     val vattr = 2 + vattrcol
     if (users.schema.fields.size <= vattr)
@@ -257,9 +274,11 @@ object GraphLoader {
     if (System.getenv("HADOOP_CONF_DIR") != "") {
       conf.addResource(new Path(System.getenv("HADOOP_CONF_DIR") + "/core-site.xml"))
     }
+    val filterP = if (filter.endsWith("_")) filter else filter + "_"
     val pathFilter = new PathFilter {
       def accept(p: Path): Boolean = {
-        p.getName().contains(filter)
+        val pat = (filterP+"""\d""").r
+        pat.findFirstIn(p.getName()).isDefined
       }
     }
     val status = FileSystem.get(conf).listStatus(pt, pathFilter)

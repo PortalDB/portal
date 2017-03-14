@@ -540,17 +540,18 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
 
       val degrees: VertexRDD[Int2IntOpenHashMap] = graphs.aggregateMessages[Int2IntOpenHashMap](
         ctx => {
-          ctx.sendToSrc{var tmp = new Int2IntOpenHashMap(); ctx.attr.seq.foreach(x => tmp.put(x,1)); tmp}
-          ctx.sendToDst{var tmp = new Int2IntOpenHashMap(); ctx.attr.seq.foreach(x => tmp.put(x,1)); tmp}
-        },
+          ctx.attr.foreach {ii =>
+          ctx.sendToSrc{new Int2IntOpenHashMap(Array(ii),Array(1))}
+          ctx.sendToDst{new Int2IntOpenHashMap(Array(ii),Array(1))}
+        }},
         mergeFunc, TripletFields.EdgeOnly)
 
       val pagerankGraph: Graph[Int2ObjectOpenHashMap[(Double, Double)], Int2ObjectOpenHashMap[(Double, Double)]] = graphs.outerJoinVertices(degrees) {
         case (vid, vdata, Some(deg)) => vdata.filter(x => !deg.contains(x)).seq.foreach(x => deg.put(x,0)); deg
-        case (vid, vdata, None) => val tmp = new Int2IntOpenHashMap(); vdata.seq.foreach(x => tmp.put(x,0)); tmp
+        case (vid, vdata, None) => new Int2IntOpenHashMap(vdata.toArray, Array.fill(vdata.size)(0))
       }
-        .mapTriplets{ e => val tmp = new Int2ObjectOpenHashMap[(Double, Double)](); e.attr.seq.foreach(x => tmp.put(x, (1.0 / e.srcAttr(x), 1.0 / e.dstAttr(x)) )); tmp}
-        .mapVertices( (id,attr) => new Int2ObjectOpenHashMap[(Double, Double)](attr.keySet().toIntArray(), Array.fill(attr.size)((0.0,0.0)))).cache()
+        .mapTriplets{ e => new Int2ObjectOpenHashMap[(Double, Double)](e.attr.toArray, e.attr.toArray.map(x => (1.0/e.srcAttr(x), 1.0/e.dstAttr(x))))}
+        .mapVertices( (id,attr) => new Int2ObjectOpenHashMap[(Double,Double)](attr.keySet().toIntArray(), Array.fill(attr.size)((0.0,0.0)))).cache()
 
       val vertexProgram = (id: VertexId, attr: Int2ObjectOpenHashMap[(Double, Double)], msg: Int2DoubleOpenHashMap) => {
         var vals = attr.clone
@@ -568,12 +569,12 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
         edge.attr.toList.flatMap{ case (k,v) =>
           if (edge.srcAttr.apply(k)._2 > tol &&
             edge.dstAttr.apply(k)._2 > tol) {
-            Iterator((edge.dstId, {var tmp = new Int2DoubleOpenHashMap(); tmp.put(k: Int, edge.srcAttr.apply(k)._2 * v._1); tmp} ),
-              (edge.srcId, {var tmp = new Int2DoubleOpenHashMap(); tmp.put(k: Int, edge.dstAttr.apply(k)._2 * v._2); tmp} ))
+            Iterator((edge.dstId, new Int2DoubleOpenHashMap(Array(k.toInt), Array(edge.srcAttr.apply(k)._2 * v._1)) ),
+              (edge.srcId, new Int2DoubleOpenHashMap(Array(k.toInt), Array(edge.dstAttr.apply(k)._2 * v._2))))
           } else if (edge.srcAttr.apply(k)._2 > tol) {
-            Some((edge.dstId, {var tmp = new Int2DoubleOpenHashMap(); tmp.put(k: Int, edge.srcAttr.apply(k)._2 * v._1); tmp}))
+            Some((edge.dstId, new Int2DoubleOpenHashMap(Array(k.toInt), Array(edge.srcAttr.apply(k)._2 * v._1))))
           } else if (edge.dstAttr.apply(k)._2 > tol) {
-            Some((edge.srcId, {var tmp = new Int2DoubleOpenHashMap(); tmp.put(k: Int, edge.dstAttr.apply(k)._2 * v._2); tmp}))
+            Some((edge.srcId, new Int2DoubleOpenHashMap(Array(k.toInt), Array(edge.dstAttr.apply(k)._2 * v._2))))
           } else {
             None
           }
@@ -594,13 +595,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       // The initial message received by all vertices in PageRank
       //has to be a map from every interval index
       var i:Int = 0
-      val initialMessage:Int2DoubleOpenHashMap = {
-        var tmpMap = new Int2DoubleOpenHashMap()
-        for(i <- 0 to collectedIntervals.size-1) {
-          tmpMap.put(i, resetProb / (1.0 - resetProb))
-        }
-        tmpMap
-      }
+      val initialMessage:Int2DoubleOpenHashMap = new Int2DoubleOpenHashMap((0 until collectedIntervals.size).toArray, Array.fill(collectedIntervals.size)(resetProb / (1.0-resetProb)))
 
       val resultGraph: Graph[Map[TimeIndex,(Double,Double)], Map[TimeIndex,(Double,Double)]] = Pregel(pagerankGraph, initialMessage, numIter, activeDirection = EdgeDirection.Either)(vertexProgram, sendMessage, messageCombiner)
         .asInstanceOf[Graph[Map[TimeIndex,(Double,Double)], Map[TimeIndex,(Double,Double)]]]
@@ -631,16 +626,16 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       }
 
       val degrees: VertexRDD[Int2IntOpenHashMap] = graphs.aggregateMessages[Int2IntOpenHashMap](
-        ctx => {
-          ctx.sendToSrc{var tmp = new Int2IntOpenHashMap(); ctx.attr.seq.foreach(x => tmp.put(x,1)); tmp}
-        },
+        ctx => { ctx.attr.foreach{ ii =>
+          ctx.sendToSrc(new Int2IntOpenHashMap(Array(ii),Array(1)))
+        }},
         mergeFunc, TripletFields.EdgeOnly)
 
-      val pagerankGraph: Graph[Int2ObjectOpenHashMap[(Double, Double)], Int2ObjectOpenHashMap[Double]] = graphs.outerJoinVertices(degrees) {
+      val pagerankGraph: Graph[Int2ObjectOpenHashMap[(Double, Double)], Int2DoubleOpenHashMap] = graphs.outerJoinVertices(degrees) {
         case (vid, vdata, Some(deg)) => vdata.filter(x => !deg.contains(x)).seq.foreach(x => deg.put(x,0)); deg
-        case (vid, vdata, None) => val tmp = new Int2IntOpenHashMap(); vdata.seq.foreach(x => tmp.put(x,0)); tmp
+        case (vid, vdata, None) => new Int2IntOpenHashMap(vdata.toArray, Array.fill(vdata.size)(0))
       }
-        .mapTriplets{ e => val tmp = new Int2ObjectOpenHashMap[Double](); e.attr.seq.foreach(x => tmp.put(x, (1.0 / e.srcAttr(x)) )); tmp}
+        .mapTriplets{ e => new Int2DoubleOpenHashMap(e.attr.toArray, e.attr.toArray.map(x => 1.0/e.srcAttr(x)))}
         .mapVertices( (id,attr) => new Int2ObjectOpenHashMap[(Double, Double)](attr.keySet().toIntArray(), Array.fill(attr.size)((0.0,0.0)))).cache()
 
 
@@ -656,10 +651,10 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
         vals
       }
 
-      val sendMessage = (edge: EdgeTriplet[Int2ObjectOpenHashMap[(Double, Double)], Int2ObjectOpenHashMap[Double]]) => {
+      val sendMessage = (edge: EdgeTriplet[Int2ObjectOpenHashMap[(Double, Double)], Int2DoubleOpenHashMap]) => {
         edge.attr.toList.flatMap{ case (k,v) =>
           if  (edge.srcAttr.apply(k)._2 > tol) {
-            Some((edge.dstId, {var tmp = new Int2DoubleOpenHashMap(); tmp.put(k: Int, edge.srcAttr.apply(k)._2 * v); tmp}))
+            Some((edge.dstId, new Int2DoubleOpenHashMap(Array(k.toInt), Array(edge.srcAttr.apply(k)._2 * v))))
           } else {
             None
           }
@@ -680,13 +675,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       // The initial message received by all vertices in PageRank
       //has to be a map from every interval index
       var i:Int = 0
-      val initialMessage:Int2DoubleOpenHashMap = {
-        var tmpMap = new Int2DoubleOpenHashMap()
-        for(i <- 0 to collectedIntervals.size-1) {
-          tmpMap.put(i, resetProb / (1.0 - resetProb))
-        }
-        tmpMap
-      }
+      val initialMessage:Int2DoubleOpenHashMap = new Int2DoubleOpenHashMap((0 until collectedIntervals.size).toArray, Array.fill(collectedIntervals.size)(resetProb / (1.0-resetProb)))
 
       val resultGraph: Graph[Map[TimeIndex,(Double,Double)], Map[TimeIndex,Double]] = Pregel(pagerankGraph, initialMessage, numIter, activeDirection = EdgeDirection.Out)(vertexProgram, sendMessage, messageCombiner)
         .asInstanceOf[Graph[Map[TimeIndex,(Double,Double)], Map[TimeIndex,Double]]]

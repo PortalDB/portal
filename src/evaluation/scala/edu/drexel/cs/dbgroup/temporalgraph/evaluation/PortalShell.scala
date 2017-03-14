@@ -22,7 +22,7 @@ object PortalShell {
     Logger.getLogger("akka").setLevel(Level.OFF)
     Logger.getLogger("DataNucleus").setLevel(Level.OFF)
 
-    var graphType: String = "SG"
+    var graphType: String = "RG"
     var partitionType: PartitionStrategyType.Value = PartitionStrategyType.None
     var runWidth: Int = 8
     var query:Array[String] = Array.empty
@@ -32,7 +32,7 @@ object PortalShell {
         case "--type" =>
           graphType = args(i + 1)
           graphType match {
-            case "SG" =>
+            case "RG" =>
               println("Running experiments with SnapshotGraph")
             case "OG" =>
               println("Running experiments with OneGraph")
