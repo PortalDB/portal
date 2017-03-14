@@ -646,7 +646,7 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
 
     val i: Int = 0
     //there is really no reason to send an initial message
-    val initialMessage: Int2LongOpenHashMap = new Int2LongOpenHashMap()//(0 until intervals.size).toArray, Array.fill(intervals.size)(Long.MaxValue))
+    val initialMessage: Int2LongOpenHashMap = new Int2LongOpenHashMap()
 
     val resultGraph: Graph[Map[TimeIndex, VertexId], BitSet] = Pregel(conGraph, initialMessage, activeDirection = EdgeDirection.Either)(vertexProgram, sendMessage, messageCombiner).asInstanceOf[Graph[Map[TimeIndex, VertexId], BitSet]]
 
