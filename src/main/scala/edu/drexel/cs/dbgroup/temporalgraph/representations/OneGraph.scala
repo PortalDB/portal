@@ -146,7 +146,7 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
     new OneGraph(newIntvs, newgs, defaultValue, storageLevel, coalesced)
   }
 
-  override def esubgraph(pred: (EdgeTriplet[VD,ED],Interval) => Boolean ): OneGraph[VD,ED] = {
+  override def esubgraph(pred: (EdgeTriplet[VD,ED],Interval) => Boolean ,tripletFields: TripletFields): OneGraph[VD,ED] = {
     //TODO: if the triplet fields are not needed, there is faster way to do this
     val newgs = graphs.mapTriplets{e => 
       val et = new EdgeTriplet[VD, ED]

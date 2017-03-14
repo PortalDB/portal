@@ -20,22 +20,41 @@ both as a graph and as a pair of RDDs.  All \tg operations are
 available through the public API of the \sys library, and may be used
 in an Apache Spark application.
 
+{\bf Data layout.}  Our on-disk data layout uses Apache Parquet with
+either temporal or structural locality, broken into balanced snapshot
+groups.  The appropriate layout is selected at run-time based on the
+query type, similar to~\cite{Miao2015} but in a share-nothing
+distributed architecture.  Portal provides three in-memory \tg
+representations that differ in compactness and the kind of locality
+they prioritize. VertexEdge (VE) is a direct translation of the model
+and the most compact representation.  OneGraph (OG) stores all
+vertices and edges of an evolving graph once, in a single data
+structure.  This representation emphasizes temporal locality.
+HybridGraph (HG) trades compactness for better structural locality, by
+aggregating together several consecutive snapshots, and computing a
+OneGraph for each group.  Details of the implementation are given
+in~\cite{PortalarXiv2016}.  We can convert from one representation to
+any other at a small cost\eat{(as supported by our experimental results)},
+so it is useful to think of them as access methods in the context of
+individual operations.
+
 {\bf Temporal operators.}  Apache Spark is not a temporal DBMS but
 rather an open-source in-memory distributed framework that combines
-graph-parallel and data-parallel abstractions.  We reduce our temporal
-operators into a sequence of non-temporal relational operators or
-their equivalents for Spark RDDs, maintaining point semantics.  While
-the TGA is based on relational algebra, multiple transformations are
-required for some operations and we use other, more efficient, access
-methods where it makes sense.  In some cases, such as temporal window
-node creation, access methods based on GraphX graphs provide
-significantly more efficient performance.  For analytics, we use the
-GraphX Pregel library, but add a batching method to compute overall
-time instances together, see~\cite{MoffittTempWeb16} for a detailed
-discussion.\eat{ \sys supports PageRank, connected components, and
-  shortest paths analytics out of the box, and provides an API for
-  adding others.  We are in the process of adding the clustering
-  coefficient analytic.}
+graph-parallel and data-parallel abstractions.  We add temporal
+operators to Spark through reduction to a sequence of non-temporal
+relational operators following methodology described
+in~\cite{Dignos2012}.  We also add primitives for coalescing,
+integrity constraint enforcement, and attribute resolution.  TGA
+operations are supported through various access methods, including
+non-trivial reductions to TRA as the default.  In some cases, such as
+temporal window node creation, access methods based on GraphX graphs
+provide significantly more efficient performance.  For analytics, we
+use the GraphX Pregel library, but add a batching method to compute
+overall time instances together. \eat{, see~\cite{MoffittTempWeb16} for a
+detailed discussion.}\eat{ \sys supports PageRank, connected
+  components, and shortest paths analytics out of the box, and
+  provides an API for adding others.  We are in the process of adding
+  the clustering coefficient analytic.}
 
 {\bf Query evaluation.}  \sys query execution follows the traditional
 query processing steps: parsing, logical plan generation and
@@ -61,14 +80,14 @@ Attribute-based node creation is always placed before temporal node
 creation and temporal union, because it leads to a reduction in
 intermediate result size.
 
-We developed several physical representations and partitioning
+\eat{We developed several physical representations and partitioning
 strategies, selected at the physical plan generation stage.  One
 representation mirrors the logical data model and translates \tga
 operators into RDD transformations.  Other representations are
 graph-based, use the GraphX library, and are more efficient under
 certain conditions.  \tgs are read into memory from HDFS and processed
 by Spark Workers, with task assignment managed by the runtime.
-Details can be found in~\cite{PortalarXiv2016}.
+Details can be found in~\cite{PortalarXiv2016}.}
 
 \begin{figure}[t]
 \centering
@@ -89,10 +108,11 @@ most significantly increasing PageRank trend.
 
 \begin{small}
 \begin{verbatim}
-Select VF.vid, VF.tr
-From T5.vertices() as VF
-Order by tr Limit 20
+   Select VF.vid, VF.tr
+   From T5.vertices() as VF
+   Order by tr Limit 20
 \end{verbatim}
+\vspace{-0.1cm}
 \end{small}
 
 An important part of the query is the use of \insql{T5.vertices()} in

@@ -190,7 +190,7 @@ class VEAGraph(vs: RDD[(VertexId, Interval)], es: RDD[((VertexId, VertexId), Int
 
     fromRDDs(newVerts, newEdges, newVProps, newEProps, graphSpec, storageLevel, coalesced)
   }
-  override def esubgraph(epred:(EdgeTriplet[VertexEdgeAttribute,VertexEdgeAttribute],Interval) => Boolean): VEAGraph = {
+  override def esubgraph(epred:(EdgeTriplet[VertexEdgeAttribute,VertexEdgeAttribute],Interval) => Boolean,tripletFields: TripletFields): VEAGraph = {
    //Todo: Implement
     //Todo: Is the signiture correct?!
     throw new NotImplementedError()

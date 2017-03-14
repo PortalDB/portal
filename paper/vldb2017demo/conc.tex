@@ -11,9 +11,12 @@ We are working to extend \sys in two directions.  Our query optimizer
 is currently rule-based, and developing a cost model is in our
 immediate plans.  For this demonstration, we will have several
 physical plans prepared for the same query and observe the difference
-in performance.  We are also planning to enable support for sequenced
+in performance.  We are also adding support to allow user to express
+subgraph and edge creation operations as datalog programs.
+
+\eat{We are also planning to enable support for sequenced
 semantics for \tga operations~\cite{MoffittEDBT17}, and to do so
-efficiently in a distributed setting.
+efficiently in a distributed setting.}
 
 \eat{Users familiar with SQL will be able to quickly learn \ql syntax
   and semantics and compose queries on the fly.  Those not familiar

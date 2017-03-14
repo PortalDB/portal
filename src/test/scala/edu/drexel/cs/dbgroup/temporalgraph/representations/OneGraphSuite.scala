@@ -142,7 +142,7 @@ class OneGraphSuite extends FunSuite with BeforeAndAfter {
     info("interval completely outside the graph passed")
 
     //When the graph is empty
-    val actualOGC3 = OneGraph.emptyGraph("").vsubgraph(selectFunction).esubgraph(selectFunction2)
+    val actualOGC3 = OneGraph.emptyGraph("").vsubgraph(selectFunction).esubgraph(selectFunction2,TripletFields.EdgeOnly)
     assert(actualOGC3.vertices.collect() === OneGraph.emptyGraph("").vertices.collect())
     assert(actualOGC3.edges.collect() === OneGraph.emptyGraph("").edges.collect())
     assert(actualOGC3.getTemporalSequence.collect === Seq[Interval]())
