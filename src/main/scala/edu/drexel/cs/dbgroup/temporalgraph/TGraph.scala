@@ -15,6 +15,15 @@ import java.time.LocalDate
 //so this would require defining implicit evidence, etc.
 abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
 
+  /** A friendly name for this TGraph */
+  @transient var name: String = null
+
+  /** Assign a name to this TGraph */
+  def setName(_name: String): this.type = {
+    name = _name
+    this
+  }
+
   /**
     * The duration the temporal sequence
     */
