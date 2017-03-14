@@ -1903,7 +1903,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       assert(Math.abs(difference) < 0.0000001)
     }
   }
-  /*
+
   // Comment out, compileation error
   //TODO: fix hg.aggregateMessages
   test("aggregateMessages - no predicate") {
@@ -1943,7 +1943,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     AggregateMessagesTestUtil.assertions_vertexPredicate(result)
   }
 
-  test("aggregateMessages - vertex predicate ") {
+  test("aggregateMessages - vertex predicate 2") {
 
     val nodesAndEdges = AggregateMessagesTestUtil.getNodesAndEdges_v1
 
@@ -1953,5 +1953,5 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       .asInstanceOf[HybridGraph[(String,Int),Int]]}
     assert(result.getMessage().contentEquals("aggregateMsg not supported"))
   }
-  */
+
 }

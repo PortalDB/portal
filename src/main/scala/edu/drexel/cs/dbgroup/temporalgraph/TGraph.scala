@@ -114,7 +114,7 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * @param epred Edge predicate.
     * Foreign key constraint is enforced.
     */
-  def esubgraph(epred: (EdgeTriplet[VD,ED],Interval  ) => Boolean): TGraph[VD,ED]
+  def esubgraph(epred: (EdgeTriplet[VD,ED],Interval  ) => Boolean,tripletFields: TripletFields = TripletFields.All): TGraph[VD,ED]
 
 
   /**

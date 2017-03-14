@@ -146,7 +146,7 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
     new OneGraph(newIntvs, newgs, defaultValue, storageLevel, coalesced)
   }
 
-  override def esubgraph(pred: (EdgeTriplet[VD,ED],Interval) => Boolean ): OneGraph[VD,ED] = {
+  override def esubgraph(pred: (EdgeTriplet[VD,ED],Interval) => Boolean ,tripletFields: TripletFields): OneGraph[VD,ED] = {
     //TODO: if the triplet fields are not needed, there is faster way to do this
     val newgs = graphs.mapTriplets{e => 
       val et = new EdgeTriplet[VD, ED]
@@ -505,8 +505,9 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
 
     val pagerankGraph: Graph[Int2ObjectOpenHashMap[(Double,Double)], Int2ObjectOpenHashMap[(Double,Double)]] = bitGraph.outerJoinVertices(degrees) {
       //convert to time indices and degrees
-      case (vid, vdata, Some(deg)) => vdata.filter(x => !deg.contains(x)).seq.foreach(x => deg.put(x,0)); deg
-      case (vid, vdata, None) => new Int2IntOpenHashMap(vdata.toArray, Array.fill(vdata.size)(0))
+      case (vid, vdata, Some(deg)) => deg
+           //vdata.filter(x => !deg.contains(x)).seq.foreach(x => deg.put(x,0)); deg
+      case (vid, vdata, None) => new Int2IntOpenHashMap()   //(vdata.toArray, Array.fill(vdata.size)(0))
     }.mapTriplets{ e =>
       new Int2ObjectOpenHashMap[(Double,Double)](e.attr.toArray, e.attr.toArray.map(x => (1.0/e.srcAttr(x), 1.0/e.dstAttr(x))))
     }.mapVertices{ (id,attr) =>
@@ -577,10 +578,9 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
     val newgs = graphs.outerJoinVertices(resultGraph.vertices) {
       case (vid, vdata, Some(prank)) =>
         //prank is a Int2ObjectOpenHashsMap with (Double,Double)
-        //there is always a prank value produced for any time that a vertex exists
         vdata.flatMap{ case (intv, aa) =>
           //compute all the interval indices that this interval covers
-          zipped.value.filter(ii => ii._1.intersects(intv)).map(ii => (ii._1, (aa, prank(ii._2)._1)))
+          zipped.value.filter(ii => ii._1.intersects(intv)).map(ii => (ii._1, (aa, prank.getOrDefault(ii._2, (resetProb/(1.0-resetProb), 0.0))._1)))
         }
         //this is unlikely/impossible but left here just in case
       case (vid, vdata, None) => vdata.map{ case (intv, aa) => (intv, (aa,0.0))}

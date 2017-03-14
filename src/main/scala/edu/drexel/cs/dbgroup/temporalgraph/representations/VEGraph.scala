@@ -124,15 +124,45 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     fromRDDs(newVerts, newEdges, defaultValue, storageLevel, coalesced)
   }
 
-  override def esubgraph(epred: (EdgeTriplet[VD,ED],Interval) => Boolean ): VEGraph[VD,ED] = {
-    throw new NotImplementedError()
-    /*
-    val newVerts: RDD[(VertexId, (Interval, VD))] = allVertices
-    val newEdges =  allEdges.filter{ e =>epred((e._1._1,e._1._2,e._2._2),e._2._1)}
-    fromRDDs(newVerts, newEdges, defaultValue, storageLevel, coalesced)
-    */
-  }
+  override def esubgraph(epred: (EdgeTriplet[VD,ED],Interval) => Boolean,tripletFields: TripletFields = TripletFields.All ): VEGraph[VD,ED] = {
+    //TODO: tripletfields
+    if (tripletFields == TripletFields.None || tripletFields == TripletFields.EdgeOnly) {
+      val newVerts: RDD[(VertexId, (Interval, VD))] = allVertices
+      val newEdges = allEdges.map(e => {
+        var et = new EdgeTriplet[VD, ED]
+        et.srcId = e._1._1
+        et.dstId = e._1._2
+        et.attr = e._2._2
+        (et, e._2._1)
+      }
+      ).filter(e => epred(e._1, e._2))
+      fromRDDs(newVerts, newEdges.map { case (e, intv) => ((e.srcId, e.dstId), (intv, e.attr)) }, defaultValue, storageLevel, coalesced)
+    }
+    else
+    {
+      val newVerts: RDD[(VertexId, (Interval, VD))] = allVertices
+      val newEdges=allEdges.map(e => (e._1._1, e))
+        .join(allVertices) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
+        .filter{case (vid, (e, v)) => e._2._1.intersects(v._1) } //this keeps only matches of vertices and edges where periods overlap
+        .map{case (vid, (e, v)) => (e._1._2, (e, v))}       //((e._1, e._2._1), (e._2._2, v))}
+        .join(allVertices) //this creates RDD[(VertexId, ((((VertexId, VertexId), (Interval, ED)), Interval), Interval)
+        .filter{ case (vid, (e, v)) => e._1._2._1.intersects(v._1) && e._2._1.intersects(v._1)}
+        .map {case (vid, (e, v)) =>{
+          var et= new EdgeTriplet[VD,ED]
+          et.srcId=e._1._1._1
+          et.dstId=e._1._1._2
+          et.attr=e._1._2._2
+          //TODO: This part might be wrong, tests will show
+          et.srcAttr=e._2._2
+          et.dstAttr=v._2
+          (et, (Interval(TempGraphOps.maxDate(v._1.start, e._1._2._1.start, e._2._1.start), TempGraphOps.minDate(v._1.end, e._1._2._1.end, e._2._1.end))))
+        }
+        }.filter(e => epred(e._1,e._2))
+        fromRDDs(newVerts, newEdges.map { case (e, intv) => ((e.srcId, e.dstId), (intv, e.attr)) }, defaultValue, storageLevel, coalesced)
 
+    }
+
+  }
   override  protected  def aggregateByChange(c: ChangeSpec,  vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): VEGraph[VD, ED] = {
     val size: Integer = c.num
 
