@@ -1660,7 +1660,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     assert(actualHG.vertices.collect.toSet == expectedNodes.collect.toSet)
   }
 
-  ignore("directed pagerank") {
+  test("directed pagerank") {
     //PageRank for each representative graph was tested by creating graph in graphX and using spark's pagerank
     //The final HG is sliced into the two representative graph to assert the values
     val nodes: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
@@ -1905,7 +1905,6 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
   }
 
   // Comment out, compileation error
-  //TODO: fix hg.aggregateMessages
   test("aggregateMessages - no predicate") {
 
     val nodesAndEdges = AggregateMessagesTestUtil.getNodesAndEdges_v1

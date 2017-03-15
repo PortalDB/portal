@@ -545,7 +545,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
           ctx.sendToSrc{new Int2IntOpenHashMap(Array(ii),Array(1))}
           if (undirected) ctx.sendToDst{new Int2IntOpenHashMap(Array(ii),Array(1))} else ctx.sendToDst{new Int2IntOpenHashMap(Array(ii),Array(0))}
         }},
-      mergeFunc, TripletFields.EdgeOnly)
+      mergeFunc, TripletFields.None)
 
     val pagerankGraph: Graph[Int2ObjectOpenHashMap[(Double, Double)], Int2ObjectOpenHashMap[(Double, Double)]] = graphs.outerJoinVertices(degrees) {
       case (vid, vdata, Some(deg)) => deg
@@ -555,7 +555,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       .mapVertices( (id,attr) => new Int2ObjectOpenHashMap[(Double,Double)](attr.keySet().toIntArray(), Array.fill(attr.size)((0.0,0.0)))).cache()
 
     val vertexProgram = (id: VertexId, attr: Int2ObjectOpenHashMap[(Double, Double)], msg: Int2DoubleOpenHashMap) => {
-      var vals = attr.clone
+      val vals = attr.clone
 
       val itr = attr.iterator
       while (itr.hasNext) {
@@ -607,7 +607,6 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
 
     // The initial message received by all vertices in PageRank
     //has to be a map from every interval index
-    var i:Int = 0
     val initialMessage:Int2DoubleOpenHashMap = new Int2DoubleOpenHashMap((0 until collectedIntervals.size).toArray, Array.fill(collectedIntervals.size)(resetProb / (1.0-resetProb)))
 
     val dir = if (undirected) EdgeDirection.Either else EdgeDirection.Out
