@@ -1942,15 +1942,4 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     AggregateMessagesTestUtil.assertions_vertexPredicate(result)
   }
 
-  test("aggregateMessages - vertex predicate 2") {
-
-    val nodesAndEdges = AggregateMessagesTestUtil.getNodesAndEdges_v1
-
-    var g = HybridGraph.fromRDDs(nodesAndEdges._1,nodesAndEdges._2,"Default")
-
-    val result = intercept[UnsupportedOperationException] {g.aggregateMessages[Int](AggregateMessagesTestUtil.sendMsg_vertexPredicate, (a, b) => {a+b}, 0, TripletFields.All)
-      .asInstanceOf[HybridGraph[(String,Int),Int]]}
-    assert(result.getMessage().contentEquals("aggregateMsg not supported"))
-  }
-
 }

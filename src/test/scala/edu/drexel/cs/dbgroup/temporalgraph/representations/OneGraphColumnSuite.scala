@@ -1881,16 +1881,5 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     AggregateMessagesTestUtil.assertions_vertexPredicate(result)
   }
 
-  test("aggregateMessages2 - vertex predicate") {
-
-    val nodesAndEdges = AggregateMessagesTestUtil.getNodesAndEdges_v1
-
-    var g = OneGraphColumn.fromRDDs(nodesAndEdges._1,nodesAndEdges._2,"Default")
-
-    val result = intercept[UnsupportedOperationException] {g.aggregateMessages[Int](AggregateMessagesTestUtil.sendMsg_vertexPredicate, (a, b) => {a+b}, 0, TripletFields.All)
-      .asInstanceOf[OneGraphColumn[(String,Int),Int]]}
-    assert(result.getMessage().contentEquals("aggregateMsg not supported"))
-  }
-
 
 }

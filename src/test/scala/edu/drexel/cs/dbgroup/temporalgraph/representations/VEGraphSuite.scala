@@ -374,9 +374,10 @@ class VEGraphSuite  extends FunSuite with BeforeAndAfter {
 
     var g = VEGraph.fromRDDs(nodesAndEdges._1,nodesAndEdges._2,"Default")
 
-    val result = intercept[UnsupportedOperationException] {g.aggregateMessages[Int](AggregateMessagesTestUtil.sendMsg_vertexPredicate, (a, b) => {a+b}, 0, TripletFields.All)
-      .asInstanceOf[VEGraph[(String,Int),Int]]}
-    assert(result.getMessage().contentEquals("aggregateMsg not supported"))
+    val result = g.aggregateMessages[Int](AggregateMessagesTestUtil.sendMsg_vertexPredicate, (a, b) => {a+b}, 0, TripletFields.All)
+      .asInstanceOf[VEGraph[(String,Int),Int]]
+
+    AggregateMessagesTestUtil.assertions_vertexPredicate(result)
   }
 
   test("createTemporalNodes aggregateByTime -with structure only") {

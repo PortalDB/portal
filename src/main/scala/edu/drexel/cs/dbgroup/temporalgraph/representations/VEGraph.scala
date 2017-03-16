@@ -141,28 +141,13 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     else
     {
       val newVerts: RDD[(VertexId, (Interval, VD))] = allVertices
-      val newEdges=allEdges.map(e => (e._1._1, e))
-        .join(allVertices) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
-        .filter{case (vid, (e, v)) => e._2._1.intersects(v._1) } //this keeps only matches of vertices and edges where periods overlap
-        .map{case (vid, (e, v)) => (e._1._2, (e, v))}       //((e._1, e._2._1), (e._2._2, v))}
-        .join(allVertices) //this creates RDD[(VertexId, ((((VertexId, VertexId), (Interval, ED)), Interval), Interval)
-        .filter{ case (vid, (e, v)) => e._1._2._1.intersects(v._1) && e._2._1.intersects(v._1)}
-        .map {case (vid, (e, v)) =>{
-          var et= new EdgeTriplet[VD,ED]
-          et.srcId=e._1._1._1
-          et.dstId=e._1._1._2
-          et.attr=e._1._2._2
-          //TODO: This part might be wrong, tests will show
-          et.srcAttr=e._2._2
-          et.dstAttr=v._2
-          (et, (Interval(TempGraphOps.maxDate(v._1.start, e._1._2._1.start, e._2._1.start), TempGraphOps.minDate(v._1.end, e._1._2._1.end, e._2._1.end))))
-        }
-        }.filter(e => epred(e._1,e._2))
-        fromRDDs(newVerts, newEdges.map { case (e, intv) => ((e.srcId, e.dstId), (intv, e.attr)) }, defaultValue, storageLevel, coalesced)
+      val newEdges = triplets.filter(e => epred(e._1,e._2))
+      fromRDDs(newVerts, newEdges.map { case (e, intv) => ((e.srcId, e.dstId), (intv, e.attr)) }, defaultValue, storageLevel, coalesced)
 
     }
 
   }
+
   override  protected  def aggregateByChange(c: ChangeSpec,  vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): VEGraph[VD, ED] = {
     val size: Integer = c.num
 
@@ -220,25 +205,37 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
 
   override def createAttributeNodes(vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId ): VEGraph[VD, ED] = {
 
-    val splitVerts:  RDD[((VertexId, Interval), VD)]=
-      allVertices.map(v=>((vgroupby(v._1,v._2._2),v._2._1),v._2._2))
+    val locali = ProgramContext.sc.broadcast(intervals.collect)
+    //TODO: splitting entities many times causes partitions that are too big
+    //need to repartition
+    //TODO: it may be better to calculate intervals within each group
+    //and split just into those - much less splitting this way
+    val split: (Interval => Array[Interval]) = (interval: Interval) => {
+      locali.value.flatMap{ intv =>
+        if (intv.intersects(interval))
+          Some(intv)
+        else
+          None
+      }
+    }
+    val splitVerts:  RDD[((VertexId, Interval), VD)] = allVertices.flatMap{ 
+      case (vid, (intv, attr)) =>
+        split(intv).map(ii => ((vgroupby(vid, attr), ii), attr))
+      }
 
-
-    val splitEdges: RDD[(((VertexId, VertexId), Interval),ED)] = {
-      val newVIds: RDD[(VertexId, (Interval, VertexId))] = allVertices.map(v=>(vgroupby(v._1,v._2._2),(v._2._1,v._1)))
+    val splitEdges: RDD[((VertexId, VertexId, Interval),ED)] = {
+      val newVIds: RDD[(VertexId, (Interval, VertexId))] = allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vgroupby(vid, attr)))}
       //for each edge, similar except computing the new ids requires joins with V
       val edgesWithIds: RDD[((VertexId, VertexId), (Interval, ED))] = allEdges.map(e => (e._1._1, e)).join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => (e._1._2, (v._2, (Interval(TempGraphOps.maxDate(e._2._1.start, v._1.start), TempGraphOps.minDate(e._2._1.end, v._1.end)), e._2._2)))}.join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => ((e._1, v._2), (Interval(TempGraphOps.maxDate(e._2._1.start, v._1.start), TempGraphOps.minDate(e._2._1.end, v._1.end)), e._2._2))}
-      edgesWithIds.map(e=>(((e._1._1,e._1._2),e._2._1),e._2._2))
+      edgesWithIds.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}
     }
 
     //map to final result
-
-
     val newVerts: RDD[(VertexId, (Interval, VD))] = splitVerts.reduceByKey((a,b) => (vAggFunc(a, b))).map(v => (v._1._1, (v._1._2, v._2)))
     //same for edges
-    val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a, b))).map(e=>(((e._1._1._1,e._1._1._1),(e._1._2,e._2))))
-    fromRDDs(newVerts, aggEdges, defaultValue, storageLevel, false)
+    val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a, b))).map(e=>((e._1._1,e._1._2),(e._1._3,e._2)))
 
+    fromRDDs(newVerts, aggEdges, defaultValue, storageLevel, false)
 
   }
 
@@ -329,11 +326,11 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
       val newEdges=((allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}).leftOuterJoin((grp2.allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}))) .filter(e=>e._2._2 == None).map{ case (e, attr) => ((e._1, e._2), (e._3, (attr._1)))}
       fromRDDs(newVertices, TGraphNoSchema.constrainEdges(newVertices,newEdges), defaultValue, storageLevel, false)
     } else {
-       this
+      this
     }
   }
 
-    override def intersection(other: TGraphNoSchema[VD, ED] , vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): VEGraph[VD, ED] = {
+  override def intersection(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): VEGraph[VD, ED] = {
     //intersection is correct whether the two input graphs are coalesced or not
     var grp2: VEGraph[VD, ED] = other match {
       case grph: VEGraph[VD, ED] => grph
@@ -396,77 +393,32 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
   }
 
   override def aggregateMessages[A: ClassTag](sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
-                                              mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): VEGraph[(VD, A), ED] = {
-    if (tripletFields == TripletFields.None || tripletFields == TripletFields.EdgeOnly) {
-      //for each edge get a message
-      var messages: RDD[(VertexId, (Interval, A))] = allEdges.flatMap { e =>
+    mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): VEGraph[(VD, A), ED] = {
+    val trips: RDD[(EdgeTriplet[VD,ED], Interval)] = if (tripletFields == TripletFields.None || tripletFields == TripletFields.EdgeOnly) {
+      allEdges.map { e =>
         val et = new EdgeTriplet[VD, ED]
         et.srcId = e._1._1
         et.dstId = e._1._2
         et.attr = e._2._2
-        sendMsg(et).map(x => (x._1, List[(Interval, A)]((e._2._1, x._2)))).toSeq
-      }.reduceByKey { (a, b) => //group by destination with the merge
-        //we have two lists. for each period of intersection, we apply the merge
-        var c = List.concat(a, b).sortBy(v => v._1)
-
-        c.foldLeft(List[(Interval, A)]()) { (list, elem) =>
-          list match {
-            //base case and non-intersection are easy
-            case Nil => List(elem)
-            case (head :: tail) if !head._1.intersects(elem._1) => {
-              elem :: head :: tail
-            }
-            //intersection
-            case (head :: tail) => {
-              //handle the empty interval in the case both have the same start date
-              val leftSide = Interval.applyOption(head._1.start, elem._1.start) match {
-                case None => List[(Interval, A)]()
-                case Some(intv) => List[(Interval, A)]((intv, head._2))
-              }
-              //handle head intersecting elem vs. head containing elem
-              val rightSide = head._1.end.compareTo(elem._1.end) match {
-                case 0 => List[(Interval, A)]()
-                //right side of intersection
-                case -1 => List[(Interval, A)]((Interval(head._1.end, elem._1.end), elem._2))
-                //right side of contains
-                case _ => List[(Interval, A)]((Interval(elem._1.end, head._1.end), head._2))
-              }
-
-              rightSide ::: (elem._1, mergeMsg(elem._2, head._2)) :: leftSide ::: tail
-            }
-          }
-        }
-      }.flatMap { vl =>
-        vl._2.map(x => (vl._1, x))
+        (et, e._2._1)
       }
+    } else triplets
 
-      //now join with the old values
-      var newverts: RDD[(VertexId, (Interval, (VD, A)))] = allVertices.leftOuterJoin(TGraphNoSchema.coalesce(messages))
-      //first get things grouped by the original (VertexId,Interval), and a list of edge messages
-      //we also have to retain VD for later, so we end up with ((VertexId,Interval), (VD, List[(Interval,A)])
-      .map { v => ((v._1, v._2._1._1), (v._2._1._2,List[(Interval, A)](v._2._2.get))) }
-      .reduceByKey { (a, b) => (a._1, a._2 ::: b._2) }
-      .map{ v =>
-        //filtering messages that are outside the vertex interval (since we join on only vid, and we could have vertices with multiple
-        //intervals, each (v,interval) could otherwise contain messages from other intervals that don't pertain
-        val contained =  v._2._2.filter { i =>
-            ((i._1.start.equals(v._1._2.start) || i._1.start.isAfter(v._1._2.start))
-              && (i._1.end.equals(v._1._2.end) || i._1.end.isBefore(v._1._2.end)))
-        }
-        //now append any intervals that got no messages with the default value
-        (v._1, (v._2._1, contained ::: Interval.differenceList(v._1._2, contained.map(t => t._1)).map(i => (i, defVal))))
+    //for each edge get a message
+    var messages: RDD[(VertexId, List[(Interval, A)])] = trips.flatMap { et =>
+      sendMsg(et._1).map(x => (x._1, List[(Interval, A)]((et._2, x._2)))).toSeq
+    }.reduceByKey { (a, b) => TempGraphOps.mergeIntervalLists(mergeMsg, a, b) }
+
+    //now join with the old values
+    var newverts: RDD[(VertexId, (Interval, (VD, A)))] = allVertices.leftOuterJoin(messages).flatMap { 
+      case (vid, (vdata, Some(msg))) => {
+        val contained = msg.filter(ii => ii._1.intersects(vdata._1))
+        (contained ::: vdata._1.differenceList(contained.map(_._1)).map(ii => (ii, defVal))).map(ii => (vid, (ii._1, (vdata._2, ii._2))))
       }
-      //produce the result in the proper format
-      .flatMap{ v =>
-        (v._2._2.map { i =>
-          (v._1._1, (i._1, (v._2._1, i._2)))
-        })
-      }
+      case (vid, (vdata, None)) => Some((vid, (vdata._1, (vdata._2, defVal))))
+    }
 
-      fromRDDs(newverts, allEdges, (defaultValue, defVal), storageLevel, coalesced)
-
-    } else
-      throw new UnsupportedOperationException("aggregateMsg not supported")
+    fromRDDs(newverts, allEdges, (defaultValue, defVal), storageLevel, coalesced)
   }
 
   /** Spark-specific */
@@ -505,6 +457,25 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
   }
 
   override protected def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): VEGraph[V, E] = VEGraph.emptyGraph(defVal)
+
+  private def triplets: RDD[(EdgeTriplet[VD, ED], Interval)] = {
+    allEdges.map(e => (e._1._1, e))
+      .join(allVertices) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
+      .filter{case (vid, (e, v)) => e._2._1.intersects(v._1) } //this keeps only matches of vertices and edges where periods overlap
+      .map{case (vid, (e, v)) => (e._1._2, (e, v))}       //((e._1, e._2._1), (e._2._2, v))}
+      .join(allVertices) //this creates RDD[(VertexId, ((((VertexId, VertexId), (Interval, ED)), Interval), Interval)
+      .filter{ case (vid, (e, v)) => e._1._2._1.intersects(v._1) && e._2._1.intersects(v._1)}
+      .map {case (vid, (e, v)) =>{
+        var et= new EdgeTriplet[VD,ED]
+        et.srcId=e._1._1._1
+        et.dstId=e._1._1._2
+        et.attr=e._1._2._2
+        et.srcAttr=e._2._2
+        et.dstAttr=v._2
+        (et, Interval(TempGraphOps.maxDate(v._1.start, e._1._2._1.start, e._2._1.start), TempGraphOps.minDate(v._1.end, e._1._2._1.end, e._2._1.end)))
+      }
+    }
+  }
 
 }
 

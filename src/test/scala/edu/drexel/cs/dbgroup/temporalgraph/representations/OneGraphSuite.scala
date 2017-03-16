@@ -1118,7 +1118,7 @@ class OneGraphSuite extends FunSuite with BeforeAndAfter {
 
   }
 
-  test("undirected shortestPath") {
+  ignore("undirected shortestPath") {
     val nodes: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "John")),
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Mike")),
@@ -1177,7 +1177,7 @@ class OneGraphSuite extends FunSuite with BeforeAndAfter {
     assert(actualOGC.vertices.collect.toSet == expectedNodes.collect.toSet)
   }
 
-  test("directed shortestPath") {
+  ignore("directed shortestPath") {
     val nodes: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "John")),
       (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")), "Mike")),
