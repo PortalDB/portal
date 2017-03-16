@@ -7,7 +7,7 @@ import scala.collection.mutable.ListBuffer
 
 import _root_.edu.drexel.cs.dbgroup.temporalgraph.representations.SnapshotGraphParallel
 import _root_.edu.drexel.cs.dbgroup.temporalgraph.tools.twitterToParquet.Nodes
-import _root_.edu.drexel.cs.dbgroup.temporalgraph.{StructureOnlyAttr, Interval, ProgramContext}
+import _root_.edu.drexel.cs.dbgroup.temporalgraph.{StructureOnlyAttr, Interval, ProgramContext, EdgeId}
 import _root_.edu.drexel.cs.dbgroup.temporalgraph.util.GraphLoader
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.graphx.{EdgeRDD, Edge, Graph, VertexId}
@@ -49,7 +49,7 @@ object GES {
     intervals = intervals.drop(69)
     println(intervals.size)
     intervals.foreach(println)
-    var edges = new ListBuffer[EdgeRDD[Any]]()
+    var edges = new ListBuffer[EdgeRDD[(EdgeId, Any)]]()
     val edgesCount = new ListBuffer[Long]()
     var edge = VE.getSnapshot(intervals(0).start).edges
     edges += edge

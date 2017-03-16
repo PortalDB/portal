@@ -4,7 +4,6 @@ import java.time.LocalDate
 
 import org.apache.spark.graphx.{EdgeTriplet, VertexId}
 import org.apache.spark.rdd.RDD
-import src.main.scala.edu.drexel.cs.dbgroup.temporalgraph.TEdge
 
 /**
   * Created by mtg5014 on 1/26/2017.

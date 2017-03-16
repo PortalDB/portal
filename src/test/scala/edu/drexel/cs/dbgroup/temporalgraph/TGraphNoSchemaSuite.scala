@@ -9,7 +9,6 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.{SparkConf, SparkContext}
 import org.scalatest.{BeforeAndAfter, FunSuite}
-import src.main.scala.edu.drexel.cs.dbgroup.temporalgraph.TEdge
 
 class TGraphNoSchemaSuite extends FunSuite with BeforeAndAfter{
 

@@ -1,6 +1,5 @@
-package src.main.scala.edu.drexel.cs.dbgroup.temporalgraph
+package edu.drexel.cs.dbgroup.temporalgraph
 
-import edu.drexel.cs.dbgroup.temporalgraph.{EdgeId, Interval}
 import org.apache.spark.graphx.{Edge, EdgeDirection, VertexId}
 import org.apache.spark.util.collection.SortDataFormat
 

@@ -16,7 +16,6 @@ import org.apache.spark.{HashPartitioner,RangePartitioner}
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 
 import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps
-import src.main.scala.edu.drexel.cs.dbgroup.temporalgraph.TEdge
 
 abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraph[VD, ED] {
   val storageLevel = storLevel
@@ -230,8 +229,8 @@ object TGraphNoSchema {
         val m: scala.collection.Map[VertexId, List[Interval]] = bverts.value
         for {
           e <- iter
-          val l1 = m.get(e.srcId).getOrElse(List[Interval]()).filter(ii => ii.intersects(e.interval))
-          val l2 = m.get(e.dstId).getOrElse(List[Interval]()).filter(ii => ii.intersects(e.interval))
+          l1 = m.get(e.srcId).getOrElse(List[Interval]()).filter(ii => ii.intersects(e.interval))
+          l2 = m.get(e.dstId).getOrElse(List[Interval]()).filter(ii => ii.intersects(e.interval))
           if l1.size == 1 && l2.size == 1 && l1.head.intersects(l2.head)
         } yield TEdge.apply((e.eId,e.srcId, e.dstId), (Interval(TempGraphOps.maxDate(e.interval.start, m(e.srcId).find(_.intersects(e.interval)).get.start, m(e.dstId).find(_.intersects(e.interval)).get.start), TempGraphOps.minDate(e.interval.end, m(e.srcId).find(_.intersects(e.interval)).get.end, m(e.dstId).find(_.intersects(e.interval)).get.end)), e.attr))
       }, preservesPartitioning = true)

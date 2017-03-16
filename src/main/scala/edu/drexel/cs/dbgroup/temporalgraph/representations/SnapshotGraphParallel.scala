@@ -22,7 +22,6 @@ import java.util.Map
 
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap
 import org.apache.commons.lang.NotImplementedException
-import src.main.scala.edu.drexel.cs.dbgroup.temporalgraph.TEdge
 
 class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grphs: ParSeq[Graph[VD,(EdgeId,ED)]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraphNoSchema[VD, ED](defValue, storLevel, coal) {
 
@@ -224,14 +223,15 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
 
   }
 
-  override def createAttributeNodes(vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId ): SnapshotGraphParallel[VD, ED]={
-    val reduced: ParSeq[(RDD[(VertexId, VD)], RDD[((EdgeId, VertexId, VertexId),ED)])] = graphs.map(g =>
+  override def createAttributeNodes(vAggFunc: (VD, VD) => VD)(vgroupby: (VertexId, VD) => VertexId ): SnapshotGraphParallel[VD, ED]={
+    val reduced: ParSeq[(RDD[(VertexId, VD)], RDD[Edge[(EdgeId,ED)]])] = graphs.map(g =>
         (g.vertices.map( v => (vgroupby(v._1, v._2), v._2)).reduceByKey((a,b) => vAggFunc(a,b)),
-          g.triplets.map{ e => ((e.attr._1, vgroupby(e.srcId, e.srcAttr), vgroupby(e.dstId, e.dstAttr)), e.attr._2)}.reduceByKey((a,b) => eAggFunc(a,b))))
+          g.triplets.map( et => Edge(vgroupby(et.srcId, et.srcAttr), vgroupby(et.dstId, et.dstAttr), et.attr))
+        ))
 
     //now we can create new graphs
     val newGraphs: ParSeq[Graph[VD,(EdgeId,ED)]] =   reduced.map { case (vs, es) =>
-      Graph[VD, (EdgeId,ED)](vs, es.map(e => Edge(e._1._2, e._1._3, (e._1._1,e._2))), null.asInstanceOf[VD], storageLevel, storageLevel)
+      Graph[VD, (EdgeId,ED)](vs, es, null.asInstanceOf[VD], storageLevel, storageLevel)
     }
     new SnapshotGraphParallel(intervals, newGraphs, defaultValue, storageLevel, false)
   }

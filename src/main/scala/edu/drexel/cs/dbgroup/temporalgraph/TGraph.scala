@@ -11,8 +11,6 @@ import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
 
 import java.time.LocalDate
 
-import src.main.scala.edu.drexel.cs.dbgroup.temporalgraph.TEdge
-
 //TODO: this really should be a trait but traits do not allow type parameters
 //so this would require defining implicit evidence, etc.
 abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
@@ -120,17 +118,15 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
   def createTemporalNodes(window: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraph[VD, ED]
 
   /**
-    * create a attribute node
+    * Create nodes from clusters of existing nodes, assigning them new ids.
+    * Edge ids remain unchanged and are all preserved.
     * @param vgroupby The grouping function for vertices for structural aggregation
     * @param vAggFunc The function to apply to vertex attributes during aggregation.
     * Any associative function can be supported, since the attribute aggregation is
     * performed in pairs (ala reduce).
-    * @param eAggFunc The function to apply to edge attributes during aggregation.
-    * Any associative function can be supported, since the attribute aggregation is
-    * performed in pairs (ala reduce).
     * @return New tgraph
     */
-  def createAttributeNodes( vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId ): TGraph[VD, ED]
+  def createAttributeNodes( vAggFunc: (VD, VD) => VD)(vgroupby: (VertexId, VD) => VertexId ): TGraph[VD, ED]
 
   /**
     * The analytics methods

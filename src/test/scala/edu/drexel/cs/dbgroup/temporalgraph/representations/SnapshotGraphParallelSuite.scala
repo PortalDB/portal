@@ -18,7 +18,6 @@ import java.util.Map
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap
-import src.main.scala.edu.drexel.cs.dbgroup.temporalgraph.TEdge
 
 import collection.JavaConverters._
 
@@ -590,7 +589,7 @@ class SnapshotGraphParallelSuite extends FunSuite with BeforeAndAfter {
     val longerString = (a: String, b: String) =>
       if (a.length > b.length) a else if (a.length < b.length) b else if (a.compareTo(b) > 0) a else b
 
-    val actualSGP = SGP.createAttributeNodes( (name1, name2) => longerString(name1, name2), (attr1, attr2) => Math.max(attr1, attr2))((vid, attr1) => if (attr1.length < 5) 1L else 2L)
+    val actualSGP = SGP.createAttributeNodes( (name1, name2) => longerString(name1, name2))((vid, attr1) => if (attr1.length < 5) 1L else 2L)
 
     val expectedUsers: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), "a")),

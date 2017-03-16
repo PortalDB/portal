@@ -47,11 +47,12 @@ object SQLInterface {
     * @return The result dataframe after adding schema to edges RDD.
     */
   private final def convertGraphEdgeToDataframe(temporalGraph: TGraphWProperties): DataFrame = {
-    val edges: RDD[((VertexId, VertexId), (Interval, VertexEdgeAttribute))] = temporalGraph.edges
+    val edges: RDD[TEdge[VertexEdgeAttribute]] = temporalGraph.edges
     val edgeSchema = temporalGraph.graphSpec.getEdgeSchema()
     var schema =
       StructType(
-        StructField("vid1", LongType, false) ::
+        StructField("eid", LongType, false) ::
+          StructField("vid1", LongType, false) ::
           StructField("vid2", LongType, false) ::
           StructField("start", DateType, false) ::
           StructField("end", DateType, false) ::
@@ -62,7 +63,7 @@ object SQLInterface {
       schema = schema.add(StructField(struct.name, ArrayType(struct.dataType), true))
     }
 
-    val edgesRowRdd = edges.map{ case (k,v) => Row.fromSeq(Seq(k._1.toLong, k._2.toLong, Date.valueOf(v._1.start), Date.valueOf(v._1.end)) ++ convertAttribute(v._2, edgeSchema))}
+    val edgesRowRdd = edges.map(te => Row.fromSeq(Seq(te.eId, te.srcId, te.dstId, Date.valueOf(te.interval.start), Date.valueOf(te.interval.end)) ++ convertAttribute(te.attr, edgeSchema)))
     ProgramContext.getSession.createDataFrame(edgesRowRdd, schema)
   }
 
