@@ -6,6 +6,7 @@ import org.apache.log4j.Logger
 import org.apache.log4j.Level
 import edu.drexel.cs.dbgroup.temporalgraph.tools.LocalQueries
 import edu.drexel.cs.dbgroup.temporalgraph._
+import scala.io.Source
 
 object LocalInterval {
   def main(args: Array[String]) {
@@ -19,43 +20,35 @@ object LocalInterval {
     val sqlContext = ProgramContext.getSession
     //sqlContext.conf.set("spark.sql.files.maxPartitionBytes", "16777216")
 
-    println("using " + conf.get("portal.partitions.sgroup", "") + " sg group")
+    println("using " + System.getProperty("portal.partitions.sgroup", "") + " sg group")
 
     sqlContext.emptyDataFrame.count
 
     val path = args(0)
-    val minYear = args(1).toInt
-    val maxYear = args(2).toInt
-    val maxYearDate = LocalDate.of(maxYear, 1, 1)
-    val range = maxYear - minYear
+    val nodesQueriesPath = args(1)
+    val edgesQueriesPath = args(2)
+    val maxYearDate = LocalDate.parse(args(3))
 
+    val nodes = Source.fromFile(nodesQueriesPath).getLines.map(l => l.split(',')).map(l => (l(0).toLong, LocalDate.parse(l(1))))
+    val edges = Source.fromFile(edgesQueriesPath).getLines.map(l => l.split(',')).map(l => (l(0).toLong, l(1).toLong, LocalDate.parse(l(2
+))))
     val lq = new LocalQueries(path)
-    val r = scala.util.Random
 
     val startAsMili = System.currentTimeMillis()
 
-    for (i <- 0 to 100) {
-      //pick random vid from 0 to 10K
-      //pick random year from minYear to maxYear and till the end
-      val id = r.nextInt(10000).toLong
-      val year = LocalDate.of(r.nextInt(range) + minYear, r.nextInt(12), 1)
+    nodes.foreach { case (id, year) =>
       println("id " + id + " from " + year + ":" + lq.getNodeHistory(id, Interval(year, maxYearDate)).collect().mkString(", "))
     }
 
-    println("total time (millis) for 100 local interval node queries: " + (System.currentTimeMillis()-startAsMili))
+    println("total time (millis) for " + nodes.size + " local interval node queries: " + (System.currentTimeMillis()-startAsMili))
 
     val startAsMili2 = System.currentTimeMillis()
 
-    for (i <- 0 to 100) {
-      //pick 2 random vid from 0 to 10K
-      //pick random year from minYear to maxYear
-      val id1 = r.nextInt(10000).toLong
-      val id2 = r.nextInt(10000).toLong
-      val year = LocalDate.of(r.nextInt(range) + minYear, r.nextInt(12), 1)
+    edges.foreach { case (id1, id2, year) =>
       println("edge " + id1 + "," + id2 + " from " + year + ":" + lq.getEdgeHistory(id1, id2, Interval(year, maxYearDate)).collect().mkString(", "))
     }
 
-    println("total time (millis) for 100 local interval edge queries: " + (System.currentTimeMillis()-startAsMili2))
+    println("total time (millis) for " + edges.size + " local interval edge queries: " + (System.currentTimeMillis()-startAsMili2))
 
   }
 

@@ -146,21 +146,35 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
     new OneGraph(newIntvs, newgs, defaultValue, storageLevel, coalesced)
   }
 
-  override def esubgraph(pred: (EdgeTriplet[VD,ED],Interval) => Boolean ): OneGraph[VD,ED] = {
-    //TODO: if the triplet fields are not needed, there is faster way to do this
+  override def esubgraph(pred: (EdgeTriplet[VD,ED],Interval) => Boolean ,tripletFields: TripletFields): OneGraph[VD,ED] = {
     val newgs = graphs.mapTriplets{e => 
       val et = new EdgeTriplet[VD, ED]
       et.srcId = e.srcId
       et.dstId = e.dstId
-      e.attr.filter{ case (intv, aa) =>
-        //FIXME: it is possible for the edge to correspond to several
-        //end-point values so we need to break it up then?
-        et.attr = aa
-        //the graph is valid and so there has to be a tuple for each endpoint
-        //which has the covering period
-        et.srcAttr = e.srcAttr.find(ii => ii._1.intersects(intv)).get._2
-        et.dstAttr = e.dstAttr.find(ii => ii._1.intersects(intv)).get._2
-        pred(et, intv)
+      if (tripletFields == TripletFields.None || tripletFields == TripletFields.EdgeOnly) {
+        e.attr.filter{ case (intv, aa) =>
+          et.attr = aa
+          pred(et, intv)
+        }
+      } else {
+        //it is possible for the edge to correspond to several
+        //end-point values so we need to break it up then
+        e.attr.flatMap{ case (intv, aa) =>
+          val allSrc = e.srcAttr.filter(ii => ii._1.intersects(intv))
+          val allDst = e.dstAttr.filter(ii => ii._1.intersects(intv))
+          val all = for {
+            i <- allSrc
+            j <- allDst
+            if i._1.intersects(j._1)
+          } yield (i, j)
+          all.flatMap { case (src, dst) =>
+            et.attr = aa
+            et.srcAttr = src._2
+            et.dstAttr = dst._2
+            val ii = intv.intersection(src._1).get.intersection(dst._1).get
+            if (pred(et, ii)) Some((ii, aa)) else None
+          }
+        }
       }
     }.subgraph(epred = e => e.attr.size > 0)
 
@@ -499,16 +513,16 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
       ctx => {
         ctx.attr.foreach{ii =>
           ctx.sendToSrc(new Int2IntOpenHashMap(Array(ii),Array(1)))
-          if (undirected) ctx.sendToDst(new Int2IntOpenHashMap(Array(ii),Array(1)))
+          if (undirected) ctx.sendToDst(new Int2IntOpenHashMap(Array(ii),Array(1))) else ctx.sendToDst(new Int2IntOpenHashMap(Array(ii),Array(0)))
         }
       }, mergeFunc, TripletFields.EdgeOnly)
 
     val pagerankGraph: Graph[Int2ObjectOpenHashMap[(Double,Double)], Int2ObjectOpenHashMap[(Double,Double)]] = bitGraph.outerJoinVertices(degrees) {
       //convert to time indices and degrees
-      case (vid, vdata, Some(deg)) => vdata.filter(x => !deg.contains(x)).seq.foreach(x => deg.put(x,0)); deg
-      case (vid, vdata, None) => new Int2IntOpenHashMap(vdata.toArray, Array.fill(vdata.size)(0))
+      case (vid, vdata, Some(deg)) => deg
+      case (vid, vdata, None) => new Int2IntOpenHashMap()
     }.mapTriplets{ e =>
-      new Int2ObjectOpenHashMap[(Double,Double)](e.attr.toArray, e.attr.toArray.map(x => (1.0/e.srcAttr(x), 1.0/e.dstAttr(x))))
+      new Int2ObjectOpenHashMap[(Double,Double)](e.attr.toArray, e.attr.toArray.map(x => (1.0/e.srcAttr(x), 1.0/e.dstAttr.getOrDefault(x, 0))))
     }.mapVertices{ (id,attr) =>
       new Int2ObjectOpenHashMap[(Double,Double)](attr.keySet().toIntArray(), Array.fill(attr.size)((0.0,0.0)))
     }.cache()
@@ -516,11 +530,11 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
     val vertexProgram = (id: VertexId, attr: Int2ObjectOpenHashMap[(Double, Double)], msg: Int2DoubleOpenHashMap) => {
       var vals = attr.clone
 
-      val itr = attr.iterator
-      while (itr.hasNext) {
-        val (index, x) = itr.next()
-        val newPr = x._1 + (1.0 - resetProb) * msg.getOrDefault(index, 0)
-        vals.update(index, (newPr, newPr-x._1))
+      val iter = attr.iterator
+      while (iter.hasNext) {
+        val (index, v) = iter.next
+        val newPr = v._1 + (1.0 - resetProb) * msg.getOrDefault(index, 0.0)
+        vals.update(index, (newPr, newPr-v._1))
       }
       vals
     }
@@ -577,16 +591,14 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
     val newgs = graphs.outerJoinVertices(resultGraph.vertices) {
       case (vid, vdata, Some(prank)) =>
         //prank is a Int2ObjectOpenHashsMap with (Double,Double)
-        //there is always a prank value produced for any time that a vertex exists
         vdata.flatMap{ case (intv, aa) =>
           //compute all the interval indices that this interval covers
-          zipped.value.filter(ii => ii._1.intersects(intv)).map(ii => (ii._1, (aa, prank(ii._2)._1)))
+          zipped.value.filter(ii => ii._1.intersects(intv)).map(ii => (ii._1, (aa, prank.getOrDefault(ii._2, (resetProb, 0.0))._1)))
         }
-        //this is unlikely/impossible but left here just in case
-      case (vid, vdata, None) => vdata.map{ case (intv, aa) => (intv, (aa,0.0))}
+      case (vid, vdata, None) => vdata.map{ case (intv, aa) => (intv, (aa, resetProb))}
     }
 
-    new OneGraph(intervals, newgs, (defaultValue, 0.0), storageLevel, false)
+    new OneGraph(intervals, newgs, (defaultValue, resetProb), storageLevel, false)
   }
 
   override def connectedComponents(): OneGraph[(VD, VertexId), ED] = {
@@ -597,8 +609,7 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
     }
 
     val conGraph: Graph[Int2LongOpenHashMap, BitSet] = graphs.mapVertices{ case (vid, attr) =>
-      val ins = attr.flatMap{ case (intv, aa) => split(intv)}
-      new Int2LongOpenHashMap(ins, Array.fill(ins.size)(vid))
+      new Int2LongOpenHashMap()
     }.mapEdges(e =>  e.attr.map{ case (intv,aa) => split(intv)}.reduce((a,b) => a union b))
 
     val vertexProgram = (id: VertexId, attr: Int2LongOpenHashMap, msg: Int2LongOpenHashMap) => {
@@ -606,19 +617,17 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
 
       msg.foreach { x =>
         val (k,v) = x
-        if (attr.contains(k)) {
-          vals.update(k, math.min(v, attr(k)))
-        }
+        vals.update(k, math.min(v, attr.getOrDefault(k, id)))
       }
       vals
     }
 
     val sendMessage = (edge: EdgeTriplet[Int2LongOpenHashMap, BitSet]) => {
       edge.attr.toList.flatMap{ k =>
-        if (edge.srcAttr(k) < edge.dstAttr(k))
-          Some((edge.dstId, new Int2LongOpenHashMap(Array(k), Array(edge.srcAttr.get(k)))))
-        else if (edge.srcAttr(k) > edge.dstAttr(k))
-          Some((edge.srcId, new Int2LongOpenHashMap(Array(k), Array(edge.dstAttr.get(k)))))
+        if (edge.srcAttr.getOrDefault(k, edge.srcId) < edge.dstAttr.getOrDefault(k, edge.dstId))
+          Some((edge.dstId, new Int2LongOpenHashMap(Array(k), Array(edge.srcAttr.getOrDefault(k, edge.srcId).toLong))))
+        else if (edge.srcAttr.getOrDefault(k, edge.srcId) > edge.dstAttr.getOrDefault(k, edge.dstId))
+          Some((edge.srcId, new Int2LongOpenHashMap(Array(k), Array(edge.dstAttr.getOrDefault(k, edge.dstId).toLong))))
         else
           None
       }
@@ -636,20 +645,20 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
     }
 
     val i: Int = 0
-    val initialMessage: Int2LongOpenHashMap = new Int2LongOpenHashMap((0 until intervals.size).toArray, Array.fill(intervals.size)(Long.MaxValue))
+    //there is really no reason to send an initial message
+    val initialMessage: Int2LongOpenHashMap = new Int2LongOpenHashMap()
 
     val resultGraph: Graph[Map[TimeIndex, VertexId], BitSet] = Pregel(conGraph, initialMessage, activeDirection = EdgeDirection.Either)(vertexProgram, sendMessage, messageCombiner).asInstanceOf[Graph[Map[TimeIndex, VertexId], BitSet]]
 
     val newgs = graphs.outerJoinVertices(resultGraph.vertices) {
       case (vid, vdata, Some(cc)) =>
         //cc is a Int2LongOpenHashsMap
-        //there is always a value produced for any time that a vertex exists
         vdata.flatMap{ case (intv, aa) =>
           //compute all the interval indices that this interval covers
-          zipped.value.filter(ii => ii._1.intersects(intv)).map(ii => (ii._1, (aa, cc(ii._2))))
+          zipped.value.filter(ii => ii._1.intersects(intv)).map(ii => (ii._1, (aa, cc.getOrDefault(ii._2, vid))))
         }
       //this is unlikely/impossible but left here just in case
-      case (vid, vdata, None) => vdata.map{ case (intv, aa) => (intv, (aa,Long.MaxValue))}
+      case (vid, vdata, None) => vdata.map{ case (intv, aa) => (intv, (aa,vid))}
     }
 
     new OneGraph(intervals, newgs, (defaultValue, Long.MaxValue), storageLevel, false)

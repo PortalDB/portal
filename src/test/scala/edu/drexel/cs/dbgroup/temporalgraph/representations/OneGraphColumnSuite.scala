@@ -190,7 +190,53 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
       ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
     ))
     val expectedOGC = OneGraphColumn.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
-    var actualOGC = OGC.esubgraph(epred =  (edgeTriplet: EdgeTriplet[String,Int],interval: Interval)=> edgeTriplet.srcId > 2 && edgeTriplet.attr==42)
+    var actualOGC = OGC.esubgraph(epred =  (edgeTriplet: EdgeTriplet[String,Int],interval: Interval)=> edgeTriplet.srcId > 2 && edgeTriplet.attr==42,tripletFields = TripletFields.EdgeOnly)
+
+    assert(expectedOGC.vertices.collect() === actualOGC.vertices.collect())
+    assert(expectedOGC.edges.collect() === actualOGC.edges.collect())
+    assert(expectedOGC.getTemporalSequence.collect === actualOGC.getTemporalSequence.collect)
+  }
+
+
+  test("structural select function 2 - epred") {
+    //Regular cases
+    val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2017-01-01")), "John")),
+      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), "Mike")),
+      (3L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2014-01-01")), "Ron")),
+      (4L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2017-01-01")), "Julia")),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2015-01-01")), "Vera")),
+      (6L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), "Halima")),
+      (7L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2011-01-01")), "Sanjana")),
+      (8L, (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), "Lovro")),
+      (9L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), "Ke"))
+    ))
+    val edges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 4L), (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 42)),
+      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42)),
+      ((1L, 2L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22)),
+      ((5L, 7L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), 22)),
+      ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42)),
+      ((4L, 9L), (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 22))
+    ))
+    val OGC = OneGraphColumn.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
+
+    val expectedUsers: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2017-01-01")), "John")),
+      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), "Mike")),
+      (3L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2014-01-01")), "Ron")),
+      (4L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2017-01-01")), "Julia")),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2015-01-01")), "Vera")),
+      (6L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), "Halima")),
+      (7L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2011-01-01")), "Sanjana")),
+      (8L, (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), "Lovro")),
+      (9L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), "Ke"))
+    ))
+    val expectedEdges: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
+      ((3L, 5L), (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42))
+    ))
+    val expectedOGC = OneGraphColumn.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
+    var actualOGC = OGC.esubgraph(epred =  (edgeTriplet: EdgeTriplet[String,Int],interval: Interval)=>edgeTriplet.srcAttr=="Ron" ,tripletFields = TripletFields.All)
 
     assert(expectedOGC.vertices.collect() === actualOGC.vertices.collect())
     assert(expectedOGC.edges.collect() === actualOGC.edges.collect())
@@ -271,7 +317,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
       ((4L, 8L), (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42))
     ))
     val expectedOGC = OneGraphColumn.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
-    var actualOGC = OGC.vsubgraph(vpred = (id: VertexId, attrs: String,interval: Interval) => id > 3 && attrs != "Ke").esubgraph(epred = (edgeTriplet: EdgeTriplet[String,Int],interval: Interval)=> edgeTriplet.srcId > 2 && edgeTriplet.attr==42)
+    var actualOGC = OGC.vsubgraph(vpred = (id: VertexId, attrs: String,interval: Interval) => id > 3 && attrs != "Ke").esubgraph(epred = (edgeTriplet: EdgeTriplet[String,Int],interval: Interval)=> edgeTriplet.srcId > 2 && edgeTriplet.attr==42,tripletFields = TripletFields.EdgeOnly)
     assert(expectedOGC.vertices.collect() === actualOGC.vertices.collect())
     assert(expectedOGC.edges.collect() === actualOGC.edges.collect())
     assert(expectedOGC.getTemporalSequence.collect === actualOGC.getTemporalSequence.collect)
@@ -1760,7 +1806,7 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
       assert(Math.abs(difference) < 0.0000001)
     }
   }
-/*
+
   //TODO: Comment Out , Some compileation error
   //TODO: fix ogc.aggregateMessages
   test("aggregateMessages - no predicate") {
@@ -1799,16 +1845,5 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     AggregateMessagesTestUtil.assertions_vertexPredicate(result)
   }
 
-  test("aggregateMessages - vertex predicate") {
-
-    val nodesAndEdges = AggregateMessagesTestUtil.getNodesAndEdges_v1
-
-    var g = OneGraphColumn.fromRDDs(nodesAndEdges._1,nodesAndEdges._2,"Default")
-
-    val result = intercept[UnsupportedOperationException] {g.aggregateMessages[Int](AggregateMessagesTestUtil.sendMsg_vertexPredicate, (a, b) => {a+b}, 0, TripletFields.All)
-      .asInstanceOf[OneGraphColumn[(String,Int),Int]]}
-    assert(result.getMessage().contentEquals("aggregateMsg not supported"))
-  }
-*/
 
 }

@@ -17,6 +17,15 @@ import src.main.scala.edu.drexel.cs.dbgroup.temporalgraph.TEdge
 //so this would require defining implicit evidence, etc.
 abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
 
+  /** A friendly name for this TGraph */
+  @transient var name: String = null
+
+  /** Assign a name to this TGraph */
+  def setName(_name: String): this.type = {
+    name = _name
+    this
+  }
+
   /**
     * The duration the temporal sequence
     */
@@ -91,7 +100,7 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * @param epred Edge predicate.
     * Foreign key constraint is enforced.
     */
-  def esubgraph(epred: (EdgeTriplet[VD,ED],Interval  ) => Boolean): TGraph[VD,ED]
+  def esubgraph(epred: (EdgeTriplet[VD,ED],Interval  ) => Boolean,tripletFields: TripletFields = TripletFields.All): TGraph[VD,ED]
 
 
   /**

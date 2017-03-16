@@ -10,6 +10,7 @@ import org.apache.spark.storage.StorageLevel
 import org.apache.spark.graphx.VertexId
 import org.apache.spark.HashPartitioner
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.catalyst.util.DateTimeUtils
 
 import org.apache.hadoop.conf._
 import org.apache.hadoop.fs._
@@ -30,7 +31,7 @@ object GraphLoader {
 
   def buildRG(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval): SnapshotGraphParallel[Any, Any] = {
     //get the configuration option for snapshot groups
-    val sg = ProgramContext.sc.getConf.get("portal.partitions.sgroup", "")
+    val sg = System.getProperty("portal.partitions.sgroup", "")
     //make a filter. RG needs "spatial" layout, i.e. one sorted by time
     val filter = "_s_" + sg
 
@@ -45,7 +46,7 @@ object GraphLoader {
 
   def buildOG(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval): OneGraph[Any, Any] = {
     //get the configuration option for snapshot groups
-    val sg = ProgramContext.sc.getConf.get("portal.partitions.sgroup", "")
+    val sg = System.getProperty("portal.partitions.sgroup", "")
     //make a filter. OG needs "temporal" layout, i.e. one sorted by id
     val filter = "_t_" + sg
 
@@ -61,7 +62,7 @@ object GraphLoader {
 
   def buildOGC(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval): OneGraphColumn[Any, Any] = {
     //get the configuration option for snapshot groups
-    val sg = ProgramContext.sc.getConf.get("portal.partitions.sgroup", "")
+    val sg = System.getProperty("portal.partitions.sgroup", "")
     //make a filter. OG needs "temporal" layout, i.e. one sorted by id
     val filter = "_t_" + sg
 
@@ -77,7 +78,7 @@ object GraphLoader {
 
   def buildHG(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval): HybridGraph[Any, Any] = {
     //get the configuration option for snapshot groups
-    val sg = ProgramContext.sc.getConf.get("portal.partitions.sgroup", "")
+    val sg = System.getProperty("portal.partitions.sgroup", "")
     //want one graph in HG per SG group
 
     //make a filter. HG needs "temporal" layout, i.e. one sorted by id
@@ -86,6 +87,14 @@ object GraphLoader {
     //separate dataframe for each path
     var nodeDFs = getPaths(url, bounds, "nodes" + filter).map(nf => ProgramContext.getSession.read.parquet(nf))
     var edgeDFs = getPaths(url, bounds, "edges" + filter).map(nf => ProgramContext.getSession.read.parquet(nf))
+
+    //select within bounds
+    if (bounds.start != LocalDate.MIN || bounds.end != LocalDate.MAX) {
+       val secs1 = math.floor(DateTimeUtils.daysToMillis(bounds.start.toEpochDay().toInt).toDouble / 1000L).toLong
+       val secs2 = math.floor(DateTimeUtils.daysToMillis(bounds.end.toEpochDay().toInt).toDouble / 1000L).toLong
+       nodeDFs = nodeDFs.map(nf => nf.filter("NOT (estart >= " + secs2 + " OR eend <= " + secs1 + ")"))
+       edgeDFs = edgeDFs.map(nf => nf.filter("NOT (estart >= " + secs1 + " OR eend <= " + secs1 + ")"))
+    } 
 
     //the schema should be the same in each df
     val vattr = 2 + vattrcol
@@ -126,7 +135,7 @@ object GraphLoader {
 
   def buildVE(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval): VEGraph[Any, Any] = {
     //get the configuration option for snapshot groups
-    val sg = ProgramContext.sc.getConf.get("portal.partitions.sgroup", "")
+    val sg = System.getProperty("portal.partitions.sgroup", "")
     //make a filter. VE needs "temporal" layout, i.e. one sorted by id
     val filter = "_t_" + sg
 
@@ -146,6 +155,14 @@ object GraphLoader {
 
     var users = ProgramContext.getSession.read.parquet(nodesFiles:_*)
     var links = ProgramContext.getSession.read.parquet(edgesFiles:_*)
+
+    //select within bounds
+    if (bounds.start != LocalDate.MIN || bounds.end != LocalDate.MAX) {
+       val secs1 = math.floor(DateTimeUtils.daysToMillis(bounds.start.toEpochDay().toInt).toDouble / 1000L).toLong
+       val secs2 = math.floor(DateTimeUtils.daysToMillis(bounds.end.toEpochDay().toInt).toDouble / 1000L).toLong
+       users = users.filter("NOT (estart >= " + secs2 + " OR eend <= " + secs1 + ")")
+       links = links.filter("NOT (estart >= " + secs1 + " OR eend <= " + secs1 + ")")
+    }
 
     val vattr = 2 + vattrcol
     if (users.schema.fields.size <= vattr)
@@ -257,9 +274,11 @@ object GraphLoader {
     if (System.getenv("HADOOP_CONF_DIR") != "") {
       conf.addResource(new Path(System.getenv("HADOOP_CONF_DIR") + "/core-site.xml"))
     }
+    val filterP = if (filter.endsWith("_")) filter else filter + "_"
     val pathFilter = new PathFilter {
       def accept(p: Path): Boolean = {
-        p.getName().contains(filter)
+        val pat = (filterP+"""\d""").r
+        pat.findFirstIn(p.getName()).isDefined
       }
     }
     val status = FileSystem.get(conf).listStatus(pt, pathFilter)

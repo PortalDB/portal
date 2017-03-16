@@ -4,6 +4,7 @@ import scala.math.Ordering._
 import java.time.LocalDate
 import java.sql.Date
 import java.time.temporal.ChronoUnit
+import org.apache.spark.sql.catalyst.util.DateTimeUtils
 
 import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
 
@@ -15,11 +16,11 @@ class Interval(st: LocalDate, en: LocalDate) extends Serializable {
   val start:LocalDate = st
   val end:LocalDate = en
 
-  def getStartSeconds:Long = start.toEpochDay()*Interval.SECONDS_PER_DAY
-  def getEndSeconds:Long = end.toEpochDay()*Interval.SECONDS_PER_DAY
+  def getStartSeconds:Long = math.floor(DateTimeUtils.daysToMillis(start.toEpochDay().toInt).toDouble / 1000L).toLong
+  def getEndSeconds:Long = math.floor(DateTimeUtils.daysToMillis(end.toEpochDay().toInt).toDouble / 1000L).toLong
 
   override def toString():String = {
-    "[" + start.toString + "-" + end.toString + "]"
+    "[" + start.toString + "-" + end.toString + ")"
   }
 
   override def equals(other:Any):Boolean = {
@@ -137,6 +138,42 @@ class Interval(st: LocalDate, en: LocalDate) extends Serializable {
     res
   }
 
+  /**
+    * gets the difference between an interval and another list of intervals.
+    * @param vertexInterval should CONTAIN every one of the edgeIntervals
+    * @param edgeIntervals each one should be CONTAINED BY vertexInterval
+    * @return
+    */
+  //TODO: rewrite this cleaner
+  def differenceList(intervals: List[Interval]) : List[Interval] = {
+    var returnVal = List[Interval]()
+    if (intervals.size == 1) returnVal = this.difference(intervals.head)
+    else if (intervals.size > 1) {
+      var coalescedIntervals = Interval.coalesce(intervals)
+      var i = 0
+      while(i < coalescedIntervals.size){
+        val prevInterval = if(i == 0) None else Some[Interval](coalescedIntervals(i-1))
+        val thisInterval = coalescedIntervals(i)
+        val nextInterval = if(i+1 < coalescedIntervals.size) Some[Interval](coalescedIntervals(i+1)) else None
+        //beginning
+        if(prevInterval == None){
+          Interval.applyOption(start,thisInterval.start) +: returnVal
+        }
+        //end
+        else if(nextInterval == None){
+          List[Interval](Interval.applyOption(prevInterval.get.end,thisInterval.start).get,
+            Interval.applyOption(thisInterval.end, end).get) ::: returnVal
+        }
+        //middle
+        else{
+          Interval.applyOption(prevInterval.get.start,thisInterval.start) +: returnVal
+        }
+        i += 1
+      }
+    }
+    returnVal
+  }
+
 }
 
 object Interval {
@@ -183,42 +220,6 @@ object Interval {
       None
     else
       Some(new Interval(mn,mx))
-
-  /**
-    * gets the difference between an interval and another list of intervals.
-    * @param vertexInterval should CONTAIN every one of the edgeIntervals
-    * @param edgeIntervals each one should be CONTAINED BY vertexInterval
-    * @return
-    */
-  def differenceList(vertexInterval: Interval, edgeIntervals: List[Interval]) : List[Interval] = {
-    var returnVal = List[Interval]()
-    if(edgeIntervals.size == 0) returnVal = returnVal
-    else if(edgeIntervals.size == 1) returnVal = vertexInterval.difference(edgeIntervals(0))
-    else{
-      var coalescedEdgeIntervals = Interval.coalesce(edgeIntervals)
-      var i = 0
-      while(i < coalescedEdgeIntervals.size){
-        val prevInterval = if(i == 0) None else Some[Interval](coalescedEdgeIntervals(i-1))
-        val thisInterval = coalescedEdgeIntervals(i)
-        val nextInterval = if(i+1 < coalescedEdgeIntervals.size) Some[Interval](coalescedEdgeIntervals(i+1)) else None
-        //beginning
-        if(prevInterval == None){
-          Interval.applyOption(vertexInterval.start,thisInterval.start) +: returnVal
-        }
-        //end
-        else if(nextInterval == None){
-          List[Interval](Interval.applyOption(prevInterval.get.end,thisInterval.start).get,
-            Interval.applyOption(thisInterval.end,vertexInterval.end).get) ::: returnVal
-        }
-        //middle
-        else{
-          Interval.applyOption(prevInterval.get.start,thisInterval.start) +: returnVal
-        }
-        i += 1
-      }
-    }
-    returnVal
-  }
 
   /**
     * given a list of intervals, produces the sorted list of non-intersecting, non-touching intervals

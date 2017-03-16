@@ -139,7 +139,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
     //new SnapshotGraphParallel(intervals, graphs.map(g => g.subgraph(vpred=vpred, defaultValue, storageLevel, false)
   }
 
-  override def esubgraph(epred: (EdgeTriplet[VD,ED],Interval  ) => Boolean): SnapshotGraphParallel[VD,ED] = {
+  override def esubgraph(epred: (EdgeTriplet[VD,ED],Interval ) => Boolean,tripletFields: TripletFields = TripletFields.All): SnapshotGraphParallel[VD,ED] = {
     //Todo: Implement this( maybe we can use two level of filtering)
     throw  new NotImplementedError()
     //new SnapshotGraphParallel(intervals, graphs.map(g => g.subgraph(epred = et => epred((et.srcId, et.dstId), et.attr))), defaultValue, storageLevel, false)

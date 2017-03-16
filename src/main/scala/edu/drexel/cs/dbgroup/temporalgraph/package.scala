@@ -63,7 +63,7 @@ package object temporalgraph {
   case class TimeSpec(res: Resolution) extends WindowSpecification
 
   object Locality extends Enumeration {
-    val Temporal, Structural = Value
+    val Temporal, Structural, None = Value
   }
   object SnapshotGroup extends Enumeration {
     val None, WidthTime, WidthRGs, Depth, Redundancy = Value
