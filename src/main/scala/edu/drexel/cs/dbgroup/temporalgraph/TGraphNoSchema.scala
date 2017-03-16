@@ -58,7 +58,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
    * @tparam ED2 the new edge data type
    *
    */
-  def emap[ED2: ClassTag](map: (Interval, Edge[(EdgeId,ED)]) => (EdgeId,ED2)): TGraphNoSchema[VD, ED2]
+  def emap[ED2: ClassTag](map: TEdge[ED] => ED2): TGraphNoSchema[VD, ED2]
 
   /**
     * Produce a union of two temporal graphs. 

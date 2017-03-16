@@ -138,7 +138,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
     //new SnapshotGraphParallel(intervals, graphs.map(g => g.subgraph(vpred=vpred, defaultValue, storageLevel, false)
   }
 
-  override def esubgraph(epred: (EdgeTriplet[VD,ED],Interval ) => Boolean,tripletFields: TripletFields = TripletFields.All): SnapshotGraphParallel[VD,ED] = {
+  override def esubgraph(epred: TEdgeTriplet[VD,ED] => Boolean,tripletFields: TripletFields = TripletFields.All): SnapshotGraphParallel[VD,ED] = {
     //Todo: Implement this( maybe we can use two level of filtering)
     throw  new NotImplementedError()
     //new SnapshotGraphParallel(intervals, graphs.map(g => g.subgraph(epred = et => epred((et.srcId, et.dstId), et.attr))), defaultValue, storageLevel, false)
@@ -240,8 +240,13 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
     new SnapshotGraphParallel(intervals, graphs.zip(intervals).map(g => g._1.mapVertices((vid, attr) => map(vid, g._2, attr))), defVal, storageLevel, false)
   }
 
-  override def emap[ED2: ClassTag](map: (Interval, Edge[(EdgeId,ED)]) => (EdgeId,ED2)): SnapshotGraphParallel[VD, ED2] = {
-    new SnapshotGraphParallel(intervals, graphs.zip(intervals).map(g => g._1.mapEdges(e => map(g._2, e))), defaultValue, storageLevel, false)
+  override def emap[ED2: ClassTag](map: TEdge[ED] => ED2): SnapshotGraphParallel[VD, ED2] = {
+    new SnapshotGraphParallel(intervals, graphs.zip(intervals)
+      .map(g => g._1.mapEdges{e =>
+        te = TEdge[ED](e)
+        te.interval = g._2
+        (e.attr._1, map(te))
+      }), defaultValue, storageLevel, false)
   }
 
   override def union(other: TGraphNoSchema[VD, ED],vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): SnapshotGraphParallel[VD, ED] = {

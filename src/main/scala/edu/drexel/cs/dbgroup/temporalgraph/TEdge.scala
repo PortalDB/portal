@@ -50,3 +50,31 @@ object TEdge {
     TEdge[ED](k._1,k._2,k._3,v._1,v._2)
   }
 }
+
+/*
+ * Like EdgeTriplet in graphx but with time.
+ */
+class TEdgeTriplet[VD, ED] extends TEdge[ED] {
+  /**
+   * The source vertex attribute
+   */
+  var srcAttr: VD = _ // nullValue[VD]
+
+  /**
+   * The destination vertex attribute
+   */
+  var dstAttr: VD = _ // nullValue[VD]
+
+  /**
+   * Set the edge properties of this triplet.
+   */
+  def set(other: TEdge[ED]): TEdgeTriplet[VD, ED] = {
+    eId = other.eId
+    srcId = other.srcId
+    dstId = other.dstId
+    interval = other.interval
+    attr = other.attr
+    this
+  }
+  
+}
