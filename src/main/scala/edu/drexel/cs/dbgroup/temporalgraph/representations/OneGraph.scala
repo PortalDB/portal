@@ -30,12 +30,12 @@ import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap
   * Warning: this has a limitation in that there can be only as many
   * tuples of a specific vertex as largest array
   */
-class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[Array[(Interval,VD)], Array[(Interval,ED)]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraphNoSchema[VD, ED](defValue, storLevel, coal) {
+class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[Array[(Interval,VD)], (EdgeId, Array[(Interval,ED)])], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraphNoSchema[VD, ED](defValue, storLevel, coal) {
 
   protected var partitioning = TGraphPartitioning(PartitionStrategyType.None, 1, 0)
   protected val intervals: Array[Interval] = intvs
   lazy val span: Interval = if (intervals.size > 0) Interval(intervals.head.start, intervals.last.end) else Interval(LocalDate.now, LocalDate.now)
-  protected val graphs: Graph[Array[(Interval,VD)], Array[(Interval,ED)]] = grps
+  protected val graphs: Graph[Array[(Interval,VD)], (EdgeId, Array[(Interval,ED)])] = grps
 
   //FIXME: add eagerCoalesce stuff in each method
   //TODO: find a more efficient way to create triplets, i.e. tie vertex values
@@ -67,16 +67,20 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
     graphs.vertices.flatMap{ case (vid, attr) => attr.map(xx => (vid, xx))}
   }
 
-  override def edges: RDD[((VertexId,VertexId),(Interval,ED))] = coalescedEdges
+  override def edges: RDD[TEdge[ED]] = coalescedEdges
 
   private lazy val coalescedEdges = {
-    val es: EdgeRDD[Array[(Interval, ED)]] = if (coalesced) graphs.edges else
-      graphs.edges.mapValues(e => TempGraphOps.coalesceIntervals(e.attr.toList).toArray)
-    es.flatMap(e => e.attr.map(xx => ((e.srcId, e.dstId), xx)))
+    val es: EdgeRDD[(EdgeId, Array[(Interval, ED)])] = if (coalesced) graphs.edges else
+      graphs.edges.mapValues(e => (e.attr._1, TempGraphOps.coalesceIntervals(e.attr._2.toList).toArray))
+    es.flatMap(e => e.attr._2.map(xx =>
+      TEdge((e.attr._1, e.srcId, e.dstId), xx)
+    ))
   }
 
-  lazy val edgesRaw: RDD[((VertexId,VertexId),(Interval,ED))] = {
-    graphs.edges.flatMap(e => e.attr.map(xx => ((e.srcId, e.dstId), xx)))
+  lazy val edgesRaw: RDD[TEdge[ED]] = {
+    graphs.edges.flatMap(e => e.attr._2.map(xx =>
+      TEdge((e.attr._1, e.srcId, e.dstId), xx)
+    ))
   }
 
   /**
@@ -94,20 +98,20 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
   }
 
   /** Query operations */
-  override def getSnapshot(time: LocalDate): Graph[VD,ED] = {
+  override def getSnapshot(time: LocalDate): Graph[VD,(EdgeId,ED)] = {
     if (span.contains(time)) {
-      graphs.subgraph(vpred = (vid, attr) => attr.filter(x => x._1.contains(time)).size > 0, epred = e => e.attr.filter(x => x._1.contains(time)).size > 0)
+      graphs.subgraph(vpred = (vid, attr) => attr.filter(x => x._1.contains(time)).size > 0, epred = e => e.attr._2.filter(x => x._1.contains(time)).size > 0)
         .mapVertices{case (vid, attr) => attr.head._2}
-        .mapEdges(e => e.attr.head._2)
+        .mapEdges(e => (e.attr._1, e.attr._2.head._2))
     } else
-      Graph[VD,ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+      Graph[VD,(EdgeId, ED)](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
   }
 
   override def coalesce(): OneGraph[VD, ED] = {
     if (coalesced)
       this
     else { //no need to rebuild the graph from rdds
-      val newgs = graphs.mapVertices{ case (vid, attr) => TempGraphOps.coalesceIntervals(attr.toList).toArray}.mapEdges(e => TempGraphOps.coalesceIntervals(e.attr.toList).toArray)
+      val newgs = graphs.mapVertices{ case (vid, attr) => TempGraphOps.coalesceIntervals(attr.toList).toArray}.mapEdges(e => (e.attr._1, TempGraphOps.coalesceIntervals(e.attr._2.toList).toArray))
       implicit val ord = TempGraphOps.dateOrdering
       val newIntvs = OneGraph.computeIntervals(newgs)
       new OneGraph(newIntvs, newgs, defaultValue, storageLevel, true)
@@ -129,37 +133,45 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
 
     val newIntvs: Array[Interval] = intervals.slice(selectStart, selectStop+1).map(intv => if (intv.start.isBefore(startBound) || intv.end.isAfter(endBound)) intv.intersection(selectBound).get else intv)
 
-    val newgs = graphs.mapVertices{case (vid, attr) => attr.flatMap{ case (intv, aa) => intv.intersection(selectBound).map(xx => (xx, aa))}}.mapEdges(e => e.attr.flatMap{ case (intv, aa) => intv.intersection(selectBound).map(xx => (xx, aa))}).subgraph(vpred = (vid, attr) => attr.size > 0, epred = e => e.attr.size > 0)
+    val newgs = graphs.mapVertices{
+      case (vid, attr) => attr.flatMap{
+        case (intv, aa) => intv.intersection(selectBound).map(xx => (xx, aa))}
+    }.mapEdges(e => (e.attr._1, e.attr._2.flatMap{
+      case (intv, aa) => intv.intersection(selectBound).map(xx => (xx, aa))})
+    ).subgraph(vpred = (vid, attr) => attr.size > 0, epred = e => e.attr._2.size > 0)
     new OneGraph(newIntvs, newgs, defaultValue, storageLevel, coalesced)
   }
 
   override def vsubgraph(pred: (VertexId, VD,Interval) => Boolean): OneGraph[VD,ED] = {
-    val newgs = graphs.mapVertices{ case (vid, attr) => attr.filter{ case (intv, aa) => pred(vid, aa, intv)}}
-      .subgraph(vpred = (vid, attr) => attr.size > 0)
+    val newgs = graphs.mapVertices{ 
+      case (vid, attr) => attr.filter{ case (intv, aa) => pred(vid, aa, intv)}
+    }.subgraph(vpred = (vid, attr) => attr.size > 0)
     //need to constrain the edges to be within the intervals of their new vertices
     //because subgraph above only takes out edges for which vertices went away completely
-      .mapTriplets( ept => constrainEdges(ept.attr, ept.srcAttr, ept.dstAttr))
-      .subgraph(epred = e => e.attr.size > 0)
+      .mapTriplets( ept => (ept.attr._1, constrainEdges(ept.attr._2, ept.srcAttr, ept.dstAttr)))
+      .subgraph(epred = e => e.attr._2.size > 0)
 
     //have to compute new intervals because we potentially don't cover as much
     val newIntvs = OneGraph.computeIntervals[VD,ED](newgs)
     new OneGraph(newIntvs, newgs, defaultValue, storageLevel, coalesced)
   }
 
-  override def esubgraph(pred: (EdgeTriplet[VD,ED],Interval) => Boolean ,tripletFields: TripletFields): OneGraph[VD,ED] = {
+  override def esubgraph(pred: TEdgeTriplet[VD,ED] => Boolean, tripletFields: TripletFields): OneGraph[VD,ED] = {
     val newgs = graphs.mapTriplets{e => 
-      val et = new EdgeTriplet[VD, ED]
+      val et = new TEdgeTriplet[VD, ED]
+      et.eId = e.attr._1
       et.srcId = e.srcId
       et.dstId = e.dstId
       if (tripletFields == TripletFields.None || tripletFields == TripletFields.EdgeOnly) {
-        e.attr.filter{ case (intv, aa) =>
+        (e.attr._1, e.attr._2.filter{ case (intv, aa) =>
           et.attr = aa
-          pred(et, intv)
-        }
+          et.interval = intv
+          pred(et)
+        })
       } else {
         //it is possible for the edge to correspond to several
         //end-point values so we need to break it up then
-        e.attr.flatMap{ case (intv, aa) =>
+        (e.attr._1, e.attr._2.flatMap{ case (intv, aa) =>
           val allSrc = e.srcAttr.filter(ii => ii._1.intersects(intv))
           val allDst = e.dstAttr.filter(ii => ii._1.intersects(intv))
           val all = for {
@@ -172,22 +184,23 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
             et.srcAttr = src._2
             et.dstAttr = dst._2
             val ii = intv.intersection(src._1).get.intersection(dst._1).get
-            if (pred(et, ii)) Some((ii, aa)) else None
+            et.interval = ii
+            if (pred(et)) Some((ii, aa)) else None
           }
-        }
+        })
       }
-    }.subgraph(epred = e => e.attr.size > 0)
+    }.subgraph(epred = e => e.attr._2.size > 0)
 
     new OneGraph(OneGraph.computeIntervals(newgs), newgs, defaultValue, storageLevel, coalesced)
   }
 
-  override def createAttributeNodes(vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId): OneGraph[VD, ED] = {
+  override def createAttributeNodes(vAggFunc: (VD, VD) => VD)(vgroupby: (VertexId, VD) => VertexId): OneGraph[VD, ED] = {
     //have to make a new graph
     val newvs = graphs.vertices.flatMap{ case (vid, attr) =>
       attr.map{ case (intv, aa) => (vgroupby(vid, aa), (intv, aa))}
     }
     val newes = graphs.triplets.flatMap(et =>
-      et.attr.flatMap{ case (intv, aa) => 
+      et.attr._2.flatMap{ case (intv, aa) => 
         //we need to get all the triplets because the value of end point attr
         //might change during one edge tuple
         val srcAttrs = et.srcAttr.filter{ case (ii, bb) => ii.intersects(intv)}
@@ -196,14 +209,13 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
           //this will create all possible combinations
           x <- srcAttrs; y <- dstAttrs 
           if x._1.intersects(y._1)
-        } yield ((vgroupby(et.srcId, x._2), vgroupby(et.dstId, y._2)), (intv.intersection(x._1).get.intersection(y._1).get, aa))
+        } yield ((et.attr._1, vgroupby(et.srcId, x._2), vgroupby(et.dstId, y._2)), Array((intv.intersection(x._1).get.intersection(y._1).get, aa)))
       }
     )
 
     val combOpV = TempGraphOps.mergeIntervalLists(vAggFunc, _: List[(Interval,VD)], _: List[(Interval,VD)])
-    val combOpE = TempGraphOps.mergeIntervalLists(eAggFunc, _: List[(Interval,ED)], _: List[(Interval,ED)])
-    val newgs: Graph[Array[(Interval,VD)], Array[(Interval,ED)]] = Graph(newvs.aggregateByKey(List[(Interval,VD)]())(seqOp = (u: List[(Interval,VD)], v: (Interval,VD)) => combOpV(u, List[(Interval,VD)](v)), combOpV).mapValues(_.toArray),
-      newes.aggregateByKey(List[(Interval,ED)]())(seqOp = (u: List[(Interval,ED)], v: (Interval,ED)) => combOpE(u, List[(Interval,ED)](v)), combOpE).map(e => Edge(e._1._1, e._1._2, e._2.toArray)),
+    val newgs: Graph[Array[(Interval,VD)], (EdgeId, Array[(Interval,ED)])] = Graph(newvs.aggregateByKey(List[(Interval,VD)]())(seqOp = (u: List[(Interval,VD)], v: (Interval,VD)) => combOpV(u, List[(Interval,VD)](v)), combOpV).mapValues(_.toArray),
+      newes.reduceByKey((a,b) => a ++ b).map(e => Edge(e._1._2, e._1._3, (e._1._1, e._2))),
       Array[(Interval,VD)](), storageLevel, storageLevel)
 
     //intervals don't change but the result is uncoalesced
@@ -235,7 +247,7 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
         .map(x => (x._1, x._2._2))
     }.subgraph(vpred = (vid, attr) => attr.size > 0)
       .mapTriplets{ept =>
-      ept.attr.flatMap{ case (intv, aa) =>
+      (ept.attr._1, ept.attr._2.flatMap{ case (intv, aa) =>
         split(intv).map(ii => (ii._1, (ii._2.ratio(ii._1), aa)))
       }.groupBy(_._1)
         .mapValues(x => x.map(_._2).reduce((a,b) => (a._1 + b._1, eAggFunc(a._2, b._2))))
@@ -245,8 +257,8 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
       //now need to constrain - simplified because the intervals are exactly the same
         .filter{ case (intv, aa) =>
           ept.srcAttr.find(ii => ii._1.intersects(intv)).isDefined && ept.dstAttr.find(ii => ii._1.intersects(intv)).isDefined
-      }
-    }.subgraph(epred = et => et.attr.size > 0)
+      })
+    }.subgraph(epred = et => et.attr._2.size > 0)
 
     new OneGraph(newIntvs, filtered, defaultValue, storageLevel, false)
     
@@ -266,7 +278,7 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
         .map(x => (x._1, x._2._2))
     }.subgraph(vpred = (vid, attr) => attr.size > 0)
       .mapTriplets{ept =>
-      ept.attr.flatMap{ case (intv, aa) =>
+      (ept.attr._1, ept.attr._2.flatMap{ case (intv, aa) =>
         intv.split(c.res, start).map(ii => (ii._2, (ii._1.ratio(ii._2), aa)))
       }.groupBy(_._1)
         .mapValues(x => x.map(_._2).reduce((a,b) => (a._1 + b._1, eAggFunc(a._2, b._2))))
@@ -276,8 +288,8 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
       //now need to constrain - simplified because the intervals are exactly the same
         .filter{ case (intv, aa) =>
           ept.srcAttr.find(ii => ii._1.intersects(intv)).isDefined && ept.dstAttr.find(ii => ii._1.intersects(intv)).isDefined
-      }
-    }.subgraph(epred = et => et.attr.size > 0)
+      })
+    }.subgraph(epred = et => et.attr._2.size > 0)
 
     new OneGraph(newIntvs, filtered, defaultValue, storageLevel, false)
 
@@ -292,9 +304,13 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
     new OneGraph(intervals, newgs, defVal, storageLevel, false)
   }
 
-  override def emap[ED2: ClassTag](map: (Interval, Edge[ED]) => ED2): OneGraph[VD, ED2] = {
+  override def emap[ED2: ClassTag](map: TEdge[ED] => ED2): OneGraph[VD, ED2] = {
+    //TODO: this creates a lot of unnecessary objects which will make it slow
+    //because of garbage collection. rewrite.
     val newgs = graphs.mapEdges(e =>
-      e.attr.map{ case (intv, aa) => (intv, map(intv, Edge(e.srcId, e.dstId, aa)))}
+      (e.attr._1, e.attr._2.map{ case (intv, aa) => 
+        (intv, map(TEdge(e.attr._1, e.srcId, e.dstId, intv, aa)))
+      })
     )
 
     new OneGraph(intervals, newgs, defaultValue, storageLevel, false)
@@ -312,7 +328,8 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
     val newIntvs: Array[Interval] = intervals.flatMap(ii => Seq(ii.start, ii.end)).union(grp2.intervals.flatMap(ii => Seq(ii.start, ii.end))).distinct.sortBy(c => c).sliding(2).map(x => Interval(x(0), x(1))).toArray
 
     val newgs = Graph(graphs.vertices.union(grp2.graphs.vertices).reduceByKey((a,b) => TempGraphOps.mergeIntervalLists[VD](vFunc, a.toList, b.toList).toArray),
-      graphs.edges.union(grp2.graphs.edges).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey((a,b) => TempGraphOps.mergeIntervalLists[ED](eFunc, a.toList, b.toList).toArray).map(e => Edge(e._1._1, e._1._2, e._2)),
+      graphs.edges.union(grp2.graphs.edges)
+        .map(e => ((e.attr._1, e.srcId, e.dstId), e.attr._2)).reduceByKey((a,b) => TempGraphOps.mergeIntervalLists[ED](eFunc, a.toList, b.toList).toArray).map(e => Edge(e._1._2, e._1._3, (e._1._1, e._2))),
       Array[(Interval,VD)](), storageLevel, storageLevel)
 
     new OneGraph(newIntvs, newgs, defaultValue, storageLevel, false)
@@ -344,8 +361,8 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
         } else attr1
       ).subgraph(vpred = (vid, attr) => attr.size > 0)
       //constrain the edges for vertices that went away
-        .mapTriplets(ept => constrainEdges(ept.attr, ept.srcAttr, ept.dstAttr))
-        .subgraph(epred = et => et.attr.size > 0)
+        .mapTriplets(ept => (ept.attr._1, constrainEdges(ept.attr._2, ept.srcAttr, ept.dstAttr)))
+        .subgraph(epred = et => et.attr._2.size > 0)
 
       new OneGraph(newIntvs, newgs, defaultValue, storageLevel, coalesced && grp2.coalesced)
     } else {
@@ -374,7 +391,9 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
         if x._1.intersects(y._1)
       } yield (x._1.intersection(y._1).get, vFunc(x._2, y._2))
       }.filter(v => v._2.size > 0), 
-        graphs.edges.map(e => ((e.srcId, e.dstId), e.attr)).join(grp2.graphs.edges.map(e => ((e.srcId, e.dstId), e.attr))).map{ case (k,v) => Edge(k._1, k._2, for { x <- v._1; y <- v._2; if x._1.intersects(y._1) } yield (x._1.intersection(y._1).get, eFunc(x._2, y._2)))}.filter(e => e.attr.size > 0),
+        graphs.edges.map(e => ((e.attr._1, e.srcId, e.dstId), e.attr._2)).join(grp2.graphs.edges.map(e => ((e.attr._1, e.srcId, e.dstId), e.attr._2)))
+          .map{ case (k,v) => Edge(k._2, k._3, (k._1, for { x <- v._1; y <- v._2; if x._1.intersects(y._1) } yield (x._1.intersection(y._1).get, eFunc(x._2, y._2))))}
+          .filter(e => e.attr._2.size > 0),
         Array[(Interval,VD)](), storageLevel, storageLevel)
 
       new OneGraph(newIntvs, newgs, defaultValue, storageLevel, false)
@@ -389,51 +408,59 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
   (initialMsg: A, defValue: A, maxIterations: Int = Int.MaxValue,
     activeDirection: EdgeDirection = EdgeDirection.Either)
   (vprog: (VertexId, VD, A) => VD,
-    sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
+    sendMsg: EdgeTriplet[VD, (EdgeId, ED)] => Iterator[(VertexId, A)],
     mergeMsg: (A, A) => A): OneGraph[VD, ED] = {
 
     //because we run for all time instances at the same time,
     //need to convert programs and messages to the map form
-    val initM: Map[TimeIndex, A] = {
-      var tmp = new Int2ObjectOpenHashMap[A]()
-
-      for(i <- 0 to intervals.size) {
-        tmp.put(i, initialMsg)
+    val initM: Int2ObjectOpenHashMap[A] = {
+      val tmp = new Int2ObjectOpenHashMap[A]()
+      (0 to intervals.size).map{ ii =>
+        tmp.put(ii, initialMsg)
       }
-      tmp.asInstanceOf[Map[TimeIndex, A]]
+      tmp
     }
 
-    val vertexP = (id: VertexId, attr: Map[TimeIndex, VD], msg: Map[TimeIndex, A]) => {
-      var vals = attr
-      msg.foreach {x =>
-        val (k,v) = x
-        if (vals.contains(k)) {
-          vals = vals.updated(k, vprog(id, vals(k), v))
-        }
+    val vertexP = (id: VertexId, attr: Int2ObjectOpenHashMap[VD], msg: Int2ObjectOpenHashMap[A]) => {
+      var vals = attr.clone
+
+      val iter = attr.iterator
+      while (iter.hasNext) {
+        val (index,v) = iter.next
+        vals.update(index, vprog(id, v, msg.getOrDefault(index, defValue)))
       }
       vals
     }
-
-    val sendMsgC = (edge: EdgeTriplet[Map[TimeIndex, VD], Map[TimeIndex, ED]]) => {
+  
+    val sendMsgC = (edge: EdgeTriplet[Int2ObjectOpenHashMap[VD], (EdgeId, Int2ObjectOpenHashMap[ED])]) => {
       //sendMsg takes in an EdgeTriplet[VD,ED]
       //so we have to construct those for each TimeIndex
-      edge.attr.toList.flatMap{ case (k,v) =>
-        val et = new EdgeTriplet[VD, ED]
+      edge.attr._2.toList.flatMap{ case (k,v) =>
+        val et = new EdgeTriplet[VD, (EdgeId,ED)]
         et.srcId = edge.srcId
         et.dstId = edge.dstId
         et.srcAttr = edge.srcAttr(k)
         et.dstAttr = edge.dstAttr(k)
-        et.attr = v
+        et.attr = (edge.attr._1, v)
         //this returns Iterator[(VertexId, A)], but we need
         //Iterator[(VertexId, Map[TimeIndex, A])]
-        sendMsg(et).map(x => (x._1, {var tmp = new Int2ObjectOpenHashMap[A](); tmp.put(k, x._2); tmp.asInstanceOf[Map[TimeIndex,A]]}))
+        sendMsg(et).map{x => 
+          val tmp = new Int2ObjectOpenHashMap[A]()
+          tmp.put(k, x._2)
+          (x._1, tmp)
+        }
       }
         .iterator
     }
 
-    val mergeMsgC = (a: Map[TimeIndex, A], b: Map[TimeIndex, A]) => {
-      val tmp = b.map { case (index, vl) => index -> mergeMsg(vl, a.getOrElse(index, defValue))}
-      mapAsJavaMap(a ++ tmp)
+    val mergeMsgC = (a: Int2ObjectOpenHashMap[A], b: Int2ObjectOpenHashMap[A]) => {
+      val itr = a.iterator
+
+      while(itr.hasNext){
+        val (index, oldv) = itr.next()
+        b.update(index, mergeMsg(oldv, b.getOrDefault(index, defValue)))
+      }
+      b
     }
 
     val intvs = ProgramContext.sc.broadcast(intervals)
@@ -450,17 +477,17 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
     val grph = graphs.mapVertices{ case (vid, attr) =>
       var tmp = new Int2ObjectOpenHashMap[VD]()
       attr.foreach{ case (intv, aa) => split(intv).foreach{ ii => tmp.put(ii,aa)}}
-      tmp.asInstanceOf[Map[TimeIndex,VD]]
+      tmp
     }.mapEdges{e =>
       var tmp = new Int2ObjectOpenHashMap[ED]()
-      e.attr.foreach{ case (intv, aa) => split(intv).foreach{ ii => tmp.put(ii,aa)}}
-      tmp.asInstanceOf[Map[TimeIndex,ED]]
+      e.attr._2.foreach{ case (intv, aa) => split(intv).foreach{ ii => tmp.put(ii,aa)}}
+      (e.attr._1, tmp)
     }
 
     val newgrp = Pregel(grph, initM, maxIterations, activeDirection)(vertexP, sendMsgC, mergeMsgC).mapVertices{ case (vid, mp) =>
       mp.toArray.map{ case (index, aa) => (intvs.value(index),aa)}
     }.mapEdges(e =>
-      e.attr.toArray.map{ case (index, aa) => (intvs.value(index),aa)}
+      (e.attr._1, e.attr._2.toArray.map{ case (index, aa) => (intvs.value(index),aa)})
     )
 
     //now convert back to array
@@ -473,7 +500,7 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
     val mergeFunc = TempGraphOps.mergeIntervalLists((a:Int,b:Int) => a + b, _: List[(Interval,Int)], _: List[(Interval,Int)])
     val res = graphs.aggregateMessages[List[(Interval,Int)]](
       ctx => {
-        ctx.attr.foreach{ii => 
+        ctx.attr._2.foreach{ii => 
           ctx.sendToSrc(List((ii._1, 1)))
           ctx.sendToDst(List((ii._1, 1)))
         }
@@ -492,10 +519,10 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
     }
 
     //convert to bitset
-    val bitGraph: Graph[BitSet,BitSet] = graphs.mapVertices{ case (vid, attr) =>
+    val bitGraph: Graph[BitSet,(EdgeId, BitSet)] = graphs.mapVertices{ case (vid, attr) =>
       attr.map{ case (intv,aa) => split(intv)}.reduce((a,b) => a union b)
     }.mapEdges(e =>
-      e.attr.map{ case (intv,aa) => split(intv)}.reduce((a,b) => a union b)
+      (e.attr._1, e.attr._2.map{ case (intv,aa) => split(intv)}.reduce((a,b) => a union b))
     )
 
     //collect degrees
@@ -511,18 +538,18 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
 
     val degrees = bitGraph.aggregateMessages[Int2IntOpenHashMap](
       ctx => {
-        ctx.attr.foreach{ii =>
+        ctx.attr._2.foreach{ii =>
           ctx.sendToSrc(new Int2IntOpenHashMap(Array(ii),Array(1)))
           if (undirected) ctx.sendToDst(new Int2IntOpenHashMap(Array(ii),Array(1))) else ctx.sendToDst(new Int2IntOpenHashMap(Array(ii),Array(0)))
         }
       }, mergeFunc, TripletFields.EdgeOnly)
 
-    val pagerankGraph: Graph[Int2ObjectOpenHashMap[(Double,Double)], Int2ObjectOpenHashMap[(Double,Double)]] = bitGraph.outerJoinVertices(degrees) {
+    val pagerankGraph: Graph[Int2ObjectOpenHashMap[(Double,Double)], (EdgeId, Int2ObjectOpenHashMap[(Double,Double)])] = bitGraph.outerJoinVertices(degrees) {
       //convert to time indices and degrees
       case (vid, vdata, Some(deg)) => deg
       case (vid, vdata, None) => new Int2IntOpenHashMap()
     }.mapTriplets{ e =>
-      new Int2ObjectOpenHashMap[(Double,Double)](e.attr.toArray, e.attr.toArray.map(x => (1.0/e.srcAttr(x), 1.0/e.dstAttr.getOrDefault(x, 0))))
+      (e.attr._1, new Int2ObjectOpenHashMap[(Double,Double)](e.attr._2.toArray, e.attr._2.toArray.map(x => (1.0/e.srcAttr(x), 1.0/e.dstAttr.getOrDefault(x, 0)))))
     }.mapVertices{ (id,attr) =>
       new Int2ObjectOpenHashMap[(Double,Double)](attr.keySet().toIntArray(), Array.fill(attr.size)((0.0,0.0)))
     }.cache()
@@ -540,8 +567,8 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
     }
 
     val sendMessage = if (undirected)
-        (edge: EdgeTriplet[Int2ObjectOpenHashMap[(Double, Double)], Int2ObjectOpenHashMap[(Double, Double)]]) => {
-          edge.attr.toList.flatMap{ case (k,v) =>
+        (edge: EdgeTriplet[Int2ObjectOpenHashMap[(Double, Double)], (EdgeId, Int2ObjectOpenHashMap[(Double, Double)])]) => {
+          edge.attr._2.toList.flatMap{ case (k,v) =>
             if (edge.srcAttr.apply(k)._2 > tol &&
               edge.dstAttr.apply(k)._2 > tol) {
               Iterator((edge.dstId, new Int2DoubleOpenHashMap(Array(k.toInt), Array(edge.srcAttr.apply(k)._2 * v._1))),
@@ -557,8 +584,8 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
             .iterator
         }
         else
-      (edge: EdgeTriplet[Int2ObjectOpenHashMap[(Double, Double)], Int2ObjectOpenHashMap[(Double, Double)]]) => {
-        edge.attr.toList.flatMap{ case (k,v) =>
+      (edge: EdgeTriplet[Int2ObjectOpenHashMap[(Double, Double)], (EdgeId, Int2ObjectOpenHashMap[(Double, Double)])]) => {
+        edge.attr._2.toList.flatMap{ case (k,v) =>
           if  (edge.srcAttr.apply(k)._2 > tol) {
             Some((edge.dstId, new Int2DoubleOpenHashMap(Array(k.toInt), Array(edge.srcAttr.apply(k)._2 * v._1))))
           } else {
@@ -584,8 +611,8 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
     val initialMessage:Int2DoubleOpenHashMap = new Int2DoubleOpenHashMap((0 until intervals.size).toArray, Array.fill(intervals.size)(resetProb / (1.0-resetProb)))
 
     val dir = if (undirected) EdgeDirection.Either else EdgeDirection.Out
-    val resultGraph: Graph[Map[TimeIndex,(Double,Double)], Map[TimeIndex,(Double,Double)]] = Pregel(pagerankGraph, initialMessage, numIter, activeDirection = dir)(vertexProgram, sendMessage, messageCombiner)
-      .asInstanceOf[Graph[Map[TimeIndex,(Double,Double)], Map[TimeIndex,(Double,Double)]]]
+    val resultGraph: Graph[Map[TimeIndex,(Double,Double)], (EdgeId, Map[TimeIndex,(Double,Double)])] = Pregel(pagerankGraph, initialMessage, numIter, activeDirection = dir)(vertexProgram, sendMessage, messageCombiner)
+      .asInstanceOf[Graph[Map[TimeIndex,(Double,Double)], (EdgeId, Map[TimeIndex,(Double,Double)])]]
 
     //now join the values into old graph
     val newgs = graphs.outerJoinVertices(resultGraph.vertices) {
@@ -610,7 +637,7 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
 
     val conGraph: Graph[Int2LongOpenHashMap, BitSet] = graphs.mapVertices{ case (vid, attr) =>
       new Int2LongOpenHashMap()
-    }.mapEdges(e =>  e.attr.map{ case (intv,aa) => split(intv)}.reduce((a,b) => a union b))
+    }.mapEdges(e =>  e.attr._2.map{ case (intv,aa) => split(intv)}.reduce((a,b) => a union b))
 
     val vertexProgram = (id: VertexId, attr: Int2LongOpenHashMap, msg: Int2LongOpenHashMap) => {
       var vals = attr.clone()
@@ -669,7 +696,7 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
     throw new UnsupportedOperationException("shortest paths not yet implemented")
   }
 
-  override def aggregateMessages[A: ClassTag](sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
+  override def aggregateMessages[A: ClassTag](sendMsg: EdgeTriplet[VD, (EdgeId, ED)] => Iterator[(VertexId, A)],
     mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): OneGraph[(VD, A), ED] = {
 
     val mergeFunc = TempGraphOps.mergeIntervalLists[A](mergeMsg, _:List[(Interval,A)], _:List[(Interval,A)])
@@ -678,14 +705,14 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
       ctx => {
         //make a single message to send to src and/or dst
         //that covers all intervals there's a message for
-        val triplet = new EdgeTriplet[VD,ED]
+        val triplet = new EdgeTriplet[VD,(EdgeId,ED)]
         triplet.srcId = ctx.srcId
         triplet.dstId = ctx.dstId
         //the messages are (Interval,A) pairs
         if (tripletFields == TripletFields.None || tripletFields == TripletFields.EdgeOnly) {
           //don't bother with vertex attributes since they are not needed
-          ctx.attr.foreach { x =>
-            triplet.attr = x._2
+          ctx.attr._2.foreach { x =>
+            triplet.attr = (ctx.attr._1, x._2)
             sendMsg(triplet).foreach {y =>
               if (y._1 == ctx.srcId) ctx.sendToSrc(List[(Interval,A)]((x._1, y._2)))
               else if (y._1 == ctx.dstId) ctx.sendToDst(List[(Interval,A)]((x._1, y._2)))
@@ -695,8 +722,8 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
           }
         } else {
           //get vertex attributes
-          ctx.attr.foreach { x =>
-            triplet.attr = x._2
+          ctx.attr._2.foreach { x =>
+            triplet.attr = (ctx.attr._1, x._2)
             val srcAttrs = ctx.srcAttr.filter(y => y._1.intersects(x._1))
             val dstAttrs = ctx.dstAttr.filter(y => y._1.intersects(x._1))
             val pairs = for {
@@ -781,21 +808,21 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
 
 object OneGraph {
 
-  def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): OneGraph[V,E] = new OneGraph(Array[Interval](), Graph(ProgramContext.sc.emptyRDD[(VertexId, Array[(Interval,V)])], ProgramContext.sc.emptyRDD[Edge[Array[(Interval,E)]]]), defVal, coal = true)
+  def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): OneGraph[V,E] = new OneGraph(Array[Interval](), Graph(ProgramContext.sc.emptyRDD[(VertexId, Array[(Interval,V)])], ProgramContext.sc.emptyRDD[Edge[(EdgeId, Array[(Interval,E)])]]), defVal, coal = true)
 
-  def computeIntervals[V: ClassTag, E: ClassTag](graph: Graph[Array[(Interval,V)], Array[(Interval,E)]]): Array[Interval] = {
+  def computeIntervals[V: ClassTag, E: ClassTag](graph: Graph[Array[(Interval,V)], (EdgeId, Array[(Interval,E)])]): Array[Interval] = {
     implicit val ord = TempGraphOps.dateOrdering
-    graph.vertices.flatMap{ case (vid, attr) => attr.flatMap(xx => Seq(xx._1.start, xx._1.end)).distinct}.union(graph.edges.flatMap(e => e.attr.flatMap(xx => Seq(xx._1.start, xx._1.end)).distinct)).distinct.collect.sortBy(c => c).sliding(2).map(lst => Interval(lst(0), lst(1))).toArray
+    graph.vertices.flatMap{ case (vid, attr) => attr.flatMap(xx => Seq(xx._1.start, xx._1.end)).distinct}.union(graph.edges.flatMap(e => e.attr._2.flatMap(xx => Seq(xx._1.start, xx._1.end)).distinct)).distinct.collect.sortBy(c => c).sliding(2).map(lst => Interval(lst(0), lst(1))).toArray
   }
 
-  def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): OneGraph[V, E] = {
+  def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[TEdge[E]], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): OneGraph[V, E] = {
     val cverts = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(verts) else verts
-    val cedges = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(edgs) else edgs
+    val cedges = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(edgs.map(e => e.toPaired)).map(e => TEdge(e._1, e._2)) else edgs
     val coal = coalesced | ProgramContext.eagerCoalesce
 
     val intervals = TGraphNoSchema.computeIntervals(cverts, cedges).collect
-    val newgs = Graph[Array[(Interval,V)],Array[(Interval,E)]](cverts.groupByKey.mapValues(_.toArray),
-      cedges.groupByKey.map{ case (vids, iter) => Edge(vids._1, vids._2, iter.toArray)},
+    val newgs = Graph[Array[(Interval,V)], (EdgeId, Array[(Interval,E)])](cverts.groupByKey.mapValues(_.toArray),
+      cedges.map(te => te.toPaired).groupByKey.map{ case (ids, iter) => Edge(ids._2, ids._3, (ids._1, iter.toArray))},
       Array[(Interval,V)](), storLevel, storLevel)
 
     new OneGraph(intervals, newgs, defVal, storLevel, coal)
@@ -804,8 +831,17 @@ object OneGraph {
 
   def fromDataFrames[V: ClassTag, E: ClassTag](verts: org.apache.spark.sql.DataFrame, edgs: org.apache.spark.sql.DataFrame, defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): OneGraph[V, E] = {
     val cverts = verts.rdd.map(r => (r.getLong(0), (Interval(r.getLong(1), r.getLong(2)), r.getAs[V](3))))
-    val cedgs = edgs.rdd.map(r => ((r.getLong(0), r.getLong(1)), (Interval(r.getLong(2), r.getLong(3)), r.getAs[E](4))))
-    fromRDDs(cverts, cedgs, defVal, storLevel, coalesced)
+    val cedgs = edgs.rdd.map(r => ((r.getLong(0), r.getLong(1), r.getLong(2)), (Interval(r.getLong(3), r.getLong(4)), r.getAs[E](5))))
 
+    val cov = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(cverts) else cverts
+    val coe = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(cedgs) else cedgs
+    val coal = coalesced | ProgramContext.eagerCoalesce
+
+    val intervals = TGraphNoSchema.computeIntervals(cov, coe.map(e => TEdge(e._1, e._2))).collect
+    val newgs = Graph[Array[(Interval,V)], (EdgeId, Array[(Interval,E)])](cov.groupByKey.mapValues(_.toArray),
+      coe.groupByKey.map{ case (ids, iter) => Edge(ids._2, ids._3, (ids._1, iter.toArray))},
+      Array[(Interval,V)](), storLevel, storLevel)
+
+    new OneGraph(intervals, newgs, defVal, storLevel, coal)
   }
 }
