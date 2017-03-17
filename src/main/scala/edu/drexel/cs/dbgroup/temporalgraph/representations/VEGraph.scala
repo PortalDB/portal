@@ -13,12 +13,13 @@ import org.apache.spark.rdd._
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
 
+
 import scala.reflect.ClassTag
 
-class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraphNoSchema[VD,ED](defValue, storLevel, coal) {
+class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[TEdge[ED]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraphNoSchema[VD,ED](defValue, storLevel, coal) {
 
   val allVertices: RDD[(VertexId, (Interval, VD))] = verts
-  val allEdges: RDD[((VertexId, VertexId), (Interval, ED))] = edgs
+  val allEdges: RDD[TEdge[ED]] = edgs
   lazy val intervals: RDD[Interval] = TGraphNoSchema.computeIntervals(allVertices, allEdges)
 
   lazy val span: Interval = computeSpan
@@ -45,7 +46,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     */
   override def vertices: RDD[(VertexId,(Interval, VD))] = coalescedVertices
 
-  override def edges: RDD[((VertexId,VertexId),(Interval, ED))] = coalescedEdges
+  override def edges: RDD[TEdge[ED]] = coalescedEdges
 
   /**
     * Get the temporal sequence for the representative graphs
@@ -69,7 +70,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     if (coalesced)
       allEdges
     else
-      TGraphNoSchema.coalesce(allEdges)
+      TGraphNoSchema.coalesce(allEdges.map(e => e.toPaired())).map(e => TEdge.apply(e._1,e._2))
   }
 
   private lazy val coalescedIntervals = {
@@ -79,14 +80,14 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
       TGraphNoSchema.computeIntervals(vertices, edges)
   }
 
-  override def getSnapshot(time: LocalDate): Graph[VD,ED] = {
+  override def getSnapshot(time: LocalDate): Graph[VD,(EdgeId,ED)] = {
     if (span.contains(time)) {
       val filteredvas: RDD[(VertexId,VD)] = allVertices.filter{ case (k,v) => v._1.contains(time)}
         .map{ case (k,v) => (k, v._2)}
-      val filterededs: RDD[Edge[ED]] = allEdges.filter{ case (k,v) => v._1.contains(time)}.map{ case (k,v) => Edge(k._1, k._2, v._2)}
-      Graph[VD,ED](filteredvas, filterededs, defaultValue, storageLevel, storageLevel)
+      val filterededs: RDD[Edge[(EdgeId,ED)]] = allEdges.filter{ e => e.interval.contains(time)}.map{ e => Edge(e.srcId, e.dstId, (e.eId,e.attr))}
+      Graph[VD,(EdgeId,ED)](filteredvas, filterededs, defaultValue, storageLevel, storageLevel)
     } else
-      Graph[VD,ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+      Graph[VD,(EdgeId,ED)](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
   }
 
   override def coalesce(): VEGraph[VD, ED] = {
@@ -95,7 +96,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     if (coalesced)
       this
     else
-      fromRDDs(TGraphNoSchema.coalesce(allVertices), TGraphNoSchema.coalesce(allEdges), defaultValue, storageLevel, true)
+      fromRDDs(TGraphNoSchema.coalesce(allVertices), TGraphNoSchema.coalesce(allEdges.map(e => e.toPaired())).map(e => TEdge.apply(e._1,e._2)), defaultValue, storageLevel, true)
   }
 
   override def slice(bound: Interval): VEGraph[VD, ED] = {
@@ -112,8 +113,9 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     //and maintains the coalesced/uncoalesced state
     fromRDDs(allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}
                   .mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), 
-             allEdges.filter{ case (vids, (intv, attr)) => intv.intersects(selectBound)}
-                  .mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), 
+             allEdges.filter{ e => e.interval.intersects(selectBound)}.map(e => e.toPaired())
+                  .mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2))
+                  .map(e => TEdge.apply(e._1,e._2)),
              defaultValue, storageLevel, coalesced)
   }
 
@@ -124,25 +126,27 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     fromRDDs(newVerts, newEdges, defaultValue, storageLevel, coalesced)
   }
 
-  override def esubgraph(epred: (EdgeTriplet[VD,ED],Interval) => Boolean,tripletFields: TripletFields = TripletFields.All ): VEGraph[VD,ED] = {
+  override def esubgraph(epred: (TEdgeTriplet[VD,ED]) => Boolean,tripletFields: TripletFields = TripletFields.All ): VEGraph[VD,ED] = {
     //TODO: tripletfields
     if (tripletFields == TripletFields.None || tripletFields == TripletFields.EdgeOnly) {
       val newVerts: RDD[(VertexId, (Interval, VD))] = allVertices
       val newEdges = allEdges.map(e => {
-        var et = new EdgeTriplet[VD, ED]
-        et.srcId = e._1._1
-        et.dstId = e._1._2
-        et.attr = e._2._2
-        (et, e._2._1)
+        var et = new TEdgeTriplet[VD,ED]
+        et.eId = e.eId
+        et.srcId = e.srcId
+        et.dstId = e.dstId
+        et.attr = e.attr
+        et.interval = e.interval
+        et
       }
-      ).filter(e => epred(e._1, e._2))
-      fromRDDs(newVerts, newEdges.map { case (e, intv) => ((e.srcId, e.dstId), (intv, e.attr)) }, defaultValue, storageLevel, coalesced)
+      ).filter(e => epred(e))
+      fromRDDs(newVerts, newEdges.map { e => TEdge.apply(e.eId, e.srcId, e.dstId, e.interval, e.attr) }, defaultValue, storageLevel, coalesced)
     }
     else
     {
       val newVerts: RDD[(VertexId, (Interval, VD))] = allVertices
-      val newEdges = triplets.filter(e => epred(e._1,e._2))
-      fromRDDs(newVerts, newEdges.map { case (e, intv) => ((e.srcId, e.dstId), (intv, e.attr)) }, defaultValue, storageLevel, coalesced)
+      val newEdges = triplets.filter(e => epred(e))
+      fromRDDs(newVerts, newEdges.map { e => TEdge.apply(e.eId, e.srcId, e.dstId, e.interval, e.attr) }, defaultValue, storageLevel, coalesced)
 
     }
 
@@ -164,7 +168,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
       }
     }
     val splitVerts: RDD[((VertexId, Interval), (VD, Double))] = allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii._1), (attr, ii._2.ratio(ii._1))))}
-    val splitEdges: RDD[((VertexId, VertexId, Interval),(ED, Double))] = allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii._1), (attr, ii._2.ratio(ii._1))))}
+    val splitEdges: RDD[((EdgeId,VertexId,VertexId,Interval),(ED,Double))] = allEdges.flatMap{ case e => split(e.interval).map(ii => ((e.eId,e.srcId,e.dstId,ii._1),(e.attr, ii._2.ratio(ii._1))))}
 
 
     //reduce vertices by key, also computing the total period occupied
@@ -174,7 +178,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
 
     val newVerts: RDD[(VertexId, (Interval, VD))] = splitVerts.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 + b._2)).filter(v => vquant.keep(v._2._2)).map(v => (v._1._1, (v._1._2, v._2._1)))
     //same for edges
-    val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 + b._2)).filter(e => equant.keep(e._2._2)).map(e => ((e._1._1, e._1._2), (e._1._3, e._2._1)))
+    val aggEdges: RDD[TEdge[ED]] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1,b._1), a._2 + b._2)).filter(e => equant.keep(e._2._2)).map(e => TEdge[ED](e._1._1,e._1._2,e._1._3,e._1._4,e._2._1))
 
     //we only need to enforce the integrity constraint on edges if the vertices have all quantification but edges have exists; otherwise it's maintained naturally
     val newEdges = if (vquant.threshold <= equant.threshold) aggEdges else TGraphNoSchema.constrainEdges(newVerts, aggEdges)
@@ -188,7 +192,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     //then we can skip the expensive joins
     val splitVerts: RDD[((VertexId, Interval), (VD, Double))] = allVertices.flatMap{ case (vid, (intv, attr)) => intv.split(c.res, start).map(ii => ((vid, ii._2), (attr, ii._1.ratio(ii._2))))}
 
-    val splitEdges: RDD[((VertexId, VertexId, Interval),(ED, Double))] = allEdges.flatMap{ case (ids, (intv, attr)) => intv.split(c.res, start).map(ii => ((ids._1, ids._2, ii._2), (attr, ii._1.ratio(ii._2))))}
+    val splitEdges: RDD[((EdgeId, VertexId, VertexId, Interval),(ED, Double))] = allEdges.flatMap{ e => e.interval.split(c.res, start).map(ii => ((e.eId, e.srcId, e.dstId, ii._2), (e.attr, ii._1.ratio(ii._2))))}
 
     //reduce vertices by key, also computing the total period occupied
     //filter out those that do not meet quantification criteria
@@ -197,13 +201,13 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
 
     val newVerts: RDD[(VertexId, (Interval, VD))] = splitVerts.reduceByKey((a,b) => (vAggFunc(a._1, b._1), a._2 + b._2)).filter(v => vquant.keep(v._2._2)).map(v => (v._1._1, (v._1._2, v._2._1)))
     //same for edges
-    val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 + b._2)).filter(e => equant.keep(e._2._2)).map(e => ((e._1._1, e._1._2), (e._1._3, e._2._1)))
+    val aggEdges: RDD[TEdge[ED]] = splitEdges.reduceByKey((a,b) => (eAggFunc(a._1, b._1), a._2 + b._2)).filter(e => equant.keep(e._2._2)).map(e => TEdge[ED](e._1._1,e._1._2,e._1._3,e._1._4,e._2._1))
     val newEdges = if (vquant.threshold <= equant.threshold) aggEdges else TGraphNoSchema.constrainEdges(newVerts, aggEdges)
     fromRDDs(newVerts, newEdges, defaultValue, storageLevel, false)
   }
 
 
-  override def createAttributeNodes(vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED)(vgroupby: (VertexId, VD) => VertexId ): VEGraph[VD, ED] = {
+  override def createAttributeNodes( vAggFunc: (VD, VD) => VD)(vgroupby: (VertexId, VD) => VertexId ): VEGraph[VD, ED] = {
 
     val locali = ProgramContext.sc.broadcast(intervals.collect)
     //TODO: splitting entities many times causes partitions that are too big
@@ -223,19 +227,24 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
         split(intv).map(ii => ((vgroupby(vid, attr), ii), attr))
       }
 
-    val splitEdges: RDD[((VertexId, VertexId, Interval),ED)] = {
+    val splitEdges: RDD[TEdge[ED]] = {
       val newVIds: RDD[(VertexId, (Interval, VertexId))] = allVertices.map{ case (vid, (intv, attr)) => (vid, (intv, vgroupby(vid, attr)))}
       //for each edge, similar except computing the new ids requires joins with V
-      val edgesWithIds: RDD[((VertexId, VertexId), (Interval, ED))] = allEdges.map(e => (e._1._1, e)).join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => (e._1._2, (v._2, (Interval(TempGraphOps.maxDate(e._2._1.start, v._1.start), TempGraphOps.minDate(e._2._1.end, v._1.end)), e._2._2)))}.join(newVIds).filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}.map{ case (vid, (e, v)) => ((e._1, v._2), (Interval(TempGraphOps.maxDate(e._2._1.start, v._1.start), TempGraphOps.minDate(e._2._1.end, v._1.end)), e._2._2))}
-      edgesWithIds.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}
+      val edgesWithIds: RDD[TEdge[ED]] = allEdges
+        .map{e => (e.srcId, e)}
+        .join(newVIds)
+        .filter{ case (vid, (e, v)) => e.interval.intersects(v._1)}
+        .map{ case (vid, (e, v)) => (e.dstId, (v._2, (Interval(TempGraphOps.maxDate(e.interval.start, v._1.start), TempGraphOps.minDate(e.interval.end, v._1.end)), (e.eId,e.attr))))}
+        .join(newVIds)
+        .filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}
+        .map{ case (vid, (e, v)) => TEdge(e._2._2._1, e._1, v._2, Interval(TempGraphOps.maxDate(e._2._1.start, v._1.start), TempGraphOps.minDate(e._2._1.end, v._1.end)), e._2._2._2)}
+      edgesWithIds.flatMap{ e => split(e.interval).map(ii => TEdge(e.eId,e.srcId, e.dstId, ii, e.attr))}
     }
 
     //map to final result
     val newVerts: RDD[(VertexId, (Interval, VD))] = splitVerts.reduceByKey((a,b) => (vAggFunc(a, b))).map(v => (v._1._1, (v._1._2, v._2)))
-    //same for edges
-    val aggEdges: RDD[((VertexId, VertexId), (Interval, ED))] = splitEdges.reduceByKey((a,b) => (eAggFunc(a, b))).map(e=>((e._1._1,e._1._2),(e._1._3,e._2)))
 
-    fromRDDs(newVerts, aggEdges, defaultValue, storageLevel, false)
+    fromRDDs(newVerts, splitEdges, defaultValue, storageLevel, false)
 
   }
 
@@ -264,8 +273,8 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
    * @tparam ED2 the new edge data type
    *
    */
-  override def emap[ED2: ClassTag](map: (Interval, Edge[ED]) => ED2): VEGraph[VD, ED2] = {
-    fromRDDs(allVertices, allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(intv, Edge(ids._1, ids._2, attr))))}, defaultValue, storageLevel, false)
+  override def emap[ED2: ClassTag](map: TEdge[ED] => ED2): VEGraph[VD, ED2] = {
+    fromRDDs(allVertices, allEdges.map{ e => TEdge[ED2](e.eId,e.srcId,e.dstId, e.interval, map(e))}, defaultValue, storageLevel, false)
   }
 
   override def union(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): VEGraph[VD, ED] = {
@@ -290,7 +299,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
         }
       }
       val newVerts = allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}.union(grp2.allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}).reduceByKey(vFunc).map{ case (v, attr) => (v._1, (v._2, attr))}
-      val newEdges = allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}.union(grp2.allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}).reduceByKey((a,b) => eFunc(a,b)).map{ case (e, attr) => ((e._1, e._2), (e._3, attr))}
+      val newEdges = allEdges.flatMap{ e => split(e.interval).map(ii => ((e.eId,e.srcId, e.dstId, ii), e.attr))}.union(grp2.allEdges.flatMap{ e => split(e.interval).map(ii => ((e.eId,e.srcId,e.dstId, ii), e.attr))}).reduceByKey((a,b) => eFunc(a,b)).map{ e => TEdge.apply(e._1,e._2)}
       fromRDDs(newVerts, newEdges, (defaultValue), storageLevel, false)
 
     } else {
@@ -323,7 +332,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
         }
       }
       val newVertices=((allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}).leftOuterJoin((grp2.allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}))).filter(v=>v._2._2 == None).map{ case (v,attr) => (v._1,(v._2,(attr._1)))}
-      val newEdges=((allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}).leftOuterJoin((grp2.allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}))) .filter(e=>e._2._2 == None).map{ case (e, attr) => ((e._1, e._2), (e._3, (attr._1)))}
+      val newEdges=((allEdges.flatMap{ e => split(e.interval).map(ii => ((e.eId,e.srcId,e.dstId, ii), e.attr))}).leftOuterJoin((grp2.allEdges.flatMap{ e => split(e.interval).map(ii => ((e.eId,e.srcId,e.dstId, ii), e.attr))}))).filter(e=> e._2._2 == None).map{ case (e, attr) => TEdge.apply(e,attr._1)}
       fromRDDs(newVertices, TGraphNoSchema.constrainEdges(newVertices,newEdges), defaultValue, storageLevel, false)
     } else {
       this
@@ -355,7 +364,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
       //split the intervals
       //then perform inner join
       val newVertices = allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}.join(grp2.allVertices.flatMap{ case (vid, (intv, attr)) => split(intv).map(ii => ((vid, ii), attr))}).map{ case ((vid, intv), (attr1, attr2)) => (vid, (intv, vFunc(attr1, attr2)))}
-      val newEdges = allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}.join(grp2.allEdges.flatMap{ case (ids, (intv, attr)) => split(intv).map(ii => ((ids._1, ids._2, ii), attr))}).map{ case ((id1, id2, intv), (attr1, attr2)) => ((id1, id2), (intv, eFunc(attr1, attr2)))}
+      val newEdges = allEdges.flatMap{ e => split(e.interval).map(ii => ((e.eId,e.srcId,e.dstId, ii), e.attr))}.join(grp2.allEdges.flatMap{ e => split(e.interval).map(ii => ((e.eId,e.srcId,e.dstId, ii), e.attr))}).map{ case ((eId,id1, id2, intv), (attr1, attr2)) => TEdge.apply((eId,id1, id2), (intv, eFunc(attr1, attr2)))}
 
       fromRDDs(newVertices, newEdges, defaultValue, storageLevel, false)
 
@@ -371,7 +380,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
   (initialMsg: A, defValue: A, maxIterations: Int = Int.MaxValue,
     activeDirection: EdgeDirection = EdgeDirection.Either)
   (vprog: (VertexId, VD, A) => VD,
-    sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
+    sendMsg: EdgeTriplet[VD, (EdgeId,ED)] => Iterator[(VertexId, A)],
     mergeMsg: (A, A) => A): VEGraph[VD, ED] = {
     throw new UnsupportedOperationException("analytics not supported")
   }
@@ -392,21 +401,30 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     throw new UnsupportedOperationException("analytics not supported")
   }
 
-  override def aggregateMessages[A: ClassTag](sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
+  override def aggregateMessages[A: ClassTag](sendMsg: EdgeTriplet[VD, (EdgeId,ED)] => Iterator[(VertexId, A)],
     mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): VEGraph[(VD, A), ED] = {
-    val trips: RDD[(EdgeTriplet[VD,ED], Interval)] = if (tripletFields == TripletFields.None || tripletFields == TripletFields.EdgeOnly) {
+    val trips: RDD[TEdgeTriplet[VD,ED]] = if (tripletFields == TripletFields.None || tripletFields == TripletFields.EdgeOnly) {
       allEdges.map { e =>
-        val et = new EdgeTriplet[VD, ED]
-        et.srcId = e._1._1
-        et.dstId = e._1._2
-        et.attr = e._2._2
-        (et, e._2._1)
+        val et = new TEdgeTriplet[VD,ED]
+        et.eId = e.eId
+        et.srcId = e.srcId
+        et.dstId = e.dstId
+        et.interval = e.interval
+        et.attr = e.attr
+        et
       }
     } else triplets
 
     //for each edge get a message
-    var messages: RDD[(VertexId, List[(Interval, A)])] = trips.flatMap { et =>
-      sendMsg(et._1).map(x => (x._1, List[(Interval, A)]((et._2, x._2)))).toSeq
+    var messages: RDD[(VertexId, List[(Interval, A)])] = trips
+      .map{et =>
+        val et2 = new EdgeTriplet[VD,(EdgeId,ED)]
+        et2.srcId = et.srcId
+        et2.dstId = et.dstId
+        et2.attr = (et.eId,et.attr)
+        (et2,et.interval)
+      }
+      .flatMap { et => sendMsg(et._1).map(x => (x._1, List[(Interval, A)]((et._2, x._2)))).toSeq
     }.reduceByKey { (a, b) => TempGraphOps.mergeIntervalLists(mergeMsg, a, b) }
 
     //now join with the old values
@@ -452,27 +470,29 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
       Interval(dates.min, dates.max)
   }
 
-  protected def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false): VEGraph[V, E] = {
+  protected def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[TEdge[E]], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false): VEGraph[V, E] = {
     VEGraph.fromRDDs(verts, edgs, defVal, storLevel, coalesced = coal)
   }
 
   override protected def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): VEGraph[V, E] = VEGraph.emptyGraph(defVal)
 
-  private def triplets: RDD[(EdgeTriplet[VD, ED], Interval)] = {
-    allEdges.map(e => (e._1._1, e))
+  private def triplets: RDD[(TEdgeTriplet[VD, ED])] = {
+    allEdges.map(e => (e.srcId, e))
       .join(allVertices) //this creates RDD[(VertexId, (((VertexId, VertexId), (Interval, ED)), Interval))]
-      .filter{case (vid, (e, v)) => e._2._1.intersects(v._1) } //this keeps only matches of vertices and edges where periods overlap
-      .map{case (vid, (e, v)) => (e._1._2, (e, v))}       //((e._1, e._2._1), (e._2._2, v))}
+      .filter{case (vid, (e, v)) => e.interval.intersects(v._1) } //this keeps only matches of vertices and edges where periods overlap
+      .map{case (vid, (e, v)) => (e.dstId, (e, v))}       //((e._1, e._2._1), (e._2._2, v))}
       .join(allVertices) //this creates RDD[(VertexId, ((((VertexId, VertexId), (Interval, ED)), Interval), Interval)
-      .filter{ case (vid, (e, v)) => e._1._2._1.intersects(v._1) && e._2._1.intersects(v._1)}
+      .filter{ case (vid, (e, v)) => e._1.interval.intersects(v._1) && e._2._1.intersects(v._1)}
       .map {case (vid, (e, v)) =>{
-        var et= new EdgeTriplet[VD,ED]
-        et.srcId=e._1._1._1
-        et.dstId=e._1._1._2
-        et.attr=e._1._2._2
+        var et= new TEdgeTriplet[VD,ED]
+        et.eId=e._1.eId
+        et.srcId=e._1.srcId
+        et.dstId=e._1.dstId
+        et.interval = Interval(TempGraphOps.maxDate(v._1.start, e._1.interval.start, e._2._1.start), TempGraphOps.minDate(v._1.end, e._1.interval.end, e._2._1.end))
+        et.attr=e._1.attr
         et.srcAttr=e._2._2
         et.dstAttr=v._2
-        (et, Interval(TempGraphOps.maxDate(v._1.start, e._1._2._1.start, e._2._1.start), TempGraphOps.minDate(v._1.end, e._1._2._1.end, e._2._1.end)))
+        et
       }
     }
   }
@@ -482,9 +502,9 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
 object VEGraph extends Serializable {
   def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): VEGraph[V, E] = new VEGraph(ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD, defVal, coal = true)
 
-  def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): VEGraph[V, E] = {
+  def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[TEdge[E]], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): VEGraph[V, E] = {
     val cverts = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(verts) else verts
-    val cedges = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(edgs) else edgs
+    val cedges = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(edgs.map(e => e.toPaired())).map(e => TEdge.apply(e._1,e._2)) else edgs
     val coal = coalesced | ProgramContext.eagerCoalesce
 
     new VEGraph(cverts, cedges, defVal, storLevel, coal)
@@ -492,7 +512,7 @@ object VEGraph extends Serializable {
 
   def fromDataFrames[V: ClassTag, E: ClassTag](verts: org.apache.spark.sql.DataFrame, edgs: org.apache.spark.sql.DataFrame, defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): VEGraph[V, E] = {
     val cverts: RDD[(VertexId, (Interval, V))] = verts.rdd.map(r => (r.getLong(0), (Interval(r.getLong(1), r.getLong(2)), r.getAs[V](3))))
-    val ceds: RDD[((VertexId, VertexId), (Interval, E))] = edgs.rdd.map(r => ((r.getLong(0), r.getLong(1)), (Interval(r.getLong(2), r.getLong(3)), r.getAs[E](4))))
+    val ceds: RDD[TEdge[E]] = edgs.rdd.map(r => TEdge[E](r.getLong(5),r.getLong(0), r.getLong(1), Interval(r.getLong(2), r.getLong(3)), r.getAs[E](4)))
     fromRDDs(cverts, ceds, defVal, storLevel, coalesced)
   }
 
