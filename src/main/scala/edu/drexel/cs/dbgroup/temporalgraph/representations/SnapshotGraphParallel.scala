@@ -533,11 +533,18 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
 
   }
 
-  override def aggregateMessages[A: ClassTag](sendMsg: EdgeTriplet[VD, (EdgeId,ED)] => Iterator[(VertexId, A)],
+  override def aggregateMessages[A: ClassTag](sendMsg: TEdgeTriplet[VD,ED] => Iterator[(VertexId, A)],
     mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): SnapshotGraphParallel[(VD, A), ED] = {
 
+    val toTEdgeTriplet = (ctx: EdgeContext[VD,(EdgeId,ED), A]) => {
+      val e = TEdge(ctx.attr._1, ctx.srcId, ctx.dstId, Interval.empty, ctx.attr._2)
+      val et = new TEdgeTriplet[VD,ED]
+      et.set(e)
+      et
+    }
+
     val send = (ctx: EdgeContext[VD, (EdgeId,ED), A]) => {
-      sendMsg(ctx.toEdgeTriplet).foreach { kv =>
+      sendMsg(toTEdgeTriplet(ctx)).foreach { kv =>
         if (kv._1 == ctx.srcId)
           ctx.sendToSrc(kv._2)
         else if (kv._1 == ctx.dstId)

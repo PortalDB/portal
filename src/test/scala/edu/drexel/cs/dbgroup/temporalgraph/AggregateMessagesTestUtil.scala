@@ -21,12 +21,12 @@ object AggregateMessagesTestUtil {
   val tenToFourteen = Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01"))
   val fourteenToEighteen = Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01"))
 
-  val sendMsg_noPredicate = (triplet: EdgeTriplet[String,(EdgeId,String)]) => {
+  val sendMsg_noPredicate = (triplet: TEdgeTriplet[String,String]) => {
     Iterator((triplet.dstId,1),(triplet.srcId,1))
   }
 
-  val sendMsg_edgePredicate = (triplet: EdgeTriplet[String, (EdgeId,String)]) => {
-    if(triplet.attr._2.contentEquals("friend")) {
+  val sendMsg_edgePredicate = (triplet: TEdgeTriplet[String, String]) => {
+    if(triplet.attr.contentEquals("friend")) {
       Iterator((triplet.dstId,1),(triplet.srcId,1))
     }
     else {
@@ -34,7 +34,7 @@ object AggregateMessagesTestUtil {
     }
   }
 
-  val sendMsg_vertexPredicate = (triplet: EdgeTriplet[String, (EdgeId,String)]) => {
+  val sendMsg_vertexPredicate = (triplet: TEdgeTriplet[String, String]) => {
     if(triplet.srcAttr.contentEquals("John")){
       Iterator((triplet.srcId,1))
     }

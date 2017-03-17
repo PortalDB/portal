@@ -142,7 +142,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
    *
    */
 //TODO: can we have a simpler version where there's a predicate on the vertex and a predicate on the edge and the edge direction and the message and the aggregation function
-  def aggregateMessages[A: ClassTag](sendMsg: EdgeTriplet[VD, (EdgeId,ED)] => Iterator[(VertexId, A)],
+  def aggregateMessages[A: ClassTag](sendMsg: TEdgeTriplet[VD,ED] => Iterator[(VertexId, A)],
     mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): TGraphNoSchema[(VD, A), ED]
   protected def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): TGraphNoSchema[V, E]
 

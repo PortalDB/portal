@@ -401,7 +401,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     throw new UnsupportedOperationException("analytics not supported")
   }
 
-  override def aggregateMessages[A: ClassTag](sendMsg: EdgeTriplet[VD, (EdgeId,ED)] => Iterator[(VertexId, A)],
+  override def aggregateMessages[A: ClassTag](sendMsg: TEdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
     mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): VEGraph[(VD, A), ED] = {
     val trips: RDD[TEdgeTriplet[VD,ED]] = if (tripletFields == TripletFields.None || tripletFields == TripletFields.EdgeOnly) {
       allEdges.map { e =>
@@ -416,16 +416,8 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     } else triplets
 
     //for each edge get a message
-    var messages: RDD[(VertexId, List[(Interval, A)])] = trips
-      .map{et =>
-        val et2 = new EdgeTriplet[VD,(EdgeId,ED)]
-        et2.srcId = et.srcId
-        et2.dstId = et.dstId
-        et2.attr = (et.eId,et.attr)
-        (et2,et.interval)
-      }
-      .flatMap { et => sendMsg(et._1).map(x => (x._1, List[(Interval, A)]((et._2, x._2)))).toSeq
-    }.reduceByKey { (a, b) => TempGraphOps.mergeIntervalLists(mergeMsg, a, b) }
+    var messages: RDD[(VertexId, List[(Interval, A)])] = trips.flatMap { et => sendMsg(et).map(x => (x._1, List[(Interval, A)]((et.interval, x._2)))).toSeq}
+      .reduceByKey { (a, b) => TempGraphOps.mergeIntervalLists(mergeMsg, a, b) }
 
     //now join with the old values
     var newverts: RDD[(VertexId, (Interval, (VD, A)))] = allVertices.leftOuterJoin(messages).flatMap { 
