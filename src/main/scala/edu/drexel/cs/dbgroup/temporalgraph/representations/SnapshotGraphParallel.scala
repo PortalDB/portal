@@ -243,8 +243,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
   override def emap[ED2: ClassTag](map: TEdge[ED] => ED2): SnapshotGraphParallel[VD, ED2] = {
     new SnapshotGraphParallel(intervals, graphs.zip(intervals)
       .map(g => g._1.mapEdges{e =>
-        te = TEdge[ED](e)
-        te.interval = g._2
+        val te = TEdge[ED](e.attr._1, e.srcId, e.dstId, g._2, e.attr._2)
         (e.attr._1, map(te))
       }), defaultValue, storageLevel, false)
   }
@@ -617,7 +616,7 @@ object SnapshotGraphParallel extends Serializable {
 
     val graphs = intervals.map( p =>
       Graph(verts.filter("NOT (estart >= " + p.getEndSeconds + " OR eend <= " + p.getStartSeconds + ")").rdd.map(r => (r.getLong(0), r.getAs[V](3))),
-        edgs.filter("NOT (estart >= " + p.getEndSeconds + " OR eend <= " + p.getStartSeconds + ")").rdd.map(r => Edge(r.getLong(0), r.getLong(1), (r.getLong(4),r.getAs[E](5)))),
+        edgs.filter("NOT (estart >= " + p.getEndSeconds + " OR eend <= " + p.getStartSeconds + ")").rdd.map(r => Edge(r.getLong(1), r.getLong(2), (r.getLong(0),r.getAs[E](5)))),
         defVal, storLevel, storLevel)
     ).par
 
