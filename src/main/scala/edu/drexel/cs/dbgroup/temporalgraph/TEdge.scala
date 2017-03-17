@@ -26,6 +26,10 @@ case class TEdge[ED](
   def toPaired(): ((EdgeId,VertexId,VertexId),(Interval,ED)) = {
     ((eId,srcId,dstId),(interval,attr))
   }
+
+  def isolateAttr(): ((EdgeId,VertexId,VertexId,Interval),ED) = {
+    ((eId,srcId,dstId,interval),attr)
+  }
 }
 
 object TEdge {
@@ -48,6 +52,17 @@ object TEdge {
     */
   def apply[ED](k: (EdgeId,VertexId,VertexId), v: (Interval,ED)): TEdge[ED] = {
     TEdge[ED](k._1,k._2,k._3,v._1,v._2)
+  }
+
+  /**
+    * take a paired representation and make it a TEdge
+    * @param k
+    * @param v
+    * @tparam ED
+    * @return
+    */
+  def apply[ED](k: (EdgeId,VertexId,VertexId,Interval), v: ED): TEdge[ED] = {
+    TEdge[ED](k._1,k._2,k._3,k._4,v)
   }
 }
 
