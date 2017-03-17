@@ -587,6 +587,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
   }
 
   override protected def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): SnapshotGraphParallel[V, E] = SnapshotGraphParallel.emptyGraph(defVal)
+  override def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[TEdge[E]], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): SnapshotGraphParallel[V, E] = SnapshotGraphParallel.fromRDDs(verts, edgs, defVal, storLevel, coalesced)
 
 }
 

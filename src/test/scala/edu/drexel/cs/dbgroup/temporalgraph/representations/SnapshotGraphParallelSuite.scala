@@ -23,61 +23,7 @@ import collection.JavaConverters._
 
 class SnapshotGraphParallelSuite extends RepresentationsTestSuite {
   test("slice function") {
-    //Regular cases
-    val sliceInterval = (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")))
-    val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2017-01-01")), "John")),
-      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), "Mike")),
-      (3L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2014-01-01")), "Ron")),
-      (4L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2017-01-01")), "Julia")),
-      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2015-01-01")), "Vera")),
-      (6L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), "Halima")),
-      (7L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2011-01-01")), "Sanjana")),
-      (8L, (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), "Lovro")),
-      (9L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), "Ke"))
-    ))
-    val edges: RDD[TEdge[Int]] = getTestEdges_Int_1b()
-    val SGP = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
-
-    val expectedUsers: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
-      (1L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), "John")),
-      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2015-01-01")), "Mike")),
-      (3L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2014-01-01")), "Ron")),
-      (4L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), "Julia")),
-      (5L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), "Vera")),
-      (6L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), "Halima")),
-      (9L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), "Ke"))
-    ))
-    val expectedEdges: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
-      TEdge[Int](1L, 1L, 4L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 22),
-      TEdge[Int](2L, 3L, 5L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2013-01-01")), 22),
-      TEdge[Int](3L, 1L, 2L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2015-01-01")), 22),
-      TEdge[Int](6L, 4L, 9L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 22)
-    ))
-    val expectedSGP = SnapshotGraphParallel.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
-
-    SGP.materialize
-    var actualSGP = SGP.slice(sliceInterval)
-
-    assert(expectedSGP.vertices.collect().toSet === actualSGP.vertices.collect().toSet)
-    assert(expectedSGP.edges.collect().toSet === actualSGP.edges.collect().toSet)
-    assert(expectedSGP.getTemporalSequence.collect === actualSGP.getTemporalSequence.collect)
-    info("regular cases passed")
-
-    //When interval is completely outside the graph
-    val sliceInterval2 = (Interval(LocalDate.parse("2001-01-01"), LocalDate.parse("2003-01-01")))
-    val actualSGP2 = SGP.slice(sliceInterval2)
-    assert(actualSGP2.vertices.collect() === SnapshotGraphParallel.emptyGraph("").vertices.collect())
-    assert(actualSGP2.edges.collect() === SnapshotGraphParallel.emptyGraph("").edges.collect())
-    assert(actualSGP2.getTemporalSequence.collect === Seq[Interval]())
-    info("interval completely outside the graph passed")
-
-    //When the graph is empty
-    val actualSGP3 = SnapshotGraphParallel.emptyGraph("").slice(sliceInterval2)
-    assert(actualSGP3.vertices.collect() === SnapshotGraphParallel.emptyGraph("").vertices.collect())
-    assert(actualSGP3.edges.collect() === SnapshotGraphParallel.emptyGraph("").edges.collect())
-    assert(actualSGP3.getTemporalSequence.collect === Seq[Interval]())
-    info("empty graph passed")
+    testSlice(SnapshotGraphParallel.emptyGraph("Default"))
   }
 
   ignore("temporal select function") {

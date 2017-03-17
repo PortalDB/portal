@@ -803,6 +803,7 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
   }
 
   override protected def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): OneGraph[V, E] = OneGraph.emptyGraph(defVal)
+  override def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[TEdge[E]], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): OneGraph[V, E] = OneGraph.fromRDDs(verts, edgs, defVal, storLevel, coalesced)
 
 }
 
