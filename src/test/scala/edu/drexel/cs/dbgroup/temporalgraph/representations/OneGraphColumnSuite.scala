@@ -241,6 +241,18 @@ class OneGraphColumnSuite extends FunSuite with BeforeAndAfter {
     assert(expectedOGC.vertices.collect() === actualOGC.vertices.collect())
     assert(expectedOGC.edges.collect() === actualOGC.edges.collect())
     assert(expectedOGC.getTemporalSequence.collect === actualOGC.getTemporalSequence.collect)
+
+
+    val expectedEdges2: RDD[((VertexId, VertexId), (Interval, Int))] = ProgramContext.sc.parallelize(Array(
+      ((1L, 2L), (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22))
+    ))
+    val expectedOGC2 = OneGraphColumn.fromRDDs(expectedUsers, expectedEdges2, "Default", StorageLevel.MEMORY_ONLY_SER)
+    var actualOGC2 = OGC.esubgraph(epred =  (edgeTriplet: EdgeTriplet[String,Int],interval: Interval)=>edgeTriplet.dstAttr=="Mike" ,tripletFields = TripletFields.All)
+
+    assert(expectedOGC2.vertices.collect() === actualOGC2.vertices.collect())
+    assert(expectedOGC2.edges.collect() === actualOGC2.edges.collect())
+    assert(expectedOGC2.getTemporalSequence.collect === actualOGC2.getTemporalSequence.collect)
+
   }
 
   test("structural select function - vpred") {
