@@ -132,16 +132,14 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
 
   }
 
-  override def vsubgraph( vpred: (VertexId, VD,Interval) => Boolean): SnapshotGraphParallel[VD,ED] = {
-    //Todo: Implement this( maybe we can use two level of filtering)
-    throw  new NotImplementedError()
-    //new SnapshotGraphParallel(intervals, graphs.map(g => g.subgraph(vpred=vpred, defaultValue, storageLevel, false)
+  override def vsubgraph( pred: (VertexId, VD,Interval) => Boolean): SnapshotGraphParallel[VD,ED] ={
+      new SnapshotGraphParallel(intervals, graphs.map(g => g.subgraph(vpred = (vid:VertexId,vd:VD) => pred(vid,vd,Interval.empty))), defaultValue, storageLevel, false)
+
   }
 
-  override def esubgraph(epred: (EdgeTriplet[VD,ED],Interval ) => Boolean,tripletFields: TripletFields = TripletFields.All): SnapshotGraphParallel[VD,ED] = {
-    //Todo: Implement this( maybe we can use two level of filtering)
-    throw  new NotImplementedError()
-    //new SnapshotGraphParallel(intervals, graphs.map(g => g.subgraph(epred = et => epred((et.srcId, et.dstId), et.attr))), defaultValue, storageLevel, false)
+  override def esubgraph(pred: (EdgeTriplet[VD,ED],Interval ) => Boolean,tripletFields: TripletFields = TripletFields.All): SnapshotGraphParallel[VD,ED] = {
+    new SnapshotGraphParallel(intervals, graphs.map(g => g.subgraph (epred =  (et:EdgeTriplet[VD,ED])  => pred(et,Interval.empty))), defaultValue, storageLevel, false)
+
   }
 
   //expects coalesced input
