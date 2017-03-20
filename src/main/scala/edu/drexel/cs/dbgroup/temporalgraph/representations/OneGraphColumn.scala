@@ -527,53 +527,67 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
   override def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): OneGraphColumn[(VD,Double),ED] = {
     if (graphs == null) computeGraph()
 
-    if (!uni) {
-      val mergeFunc = (a:Int2IntOpenHashMap, b:Int2IntOpenHashMap) => {
-        val itr = a.iterator
+    val undirected = !uni
 
-        while(itr.hasNext){
-          val (index, count) = itr.next()
-          b.update(index, (count + b.getOrDefault(index, 0)))
-        }
-        b
+    val mergeFunc = (a:Int2IntOpenHashMap, b:Int2IntOpenHashMap) => {
+      val itr = a.iterator
+
+      while(itr.hasNext){
+        val (index, count) = itr.next()
+        b.update(index, (count + b.getOrDefault(index, 0)))
       }
+      b
+    }
 
-      val degrees: VertexRDD[Int2IntOpenHashMap] = graphs.aggregateMessages[Int2IntOpenHashMap](
-        ctx => {
-          ctx.sendToSrc{var tmp = new Int2IntOpenHashMap(); ctx.attr.seq.foreach(x => tmp.put(x,1)); tmp}
-          ctx.sendToDst{var tmp = new Int2IntOpenHashMap(); ctx.attr.seq.foreach(x => tmp.put(x,1)); tmp}
-        },
-        mergeFunc, TripletFields.EdgeOnly)
+    val degrees: VertexRDD[Int2IntOpenHashMap] = graphs.aggregateMessages[Int2IntOpenHashMap](
+      ctx => {
+        ctx.attr.foreach {ii =>
+          ctx.sendToSrc{new Int2IntOpenHashMap(Array(ii),Array(1))}
+          if (undirected) ctx.sendToDst{new Int2IntOpenHashMap(Array(ii),Array(1))} else ctx.sendToDst{new Int2IntOpenHashMap(Array(ii),Array(0))}
+        }},
+      mergeFunc, TripletFields.None)
 
-      val pagerankGraph: Graph[Int2ObjectOpenHashMap[(Double, Double)], Int2ObjectOpenHashMap[(Double, Double)]] = graphs.outerJoinVertices(degrees) {
-        case (vid, vdata, Some(deg)) => vdata.filter(x => !deg.contains(x)).seq.foreach(x => deg.put(x,0)); deg
-        case (vid, vdata, None) => val tmp = new Int2IntOpenHashMap(); vdata.seq.foreach(x => tmp.put(x,0)); tmp
+    val pagerankGraph: Graph[Int2ObjectOpenHashMap[(Double, Double)], Int2ObjectOpenHashMap[(Double, Double)]] = graphs.outerJoinVertices(degrees) {
+      case (vid, vdata, Some(deg)) => deg
+      case (vid, vdata, None) => new Int2IntOpenHashMap()
+    }
+      .mapTriplets{ e => new Int2ObjectOpenHashMap[(Double, Double)](e.attr.toArray, e.attr.toArray.map(x => (1.0/e.srcAttr(x), 1.0/e.dstAttr(x))))}
+      .mapVertices( (id,attr) => new Int2ObjectOpenHashMap[(Double,Double)](attr.keySet().toIntArray(), Array.fill(attr.size)((0.0,0.0)))).cache()
+
+    val vertexProgram = (id: VertexId, attr: Int2ObjectOpenHashMap[(Double, Double)], msg: Int2DoubleOpenHashMap) => {
+      val vals = attr.clone
+
+      val itr = attr.iterator
+      while (itr.hasNext) {
+        val (index, x) = itr.next()
+        val newPr = x._1 + (1.0 - resetProb) * msg.getOrDefault(index, 0)
+        vals.update(index, (newPr, newPr-x._1))
       }
-        .mapTriplets{ e => val tmp = new Int2ObjectOpenHashMap[(Double, Double)](); e.attr.seq.foreach(x => tmp.put(x, (1.0 / e.srcAttr(x), 1.0 / e.dstAttr(x)) )); tmp}
-        .mapVertices( (id,attr) => new Int2ObjectOpenHashMap[(Double, Double)](attr.keySet().toIntArray(), Array.fill(attr.size)((0.0,0.0)))).cache()
+      vals
+    }
 
-      val vertexProgram = (id: VertexId, attr: Int2ObjectOpenHashMap[(Double, Double)], msg: Int2DoubleOpenHashMap) => {
-        var vals = attr.clone
-
-        val itr = attr.iterator
-        while (itr.hasNext) {
-          val (index, x) = itr.next()
-          val newPr = x._1 + (1.0 - resetProb) * msg.getOrDefault(index, 0)
-          vals.update(index, (newPr, newPr-x._1))
-        }
-        vals
-      }
-
-      val sendMessage = (edge: EdgeTriplet[Int2ObjectOpenHashMap[(Double, Double)], Int2ObjectOpenHashMap[(Double, Double)]]) => {
+    val sendMessage = if (undirected)
+      (edge: EdgeTriplet[Int2ObjectOpenHashMap[(Double, Double)], Int2ObjectOpenHashMap[(Double, Double)]]) => {
         edge.attr.toList.flatMap{ case (k,v) =>
           if (edge.srcAttr.apply(k)._2 > tol &&
             edge.dstAttr.apply(k)._2 > tol) {
-            Iterator((edge.dstId, {var tmp = new Int2DoubleOpenHashMap(); tmp.put(k: Int, edge.srcAttr.apply(k)._2 * v._1); tmp} ),
-              (edge.srcId, {var tmp = new Int2DoubleOpenHashMap(); tmp.put(k: Int, edge.dstAttr.apply(k)._2 * v._2); tmp} ))
+            Iterator((edge.dstId, new Int2DoubleOpenHashMap(Array(k.toInt), Array(edge.srcAttr.apply(k)._2 * v._1)) ),
+              (edge.srcId, new Int2DoubleOpenHashMap(Array(k.toInt), Array(edge.dstAttr.apply(k)._2 * v._2))))
           } else if (edge.srcAttr.apply(k)._2 > tol) {
-            Some((edge.dstId, {var tmp = new Int2DoubleOpenHashMap(); tmp.put(k: Int, edge.srcAttr.apply(k)._2 * v._1); tmp}))
+            Some((edge.dstId, new Int2DoubleOpenHashMap(Array(k.toInt), Array(edge.srcAttr.apply(k)._2 * v._1))))
           } else if (edge.dstAttr.apply(k)._2 > tol) {
-            Some((edge.srcId, {var tmp = new Int2DoubleOpenHashMap(); tmp.put(k: Int, edge.dstAttr.apply(k)._2 * v._2); tmp}))
+            Some((edge.srcId, new Int2DoubleOpenHashMap(Array(k.toInt), Array(edge.dstAttr.apply(k)._2 * v._2))))
+          } else {
+            None
+          }
+        }
+          .iterator
+      }
+      else
+      (edge: EdgeTriplet[Int2ObjectOpenHashMap[(Double, Double)], Int2ObjectOpenHashMap[(Double, Double)]]) => {
+        edge.attr.toList.flatMap{ case (k,v) =>
+          if  (edge.srcAttr.apply(k)._2 > tol) {
+            Some((edge.dstId, new Int2DoubleOpenHashMap(Array(k.toInt), Array(edge.srcAttr.apply(k)._2 * v._1))))
           } else {
             None
           }
@@ -581,130 +595,38 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
           .iterator
       }
       
-      val messageCombiner = (a: Int2DoubleOpenHashMap, b: Int2DoubleOpenHashMap) => {
-        val itr = a.iterator
+    val messageCombiner = (a: Int2DoubleOpenHashMap, b: Int2DoubleOpenHashMap) => {
+      val itr = a.iterator
 
-        while(itr.hasNext){
-          val (index, count) = itr.next()
-          b.update(index, (count + b.getOrDefault(index, 0.0)))
-        }
-        b
+      while(itr.hasNext){
+        val (index, count) = itr.next()
+        b.update(index, (count + b.getOrDefault(index, 0.0)))
       }
-
-      // The initial message received by all vertices in PageRank
-      //has to be a map from every interval index
-      var i:Int = 0
-      val initialMessage:Int2DoubleOpenHashMap = {
-        var tmpMap = new Int2DoubleOpenHashMap()
-        for(i <- 0 to collectedIntervals.size-1) {
-          tmpMap.put(i, resetProb / (1.0 - resetProb))
-        }
-        tmpMap
-      }
-
-      val resultGraph: Graph[Map[TimeIndex,(Double,Double)], Map[TimeIndex,(Double,Double)]] = Pregel(pagerankGraph, initialMessage, numIter, activeDirection = EdgeDirection.Either)(vertexProgram, sendMessage, messageCombiner)
-        .asInstanceOf[Graph[Map[TimeIndex,(Double,Double)], Map[TimeIndex,(Double,Double)]]]
-
-      //now need to extract the values into a separate rdd again
-      //TODO: make this work without collect
-      val intvs = ProgramContext.sc.broadcast(collectedIntervals)
-      val vattrs: RDD[(VertexId, (Interval, Double))] = resultGraph.vertices.flatMap{ case (vid,vattr) => vattr.toSeq.map{ case (k,v) => (vid,(intvs.value(k), v._1))}}
-      //now need to join with the previous value
-      val newverts: RDD[(VertexId, (Interval, (VD, Double)))] = allVertices.leftOuterJoin(vattrs)
-        .filter{ case (k, (v, u)) => u.isEmpty || v._1.intersects(u.get._1)}
-        .mapValues{ case (v, u) => if (u.isEmpty) (v._1, (v._2, 0.0)) else (v._1.intersection(u.get._1).get, (v._2, u.get._2))}
-
-      if (ProgramContext.eagerCoalesce)
-        fromRDDs(newverts, allEdges, (defaultValue, 0.0), storageLevel, false)
-      else
-        new OneGraphColumn[(VD, Double), ED](newverts, allEdges, graphs, (defaultValue, 0.0), storageLevel, false)
-
-    } else {
-      val mergeFunc = (a:Int2IntOpenHashMap, b:Int2IntOpenHashMap) => {
-        val itr = a.iterator
-
-        while(itr.hasNext){
-          val (index, count) = itr.next()
-          b.update(index, (count + b.getOrDefault(index, 0)))
-        }
-        b
-      }
-
-      val degrees: VertexRDD[Int2IntOpenHashMap] = graphs.aggregateMessages[Int2IntOpenHashMap](
-        ctx => {
-          ctx.sendToSrc{var tmp = new Int2IntOpenHashMap(); ctx.attr.seq.foreach(x => tmp.put(x,1)); tmp}
-        },
-        mergeFunc, TripletFields.EdgeOnly)
-
-      val pagerankGraph: Graph[Int2ObjectOpenHashMap[(Double, Double)], Int2ObjectOpenHashMap[Double]] = graphs.outerJoinVertices(degrees) {
-        case (vid, vdata, Some(deg)) => vdata.filter(x => !deg.contains(x)).seq.foreach(x => deg.put(x,0)); deg
-        case (vid, vdata, None) => val tmp = new Int2IntOpenHashMap(); vdata.seq.foreach(x => tmp.put(x,0)); tmp
-      }
-        .mapTriplets{ e => val tmp = new Int2ObjectOpenHashMap[Double](); e.attr.seq.foreach(x => tmp.put(x, (1.0 / e.srcAttr(x)) )); tmp}
-        .mapVertices( (id,attr) => new Int2ObjectOpenHashMap[(Double, Double)](attr.keySet().toIntArray(), Array.fill(attr.size)((0.0,0.0)))).cache()
-
-
-    val vertexProgram = (id: VertexId, attr: Int2ObjectOpenHashMap[(Double, Double)], msg: Int2DoubleOpenHashMap) => {
-        var vals = attr.clone
-
-        val itr = attr.iterator
-        while (itr.hasNext) {
-          val (index, x) = itr.next()
-          val newPr = x._1 + (1.0 - resetProb) * msg.getOrDefault(index, 0)
-          vals.update(index, (newPr, newPr-x._1))
-        }
-        vals
-      }
-
-      val sendMessage = (edge: EdgeTriplet[Int2ObjectOpenHashMap[(Double, Double)], Int2ObjectOpenHashMap[Double]]) => {
-        edge.attr.toList.flatMap{ case (k,v) =>
-          if  (edge.srcAttr.apply(k)._2 > tol) {
-            Some((edge.dstId, {var tmp = new Int2DoubleOpenHashMap(); tmp.put(k: Int, edge.srcAttr.apply(k)._2 * v); tmp}))
-          } else {
-            None
-          }
-        }
-          .iterator
-      }
-
-      val messageCombiner = (a: Int2DoubleOpenHashMap, b: Int2DoubleOpenHashMap) => {
-        val itr = a.iterator
-
-        while(itr.hasNext){
-          val (index, count) = itr.next()
-          b.update(index, (count + b.getOrDefault(index, 0.0)))
-        }
-        b
-      }
-
-      // The initial message received by all vertices in PageRank
-      //has to be a map from every interval index
-      var i:Int = 0
-      val initialMessage:Int2DoubleOpenHashMap = {
-        var tmpMap = new Int2DoubleOpenHashMap()
-        for(i <- 0 to collectedIntervals.size-1) {
-          tmpMap.put(i, resetProb / (1.0 - resetProb))
-        }
-        tmpMap
-      }
-
-      val resultGraph: Graph[Map[TimeIndex,(Double,Double)], Map[TimeIndex,Double]] = Pregel(pagerankGraph, initialMessage, numIter, activeDirection = EdgeDirection.Out)(vertexProgram, sendMessage, messageCombiner)
-        .asInstanceOf[Graph[Map[TimeIndex,(Double,Double)], Map[TimeIndex,Double]]]
-
-      //now need to extract the values into a separate rdd again
-      //TODO: make this work without collect
-      val intvs = ProgramContext.sc.broadcast(collectedIntervals)
-      val vattrs: RDD[(VertexId, (Interval, Double))] = resultGraph.vertices.flatMap{ case (vid,vattr) => vattr.toSeq.map{ case (k,v) => (vid,(intvs.value(k), v._1))}}
-      //now need to join with the previous value
-      val newverts: RDD[(VertexId, (Interval, (VD, Double)))] = allVertices.leftOuterJoin(vattrs)
-        .filter{ case (k, (v, u)) => u.isEmpty || v._1.intersects(u.get._1)}
-        .mapValues{ case (v, u) => if (u.isEmpty) (v._1, (v._2, 0.0)) else (v._1.intersection(u.get._1).get, (v._2, u.get._2))}
-
-      if (ProgramContext.eagerCoalesce)
-        fromRDDs(newverts, allEdges, (defaultValue, 0.0), storageLevel, false)
-      else
-        new OneGraphColumn[(VD, Double), ED](newverts, allEdges, graphs, (defaultValue, 0.0), storageLevel, false)
+      b
     }
+
+    // The initial message received by all vertices in PageRank
+    //has to be a map from every interval index
+    val initialMessage:Int2DoubleOpenHashMap = new Int2DoubleOpenHashMap((0 until collectedIntervals.size).toArray, Array.fill(collectedIntervals.size)(resetProb / (1.0-resetProb)))
+
+    val dir = if (undirected) EdgeDirection.Either else EdgeDirection.Out
+    val resultGraph: Graph[Map[TimeIndex,(Double,Double)], Map[TimeIndex,(Double,Double)]] = Pregel(pagerankGraph, initialMessage, numIter, activeDirection = dir)(vertexProgram, sendMessage, messageCombiner)
+      .asInstanceOf[Graph[Map[TimeIndex,(Double,Double)], Map[TimeIndex,(Double,Double)]]]
+
+    //now need to extract the values into a separate rdd again
+    //TODO: make this work without collect
+    val zipped = ProgramContext.sc.broadcast(collectedIntervals.zipWithIndex)
+    val newVerts: RDD[(VertexId, (Interval, (VD, Double)))] = allVertices.leftOuterJoin(resultGraph.vertices).flatMap{ 
+      case (vid, (vdata, Some(prank))) =>
+        zipped.value.filter(ii => ii._1.intersects(vdata._1)).map(ii => (vid, (ii._1, (vdata._2, prank.getOrDefault(ii._2, (resetProb, 0.0))._1))))
+      case (vid, (vdata, None)) => Some((vid, (vdata._1, (vdata._2, resetProb))))
+    }
+
+    if (ProgramContext.eagerCoalesce)
+      fromRDDs(newVerts, allEdges, (defaultValue, 0.0), storageLevel, false)
+    else
+      new OneGraphColumn[(VD, Double), ED](newVerts, allEdges, graphs, (defaultValue, 0.0), storageLevel, false)
+
   }
   
   //run connected components on each interval
@@ -712,26 +634,24 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
     if (graphs == null) computeGraph()
 
     val conGraph: Graph[Int2LongOpenHashMap, BitSet]
-      = graphs.mapVertices{ case (vid, bset) => val tmp = new Int2LongOpenHashMap(); bset.foreach(x => tmp.put(x,vid)); tmp}
+      = graphs.mapVertices{ case (vid, bset) => new Int2LongOpenHashMap()}
 
     val vertexProgram = (id: VertexId, attr: Int2LongOpenHashMap, msg: Int2LongOpenHashMap) => {
       var vals = attr.clone()
 
       msg.foreach { x =>
         val (k,v) = x
-        if (attr.contains(k)) {
-          vals.update(k, math.min(v, attr(k)))
-        }
+        vals.update(k, math.min(v, attr.getOrDefault(k, id)))
       }
       vals
     }
 
     val sendMessage = (edge: EdgeTriplet[Int2LongOpenHashMap, BitSet]) => {
       edge.attr.toList.flatMap{ k =>
-        if (edge.srcAttr(k) < edge.dstAttr(k))
-          Some((edge.dstId, {var tmp = new Int2LongOpenHashMap(); tmp.put(k, edge.srcAttr.get(k)); tmp}))
-        else if (edge.srcAttr(k) > edge.dstAttr(k))
-          Some((edge.srcId, {var tmp = new Int2LongOpenHashMap(); tmp.put(k, edge.dstAttr.get(k)); tmp}))
+        if (edge.srcAttr.getOrDefault(k, edge.srcId) < edge.dstAttr.getOrDefault(k, edge.dstId))
+          Some((edge.dstId, new Int2LongOpenHashMap(Array(k), Array(edge.srcAttr.getOrDefault(k, edge.srcId).toLong))))
+        else if (edge.srcAttr.getOrDefault(k, edge.srcId) > edge.dstAttr.getOrDefault(k, edge.dstId))
+          Some((edge.srcId, new Int2LongOpenHashMap(Array(k), Array(edge.dstAttr.getOrDefault(k, edge.dstId).toLong))))
         else
           None
       }
@@ -749,23 +669,19 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
     }
 
     val i: Int = 0
-    val initialMessage: Int2LongOpenHashMap = {
-      var tmpMap = new Int2LongOpenHashMap()
-      for(i <- 0 to collectedIntervals.size-1) {
-        tmpMap.put(i, Long.MaxValue)
-      }
-      tmpMap
-    }
+    //there is really no reason to send an initial message
+    val initialMessage: Int2LongOpenHashMap = new Int2LongOpenHashMap()
 
     val resultGraph: Graph[Map[TimeIndex, VertexId], BitSet] = Pregel(conGraph, initialMessage, activeDirection = EdgeDirection.Either)(vertexProgram, sendMessage, messageCombiner).asInstanceOf[Graph[Map[TimeIndex, VertexId], BitSet]]
 
     //TODO: make this work without collect
-    val intvs = ProgramContext.sc.broadcast(collectedIntervals)
-    val vattrs = resultGraph.vertices.flatMap{ case (vid, vattr) => vattr.toSeq.map{ case (k,v) => (vid, (intvs.value(k), v))}}
+    val zipped = ProgramContext.sc.broadcast(collectedIntervals.zipWithIndex)
     //now need to join with the previous value
-    val newverts = allVertices.leftOuterJoin(vattrs)
-      .filter{ case (k, (v, u)) => u.isEmpty || v._1.intersects(u.get._1)}
-      .mapValues{ case (v, u) => if (u.isEmpty) (v._1, (v._2, -1L)) else (v._1.intersection(u.get._1).get, (v._2, u.get._2))}
+    val newverts = allVertices.leftOuterJoin(resultGraph.vertices).flatMap {
+      case (vid, (vdata, Some(cc))) =>
+        zipped.value.filter(ii => ii._1.intersects(vdata._1)).map(ii => (vid, (ii._1, (vdata._2, cc.getOrDefault(ii._2, vid)))))
+      case (vid, (vdata, None)) => Some((vid, (vdata._1, (vdata._2, vid))))
+    }
 
     if (ProgramContext.eagerCoalesce)
       fromRDDs(newverts, allEdges, (defaultValue, -1L), storageLevel, false)
@@ -774,6 +690,9 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
   }
   
   //run shortestPaths on each interval
+  //FIXME: this code is a) inefficient because each vertex has an entry in the map for each time instant of its lifetime
+  //look at pagerank and connected components to see how to avoid that
+  //and b) the code to join the values back in is incorrect under certain circumstainces. rewrite like in PR and CC
   override def shortestPaths(uni: Boolean, landmarks: Seq[VertexId]): OneGraphColumn[(VD, Map[VertexId, Int]), ED] = {
     if (graphs == null) computeGraph()
 
@@ -933,7 +852,6 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
           val triplet = new EdgeTriplet[VD, ED]
           triplet.srcId = edge.srcId
           triplet.dstId = edge.dstId
-          //FIXME: we don't have the src and dst attributes, so this will work only for cases when TripletFields is none.
           sendMsg(triplet).foreach { x =>
             val tmp = new Int2ObjectOpenHashMap[A]()
             ctx.attr.seq.foreach { index => tmp.put(index, x._2) }
@@ -954,18 +872,15 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
           b
         }, tripletFields)
 
-      var test = agg.collect().mkString("\n")
-
       //now put back into vertices
       //TODO: make this work without collect
-      val intvs = ProgramContext.sc.broadcast(collectedIntervals)
-      val vattrs: RDD[(VertexId, (Interval, A))] = agg.flatMap { case (vid, vattr) => vattr.toSeq.map { case (k, v) => (vid, (intvs.value(k), v)) } }
-      //now need to join with the previous value
-      //FIXME: this does not produce correct results when a single attribute tuple
-      //over a long interval in allVertices has multiple tuples in the new vattrs for smaller subintervals which do not fully cover it
-      val newverts: RDD[(VertexId, (Interval, (VD, A)))] = allVertices.leftOuterJoin(vattrs)
-        .filter { case (k, (v, u)) => u.isEmpty || v._1.intersects(u.get._1) }
-        .mapValues { case (v, u) => if (u.isEmpty) (v._1, (v._2, defVal)) else (v._1.intersection(u.get._1).get, (v._2, u.get._2)) }
+      val zipped = ProgramContext.sc.broadcast(collectedIntervals.zipWithIndex)
+      val newverts: RDD[(VertexId, (Interval, (VD, A)))] = allVertices.leftOuterJoin(agg).flatMap{
+        case (vid, (vdata, Some(msg))) =>
+          zipped.value.filter(ii => ii._1.intersects(vdata._1)).map(ii => (vid, (ii._1, (vdata._2, msg.getOrDefault(ii._2, defVal)))))
+        case (vid, (vdata, None)) =>
+          Some((vid, (vdata._1, (vdata._2, defVal))))
+      }
 
       if (ProgramContext.eagerCoalesce)
         fromRDDs(newverts, allEdges, (defaultValue, defVal), storageLevel, false)

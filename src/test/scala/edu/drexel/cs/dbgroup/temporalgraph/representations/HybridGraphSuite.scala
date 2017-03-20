@@ -1660,7 +1660,7 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
     assert(actualHG.vertices.collect.toSet == expectedNodes.collect.toSet)
   }
 
-  ignore("directed pagerank") {
+  test("directed pagerank") {
     //PageRank for each representative graph was tested by creating graph in graphX and using spark's pagerank
     //The final HG is sliced into the two representative graph to assert the values
     val nodes: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
@@ -1905,7 +1905,6 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
   }
 
   // Comment out, compileation error
-  //TODO: fix hg.aggregateMessages
   test("aggregateMessages - no predicate") {
 
     val nodesAndEdges = AggregateMessagesTestUtil.getNodesAndEdges_v1
@@ -1941,17 +1940,6 @@ class HybridGraphSuite extends FunSuite with BeforeAndAfter {
       .asInstanceOf[HybridGraph[(String,Int),Int]]
 
     AggregateMessagesTestUtil.assertions_vertexPredicate(result)
-  }
-
-  test("aggregateMessages - vertex predicate 2") {
-
-    val nodesAndEdges = AggregateMessagesTestUtil.getNodesAndEdges_v1
-
-    var g = HybridGraph.fromRDDs(nodesAndEdges._1,nodesAndEdges._2,"Default")
-
-    val result = intercept[UnsupportedOperationException] {g.aggregateMessages[Int](AggregateMessagesTestUtil.sendMsg_vertexPredicate, (a, b) => {a+b}, 0, TripletFields.All)
-      .asInstanceOf[HybridGraph[(String,Int),Int]]}
-    assert(result.getMessage().contentEquals("aggregateMsg not supported"))
   }
 
 }

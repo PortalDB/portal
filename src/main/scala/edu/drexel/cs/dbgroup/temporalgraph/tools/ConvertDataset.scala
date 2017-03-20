@@ -44,7 +44,7 @@ object ConvertDataset {
 
     //directory where we assume nodes.parquet and edges.parquet live
     var source: String = ""
-    var locality = Locality.Temporal
+    var locality = Locality.None
     var split = SnapshotGroup.None
     //these are just some default values, we get the real ones from command line
     var widthTime = Resolution.zero()
@@ -154,11 +154,22 @@ class ConvertDataset(source: String, locality: Locality.Value, split: SnapshotGr
         buffer.toSeq
     }
 
-    convert(nodes, intervals, minDate, dest + "/nodes")
-    convert(edges, intervals, minDate, dest + "/edges")
+    convert(nodes, locality, intervals, minDate, dest + "/nodes")
+    convert(edges, locality, intervals, minDate, dest + "/edges")
   }
 
   private def convert(data: DataFrame, intervals: Seq[Interval], minDate: LocalDate, dest: String): Unit = {
+    locality match {
+      case Locality.None =>
+         convert(data, Locality.Temporal, intervals, minDate, dest)
+         convert(data, Locality.Structural, intervals, minDate, dest)
+      case _ =>
+         convert(data, locality, intervals, minDate, dest)
+    }
+  }
+
+  private def convert(data: DataFrame, loc: Locality.Value, intervals: Seq[Interval], minDate: LocalDate, dest: String): Unit = {
+
     //get the name of the id column
     val idname = data.columns.filter(x => x.startsWith("vid")).head
     //get the index of estart column
@@ -166,7 +177,7 @@ class ConvertDataset(source: String, locality: Locality.Value, split: SnapshotGr
 
     println("splitting into intervals:\n" + intervals.mkString("\n"))
 
-    val lst = locality match {
+    val lst = loc match {
       case Locality.Temporal => "_t"
       case Locality.Structural => "_s"
     }
@@ -197,7 +208,7 @@ class ConvertDataset(source: String, locality: Locality.Value, split: SnapshotGr
     val converted = dfs.map(x => (x._1.withColumn("estart", x._1("estart").cast(TimestampType).cast(LongType).as("estart")).withColumn("eend", x._1("eend").cast(TimestampType).cast(LongType).as("eend")), x._2))
 
     //sort
-    val sorted = locality match {
+    val sorted = loc match {
       case Locality.Temporal => converted.map(x => (x._1.orderBy(col(idname), col("estart")), x._2))
       case Locality.Structural => converted.map(x => (x._1.orderBy(col("estart"), col(idname)), x._2))
     }

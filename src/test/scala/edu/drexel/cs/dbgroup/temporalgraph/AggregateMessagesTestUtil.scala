@@ -61,7 +61,7 @@ object AggregateMessagesTestUtil {
 
     val edges: RDD[((VertexId, VertexId),(Interval, String ))] = ProgramContext.sc.parallelize(Array(
       //john, mike, and bob are always friends
-      /*((1l,2l), (tenToEighteen, FRIEND)),
+      ((1l,2l), (tenToEighteen, FRIEND)),
       ((1l,3l), (tenToEighteen, FRIEND)),
       ((2l,3l), (tenToEighteen, FRIEND)),
       //james, matt, and bill are always enemies
@@ -70,9 +70,9 @@ object AggregateMessagesTestUtil {
       ((5l,6l), (tenToEighteen, ENEMY)),
       //john is friends with james, matt, and bill through 2014, but enemies after
       ((1l,4l), (tenToFourteen, FRIEND)),
-      ((1l,5l), (tenToFourteen, FRIEND)),*/
-      ((1l,6l), (tenToFourteen, FRIEND))//,
-      /*((1l,4l), (fourteenToEighteen, ENEMY)),
+      ((1l,5l), (tenToFourteen, FRIEND)),
+      ((1l,6l), (tenToFourteen, FRIEND)),
+      ((1l,4l), (fourteenToEighteen, ENEMY)),
       ((1l,5l), (fourteenToEighteen, ENEMY)),
       ((1l,6l), (fourteenToEighteen, ENEMY)),
       //mike is friends with james, matt, and bill, but only through 2014
@@ -82,7 +82,7 @@ object AggregateMessagesTestUtil {
       //bob is enemies with james, matt, and bill after 2014
       ((3l,4l), (fourteenToEighteen, ENEMY)),
       ((4l,5l), (fourteenToEighteen, ENEMY)),
-      ((5l,6l), (fourteenToEighteen, ENEMY))*/
+      ((5l,6l), (fourteenToEighteen, ENEMY))
     ))
     (nodes,edges)
   }
