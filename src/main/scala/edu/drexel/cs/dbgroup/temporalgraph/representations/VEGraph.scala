@@ -113,10 +113,10 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     //and maintains the coalesced/uncoalesced state
     fromRDDs(allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}
                   .mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), 
-             allEdges.filter{ e => e.interval.intersects(selectBound)}.map(e => e.toPaired())
-                  .mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2))
-                  .map(e => TEdge.apply(e._1,e._2)),
-             defaultValue, storageLevel, coalesced)
+             allEdges.filter{ e => e.interval.intersects(selectBound)}
+               .map{te => te.interval = Interval(TempGraphOps.maxDate(te.interval.start, startBound), TempGraphOps.minDate(te.interval.end, endBound))
+               te},
+      defaultValue, storageLevel, coalesced)
   }
 
 
@@ -422,6 +422,8 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
         et2.srcId = et.srcId
         et2.dstId = et.dstId
         et2.attr = (et.eId,et.attr)
+        et2.srcAttr = et.srcAttr
+        et2.dstAttr = et.dstAttr
         (et2,et.interval)
       }
       .flatMap { et => sendMsg(et._1).map(x => (x._1, List[(Interval, A)]((et._2, x._2)))).toSeq

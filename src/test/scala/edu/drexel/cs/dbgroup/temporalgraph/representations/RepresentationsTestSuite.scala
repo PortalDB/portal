@@ -26,7 +26,7 @@ import scala.reflect._
 import scala.reflect.runtime.universe._
 
 abstract class RepresentationsTestSuite extends FunSuite with BeforeAndAfterAll {
-  protected override def beforeAll(): Unit = {
+  override def beforeAll(): Unit = {
     if (ProgramContext.sc == null) {
       Logger.getLogger("org").setLevel(Level.OFF)
       Logger.getLogger("akka").setLevel(Level.OFF)
@@ -673,7 +673,7 @@ abstract class RepresentationsTestSuite extends FunSuite with BeforeAndAfterAll 
       TEdge[Int](2L, 2L, 3L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 52),
       TEdge[Int](3L, 3L, 3L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2018-01-01")), 22),
       TEdge[Int](4L, 4L, 4L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 52),
-      TEdge[Int](5L, 5L, 5L, Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), 22)
+      TEdge[Int](6L, 5L, 5L, Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), 22)
     ))
 
     val g2 = ge.fromRDDs(users2, edges2, "Default", StorageLevel.MEMORY_ONLY_SER)
@@ -700,7 +700,7 @@ abstract class RepresentationsTestSuite extends FunSuite with BeforeAndAfterAll 
       TEdge[Int](3L, 3L, 3L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), 22),
       TEdge[Int](4L, 4L, 4L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 52),
       TEdge[Int](5L, 2L, 5L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), 42),
-      TEdge[Int](5L, 5L, 5L, Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), 22)
+      TEdge[Int](6L, 5L, 5L, Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), 22)
     ))
 
     val resultgUnion = g.union(g2, (x,y)=> {if (x < y) x else y} , (x,y)=>math.max(x,y))

@@ -22,7 +22,7 @@ import collection.JavaConverters._
 
 
 class SnapshotGraphParallelSuite extends RepresentationsTestSuite {
-  val empty = SnapshotGraphParallel.emptyGraph[String,Int]("Default")
+  lazy val empty = SnapshotGraphParallel.emptyGraph[String,Int]("Default")
 
   test("slice function") {
     testSlice(empty)

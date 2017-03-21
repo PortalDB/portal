@@ -16,7 +16,7 @@ import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap
 
 class OneGraphSuite extends RepresentationsTestSuite {
 
-  val empty = OneGraph.emptyGraph[String,Int]("Default")
+  lazy val empty = OneGraph.emptyGraph[String,Int]("Default")
 
   test("slice function") {
     testSlice(empty)
