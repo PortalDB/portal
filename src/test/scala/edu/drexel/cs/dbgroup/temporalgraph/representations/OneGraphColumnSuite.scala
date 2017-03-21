@@ -21,11 +21,11 @@ class OneGraphColumnSuite extends RepresentationsTestSuite {
     testSlice(empty)
   }
 
-  ignore("temporal select function") {
+  test("temporal select function") {
     testTemporalSelect(empty)
   }
 
-  ignore("structural select function") {
+  test("structural select function") {
     testStructuralSelect(empty)
   }
 

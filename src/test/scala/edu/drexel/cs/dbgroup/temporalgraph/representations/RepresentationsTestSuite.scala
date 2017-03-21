@@ -200,8 +200,8 @@ abstract class RepresentationsTestSuite extends FunSuite with BeforeAndAfterAll 
 
     val actualg2 = g.vsubgraph(pred = (id: VertexId, attrs: String,interval: Interval) => id > 3 && attrs != "Ke")
 
-    assert(expectedg2.vertices.collect() === actualg2.vertices.collect())
-    assert(expectedg2.edges.collect() === actualg2.edges.collect())
+    assert(expectedg2.vertices.collect.toSet === actualg2.vertices.collect.toSet)
+    assert(expectedg2.edges.collect.toSet === actualg2.edges.collect.toSet)
     assert(expectedg2.getTemporalSequence.collect === actualg2.getTemporalSequence.collect)
 
     val expectedUsers3: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(

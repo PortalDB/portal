@@ -32,7 +32,7 @@ class SnapshotGraphParallelSuite extends RepresentationsTestSuite {
     testTemporalSelect(empty)
   }
 
-  ignore("structural select function") {
+  test("structural select function") {
     testStructuralSelect(empty)
   }
 
