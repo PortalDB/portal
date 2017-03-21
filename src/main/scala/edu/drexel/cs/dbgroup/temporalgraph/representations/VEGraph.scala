@@ -113,10 +113,10 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     //and maintains the coalesced/uncoalesced state
     fromRDDs(allVertices.filter{ case (vid, (intv, attr)) => intv.intersects(selectBound)}
                   .mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2)), 
-             allEdges.filter{ e => e.interval.intersects(selectBound)}.map(e => e.toPaired())
-                  .mapValues(y => (Interval(TempGraphOps.maxDate(y._1.start, startBound), TempGraphOps.minDate(y._1.end, endBound)), y._2))
-                  .map(e => TEdge.apply(e._1,e._2)),
-             defaultValue, storageLevel, coalesced)
+             allEdges.filter{ e => e.interval.intersects(selectBound)}
+               .map{te => te.interval = Interval(TempGraphOps.maxDate(te.interval.start, startBound), TempGraphOps.minDate(te.interval.end, endBound))
+               te},
+      defaultValue, storageLevel, coalesced)
   }
 
 
@@ -462,7 +462,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
       Interval(dates.min, dates.max)
   }
 
-  protected def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[TEdge[E]], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false): VEGraph[V, E] = {
+  override def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[TEdge[E]], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false): VEGraph[V, E] = {
     VEGraph.fromRDDs(verts, edgs, defVal, storLevel, coalesced = coal)
   }
 

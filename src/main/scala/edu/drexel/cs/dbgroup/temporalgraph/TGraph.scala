@@ -90,7 +90,7 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * @param vpred Vertex predicate.
     * Foreign key constraint is enforced.
     */
-  def vsubgraph(vpred: (VertexId, VD, Interval ) => Boolean ): TGraph[VD,ED]
+  def vsubgraph(pred: (VertexId, VD, Interval ) => Boolean ): TGraph[VD,ED]
 
 
   /**
@@ -98,7 +98,7 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * @param epred Edge predicate.
     * Foreign key constraint is enforced.
     */
-  def esubgraph(epred: TEdgeTriplet[VD,ED] => Boolean, tripletFields: TripletFields = TripletFields.All): TGraph[VD,ED]
+  def esubgraph(pred: TEdgeTriplet[VD,ED] => Boolean, tripletFields: TripletFields = TripletFields.All): TGraph[VD,ED]
 
 
   /**

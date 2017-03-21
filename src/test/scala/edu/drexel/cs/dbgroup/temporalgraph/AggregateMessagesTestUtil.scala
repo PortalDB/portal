@@ -99,7 +99,7 @@ object AggregateMessagesTestUtil {
     assert(node._2._2._2 == count)
   }
 
-  def assertions_noPredicate(result: TGraphNoSchema[(String,Int),Int]) : Unit = {
+  def assertions_noPredicate(result: TGraphNoSchema[(String,Int),String]) : Unit = {
 
     var resultList = result.vertices.collect().sortBy(v => (v._1, v._2._1)).toList
 
@@ -126,7 +126,7 @@ object AggregateMessagesTestUtil {
     }
   }
 
-  def assertions_edgePredicate(result: TGraphNoSchema[(String,Int),Int]) : Unit = {
+  def assertions_edgePredicate(result: TGraphNoSchema[(String,Int),String]) : Unit = {
 
     var resultList = result.vertices.collect().sortBy(v => (v._1, v._2._1)).toList
 
@@ -154,7 +154,7 @@ object AggregateMessagesTestUtil {
     }
   }
 
-  def assertions_vertexPredicate(result: TGraphNoSchema[(String,Int),Int]) : Unit = {
+  def assertions_vertexPredicate(result: TGraphNoSchema[(String,Int),String]) : Unit = {
     var resultList = result.vertices.collect().sortBy(v => (v._1, v._2._1)).toList
 
     println(resultList

@@ -701,15 +701,15 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
 
     val mergeFunc = TempGraphOps.mergeIntervalLists[A](mergeMsg, _:List[(Interval,A)], _:List[(Interval,A)])
 
-    val messages = graphs.aggregateMessages[List[(Interval,A)]](
-      ctx => {
-        //make a single message to send to src and/or dst
-        //that covers all intervals there's a message for
-        val triplet = new EdgeTriplet[VD,(EdgeId,ED)]
-        triplet.srcId = ctx.srcId
-        triplet.dstId = ctx.dstId
-        //the messages are (Interval,A) pairs
-        if (tripletFields == TripletFields.None || tripletFields == TripletFields.EdgeOnly) {
+    val messages = if (tripletFields == TripletFields.None || tripletFields == TripletFields.EdgeOnly)
+      graphs.aggregateMessages[List[(Interval,A)]](
+        ctx => {
+          //make a single message to send to src and/or dst
+          //that covers all intervals there's a message for
+          val triplet = new EdgeTriplet[VD,(EdgeId,ED)]
+          triplet.srcId = ctx.srcId
+          triplet.dstId = ctx.dstId
+          //the messages are (Interval,A) pairs
           //don't bother with vertex attributes since they are not needed
           ctx.attr._2.foreach { x =>
             triplet.attr = (ctx.attr._1, x._2)
@@ -720,7 +720,15 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
                 throw new IllegalArgumentException("trying to send message to a vertex that is neither a source nor a destination")
             }
           }
-        } else {
+        }, mergeFunc, tripletFields)
+    else
+      graphs.aggregateMessages[List[(Interval,A)]](
+        ctx => {
+          //make a single message to send to src and/or dst
+          //that covers all intervals there's a message for
+          val triplet = new EdgeTriplet[VD,(EdgeId,ED)]
+          triplet.srcId = ctx.srcId
+          triplet.dstId = ctx.dstId
           //get vertex attributes
           ctx.attr._2.foreach { x =>
             triplet.attr = (ctx.attr._1, x._2)
@@ -741,15 +749,14 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
               }
             }
           }
-        }
-      }, mergeFunc, tripletFields)
+        }, mergeFunc, tripletFields)
 
     //now merge. warning: messages are not guaranteed to cover vertex lifetime
     //but are guaranteed to not go outside vertex lifetime
     implicit val ord = TempGraphOps.dateOrdering
     val newgs = graphs.outerJoinVertices(messages) {
       case (vid, olds, Some(news)) =>
-        olds.flatMap(i => Seq(i._1.start, i._1.end)).union(news.flatMap(i => Seq(i._1.start, i._1.end))).sortBy(c => c).sliding(2).map(lst => Interval(lst(0),lst(1))).toArray.map(intv =>
+        olds.flatMap(i => Seq(i._1.start, i._1.end)).union(news.flatMap(i => Seq(i._1.start, i._1.end))).distinct.sortBy(c => c).sliding(2).map(lst => Interval(lst(0),lst(1))).toArray.map(intv =>
           (intv, (olds.find(i => i._1.intersects(intv)).get._2, news.find(i => i._1.intersects(intv)).getOrElse((intv, defVal))._2)))
         //this is unlikely but possible
       case (vid, olds, None) => olds.map(x => (x._1, (x._2, defVal)))
@@ -803,6 +810,7 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
   }
 
   override protected def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): OneGraph[V, E] = OneGraph.emptyGraph(defVal)
+  override def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[TEdge[E]], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): OneGraph[V, E] = OneGraph.fromRDDs(verts, edgs, defVal, storLevel, coalesced)
 
 }
 
