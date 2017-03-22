@@ -26,7 +26,7 @@ object LocalPoint {
     val edgesQueriesPath = args(2)
 
     val nodes = Source.fromFile(nodesQueriesPath).getLines.map(l => l.split(',')).map(l => (l(0).toLong, LocalDate.parse(l(1))))
-    val edges = Source.fromFile(edgesQueriesPath).getLines.map(l => l.split(',')).map(l => (l(0).toLong, l(1).toLong, LocalDate.parse(l(2))))
+    val edges = Source.fromFile(edgesQueriesPath).getLines.map(l => l.split(',')).map(l => (l(0).toLong, LocalDate.parse(l(1))))
 
     val lq = new LocalQueries(path)
 
@@ -40,8 +40,8 @@ object LocalPoint {
 
     val startAsMili2 = System.currentTimeMillis()
 
-    edges.foreach { case (id1, id2, year) =>
-      println("edge " + id1 + "," + id2 + " at " + year + ":" + lq.getEdge(id1, id2, year).collect().mkString(", "))
+    edges.foreach { case (id, year) =>
+      println("edge " + id + " at " + year + ":" + lq.getEdge(id, year).collect().mkString(", "))
     }
 
     println("total time (millis) for " + edges.size + " local point edge queries: " + (System.currentTimeMillis()-startAsMili2))

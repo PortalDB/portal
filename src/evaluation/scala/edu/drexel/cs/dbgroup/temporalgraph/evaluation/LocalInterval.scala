@@ -30,8 +30,7 @@ object LocalInterval {
     val maxYearDate = LocalDate.parse(args(3))
 
     val nodes = Source.fromFile(nodesQueriesPath).getLines.map(l => l.split(',')).map(l => (l(0).toLong, LocalDate.parse(l(1))))
-    val edges = Source.fromFile(edgesQueriesPath).getLines.map(l => l.split(',')).map(l => (l(0).toLong, l(1).toLong, LocalDate.parse(l(2
-))))
+    val edges = Source.fromFile(edgesQueriesPath).getLines.map(l => l.split(',')).map(l => (l(0).toLong, LocalDate.parse(l(1))))
     val lq = new LocalQueries(path)
 
     val startAsMili = System.currentTimeMillis()
@@ -44,8 +43,8 @@ object LocalInterval {
 
     val startAsMili2 = System.currentTimeMillis()
 
-    edges.foreach { case (id1, id2, year) =>
-      println("edge " + id1 + "," + id2 + " from " + year + ":" + lq.getEdgeHistory(id1, id2, Interval(year, maxYearDate)).collect().mkString(", "))
+    edges.foreach { case (id, year) =>
+      println("edge " + id + " from " + year + ":" + lq.getEdgeHistory(id, Interval(year, maxYearDate)).collect().mkString(", "))
     }
 
     println("total time (millis) for " + edges.size + " local interval edge queries: " + (System.currentTimeMillis()-startAsMili2))

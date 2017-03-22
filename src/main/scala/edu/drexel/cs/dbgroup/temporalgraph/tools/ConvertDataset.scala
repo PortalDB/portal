@@ -41,6 +41,7 @@ object ConvertDataset {
     var conf = new SparkConf().setAppName("Dataset Converter").setSparkHome(System.getenv("SPARK_HOME"))
     conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
     conf.set("spark.network.timeout", "240")   
+    conf.set("spark.hadoop.dfs.replication", "1")
 
     //directory where we assume nodes.parquet and edges.parquet live
     var source: String = ""
@@ -83,7 +84,6 @@ object ConvertDataset {
     val sqlContext = ProgramContext.getSession
     //import sqlContext.implicits._
     sqlContext.conf.set("spark.sql.files.maxPartitionBytes", "16777216")
-    sqlContext.conf.set("spark.sql.parquet.compression.codec", "gzip")
 
     val cd = new ConvertDataset(source, locality, split, widthTime, widthRGs, buckets, ratioT, dest)
     cd.convert()
@@ -98,7 +98,7 @@ class ConvertDataset(source: String, locality: Locality.Value, split: SnapshotGr
   def convert(): Unit = {
     //load the datasets
     val nodes = ProgramContext.getSession.read.parquet(source + "/nodes.parquet")
-    val edges = ProgramContext.getSession.read.parquet(source + "/edges.parquet")
+    val edges = ProgramContext.getSession.read.parquet(source + "/edgeswids.parquet")
     val (minDate, maxDate) = { val tmp = nodes.agg(min("estart"), max("eend")).collect().head; (tmp.getDate(0).toLocalDate(), tmp.getDate(1).toLocalDate()) }
 
     val intervals: Seq[Interval] = split match {
@@ -154,8 +154,8 @@ class ConvertDataset(source: String, locality: Locality.Value, split: SnapshotGr
         buffer.toSeq
     }
 
-    convert(nodes, locality, intervals, minDate, dest + "/nodes")
-    convert(edges, locality, intervals, minDate, dest + "/edges")
+    convert(nodes, intervals, minDate, dest + "/nodes")
+    convert(edges, intervals, minDate, dest + "/edges")
   }
 
   private def convert(data: DataFrame, intervals: Seq[Interval], minDate: LocalDate, dest: String): Unit = {
@@ -171,7 +171,7 @@ class ConvertDataset(source: String, locality: Locality.Value, split: SnapshotGr
   private def convert(data: DataFrame, loc: Locality.Value, intervals: Seq[Interval], minDate: LocalDate, dest: String): Unit = {
 
     //get the name of the id column
-    val idname = data.columns.filter(x => x.startsWith("vid")).head
+    val idname = data.columns.find(x => x == "eid").getOrElse(data.columns.find(x => x.startsWith("vid")).get)
     //get the index of estart column
     val startIndex = data.columns.indexOf("estart")
 
@@ -231,11 +231,17 @@ class ConvertDataset(source: String, locality: Locality.Value, split: SnapshotGr
 
   private def splitRDD(df: RDD[Row], intervals: Seq[Interval], startIndex: Int): Seq[RDD[Row]] = {
     val intvs = intervals.zipWithIndex
-    val mux = df.mapPartitions{itr =>
-      val buckets = Vector.fill(intervals.size) { ArrayBuffer.empty[Row] }
-      itr.foreach { r => intvs.filter(y => y._1.intersects(Interval(r.getDate(startIndex), r.getDate(startIndex+1)))).foreach(y => buckets(y._2) += r)} //should only go into one bucket if the split was done properly
-      Iterator.single(buckets)
-    }.cache()
-    Vector.tabulate(intervals.size) { j => mux.mapPartitions { itr => itr.next()(j).toIterator }}
+    if (df.getNumPartitions < 100) { 
+       val mux = df.mapPartitions{itr =>
+          val buckets = Vector.fill(intervals.size) { ArrayBuffer.empty[Row] }
+          itr.foreach { r => intvs.filter(y => y._1.intersects(Interval(r.getDate(startIndex), r.getDate(startIndex+1)))).foreach(y => buckets(y._2) += r)} //should only go into one bucket if the split was done properly
+          Iterator.single(buckets)
+       }.cache()
+       Vector.tabulate(intervals.size) { j => mux.mapPartitions { itr => itr.next()(j).toIterator }}
+    } else {
+       intervals.map(ii =>
+          df.filter(r => ii.intersects(Interval(r.getDate(startIndex), r.getDate(startIndex+1))))
+       )
+    }
   }
 }

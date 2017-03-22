@@ -35,10 +35,11 @@ class GlobalPointQueries(dataset: String) {
 
     val edgePath = GraphLoader.getPaths(dataset, Interval(point, point.plusDays(1)), "edges_s_" + sg)
     val edfs = GraphLoader.getParquet(edgePath, point)
-    val edges: RDD[Edge[Any]] = if (edfs.schema.fields.size > 4)
-      edfs.filter("estart <= " + secs + " and eend > " + secs).rdd.map(r => Edge(r.getLong(0), r.getLong(1), r.get(4)))
-    else if (edfs.schema.fields.size > 3)
-      edfs.filter("estart <= " + secs + " and eend > " + secs).rdd.map(r => Edge(r.getLong(0), r.getLong(1), null))
+    //there are also edge ids but here we don't care
+    val edges: RDD[Edge[Any]] = if (edfs.schema.fields.size > 5)
+      edfs.filter("estart <= " + secs + " and eend > " + secs).rdd.map(r => Edge(r.getLong(1), r.getLong(2), r.get(5)))
+    else if (edfs.schema.fields.size > 4)
+      edfs.filter("estart <= " + secs + " and eend > " + secs).rdd.map(r => Edge(r.getLong(1), r.getLong(2), null))
     else
       ProgramContext.sc.emptyRDD[Edge[Any]]
 
