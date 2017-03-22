@@ -748,12 +748,13 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
 
     val addMaps = (spmap1: Long2IntOpenHashMap, spmap2:Long2IntOpenHashMap) => {
       val itr = spmap1.iterator
+      val vals = spmap2.clone
 
       while (itr.hasNext) {
         val (index, oldv) = itr.next()
-        spmap2.update(index, math.min(oldv, spmap2.getOrDefault(index, Int.MaxValue)))
+        vals.update(index, math.min(oldv, spmap2.getOrDefault(index, Int.MaxValue)))
       }
-      spmap2
+      vals
     }
 
     val spGraph: Graph[Int2ObjectOpenHashMap[Long2IntOpenHashMap], (EdgeId,BitSet)] = graphs
@@ -788,6 +789,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
         val (k, v) = x
         vals.update(k, addMaps(attr.getOrDefault(k, makeMap(Seq[(VertexId,Int)]())), v))
       }
+
       vals
     }
 
@@ -815,11 +817,11 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
             val newAttr = incrementMap(dstSpMap)
             val newAttr2 = incrementMap(srcSpMap)
 
-            if (srcSpMap != addMaps(newAttr, srcSpMap))
+            if (srcSpMap != addMaps(newAttr, srcSpMap)) {
               Some((edge.srcId, new Int2ObjectOpenHashMap[Long2IntOpenHashMap](Array(k), Array(newAttr))))
-            else if (dstSpMap != addMaps(newAttr2, dstSpMap))
+            } else if (dstSpMap != addMaps(newAttr2, dstSpMap)) {
               Some((edge.dstId, new Int2ObjectOpenHashMap[Long2IntOpenHashMap](Array(k), Array(newAttr2))))
-            else
+            } else
               None
           }
             .iterator
@@ -843,7 +845,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       new OneGraphColumn[(VD, Map[VertexId,Int]), ED](newverts, allEdges, graphs, (defaultValue, emptyMap.asInstanceOf[Map[VertexId,Int]]), storageLevel)
   }
 
-  override def aggregateMessages[A: ClassTag](sendMsg: EdgeTriplet[VD, (EdgeId,ED)] => Iterator[(VertexId, A)],
+  override def aggregateMessages[A: ClassTag](sendMsg: TEdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
     mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): OneGraphColumn[(VD, A), ED] = {
     if (graphs == null) computeGraph()
     if(tripletFields != TripletFields.None) {
@@ -853,7 +855,8 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       val agg: VertexRDD[Int2ObjectOpenHashMap[A]] = graphs.aggregateMessages[Int2ObjectOpenHashMap[A]](
         ctx => {
           val edge = ctx.toEdgeTriplet
-          val triplet = new EdgeTriplet[VD, (EdgeId,ED)]
+          val triplet = new TEdgeTriplet[VD, ED]
+          triplet.eId = edge.attr._1
           triplet.srcId = edge.srcId
           triplet.dstId = edge.dstId
           sendMsg(triplet).foreach { x =>

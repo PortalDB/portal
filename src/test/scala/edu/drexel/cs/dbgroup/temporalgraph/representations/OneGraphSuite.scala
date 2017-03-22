@@ -42,7 +42,6 @@ class OneGraphSuite extends RepresentationsTestSuite {
     testNodeCreateTemporal2(OneGraph.emptyGraph(true))
   }
 
-
   test("aggregateByChange -w/o structural") {
     testNodeCreateTemporal3(empty)
   }

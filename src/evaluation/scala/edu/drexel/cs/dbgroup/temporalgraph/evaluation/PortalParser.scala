@@ -92,6 +92,7 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
   )
 
   //TODO: add group by size
+  //FIXME: separate temporal and structural
   lazy val groupby = ("group" ~> "by" ~> numericLit ~ period ~ "vertices" ~ semantics ~ function ~ "edges" ~ semantics ~ function ~ vgroupby.? ^^ { case num ~ per ~ _ ~ vsem ~ vfunc ~ _ ~ esem ~ efunc ~ vgb => new GroupBy(num, per, vsem, vfunc, esem, efunc, vgb.getOrElse(Id()))})
 
   lazy val vgroupby = ("vgroup" ~> "by" ~> attrStr)
@@ -208,7 +209,7 @@ object Interpreter {
                 println("Total edges count: " + count)
                 op = "Return"
               case i: Id =>
-                println("Edges:\n" + intRes.edges.map{ case (k,v) => k}.collect.mkString(","))
+                println("Edges:\n" + intRes.edges.map(te => te.eId).collect.mkString(","))
                 op = "Return"
               case a: Attr =>
                 println("Edges with attributes:\n" + intRes.edges.collect.mkString("\n"))
@@ -387,7 +388,7 @@ object Interpreter {
               s.compute(attrs)
             }
             val opStart = System.currentTimeMillis()
-            val res = gr.vsubgraph(vpred = vp).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
+            val res = gr.vsubgraph(pred = vp).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
             val opEnd = System.currentTimeMillis()
             val total = opEnd - opStart
             println(f"Subgraph Runtime: $total%dms ($argNum%d)")
@@ -488,13 +489,10 @@ object Interpreter {
 
         val agg = gbp.vgb match {
           case i: Id => mpd.createTemporalNodes(spec, gbp.vsem.value, gbp.esem.value, fun1, fun2).asInstanceOf[TGraphNoSchema[Any,Any]]
-              //.partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
           //Todo: fix me. It's combined
           case a: Attr => {
             val vgb = (vid: VertexId, attr: Any) => attr.hashCode().toLong
-            mpd.createAttributeNodes(fun1, fun2)(vgb).asInstanceOf[TGraphNoSchema[Any,Any]]
-            //mpd.createNodes(spec, gbp.vsem.value, gbp.esem.value, fun1, fun2)(vgb)
-              //.partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]//.persist(StorageLevel.MEMORY_ONLY_SER)
+            mpd.createAttributeNodes(fun1)(vgb).asInstanceOf[TGraphNoSchema[Any,Any]]
           }
           case _ => throw new IllegalArgumentException("unsupported vgroupby")
         }
@@ -516,7 +514,7 @@ object Interpreter {
           case c: Convert => convertGraph(parseGraph(g), c)
         }
         val opStart = System.currentTimeMillis()
-        val vm = (vid:Long, attr:Any) => {
+        val vm = (vid:Long, intv: Interval, attr:Any) => {
           attr match {
             case t: (Any,Any) => f match {
               case f: ProjectFirst => t._1
@@ -535,7 +533,7 @@ object Interpreter {
             case _ => throw new IllegalArgumentException("project not supported for this attribute type")
           }
         }
-        val em = (e: Edge[Any]) => {
+        val em = (e: TEdge[Any]) => {
           e.attr match {
             case t: (Any,Any) => f match {
               case f: ProjectFirst => t._1
@@ -573,9 +571,9 @@ object Interpreter {
               }
               case _ => throw new IllegalArgumentException("project not supported for this attribute type")
             }
-            gr.emap((intv,e) => e.attr)
+            gr.vmap(vm, dfv)
           }
-          case ed: Edges => gr.vmap((vid,intv, attr) => attr, gr.defaultValue)
+          case ed: Edges => gr.emap(em)
         }
         val opEnd = System.currentTimeMillis()
         val total = opEnd - opStart
@@ -643,7 +641,7 @@ object Interpreter {
     val total = selEnd - selStart
     println(f"Load Runtime: $total%dms ($argNum%d)")
     argNum += 1
-    res.partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0))
+    res.partitionBy(TGraphPartitioning(PortalParser.strategy, PortalParser.width, 0)).asInstanceOf[TGraphNoSchema[Any,Any]]
   }
 
   def compute(gr: TGraphNoSchema[Any,Any], com: Compute, wi: WithC): TGraphNoSchema[Any,Any] = {

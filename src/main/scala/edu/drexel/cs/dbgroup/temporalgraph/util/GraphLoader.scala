@@ -100,7 +100,7 @@ object GraphLoader {
     val vattr = 2 + vattrcol
     if (nodeDFs.head.schema.fields.size <= vattr)
       throw new IllegalArgumentException("requested column index " + vattrcol + " which does not exist in the data")
-    val eattr = 3 + eattrcol
+    val eattr = 4 + eattrcol
     if (edgeDFs.head.schema.fields.size <= eattr)
       throw new IllegalArgumentException("requested column index " + eattrcol + " which does not exist in the data")
 
@@ -113,12 +113,12 @@ object GraphLoader {
     else if (nodeDFs.head.schema.fields.size > 4)
       nodeDFs = nodeDFs.map(nf => nf.select("vid", "estart", "eend", nf.schema.fields(vattr).name))
     if (eattrcol == -1) {
-      if (edgeDFs.head.schema.fields.size > 4)
-        edgeDFs = edgeDFs.map(nf => nf.select("vid1", "vid2", "estart", "eend"))
+      if (edgeDFs.head.schema.fields.size > 5)
+        edgeDFs = edgeDFs.map(nf => nf.select("eid", "vid1", "vid2", "estart", "eend"))
       edgeDFs = edgeDFs.map(nf => nf.withColumn("attr", lit(true)))
     }
-    else if (nodeDFs.head.schema.fields.size > 5)
-      edgeDFs = edgeDFs.map(nf => nf.select("vid1", "vid2", "estart", "eend", nf.schema.fields(eattr).name))
+    else if (edgeDFs.head.schema.fields.size > 6)
+      edgeDFs = edgeDFs.map(nf => nf.select("eid", "vid1", "vid2", "estart", "eend", nf.schema.fields(eattr).name))
     
     val col: Boolean = nodeDFs.size < 2
     val deflt: Any = if (vattrcol == -1) false else nodeDFs.head.schema.fields(vattr).dataType match {
@@ -167,7 +167,7 @@ object GraphLoader {
     val vattr = 2 + vattrcol
     if (users.schema.fields.size <= vattr)
       throw new IllegalArgumentException("requested column index " + vattrcol + " which does not exist in the data")
-    val eattr = 3 + eattrcol
+    val eattr = 4 + eattrcol
     if (links.schema.fields.size <= eattr)
       throw new IllegalArgumentException("requested column index " + eattrcol + " which does not exist in the data")
 
@@ -180,12 +180,12 @@ object GraphLoader {
     else if (users.schema.fields.size > 4)
       users = users.select("vid", "estart", "eend", users.schema.fields(vattr).name)
     if (eattrcol == -1) {
-      if (links.schema.fields.size > 4)
-        links = links.select("vid1", "vid2", "estart", "eend")
+      if (links.schema.fields.size > 5)
+        links = links.select("eid", "vid1", "vid2", "estart", "eend")
       links = links.withColumn("attr", lit(true))
     }
-    else if (links.schema.fields.size > 5)
-      links = links.select("vid1", "vid2", "estart", "eend", links.schema.fields(eattr).name)
+    else if (links.schema.fields.size > 6)
+      links = links.select("eid", "vid1", "vid2", "estart", "eend", links.schema.fields(eattr).name)
 
     val deflt: Any = if (vattrcol == -1) false else users.schema.fields(vattr).dataType match {
       case StringType => ""
@@ -205,7 +205,7 @@ object GraphLoader {
     //load each column as a property with that key
     //TODO when we have the concrete property bag implementation
     //for now, empty graph
-    VEAGraph.emptyGraph
+    null
   }
 
   def loadGraphSpan(url: String): Interval = {

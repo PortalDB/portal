@@ -103,10 +103,6 @@ object AggregateMessagesTestUtil {
 
     var resultList = result.vertices.collect().sortBy(v => (v._1, v._2._1)).toList
 
-    println(resultList
-      .sortBy(v => (v._1, v._2._1))
-      .mkString("\r\n"))
-
     assert(resultList.size == 10)
 
     for(i <- 0 until resultList.size) {
@@ -130,10 +126,6 @@ object AggregateMessagesTestUtil {
 
     var resultList = result.vertices.collect().sortBy(v => (v._1, v._2._1)).toList
 
-    println(resultList
-      .sortBy(v => (v._1, v._2._1))
-      .mkString("\r\n"))
-
     assert(resultList.size == 11)
 
     for(i <- 0 until resultList.size) {
@@ -156,10 +148,6 @@ object AggregateMessagesTestUtil {
 
   def assertions_vertexPredicate(result: TGraphNoSchema[(String,Int),String]) : Unit = {
     var resultList = result.vertices.collect().sortBy(v => (v._1, v._2._1)).toList
-
-    println(resultList
-      .sortBy(v => (v._1, v._2._1))
-      .mkString("\r\n"))
 
     assert(resultList.size == 6)
 

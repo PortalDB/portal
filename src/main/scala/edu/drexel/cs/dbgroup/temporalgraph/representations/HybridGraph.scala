@@ -27,9 +27,9 @@ import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
 
 import java.time.LocalDate
 
-class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[((VertexId, VertexId), (Interval, ED))], runs: Seq[Int], gps: ParSeq[Graph[BitSet, BitSet]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends VEGraph[VD, ED](verts, edgs, defValue, storLevel, coal) with Serializable {
+class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[TEdge[ED]], runs: Seq[Int], gps: ParSeq[Graph[BitSet, (EdgeId,BitSet)]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends VEGraph[VD, ED](verts, edgs, defValue, storLevel, coal) with Serializable {
 
-  var graphs: ParSeq[Graph[BitSet, BitSet]] = gps
+  var graphs: ParSeq[Graph[BitSet, (EdgeId,BitSet)]] = gps
   //this is how many consecutive intervals are in each aggregated graph
   var widths: Seq[Int] = runs
   private val collectedIntervals: Array[Interval] = intvs
@@ -50,7 +50,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
   /** Query operations */
   
   override def slice(bound: Interval): HybridGraph[VD, ED] = {
-    if (graphs.size < 1) return super.slice(bound).asInstanceOf[HybridGraph[VD,ED]]
+    if (graphs.size < 1) return super.slice(bound).partitionBy(partitioning).asInstanceOf[HybridGraph[VD,ED]]
     if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
     
     if (span.intersects(bound)) {
@@ -83,23 +83,28 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
       //filter out aggregates where we need only partials
       //drop those we don't need
       //keep the rest
-      val subg:ParSeq[Graph[BitSet,BitSet]] = graphs.zipWithIndex.flatMap{ case (g,index) =>
+      val subg:ParSeq[Graph[BitSet,(EdgeId,BitSet)]] = graphs.zipWithIndex.flatMap{ case (g,index) =>
         if (index == indexStart || index == indexStop) {
           val mask: BitSet = if (index == indexStart) BitSet((selectStart to stop1): _*) else BitSet((stop2 to selectStop): _*)
           Some(g.subgraph(
             vpred = (vid, attr) => !(attr & mask).isEmpty,
-            epred = et => !(et.attr & mask).isEmpty)
-            .mapVertices((vid, vattr) => vattr.filter(x => x >= selectStart && x <= selectStop).map(_ - selectStart)).mapEdges(e => e.attr.filter(x => x >= selectStart && x <= selectStop).map(_ - selectStart)))
+            epred = et => !(et.attr._2 & mask).isEmpty)
+            .mapVertices((vid, vattr) => vattr.filter(x => x >= selectStart && x <= selectStop).map(_ - selectStart))
+            .mapEdges(e => (e.attr._1, e.attr._2.filter(x => x >= selectStart && x <= selectStop).map(_ - selectStart))))
         } else if (index > indexStart && index < indexStop) {
           Some(g.mapVertices((vid, vattr) => vattr.map(_ - selectStart))
-            .mapEdges(e => e.attr.map(_ - selectStart)))
+            .mapEdges(e => (e.attr._1, e.attr._2.map(_ - selectStart))))
         } else
           None
       }
 
       //now need to update the vertex attribute rdd and edge attr rdd
       val vattrs = allVertices.filter{ case (k,v) => v._1.intersects(selectBound)}.mapValues( v => (Interval(maxDate(v._1.start, startBound), minDate(v._1.end, endBound)), v._2))
-      val eattrs = allEdges.filter{ case (k,v) => v._1.intersects(selectBound)}.mapValues( v => (Interval(maxDate(v._1.start, startBound), minDate(v._1.end, endBound)), v._2))
+      val eattrs = allEdges.filter{ te => te.interval.intersects(selectBound)}
+        .map{ te =>
+        te.interval = Interval(maxDate(te.interval.start, startBound), minDate(te.interval.end, endBound))
+        te
+      }
       val newIntvs: Array[Interval] = collectedIntervals.slice(selectStart, selectStop+1).map(intv => if (intv.start.isBefore(startBound) || intv.end.isAfter(endBound)) intv.intersection(selectBound).get else intv)
 
       new HybridGraph[VD, ED](newIntvs, vattrs, eattrs, runs, subg, defaultValue, storageLevel, coalesced)
@@ -130,10 +135,10 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
     val newIntvsb = ProgramContext.sc.broadcast(newIntvs)
     val intvs = ProgramContext.sc.broadcast(collectedIntervals)
 
-    var gps: ParSeq[Graph[BitSet,BitSet]] = ParSeq[Graph[BitSet,BitSet]]()
+    var gps: ParSeq[Graph[BitSet,(EdgeId,BitSet)]] = ParSeq[Graph[BitSet,(EdgeId,BitSet)]]()
     //there is no union of two graphs in graphx
     var firstVRDD: RDD[(VertexId, BitSet)] = ProgramContext.sc.emptyRDD
-    var firstERDD: RDD[Edge[BitSet]] = ProgramContext.sc.emptyRDD
+    var firstERDD: RDD[Edge[(EdgeId,BitSet)]] = ProgramContext.sc.emptyRDD
     var startx:Int = 0
     var numagg:Int = 0
     var xx:Int = 0
@@ -151,7 +156,10 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
         val parts:Seq[(Int,Int,Int)] = (startx to xx).map(p => (countsSum.lift(p-1).getOrElse(0), countsSum(p)-1, p))
         if (numagg > 1) {
           firstVRDD = firstVRDD.reduceByKey(_ ++ _)
-          firstERDD = firstERDD.map{e => ((e.srcId, e.dstId), e.attr)}.reduceByKey(_ ++ _).map(x => Edge(x._1._1, x._1._2, x._2))
+          firstERDD = firstERDD.map{e => 
+            ((e.attr._1, e.srcId, e.dstId), e.attr._2)}
+            .reduceByKey(_ ++ _)
+            .map(x => Edge(x._1._2, x._1._3, (x._1._1, x._2)))
         }
         gps = gps :+ Graph(firstVRDD.mapValues{ attr =>
           BitSet() ++ parts.flatMap { case (start, end, index) =>
@@ -164,22 +172,22 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
             else
               None
           }
-        }.filter{ case (vid, attr) => !attr.isEmpty}, EdgeRDD.fromEdges[BitSet,BitSet](firstERDD).mapValues{e =>
-          BitSet() ++ parts.flatMap { case (start, end, index) =>
+        }.filter{ case (vid, attr) => !attr.isEmpty}, EdgeRDD.fromEdges[(EdgeId,BitSet),BitSet](firstERDD).mapValues{e =>
+          (e.attr._1, BitSet() ++ parts.flatMap { case (start, end, index) =>
             val mask = BitSet((start to end): _*)
-            val tt = mask & e.attr
+            val tt = mask & e.attr._2
             if (tt.isEmpty)
               None
             else if (equant.keep(tt.toList.map(ii => intvs.value(ii).ratio(newIntvsb.value(index))).reduce(_ + _)))
               Some(index)
             else
               None
-          }
-        }.filter{ e => !e.attr.isEmpty},
+          })
+        }.filter{ e => !e.attr._2.isEmpty},
           BitSet(), edgeStorageLevel = storageLevel,
           vertexStorageLevel = storageLevel)
-          .mapTriplets(etp => etp.srcAttr & etp.dstAttr & etp.attr)
-          .subgraph(vpred = (vid, attr) => !attr.isEmpty)
+          .mapTriplets(etp => (etp.attr._1, etp.srcAttr & etp.dstAttr & etp.attr._2))
+          .subgraph(vpred = (vid, attr) => !attr.isEmpty, epred = e => !e.attr._2.isEmpty)
 
         //the number of snapshots in this new aggregate
         runs = runs :+ (xx - startx + 1)
@@ -204,7 +212,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
     //collect vertices and edges
     val tmp: ED = defaultValue.asInstanceOf[ED]
     val vs = gps.map(g => g.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), defaultValue)))}).reduce(_ union _)
-    val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))}).reduce(_ union _)
+    val es = gps.map(g => g.edges.flatMap{ case e => e.attr._2.toSeq.map(ii => TEdge[ED](e.attr._1, e.srcId, e.dstId, newIntvsb.value(ii), tmp))}).reduce(_ union _)
 
     if (ProgramContext.eagerCoalesce)
       fromRDDs(vs, es, defaultValue, storageLevel, false)
@@ -239,10 +247,10 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
     val newIntvsb = ProgramContext.sc.broadcast(newIntvs)
     val intvs = ProgramContext.sc.broadcast(collectedIntervals)
 
-    var gps: ParSeq[Graph[BitSet,BitSet]] = ParSeq[Graph[BitSet,BitSet]]()
+    var gps: ParSeq[Graph[BitSet,(EdgeId,BitSet)]] = ParSeq[Graph[BitSet,(EdgeId,BitSet)]]()
     //there is no union of two graphs in graphx
     var firstVRDD: RDD[(VertexId, BitSet)] = ProgramContext.sc.emptyRDD
-    var firstERDD: RDD[Edge[BitSet]] = ProgramContext.sc.emptyRDD
+    var firstERDD: RDD[Edge[(EdgeId,BitSet)]] = ProgramContext.sc.emptyRDD
     var startx:Int = 0
     var numagg:Int = 0
     var xx:Int = 0
@@ -258,7 +266,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
         val parts:Seq[(Int,Int,Int)] = (startx to xx).map(p => (countSums(p)._1, countSums(p)._2, p))
         if (numagg > 1) {
           firstVRDD = firstVRDD.reduceByKey(_ ++ _)
-          firstERDD = firstERDD.map{e => ((e.srcId, e.dstId), e.attr)}.reduceByKey(_ ++ _).map(x => Edge(x._1._1, x._1._2, x._2))
+          firstERDD = firstERDD.map{e => ((e.attr._1, e.srcId, e.dstId), e.attr._2)}.reduceByKey(_ ++ _).map(x => Edge(x._1._2, x._1._3, (x._1._1,x._2)))
         }
         gps = gps :+ Graph(firstVRDD.mapValues{ attr =>
           BitSet() ++ parts.flatMap { case (start, end, index) =>
@@ -271,22 +279,22 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
             else
               None
           }
-        }.filter{ case (vid, attr) => !attr.isEmpty}, EdgeRDD.fromEdges[BitSet,BitSet](firstERDD).mapValues{e =>
-          BitSet() ++ parts.flatMap { case (start, end, index) =>
+        }.filter{ case (vid, attr) => !attr.isEmpty}, EdgeRDD.fromEdges[(EdgeId,BitSet),BitSet](firstERDD).mapValues{e =>
+          (e.attr._1, BitSet() ++ parts.flatMap { case (start, end, index) =>
             val mask = BitSet((start to end): _*)
-            val tt = mask & e.attr
+            val tt = mask & e.attr._2
             if (tt.isEmpty)
               None
             else if (equant.keep(tt.toList.map(ii => intvs.value(ii).ratio(newIntvsb.value(index))).reduce(_ + _)))
               Some(index)
             else
               None
-          }
-        }.filter{ e => !e.attr.isEmpty},
+          })
+        }.filter{ e => !e.attr._2.isEmpty},
           BitSet(), edgeStorageLevel = storageLevel,
           vertexStorageLevel = storageLevel)
-          .mapTriplets(etp => etp.srcAttr & etp.dstAttr & etp.attr)
-          .subgraph(vpred = (vid, attr) => !attr.isEmpty)
+          .mapTriplets(etp => (etp.attr._1, etp.srcAttr & etp.dstAttr & etp.attr._2))
+          .subgraph(vpred = (vid, attr) => !attr.isEmpty, epred = e => !e.attr._2.isEmpty)
 
         //the number of snapshots in this new aggregate
         runs = runs :+ (xx - startx + 1)
@@ -310,7 +318,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
     //collect vertices and edges
     val tmp: ED = defaultValue.asInstanceOf[ED]
     val vs = gps.map(g => g.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), defaultValue)))}).reduce(_ union _)
-    val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))}).reduce(_ union _)
+    val es = gps.map(g => g.edges.flatMap{ case e => e.attr._2.toSeq.map(ii => TEdge[ED](e.attr._1, e.srcId, e.dstId, newIntvsb.value(ii), tmp))}).reduce(_ union _)
 
     if (ProgramContext.eagerCoalesce)
       fromRDDs(vs, es, defaultValue, storageLevel, false)
@@ -327,8 +335,9 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
       new HybridGraph(collectedIntervals, vs, allEdges, widths, graphs, defVal, storageLevel, false)
   }
 
-  override def emap[ED2: ClassTag](map: (Interval, Edge[ED]) => ED2): HybridGraph[VD, ED2] = {
-    val es = allEdges.map{ case (ids, (intv, attr)) => (ids, (intv, map(intv, Edge(ids._1, ids._2, attr))))}
+  override def emap[ED2: ClassTag](map: TEdge[ED] => ED2): HybridGraph[VD, ED2] = {
+    val es = allEdges.map{ te =>
+      TEdge[ED2](te.eId, te.srcId, te.dstId, te.interval, map(te))}
     if (ProgramContext.eagerCoalesce)
       fromRDDs(allVertices, es, defaultValue, storageLevel, false)
     else
@@ -364,15 +373,15 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
       val intvMap2B = ProgramContext.sc.broadcast(intvMap2)
 
       //for each index in a bitset, put the new one
-      val gp1: ParSeq[Graph[BitSet,BitSet]] = graphs.map{g => g.mapVertices{ (vid, attr) =>
+      val gp1: ParSeq[Graph[BitSet,(EdgeId,BitSet)]] = graphs.map{g => g.mapVertices{ (vid, attr) =>
         BitSet() ++ attr.toSeq.flatMap(ii => intvMapB.value(ii))
       }.mapEdges{ e =>
-        BitSet() ++ e.attr.toSeq.flatMap(ii => intvMapB.value(ii))
+        (e.attr._1, BitSet() ++ e.attr._2.toSeq.flatMap(ii => intvMapB.value(ii)))
       }}
-      val gp2: ParSeq[Graph[BitSet,BitSet]] = grp2.graphs.map{g => g.mapVertices{ (vid, attr) =>
+      val gp2: ParSeq[Graph[BitSet,(EdgeId,BitSet)]] = grp2.graphs.map{g => g.mapVertices{ (vid, attr) =>
         BitSet() ++ attr.toSeq.flatMap(ii => intvMap2B.value(ii))
       }.mapEdges{ e =>
-        BitSet() ++ e.attr.toSeq.flatMap(ii => intvMap2B.value(ii))
+        (e.attr._1, BitSet() ++ e.attr._2.toSeq.flatMap(ii => intvMap2B.value(ii)))
       }}
 
       val gr1IndexStart: Int = newIntvs.indexWhere(intv => intv.intersects(collectedIntervals.head))
@@ -380,8 +389,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
       val gr1Pad:Int = newIntvs.size - newIntvs.lastIndexWhere(intv => intv.intersects(collectedIntervals.head)) - 1
       val gr2Pad:Int = newIntvs.size - newIntvs.lastIndexWhere(intv => intv.intersects(grp2.collectedIntervals.head)) - 1
 
-      val grseq1:ParSeq[Graph[BitSet,BitSet]] = ParSeq.fill(gr1IndexStart){Graph[BitSet,BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)} ++ gp1 ++ ParSeq.fill(gr1Pad){Graph[BitSet,BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)}
-      val grseq2:ParSeq[Graph[BitSet,BitSet]] = ParSeq.fill(gr2IndexStart){Graph[BitSet,BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)} ++ gp2 ++ ParSeq.fill(gr2Pad){Graph[BitSet,BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)}
+      val grseq1:ParSeq[Graph[BitSet,(EdgeId,BitSet)]] = ParSeq.fill(gr1IndexStart){Graph[BitSet,(EdgeId,BitSet)](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)} ++ gp1 ++ ParSeq.fill(gr1Pad){Graph[BitSet,(EdgeId,BitSet)](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)}
+      val grseq2:ParSeq[Graph[BitSet,(EdgeId,BitSet)]] = ParSeq.fill(gr2IndexStart){Graph[BitSet,(EdgeId,BitSet)](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)} ++ gp2 ++ ParSeq.fill(gr2Pad){Graph[BitSet,(EdgeId,BitSet)](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)}
 
       val gr1Sums: Seq[Int] = (Seq.fill(gr1IndexStart){1} ++ (0 +: widths.scanLeft(0)(_+_).tail).sliding(2).map{x => (x.head to x.last-1).toList.map(y => intvMap(y).size).reduce(_+_)} ++ Seq.fill(gr1Pad){1}).scanLeft(0)(_ + _).tail
       val gr2Sums: Seq[Int] = (Seq.fill(gr2IndexStart){1} ++ (0 +: grp2.widths.scanLeft(0)(_+_).tail).sliding(2).map{x => (x.head to x.last-1).toList.map(y => intvMap2(y).size).reduce(_ + _)} ++ Seq.fill(gr2Pad){1}).scanLeft(0)(_+_).tail
@@ -389,12 +398,12 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
       var gr1Index:Int = 0
       var gr2Index:Int = 0
       var runs: Seq[Int] = Seq[Int]()
-      var gps: ParSeq[Graph[BitSet,BitSet]] = ParSeq[Graph[BitSet,BitSet]]()
+      var gps: ParSeq[Graph[BitSet,(EdgeId,BitSet)]] = ParSeq[Graph[BitSet,(EdgeId,BitSet)]]()
       //there is no union of two graphs in graphx
       var gr1VRDD: RDD[(VertexId, BitSet)] = ProgramContext.sc.emptyRDD
-      var gr1ERDD: RDD[Edge[BitSet]] = ProgramContext.sc.emptyRDD
+      var gr1ERDD: RDD[Edge[(EdgeId,BitSet)]] = ProgramContext.sc.emptyRDD
       var gr2VRDD: RDD[(VertexId, BitSet)] = ProgramContext.sc.emptyRDD
-      var gr2ERDD: RDD[Edge[BitSet]] = ProgramContext.sc.emptyRDD
+      var gr2ERDD: RDD[Edge[(EdgeId,BitSet)]] = ProgramContext.sc.emptyRDD
       //how many we have accumulated so far
       var gCount:Int = 0
 
@@ -407,7 +416,10 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
           gr2ERDD = gr2ERDD.union(grseq2(gr2Index).edges)
 
           gps = gps :+ Graph((gr1VRDD union gr2VRDD).reduceByKey(_ union _),
-            (gr1ERDD union gr2ERDD).map(e => ((e.srcId, e.dstId), e.attr)).reduceByKey(_ union _).map{ case (k,v) => Edge(k._1, k._2, v)}, BitSet(), storageLevel, storageLevel)
+            (gr1ERDD union gr2ERDD).map(e => ((e.attr._1, e.srcId, e.dstId), e.attr._2))
+              .reduceByKey(_ union _)
+              .map{ case (k,v) => Edge(k._2, k._3, (k._1,v))}, 
+            BitSet(), storageLevel, storageLevel)
           //how many graphs in this aggregated graphs
           runs = runs :+ (gr1Sums(gr1Index) - gCount)
 
@@ -434,7 +446,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
       val newDefVal = defaultValue
       val tmp =defaultValue.asInstanceOf[ED]
       val vs = gps.map(g => g.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}).reduce(_ union _)
-      val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))}).reduce(_ union _)
+      val es = gps.map(g => g.edges.flatMap{ case e => e.attr._2.toSeq.map(ii => TEdge[ED](e.attr._1, e.srcId, e.dstId, newIntvsb.value(ii), tmp))}).reduce(_ union _)
 
       if (ProgramContext.eagerCoalesce)
         fromRDDs(vs, es, newDefVal, storageLevel, false)
@@ -450,16 +462,16 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
       val gp1 = if (gr1IndexStart > 0) graphs.map(g => g.mapVertices{ (vid, attr) =>
         attr.map(ii => ii + gr1IndexStart)
       }.mapEdges{ e =>
-        e.attr.map(ii => ii + gr1IndexStart)
+        (e.attr._1, e.attr._2.map(ii => ii + gr1IndexStart))
       }) else graphs
       val gp2 = if (gr2IndexStart > 0) grp2.graphs.map(g => g.mapVertices{ (vid, attr) =>
         attr.map(ii => ii + gr2IndexStart)
       }.mapEdges{ e =>
-        e.attr.map(ii => ii + gr2IndexStart)
+        (e.attr._1, e.attr._2.map(ii => ii + gr2IndexStart))
       }) else grp2.graphs
 
       //because there is no intersection, we can just put the sequences together
-      val gps: ParSeq[Graph[BitSet,BitSet]] = if (gr1IndexStart < gr2IndexStart) gp1 ++ gp2 else gp2 ++ gp1
+      val gps: ParSeq[Graph[BitSet,(EdgeId,BitSet)]] = if (gr1IndexStart < gr2IndexStart) gp1 ++ gp2 else gp2 ++ gp1
       val runs: Seq[Int] = if (span.end == grp2.span.start || span.start == grp2.span.end) {
         if (gr1IndexStart < gr2IndexStart) widths ++ grp2.widths else grp2.widths ++ widths
       } else {
@@ -470,7 +482,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
       val newDefVal = defaultValue
       val tmp = defaultValue.asInstanceOf[ED]
       val vs = gps.map(g => g.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}).reduce(_ union _)
-      val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))}).reduce(_ union _)
+      val es = gps.map(g => g.edges.flatMap{ case e => e.attr._2.toSeq.map(ii => TEdge[ED](e.attr._1, e.srcId, e.dstId, newIntvsb.value(ii), tmp))}).reduce(_ union _)
 
       //whether the result is coalesced depends on whether the two inputs are coalesced and whether their spans meet
       val col = coalesced && grp2.coalesced && span.end != grp2.span.start && span.start != grp2.span.end
@@ -481,7 +493,6 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
 
     }
   }
-
 
   override def difference(other: TGraphNoSchema[VD, ED]): HybridGraph[VD,ED] = {
     defaultValue match {
@@ -513,15 +524,15 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
       val intvMap2B = ProgramContext.sc.broadcast(intvMap2)
 
       //for each index in a bitset, put the new one
-      val gp1: ParSeq[Graph[BitSet,BitSet]] = graphs.map{g => g.mapVertices{ (vid, attr) =>
+      val gp1: ParSeq[Graph[BitSet,(EdgeId,BitSet)]] = graphs.map{g => g.mapVertices{ (vid, attr) =>
         BitSet() ++ attr.toSeq.flatMap(ii => intvMapB.value(ii))
       }.mapEdges{ e =>
-        BitSet() ++ e.attr.toSeq.flatMap(ii => intvMapB.value(ii))
+        (e.attr._1, BitSet() ++ e.attr._2.toSeq.flatMap(ii => intvMapB.value(ii)))
       }}
-      val gp2: ParSeq[Graph[BitSet,BitSet]] = grp2.graphs.map{g => g.mapVertices{ (vid, attr) =>
+      val gp2: ParSeq[Graph[BitSet,(EdgeId,BitSet)]] = grp2.graphs.map{g => g.mapVertices{ (vid, attr) =>
         BitSet() ++ attr.toSeq.flatMap(ii => intvMap2B.value(ii))
       }.mapEdges{ e =>
-        BitSet() ++ e.attr.toSeq.flatMap(ii => intvMap2B.value(ii))
+        (e.attr._1, BitSet() ++ e.attr._2.toSeq.flatMap(ii => intvMap2B.value(ii)))
       }}
 
       val gr1IndexStart: Int = newIntvs.indexWhere(intv => intv.intersects(collectedIntervals.head))
@@ -529,8 +540,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
       val gr1Pad:Int = newIntvs.size - newIntvs.lastIndexWhere(intv => intv.intersects(collectedIntervals.head)) - 1
       val gr2Pad:Int = newIntvs.size - newIntvs.lastIndexWhere(intv => intv.intersects(grp2.collectedIntervals.head)) - 1
 
-      val grseq1:ParSeq[Graph[BitSet,BitSet]] = ParSeq.fill(gr1IndexStart){Graph[BitSet,BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)} ++ gp1 ++ ParSeq.fill(gr1Pad){Graph[BitSet,BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)}
-      val grseq2:ParSeq[Graph[BitSet,BitSet]] = ParSeq.fill(gr2IndexStart){Graph[BitSet,BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)} ++ gp2 ++ ParSeq.fill(gr2Pad){Graph[BitSet,BitSet](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)}
+      val grseq1:ParSeq[Graph[BitSet,(EdgeId,BitSet)]] = ParSeq.fill(gr1IndexStart){Graph[BitSet,(EdgeId,BitSet)](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)} ++ gp1 ++ ParSeq.fill(gr1Pad){Graph[BitSet,(EdgeId,BitSet)](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)}
+      val grseq2:ParSeq[Graph[BitSet,(EdgeId,BitSet)]] = ParSeq.fill(gr2IndexStart){Graph[BitSet,(EdgeId,BitSet)](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)} ++ gp2 ++ ParSeq.fill(gr2Pad){Graph[BitSet,(EdgeId,BitSet)](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)}
 
       val gr1Sums: Seq[Int] = (Seq.fill(gr1IndexStart){1} ++ (0 +: widths.scanLeft(0)(_+_).tail).sliding(2).map{x => (x.head to x.last-1).toList.map(y => intvMap(y).size).reduce(_+_)} ++ Seq.fill(gr1Pad){1}).scanLeft(0)(_ + _).tail
       val gr2Sums: Seq[Int] = (Seq.fill(gr2IndexStart){1} ++ (0 +: grp2.widths.scanLeft(0)(_+_).tail).sliding(2).map{x => (x.head to x.last-1).toList.map(y => intvMap2(y).size).reduce(_ + _)} ++ Seq.fill(gr2Pad){1}).scanLeft(0)(_+_).tail
@@ -538,12 +549,12 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
       var gr1Index:Int = 0
       var gr2Index:Int = 0
       var runs: Seq[Int] = Seq[Int]()
-      var gps: ParSeq[Graph[BitSet,BitSet]] = ParSeq[Graph[BitSet,BitSet]]()
+      var gps: ParSeq[Graph[BitSet,(EdgeId,BitSet)]] = ParSeq[Graph[BitSet,(EdgeId,BitSet)]]()
       //there is no union of two graphs in graphx
       var gr1VRDD: RDD[(VertexId, BitSet)] = ProgramContext.sc.emptyRDD
-      var gr1ERDD: RDD[Edge[BitSet]] = ProgramContext.sc.emptyRDD
+      var gr1ERDD: RDD[Edge[(EdgeId,BitSet)]] = ProgramContext.sc.emptyRDD
       var gr2VRDD: RDD[(VertexId, BitSet)] = ProgramContext.sc.emptyRDD
-      var gr2ERDD: RDD[Edge[BitSet]] = ProgramContext.sc.emptyRDD
+      var gr2ERDD: RDD[Edge[(EdgeId,BitSet)]] = ProgramContext.sc.emptyRDD
       //how many we have accumulated so far
       var gCount:Int = 0
 
@@ -555,10 +566,10 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
           gr1ERDD = gr1ERDD.union(grseq1(gr1Index).edges)
           gr2ERDD = gr2ERDD.union(grseq2(gr2Index).edges)
           gps = gps :+ Graph((gr1VRDD.leftOuterJoin(gr2VRDD)).mapValues {x=> x._1.diff(x._2.getOrElse(BitSet()))}.filter( v =>  v._2.size>0),
-              (gr1ERDD.map( e=>((e.srcId,e.dstId),e.attr)).leftOuterJoin(gr2ERDD.map( e=>((e.srcId,e.dstId),e.attr)))).mapValues(x=> x._1.diff((x._2.getOrElse(BitSet())))).filter( e => e._2.size>0).map(in=> Edge(in._1._1,in._1._2,in._2)), BitSet(), storageLevel, storageLevel)
+              (gr1ERDD.map( e=>((e.attr._1, e.srcId,e.dstId),e.attr._2)).leftOuterJoin(gr2ERDD.map( e=>((e.attr._1, e.srcId,e.dstId),e.attr._2)))).mapValues(x=> x._1.diff((x._2.getOrElse(BitSet())))).filter( e => e._2.size>0).map(in=> Edge(in._1._2,in._1._3,(in._1._1,in._2))), BitSet(), storageLevel, storageLevel)
             .subgraph(vpred = (vid, attr) => !attr.isEmpty) //this will remove edges where vertices went away completely, automatically
-            .mapTriplets( etp => etp.attr & etp.srcAttr & etp.dstAttr)
-            //.subgraph(epred = et => !et.attr.isEmpty)
+            .mapTriplets( etp => (etp.attr._1, etp.attr._2 & etp.srcAttr & etp.dstAttr))
+            .subgraph(epred = et => !et.attr._2.isEmpty)
 
             //how many graphs in this aggregated graphsg
           runs = runs :+ (gr1Sums(gr1Index) - gCount)
@@ -586,7 +597,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
       val newDefVal = (defaultValue.asInstanceOf[VD])
       val tmp = (defaultValue.asInstanceOf[ED])
       val vs = gps.map(g => g.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}).reduce(_ union _)
-      val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))}).reduce(_ union _)
+      val es = gps.map(g => g.edges.flatMap{ case e => e.attr._2.toSeq.map(ii => TEdge[ED](e.attr._1, e.srcId, e.dstId, newIntvsb.value(ii), tmp))}).reduce(_ union _)
 
       if (ProgramContext.eagerCoalesce)
         fromRDDs(vs, es, newDefVal, storageLevel, false)
@@ -630,18 +641,18 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
       val intvMap2B = ProgramContext.sc.broadcast(intvMap2)
 
       //for each index in a bitset, put the new one
-      val grseq1: ParSeq[Graph[BitSet,BitSet]] = graphs.map(g => g.mapVertices{ (vid, attr) =>
+      val grseq1: ParSeq[Graph[BitSet,(EdgeId,BitSet)]] = graphs.map(g => g.mapVertices{ (vid, attr) =>
         BitSet() ++ attr.toSeq.flatMap(ii => intvMapB.value(ii))
       }.subgraph(vpred = (vid, attr) => !attr.isEmpty)
         .mapEdges( e =>
-        BitSet() ++ e.attr.toSeq.flatMap(ii => intvMapB.value(ii))
+        (e.attr._1, BitSet() ++ e.attr._2.toSeq.flatMap(ii => intvMapB.value(ii)))
       )
       ).filter(g => !g.vertices.isEmpty)
-      val grseq2: ParSeq[Graph[BitSet,BitSet]] = grp2.graphs.map(g => g.mapVertices{ (vid, attr) =>
+      val grseq2: ParSeq[Graph[BitSet,(EdgeId,BitSet)]] = grp2.graphs.map(g => g.mapVertices{ (vid, attr) =>
         BitSet() ++ attr.toSeq.flatMap(ii => intvMap2B.value(ii))
       }.subgraph(vpred = (vid, attr) => !attr.isEmpty)
         .mapEdges( e =>
-        BitSet() ++ e.attr.toSeq.flatMap(ii => intvMap2B.value(ii))
+        (e.attr._1, BitSet() ++ e.attr._2.toSeq.flatMap(ii => intvMap2B.value(ii)))
       )
       ).filter(g => !g.vertices.isEmpty)
 
@@ -652,12 +663,12 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
       var gr1Index:Int = 0
       var gr2Index:Int = 0
       var runs: Seq[Int] = Seq[Int]()
-      var gps: ParSeq[Graph[BitSet,BitSet]] = ParSeq[Graph[BitSet,BitSet]]()
+      var gps: ParSeq[Graph[BitSet,(EdgeId,BitSet)]] = ParSeq[Graph[BitSet,(EdgeId,BitSet)]]()
       //there is no intersection of two graphs in graphx
       var gr1VRDD: RDD[(VertexId, BitSet)] = ProgramContext.sc.emptyRDD
-      var gr1ERDD: RDD[((VertexId, VertexId), BitSet)] = ProgramContext.sc.emptyRDD
+      var gr1ERDD: RDD[((EdgeId, VertexId, VertexId), BitSet)] = ProgramContext.sc.emptyRDD
       var gr2VRDD: RDD[(VertexId, BitSet)] = ProgramContext.sc.emptyRDD
-      var gr2ERDD: RDD[((VertexId, VertexId), BitSet)] = ProgramContext.sc.emptyRDD
+      var gr2ERDD: RDD[((EdgeId, VertexId, VertexId), BitSet)] = ProgramContext.sc.emptyRDD
       //how many we have accumulated so far
       var gCount:Int = 0
       var num1agg:Int = 0
@@ -668,8 +679,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
         if (gr1Sums(gr1Index) == gr2Sums(gr2Index)) {
           gr1VRDD = gr1VRDD.union(grseq1(gr1Index).vertices)
           gr2VRDD = gr2VRDD.union(grseq2(gr2Index).vertices)
-          gr1ERDD = gr1ERDD.union(grseq1(gr1Index).edges.map(e => ((e.srcId, e.dstId), e.attr)))
-          gr2ERDD = gr2ERDD.union(grseq2(gr2Index).edges.map(e => ((e.srcId, e.dstId), e.attr)))
+          gr1ERDD = gr1ERDD.union(grseq1(gr1Index).edges.map(e => ((e.attr._1, e.srcId, e.dstId), e.attr._2)))
+          gr2ERDD = gr2ERDD.union(grseq2(gr2Index).edges.map(e => ((e.attr._1, e.srcId, e.dstId), e.attr._2)))
           num1agg = num1agg + 1
           num2agg = num2agg + 1
 
@@ -683,7 +694,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
           }
 
           gps = gps :+ Graph((gr1VRDD join gr2VRDD).mapValues{ case (a,b) => a & b},
-            (gr1ERDD join gr2ERDD).mapValues{ case (a,b) => a & b}.map{ case (k,v) => Edge(k._1, k._2, v)}, BitSet(), storageLevel, storageLevel)
+            (gr1ERDD join gr2ERDD).mapValues{ case (a,b) => a & b}.map{ case (k,v) => Edge(k._2, k._3, (k._1,v))}, BitSet(), storageLevel, storageLevel)
           //how many graphs in this aggregated graphs
           runs = runs :+ (gr1Sums(gr1Index) - gCount)
 
@@ -699,12 +710,12 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
           num2agg = 0
         } else if (gr1Sums(gr1Index) < gr2Sums(gr2Index)) { //accumulate graph1 groups
           gr1VRDD = gr1VRDD.union(grseq1(gr1Index).vertices)
-          gr1ERDD = gr1ERDD.union(grseq1(gr1Index).edges.map(e => ((e.srcId, e.dstId), e.attr)))
+          gr1ERDD = gr1ERDD.union(grseq1(gr1Index).edges.map(e => ((e.attr._1, e.srcId, e.dstId), e.attr._2)))
           gr1Index = gr1Index+1
           num1agg = num1agg + 1
         } else { //gr2Sums(gr2Index) < gr1Sums(gr1Index)
           gr2VRDD = gr2VRDD.union(grseq2(gr2Index).vertices)
-          gr2ERDD = gr2ERDD.union(grseq2(gr2Index).edges.map(e => ((e.srcId, e.dstId), e.attr)))
+          gr2ERDD = gr2ERDD.union(grseq2(gr2Index).edges.map(e => ((e.attr._1, e.srcId, e.dstId), e.attr._2)))
           gr2Index = gr2Index+1
           num2agg = num2agg + 1
         }
@@ -714,7 +725,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
       val newDefVal = defaultValue
       val tmp = defaultValue.asInstanceOf[ED]
       val vs = gps.map(g => g.vertices.flatMap{ case (vid, bst) => bst.toSeq.map(ii => (vid, (newIntvsb.value(ii), newDefVal)))}).reduce(_ union _)
-      val es = gps.map(g => g.edges.flatMap{ case e => e.attr.toSeq.map(ii => ((e.srcId, e.dstId), (newIntvsb.value(ii), tmp)))}).reduce(_ union _)
+      val es = gps.map(g => g.edges.flatMap{ case e => e.attr._2.toSeq.map(ii => TEdge[ED](e.attr._1, e.srcId, e.dstId, newIntvsb.value(ii), tmp))}).reduce(_ union _)
 
       //intersection of two coalesced structure-only graphs is not coalesced
       if (ProgramContext.eagerCoalesce)
@@ -732,7 +743,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
   (initialMsg: A, defValue: A, maxIterations: Int = Int.MaxValue,
     activeDirection: EdgeDirection = EdgeDirection.Either)
   (vprog: (VertexId, VD, A) => VD,
-    sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
+    sendMsg: EdgeTriplet[VD, (EdgeId,ED)] => Iterator[(VertexId, A)],
     mergeMsg: (A, A) => A): HybridGraph[VD, ED] = {
     throw new UnsupportedOperationException("pregel not yet implemented")
   }
@@ -747,8 +758,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
 
       val degRDDs = graphs.map(g => g.aggregateMessages[HashMap[TimeIndex, Int]](
         ctx => {
-          ctx.sendToSrc(HashMap[TimeIndex,Int]() ++ ctx.attr.seq.map(x => (x,1)))
-          ctx.sendToDst(HashMap[TimeIndex,Int]() ++ ctx.attr.seq.map(x => (x,1)))
+          ctx.sendToSrc(HashMap[TimeIndex,Int]() ++ ctx.attr._2.seq.map(x => (x,1)))
+          ctx.sendToDst(HashMap[TimeIndex,Int]() ++ ctx.attr._2.seq.map(x => (x,1)))
         },
         mergeFunc, TripletFields.None)
       )
@@ -766,7 +777,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
 
     val undirected = !uni
 
-    val prank = (grp: Graph[BitSet,BitSet], minIndex: Int, maxIndex: Int) => {
+    val prank = (grp: Graph[BitSet,(EdgeId,BitSet)], minIndex: Int, maxIndex: Int) => {
       if (grp.edges.isEmpty)
         ProgramContext.sc.emptyRDD[(VertexId, Map[TimeIndex, (Double,Double)])]
       else {
@@ -832,8 +843,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
 
         val degs: VertexRDD[Int2IntOpenHashMap] = grp.aggregateMessages[Int2IntOpenHashMap](
           ctx => {
-            ctx.sendToSrc{new Int2IntOpenHashMap(ctx.attr.toArray, Array.fill(ctx.attr.size)(1))}
-           if (undirected) ctx.sendToDst{new Int2IntOpenHashMap(ctx.attr.toArray, Array.fill(ctx.attr.size)(1))} else ctx.sendToDst{new Int2IntOpenHashMap(ctx.attr.toArray, Array.fill(ctx.attr.size)(0))}
+            ctx.sendToSrc{new Int2IntOpenHashMap(ctx.attr._2.toArray, Array.fill(ctx.attr._2.size)(1))}
+           if (undirected) ctx.sendToDst{new Int2IntOpenHashMap(ctx.attr._2.toArray, Array.fill(ctx.attr._2.size)(1))} else ctx.sendToDst{new Int2IntOpenHashMap(ctx.attr._2.toArray, Array.fill(ctx.attr._2.size)(0))}
           },
           mergeFunc, TripletFields.None)
 
@@ -841,7 +852,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
           case (vid, vdata, Some(deg)) => deg
           case (vid, vdata, None) => new Int2IntOpenHashMap()
           }
-          .mapTriplets{ e:EdgeTriplet[Int2IntOpenHashMap, BitSet] => new Int2ObjectOpenHashMap[(Double, Double)](e.attr.toArray, e.attr.toArray.map(x => (1.0/e.srcAttr(x), 1.0/e.dstAttr(x))))}
+          .mapTriplets{ e:EdgeTriplet[Int2IntOpenHashMap, (EdgeId,BitSet)] => new Int2ObjectOpenHashMap[(Double, Double)](e.attr._2.toArray, e.attr._2.toArray.map(x => (1.0/e.srcAttr(x), 1.0/e.dstAttr(x))))}
           .mapVertices( (id,attr) => new Int2ObjectOpenHashMap[(Double, Double)](attr.keySet().toIntArray, Array.fill(attr.size)((0.0,0.0)))).cache()
 
         val initialMessage: Int2DoubleOpenHashMap = new Int2DoubleOpenHashMap((minIndex to maxIndex).toArray, Array.fill(maxIndex-minIndex+1)(resetProb/(1.0-resetProb)))
@@ -874,8 +885,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
     if (graphs.size < 1) computeGraphs()
     val runSums = widths.scanLeft(0)(_ + _).tail
 
-    val conc = (grp: Graph[BitSet,BitSet], minIndex: Int, maxIndex: Int) => {
-      val conGraph: Graph[Int2LongOpenHashMap, BitSet]
+    val conc = (grp: Graph[BitSet,(EdgeId,BitSet)], minIndex: Int, maxIndex: Int) => {
+      val conGraph: Graph[Int2LongOpenHashMap, (EdgeId,BitSet)]
       = grp.mapVertices{ case (vid, bset) => new Int2LongOpenHashMap()}
 
       val vertexProgram = (id: VertexId, attr: Int2LongOpenHashMap, msg: Int2LongOpenHashMap) => {
@@ -888,8 +899,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
         vals
       }
 
-      val sendMessage = (edge: EdgeTriplet[Int2LongOpenHashMap, BitSet]) => {
-        edge.attr.toList.flatMap{ k =>
+      val sendMessage = (edge: EdgeTriplet[Int2LongOpenHashMap, (EdgeId,BitSet)]) => {
+        edge.attr._2.toList.flatMap{ k =>
           if (edge.srcAttr.getOrDefault(k, edge.srcId) < edge.dstAttr.getOrDefault(k, edge.dstId))
             Some((edge.dstId, new Int2LongOpenHashMap(Array(k), Array(edge.srcAttr.getOrDefault(k, edge.srcId).toLong))))
           else if (edge.srcAttr.getOrDefault(k, edge.srcId) > edge.dstAttr.getOrDefault(k, edge.dstId))
@@ -913,7 +924,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
       //there is really no reason to send an initial message
       val initialMessage: Int2LongOpenHashMap = new Int2LongOpenHashMap()
 
-      Pregel(conGraph, initialMessage, activeDirection = EdgeDirection.Either)(vertexProgram, sendMessage, messageCombiner).asInstanceOf[Graph[Map[TimeIndex, VertexId], BitSet]].vertices
+      Pregel(conGraph, initialMessage, activeDirection = EdgeDirection.Either)(vertexProgram, sendMessage, messageCombiner).asInstanceOf[Graph[Map[TimeIndex, VertexId], (EdgeId,BitSet)]].vertices
     }
 
     val allgs:ParSeq[RDD[(VertexId, Map[TimeIndex, Long])]] = graphs.zipWithIndex.map{ case (g,i) => conc(g, runSums.lift(i-1).getOrElse(0), runSums(i))}
@@ -938,23 +949,24 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
     throw new UnsupportedOperationException("shortest paths not yet implemented")
   }
 
-  override def aggregateMessages[A: ClassTag](sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
+  override def aggregateMessages[A: ClassTag](sendMsg: TEdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
     mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): HybridGraph[(VD, A), ED] = {
     if (graphs.size < 1) computeGraphs()
     if (tripletFields != TripletFields.None) {
       super.aggregateMessages(sendMsg,mergeMsg,defVal,tripletFields).asInstanceOf[HybridGraph[(VD,A),ED]]
     }
     else {
-      val aggMap = (grp: Graph[BitSet, BitSet]) => {
+      val aggMap = (grp: Graph[BitSet, (EdgeId,BitSet)]) => {
         grp.aggregateMessages[Int2ObjectOpenHashMap[A]](
           ctx => {
             val edge = ctx.toEdgeTriplet
-            val triplet = new EdgeTriplet[VD, ED]
+            val triplet = new TEdgeTriplet[VD, ED]
+            triplet.eId = edge.attr._1
             triplet.srcId = edge.srcId
             triplet.dstId = edge.dstId
             sendMsg(triplet).foreach { x =>
               val tmp = new Int2ObjectOpenHashMap[A]()
-              ctx.attr.seq.foreach { index =>
+              ctx.attr._2.seq.foreach { index =>
                 tmp.put(index, x._2)
               }
               if (x._1 == edge.srcId)
@@ -1027,7 +1039,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
       this
   }
 
-  override protected def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false): HybridGraph[V, E] = {
+  override def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[TEdge[E]], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false): HybridGraph[V, E] = {
     HybridGraph.fromRDDs(verts, edgs, defVal, storLevel, coalesced = coal)
   }
 
@@ -1041,7 +1053,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
 
     val count = collectedIntervals.size
     val vertsConverted = allVertices.mapValues{ case (intv, attr) => split(intv)}.cache()
-    val edgesConverted = allEdges.mapValues{ case (intv, attr) => split(intv)}.cache()
+    val edgesConverted = allEdges.map{e => ((e.eId, e.srcId, e.dstId), split(e.interval))}.cache()
     val combined = (0 to (count-1)).grouped(runWidth).map { intvs =>
       val set = BitSet() ++ intvs
       (intvs.size,
@@ -1051,7 +1063,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
           edgesConverted.mapValues(e => set & e)
               .filter(e => !e._2.isEmpty)
               .reduceByKey((a,b) => a union b)
-              .map(e => Edge(e._1._1, e._1._2, e._2)),
+              .map(e => Edge(e._1._2, e._1._3, (e._1._1,e._2))),
           BitSet(), storLevel, storLevel)
       )}.toList
 
@@ -1068,16 +1080,16 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
 }
 
 object HybridGraph extends Serializable {
-  def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): HybridGraph[V, E] = new HybridGraph(Array[Interval](), ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD, Seq[Int](), ParSeq[Graph[BitSet,BitSet]](), defVal, coal = true)
+  def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): HybridGraph[V, E] = new HybridGraph(Array[Interval](), ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD, Seq[Int](), ParSeq[Graph[BitSet,(EdgeId,BitSet)]](), defVal, coal = true)
 
-  def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[((VertexId, VertexId), (Interval, E))], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): HybridGraph[V, E] = {
+  def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[TEdge[E]], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): HybridGraph[V, E] = {
     val cverts = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(verts) else verts
-    val cedges = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(edgs) else edgs
+    val cedges = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(edgs.map(_.toPaired)).map(e => TEdge(e._1,e._2)) else edgs
     val coal = coalesced | ProgramContext.eagerCoalesce
 
     val intervals = TGraphNoSchema.computeIntervals(cverts, cedges).collect
     //because we use "lazy" evaluation, we don't compute the graphs until we need them
-    new HybridGraph(intervals, cverts, cedges, Seq[Int](), ParSeq[Graph[BitSet,BitSet]](), defVal, storLevel, coal)
+    new HybridGraph(intervals, cverts, cedges, Seq[Int](), ParSeq[Graph[BitSet,(EdgeId,BitSet)]](), defVal, storLevel, coal)
   }
 
   def fromDataFrames[V: ClassTag, E: ClassTag](verts: Array[org.apache.spark.sql.DataFrame], edgs: Array[org.apache.spark.sql.DataFrame], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): HybridGraph[V, E] = {
@@ -1102,16 +1114,14 @@ object HybridGraph extends Serializable {
 
       //take all the vertices in this dataframe, convert to bitset
       Graph(vs.select("vid", "estart", "eend").rdd.map(r => (r.getLong(0), split(r.getLong(1), r.getLong(2)))).reduceByKey((a,b) => a union b),
-        es.select("vid1", "vid2", "estart", "eend").rdd.map(r => ((r.getLong(0), r.getLong(1)), split(r.getLong(2), r.getLong(3)))).reduceByKey((a,b) => a union b).map(e => Edge(e._1._1, e._1._2, e._2)),
+        es.select("eid", "vid1", "vid2", "estart", "eend").rdd.map(r => ((r.getLong(0), r.getLong(1), r.getLong(2)), split(r.getLong(3), r.getLong(4)))).reduceByKey((a,b) => a union b).map(e => Edge(e._1._2, e._1._3, (e._1._1,e._2))),
         BitSet(), storLevel, storLevel)
     }.par
 
-
-
     val cverts: RDD[(VertexId, (Interval, V))] = verts.map(vv => vv.rdd.map(r => (r.getLong(0), (Interval(r.getLong(1), r.getLong(2)), r.getAs[V](3))))).reduce((a,b) => a union b)
-    val ceds: RDD[((VertexId, VertexId), (Interval, E))] = edgs.map(ee => ee.rdd.map(r => ((r.getLong(0), r.getLong(1)), (Interval(r.getLong(2), r.getLong(3)), r.getAs[E](4))))).reduce((a,b) => a union b)
+    val ceds = edgs.map(ee => ee.rdd.map(r => ((r.getLong(0), r.getLong(1), r.getLong(2)), (Interval(r.getLong(3), r.getLong(4)), r.getAs[E](5))))).reduce((a,b) => a union b)
 
-    new HybridGraph(intervalList, cverts, ceds, widths, graphs, defVal, storLevel, coalesced)
+    new HybridGraph(intervalList, cverts, ceds.map(e => TEdge(e._1, e._2)), widths, graphs, defVal, storLevel, coalesced)
   }
 
 }

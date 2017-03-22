@@ -545,9 +545,11 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
     mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): SnapshotGraphParallel[(VD, A), ED] = {
 
     val toTEdgeTriplet = (ctx: EdgeContext[VD,(EdgeId,ED), A]) => {
-      val e = TEdge(ctx.attr._1, ctx.srcId, ctx.dstId, Interval.empty, ctx.attr._2)
+      val e = TEdge[ED](ctx.attr._1, ctx.srcId, ctx.dstId, Interval.empty, ctx.attr._2)
       val et = new TEdgeTriplet[VD,ED]
       et.set(e)
+      et.srcAttr = ctx.srcAttr
+      et.dstAttr = ctx.dstAttr
       et
     }
 

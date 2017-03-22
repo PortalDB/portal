@@ -881,6 +881,244 @@ abstract class RepresentationsTestSuite extends FunSuite with BeforeAndAfterAll 
     assert(resultgDifference.getTemporalSequence.collect === expectedgDifference.getTemporalSequence.collect)
   }
 
+  def testBinary4(ge: TGraphNoSchema[StructureOnlyAttr,StructureOnlyAttr]): Unit = {
+    val users: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true))
+    ))
+
+    val edges: RDD[TEdge[StructureOnlyAttr]] = ProgramContext.sc.parallelize(Array(
+      TEdge(1L, 1L, 2L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true),
+      TEdge(2L, 2L, 3L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true),
+      TEdge(3L, 3L, 3L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true),
+      TEdge(4L, 4L, 4L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true),
+      TEdge(5L, 2L, 5L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)
+    ))
+
+    val g = ge.fromRDDs(users, edges, true, StorageLevel.MEMORY_ONLY_SER)
+
+    val users2: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), true)),
+      (3L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2018-01-01")), true)),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (5L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), true))
+    ))
+
+    val edges2: RDD[TEdge[StructureOnlyAttr]] = ProgramContext.sc.parallelize(Array(
+      TEdge(1L, 1L, 2L, Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), true),
+      TEdge(2L, 2L, 3L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), true),
+      TEdge(3L, 3L, 3L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2018-01-01")), true),
+      TEdge(4L, 4L, 4L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true),
+      TEdge(6L, 5L, 5L, Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), true)
+    ))
+
+    val g2 = ge.fromRDDs(users2, edges2, true, StorageLevel.MEMORY_ONLY_SER)
+
+    val expectedVerticesUnion: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),true)),
+      (1L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")),true)),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")),true)),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")),true)),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),true)),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),true))
+    ))
+
+    val expectedEdgesUnion: RDD[TEdge[StructureOnlyAttr]] = ProgramContext.sc.parallelize(Array(
+      TEdge(1L, 1L, 2L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),true),
+      TEdge(1L, 1L, 2L, Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")),true),
+      TEdge(2L, 2L, 3L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")),true),
+      TEdge(3L, 3L, 3L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")),true),
+      TEdge(4L, 4L, 4L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),true),
+      TEdge(5L, 2L, 5L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),true),
+      TEdge(6L, 5L, 5L, Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")),true)
+    ))
+
+    val expectedgUnion = ge.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, true, StorageLevel.MEMORY_ONLY_SER)
+    val resultgUnion = g.union(g2, (x,y)=>x , (x,y)=>x)
+
+    assert(resultgUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
+    assert(resultgUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
+    assert(resultgUnion.getTemporalSequence.collect === expectedgUnion.getTemporalSequence.collect)
+
+    val resultgIntersection = g.intersection(g2, (x,y)=>x , (x,y)=>x)
+
+    val expectedVerticesIntersection: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (3L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")),true)),
+      (4L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),true)),
+      (5L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")),true))
+    ))
+
+    val expectedEdgesIntersection: RDD[TEdge[StructureOnlyAttr]] = ProgramContext.sc.parallelize(Array(
+      TEdge(3L, 3L, 3L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")),true),
+      TEdge(4L, 4L, 4L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),true)
+    ))
+    val expectedgIntersection = ge.fromRDDs(expectedVerticesIntersection, expectedEdgesIntersection, true, StorageLevel.MEMORY_ONLY_SER)
+
+    assert(resultgIntersection.vertices.collect.toSet === expectedVerticesIntersection.collect.toSet)
+    assert(resultgIntersection.edges.collect.toSet === expectedEdgesIntersection.collect.toSet)
+    assert(resultgIntersection.getTemporalSequence.collect === expectedgIntersection.getTemporalSequence.collect)
+
+    val resultgDifference = g.difference(g2)
+
+    val expectedVerticesDifference: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (3L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), true)),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), true)),
+      (5L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2014-01-01")), true))
+
+    ))
+
+    val expectedEdgesDifference: RDD[TEdge[StructureOnlyAttr]] = ProgramContext.sc.parallelize(Array(
+      TEdge(1L, 1L, 2L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true),
+      TEdge(2L, 2L, 3L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), true),
+      TEdge(3L, 3L, 3L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), true),
+      TEdge(5L, 2L, 5L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), true),
+      TEdge(5L, 2L, 5L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2014-01-01")), true)
+
+    ))
+    val expectedgDifference = ge.fromRDDs(expectedVerticesDifference, expectedEdgesDifference, true, StorageLevel.MEMORY_ONLY_SER)
+
+    assert(resultgDifference.vertices.collect.toSet === expectedVerticesDifference.collect.toSet)
+    assert(resultgDifference.edges.collect.toSet === expectedEdgesDifference.collect.toSet)
+    assert(resultgDifference.getTemporalSequence.collect === expectedgDifference.getTemporalSequence.collect)
+  }
+
+  def testBinary5(ge: TGraphNoSchema[StructureOnlyAttr,StructureOnlyAttr]): Unit = {
+    val users: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true))
+    ))
+
+    val edges: RDD[TEdge[StructureOnlyAttr]] = ProgramContext.sc.parallelize(Array(
+      TEdge(1L, 1L, 2L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)
+    ))
+
+    val g = ge.fromRDDs(users, edges, true, StorageLevel.MEMORY_ONLY_SER)
+
+    val users2: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (2L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), true)),
+      (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), true))
+    ))
+
+    val edges2: RDD[TEdge[StructureOnlyAttr]] = ProgramContext.sc.parallelize(Array(
+      TEdge(2L, 2L, 3L, Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), true)
+    ))
+
+    val g2 = ge.fromRDDs(users2, edges2, true, StorageLevel.MEMORY_ONLY_SER)
+
+    val expectedVerticesUnion: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),true)),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),true)),
+      (2L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")),true)),
+      (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")),true))
+    ))
+
+    val expectedEdgesUnion: RDD[TEdge[StructureOnlyAttr]] = ProgramContext.sc.parallelize(Array(
+      TEdge(1L, 1L, 2L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),true),
+      TEdge(2L, 2L, 3L, Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")),true)
+    ))
+
+    val resultgUnion = g.union(g2, (x,y)=>x , (x,y)=>x)
+    val expectedgUnion = ge.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, true, StorageLevel.MEMORY_ONLY_SER)
+
+    assert(resultgUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
+    assert(resultgUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
+    assert(resultgUnion.getTemporalSequence.collect === expectedgUnion.getTemporalSequence.collect)
+
+    val resultgIntersection = g.intersection(g2, (x,y)=>x , (x,y)=>x)
+
+    assert(resultgIntersection.vertices.collect.toSet === ge.vertices.collect.toSet)
+    assert(resultgIntersection.edges.collect.toSet === ge.edges.collect.toSet)
+    assert(resultgIntersection.getTemporalSequence.collect === Seq[Interval]())
+
+
+    val resultgDifference = g.difference(g2)
+
+    val expectedVerticesDifference: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true))
+    ))
+
+    val expectedEdgesDifference: RDD[TEdge[StructureOnlyAttr]] = ProgramContext.sc.parallelize(Array(
+      TEdge(1L, 1L, 2L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)
+    ))
+    val expectedgDifference = ge.fromRDDs(expectedVerticesDifference, expectedEdgesDifference, true, StorageLevel.MEMORY_ONLY_SER)
+
+    assert(resultgDifference.vertices.collect.toSet === expectedVerticesDifference.collect.toSet)
+    assert(resultgDifference.edges.collect.toSet === expectedEdgesDifference.collect.toSet)
+    assert(resultgDifference.getTemporalSequence.collect === expectedgDifference.getTemporalSequence.collect)
+  }
+
+  def testBinary6(ge: TGraphNoSchema[StructureOnlyAttr,StructureOnlyAttr]): Unit = {
+    val users: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true))
+    ))
+
+    val edges: RDD[TEdge[StructureOnlyAttr]] = ProgramContext.sc.parallelize(Array(
+      TEdge(1L, 1L, 2L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)
+    ))
+
+    val g = ge.fromRDDs(users, edges, true, StorageLevel.MEMORY_ONLY_SER)
+
+    val users2: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), true)),
+      (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), true))
+    ))
+
+    val edges2: RDD[TEdge[StructureOnlyAttr]] = ProgramContext.sc.parallelize(Array(
+      TEdge(2L, 2L, 3L, Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), true)
+    ))
+
+    val g2 = ge.fromRDDs(users2, edges2, true, StorageLevel.MEMORY_ONLY_SER)
+
+    val expectedVerticesUnion: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")),true)),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2018-01-01")),true)),
+      (3L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")),true))
+    ))
+
+    val expectedEdgesUnion: RDD[TEdge[StructureOnlyAttr]] = ProgramContext.sc.parallelize(Array(
+      TEdge(1L, 1L, 2L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")),true),
+      TEdge(2L, 2L, 3L, Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")),true)
+    ))
+
+    val resultgUnion = g.union(g2, (x,y)=>x , (x,y)=>x)
+    val expectedgUnion = ge.fromRDDs(expectedVerticesUnion, expectedEdgesUnion, true, StorageLevel.MEMORY_ONLY_SER)
+
+    assert(resultgUnion.vertices.collect.toSet === expectedVerticesUnion.collect.toSet)
+    assert(resultgUnion.edges.collect.toSet === expectedEdgesUnion.collect.toSet)
+    assert(resultgUnion.getTemporalSequence.collect === expectedgUnion.getTemporalSequence.collect)
+
+    val resultgIntersection = g.intersection(g2, (x,y)=>x , (x,y)=>x)
+
+    assert(resultgIntersection.vertices.collect.toSet === ge.vertices.collect.toSet)
+    assert(resultgIntersection.edges.collect.toSet === ge.edges.collect.toSet)
+    assert(resultgIntersection.getTemporalSequence.collect === Seq[Interval]())
+
+    val resultgDifference = g.difference(g2)
+
+    val expectedVerticesDifference: RDD[(VertexId, (Interval, StructureOnlyAttr))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)),
+      (2L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true))
+    ))
+
+    val expectedEdgesDifference: RDD[TEdge[StructureOnlyAttr]] = ProgramContext.sc.parallelize(Array(
+      TEdge(1L, 1L, 2L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2014-01-01")), true)
+    ))
+    val expectedgDifference = ge.fromRDDs(expectedVerticesDifference, expectedEdgesDifference, true, StorageLevel.MEMORY_ONLY_SER)
+
+    assert(resultgDifference.vertices.collect.toSet === expectedVerticesDifference.collect.toSet)
+    assert(resultgDifference.edges.collect.toSet === expectedEdgesDifference.collect.toSet)
+    assert(resultgDifference.getTemporalSequence.collect === expectedgDifference.getTemporalSequence.collect)
+  }
+
   def testProject(ge: TGraphNoSchema[String,Int]): Unit = {
     //Checks for projection and coalescing of vertices and edges
     val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
