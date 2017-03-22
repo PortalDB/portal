@@ -856,9 +856,9 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
         ctx => {
           val edge = ctx.toEdgeTriplet
           val triplet = new TEdgeTriplet[VD, ED]
-          triplet.eId = edge.attr._1
           triplet.srcId = edge.srcId
           triplet.dstId = edge.dstId
+          triplet.eId = edge.attr._1
           sendMsg(triplet).foreach { x =>
             val tmp = new Int2ObjectOpenHashMap[A]()
             ctx.attr._2.foreach (y => tmp.put(y, x._2))

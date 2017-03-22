@@ -707,12 +707,13 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
           //make a single message to send to src and/or dst
           //that covers all intervals there's a message for
           val triplet = new TEdgeTriplet[VD,ED]
-          triplet.eId = ctx.attr._1
           triplet.srcId = ctx.srcId
           triplet.dstId = ctx.dstId
+          triplet.eId = ctx.attr._1
           //the messages are (Interval,A) pairs
           //don't bother with vertex attributes since they are not needed
           ctx.attr._2.foreach { x =>
+            triplet.interval = x._1
             triplet.attr = x._2
             sendMsg(triplet).foreach {y =>
               if (y._1 == ctx.srcId) ctx.sendToSrc(List[(Interval,A)]((x._1, y._2)))
@@ -733,6 +734,7 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
           triplet.eId = ctx.attr._1
           //get vertex attributes
           ctx.attr._2.foreach { x =>
+            triplet.interval = x._1
             triplet.attr = x._2
             val srcAttrs = ctx.srcAttr.filter(y => y._1.intersects(x._1))
             val dstAttrs = ctx.dstAttr.filter(y => y._1.intersects(x._1))
