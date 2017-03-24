@@ -139,12 +139,16 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
     }.mapEdges(e => (e.attr._1, e.attr._2.flatMap{
       case (intv, aa) => intv.intersection(selectBound).map(xx => (xx, aa))})
     ).subgraph(vpred = (vid, attr) => attr.size > 0, epred = e => e.attr._2.size > 0)
+
+    //slice does not change coalesce, so if we have eager coalesce, this will stay coalesced
+    //and if we don't, this is still right
     new OneGraph(newIntvs, newgs, defaultValue, storageLevel, coalesced)
   }
 
   override def vsubgraph(pred: (VertexId, VD,Interval) => Boolean): OneGraph[VD,ED] = {
+    val coal = coalesced //to avoid serialization issues
     val newgs = graphs.mapVertices{ 
-      case (vid, attr) => attr.filter{ case (intv, aa) => pred(vid, aa, intv)}
+      case (vid, attr) => if (coal) attr.filter{ case (intv, aa) => pred(vid, aa, intv)} else TempGraphOps.coalesceIntervals(attr.toList).toArray.filter{ case (intv, aa) => pred(vid, aa, intv)}
     }.subgraph(vpred = (vid, attr) => attr.size > 0)
     //need to constrain the edges to be within the intervals of their new vertices
     //because subgraph above only takes out edges for which vertices went away completely
@@ -153,17 +157,20 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
 
     //have to compute new intervals because we potentially don't cover as much
     val newIntvs = OneGraph.computeIntervals[VD,ED](newgs)
+    //don't need to check eager coalesce since subgraph does not change coalesced status
     new OneGraph(newIntvs, newgs, defaultValue, storageLevel, coalesced)
   }
 
   override def esubgraph(pred: TEdgeTriplet[VD,ED] => Boolean, tripletFields: TripletFields): OneGraph[VD,ED] = {
+    val coal = coalesced
     val newgs = graphs.mapTriplets{e => 
       val et = new TEdgeTriplet[VD, ED]
       et.eId = e.attr._1
       et.srcId = e.srcId
       et.dstId = e.dstId
+      val eattr = if (coal) e.attr._2 else TempGraphOps.coalesceIntervals(e.attr._2.toList).toArray
       if (tripletFields == TripletFields.None || tripletFields == TripletFields.EdgeOnly) {
-        (e.attr._1, e.attr._2.filter{ case (intv, aa) =>
+        (e.attr._1, eattr.filter{ case (intv, aa) =>
           et.attr = aa
           et.interval = intv
           pred(et)
@@ -171,7 +178,8 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
       } else {
         //it is possible for the edge to correspond to several
         //end-point values so we need to break it up then
-        (e.attr._1, e.attr._2.flatMap{ case (intv, aa) =>
+        (e.attr._1, eattr.flatMap{ case (intv, aa) =>
+          //FIXME? should we also assure coalescing of srcAttr and dstAttr?
           val allSrc = e.srcAttr.filter(ii => ii._1.intersects(intv))
           val allDst = e.dstAttr.filter(ii => ii._1.intersects(intv))
           val all = for {
@@ -191,6 +199,7 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
       }
     }.subgraph(epred = e => e.attr._2.size > 0)
 
+    //do not need to check eager coalesce because subgraph does not change it
     new OneGraph(OneGraph.computeIntervals(newgs), newgs, defaultValue, storageLevel, coalesced)
   }
 
@@ -219,7 +228,10 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
       Array[(Interval,VD)](), storageLevel, storageLevel)
 
     //intervals don't change but the result is uncoalesced
-    new OneGraph(intervals, newgs, defaultValue, storageLevel, false)
+    if (ProgramContext.eagerCoalesce)
+      new OneGraph(intervals, newgs.mapVertices{ case (vid, attr) => TempGraphOps.coalesceIntervals(attr.toList).toArray}.mapEdges(e => (e.attr._1, TempGraphOps.coalesceIntervals(e.attr._2.toList).toArray)), defaultValue, storageLevel, true)
+    else
+      new OneGraph(intervals, newgs, defaultValue, storageLevel, false)
   }
 
   override protected def aggregateByChange(c: ChangeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): OneGraph[VD, ED] = {
@@ -260,7 +272,10 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
       })
     }.subgraph(epred = et => et.attr._2.size > 0)
 
-    new OneGraph(newIntvs, filtered, defaultValue, storageLevel, false)
+    if (ProgramContext.eagerCoalesce)
+      new OneGraph(newIntvs, filtered.mapVertices{ case (vid, attr) => TempGraphOps.coalesceIntervals(attr.toList).toArray}.mapEdges(e => (e.attr._1, TempGraphOps.coalesceIntervals(e.attr._2.toList).toArray)), defaultValue, storageLevel, true)
+    else
+      new OneGraph(newIntvs, filtered, defaultValue, storageLevel, false)
     
   }
 
@@ -291,29 +306,42 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
       })
     }.subgraph(epred = et => et.attr._2.size > 0)
 
-    new OneGraph(newIntvs, filtered, defaultValue, storageLevel, false)
+    if (ProgramContext.eagerCoalesce)
+      new OneGraph(newIntvs, filtered.mapVertices{ case (vid, attr) => TempGraphOps.coalesceIntervals(attr.toList).toArray}.mapEdges(e => (e.attr._1, TempGraphOps.coalesceIntervals(e.attr._2.toList).toArray)), defaultValue, storageLevel, true)
+    else
+      new OneGraph(newIntvs, filtered, defaultValue, storageLevel, false)
 
   }
 
   override def vmap[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): OneGraph[VD2, ED] = {
+    //FIXME? should we coalesce vertices since the interval is passed into the function?
     val newgs = graphs.mapVertices{ case (vid, attr) =>
       attr.map{ case (intv, aa) => (intv, map(vid, intv, aa))
       }
     }
 
-    new OneGraph(intervals, newgs, defVal, storageLevel, false)
+    if (ProgramContext.eagerCoalesce) {
+      val g = newgs.mapVertices{ case (vid, attr) => TempGraphOps.coalesceIntervals(attr.toList).toArray}
+      new OneGraph(OneGraph.computeIntervals(g), g, defVal, storageLevel, true)
+    } else
+      new OneGraph(intervals, newgs, defVal, storageLevel, false)
   }
 
   override def emap[ED2: ClassTag](map: TEdge[ED] => ED2): OneGraph[VD, ED2] = {
     //TODO: this creates a lot of unnecessary objects which will make it slow
     //because of garbage collection. rewrite.
+    //FIXME? should we coalesce vertices and edges since the interval may be part of the map function
     val newgs = graphs.mapEdges(e =>
       (e.attr._1, e.attr._2.map{ case (intv, aa) => 
         (intv, map(TEdge(e.attr._1, e.srcId, e.dstId, intv, aa)))
       })
     )
 
-    new OneGraph(intervals, newgs, defaultValue, storageLevel, false)
+    if (ProgramContext.eagerCoalesce) {
+      val g = newgs.mapEdges(e => (e.attr._1, TempGraphOps.coalesceIntervals(e.attr._2.toList).toArray))
+      new OneGraph(OneGraph.computeIntervals(g), g, defaultValue, storageLevel, true)
+    } else
+      new OneGraph(intervals, newgs, defaultValue, storageLevel, false)
   }
 
   override def union(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): OneGraph[VD, ED] = {

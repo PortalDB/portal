@@ -119,18 +119,19 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
       defaultValue, storageLevel, coalesced)
   }
 
-
-  override def vsubgraph(vpred: (VertexId, VD,Interval) => Boolean): VEGraph[VD,ED] = {
-    val newVerts: RDD[(VertexId, (Interval, VD))] =allVertices.filter{ case (vid, attrs) => vpred(vid, attrs._2,attrs._1)}
+  override def vsubgraph(pred: (VertexId, VD,Interval) => Boolean): VEGraph[VD,ED] = {
+    //by calling on vertices, we assure correctness related to coalescing
+    val newVerts: RDD[(VertexId, (Interval, VD))] = vertices.filter{ case (vid, attrs) => pred(vid, attrs._2,attrs._1)}
     val newEdges = TGraphNoSchema.constrainEdges(newVerts, allEdges)
     fromRDDs(newVerts, newEdges, defaultValue, storageLevel, coalesced)
   }
 
-  override def esubgraph(epred: (TEdgeTriplet[VD,ED]) => Boolean,tripletFields: TripletFields = TripletFields.All ): VEGraph[VD,ED] = {
+  override def esubgraph(pred: (TEdgeTriplet[VD,ED]) => Boolean,tripletFields: TripletFields = TripletFields.All ): VEGraph[VD,ED] = {
     //TODO: tripletfields
     if (tripletFields == TripletFields.None || tripletFields == TripletFields.EdgeOnly) {
       val newVerts: RDD[(VertexId, (Interval, VD))] = allVertices
-      val newEdges = allEdges.map(e => {
+      //by calling on edges instead of allEdges, we assure correctness related to coalescing
+      val newEdges = edges.map(e => {
         var et = new TEdgeTriplet[VD,ED]
         et.eId = e.eId
         et.srcId = e.srcId
@@ -139,13 +140,14 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
         et.interval = e.interval
         et
       }
-      ).filter(e => epred(e))
+      ).filter(e => pred(e))
       fromRDDs(newVerts, newEdges.map { e => TEdge.apply(e.eId, e.srcId, e.dstId, e.interval, e.attr) }, defaultValue, storageLevel, coalesced)
     }
     else
     {
       val newVerts: RDD[(VertexId, (Interval, VD))] = allVertices
-      val newEdges = triplets.filter(e => epred(e))
+      //FIXME? If allEdges are not coalesced, this is perhaps incorrect
+      val newEdges = triplets.filter(e => pred(e))
       fromRDDs(newVerts, newEdges.map { e => TEdge.apply(e.eId, e.srcId, e.dstId, e.interval, e.attr) }, defaultValue, storageLevel, coalesced)
 
     }
@@ -504,7 +506,7 @@ object VEGraph extends Serializable {
 
   def fromDataFrames[V: ClassTag, E: ClassTag](verts: org.apache.spark.sql.DataFrame, edgs: org.apache.spark.sql.DataFrame, defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): VEGraph[V, E] = {
     val cverts: RDD[(VertexId, (Interval, V))] = verts.rdd.map(r => (r.getLong(0), (Interval(r.getLong(1), r.getLong(2)), r.getAs[V](3))))
-    val ceds: RDD[TEdge[E]] = edgs.rdd.map(r => TEdge[E](r.getLong(5),r.getLong(0), r.getLong(1), Interval(r.getLong(2), r.getLong(3)), r.getAs[E](4)))
+    val ceds: RDD[TEdge[E]] = edgs.rdd.map(r => TEdge[E](r.getLong(0),r.getLong(1), r.getLong(2), Interval(r.getLong(3), r.getLong(4)), r.getAs[E](5)))
     fromRDDs(cverts, ceds, defVal, storLevel, coalesced)
   }
 

@@ -93,7 +93,7 @@ object GraphLoader {
        val secs1 = math.floor(DateTimeUtils.daysToMillis(bounds.start.toEpochDay().toInt).toDouble / 1000L).toLong
        val secs2 = math.floor(DateTimeUtils.daysToMillis(bounds.end.toEpochDay().toInt).toDouble / 1000L).toLong
        nodeDFs = nodeDFs.map(nf => nf.filter("NOT (estart >= " + secs2 + " OR eend <= " + secs1 + ")"))
-       edgeDFs = edgeDFs.map(nf => nf.filter("NOT (estart >= " + secs1 + " OR eend <= " + secs1 + ")"))
+       edgeDFs = edgeDFs.map(nf => nf.filter("NOT (estart >= " + secs2 + " OR eend <= " + secs1 + ")"))
     } 
 
     //the schema should be the same in each df
@@ -158,10 +158,10 @@ object GraphLoader {
 
     //select within bounds
     if (bounds.start != LocalDate.MIN || bounds.end != LocalDate.MAX) {
-       val secs1 = math.floor(DateTimeUtils.daysToMillis(bounds.start.toEpochDay().toInt).toDouble / 1000L).toLong
-       val secs2 = math.floor(DateTimeUtils.daysToMillis(bounds.end.toEpochDay().toInt).toDouble / 1000L).toLong
-       users = users.filter("NOT (estart >= " + secs2 + " OR eend <= " + secs1 + ")")
-       links = links.filter("NOT (estart >= " + secs1 + " OR eend <= " + secs1 + ")")
+      val secs1 = math.floor(DateTimeUtils.daysToMillis(bounds.start.toEpochDay().toInt).toDouble / 1000L).toLong
+      val secs2 = math.floor(DateTimeUtils.daysToMillis(bounds.end.toEpochDay().toInt).toDouble / 1000L).toLong
+      users = users.filter("NOT (estart >= " + secs2 + " OR eend <= " + secs1 + ")")
+      links = links.filter("NOT (estart >= " + secs2 + " OR eend <= " + secs1 + ")")
     }
 
     val vattr = 2 + vattrcol
