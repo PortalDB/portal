@@ -1,0 +1,650 @@
+\section{Algebra}
+\label{sec:algebra}
+\setlength{\textfloatsep}{5pt}% Remove \textfloatsep
+
+\begin{table}
+\caption{\tga operators.}
+\small
+\begin{tabular}{l | c}
+\hline
+$\slice{\bc}{\ttt}$ & slice \\ \hline
+$q^T_v(\tve)$ & vertex subgraph \\ \hline
+$q^T_e(\tve)$ & edge subgraph \\ \hline
+$\vmap{F_v, \tve}$ & vertex map \\ \hline
+$\emap{F_e, \tve}$ & edge map \\ \hline
+$\insql{agg}^T$ & aggregation \\ \hline
+$\cup^T$ & union \\ \hline
+$\cap^T$ & intersection \\ \hline
+$\setminus^T$ & difference \\ \hline
+$\insql{node}^T_a$ & attribute node creation \\ \hline
+$\insql{node}^T_w$ & window node creation \\ \hline
+$\insql{edge}^T$ & edge creation \\ \hline
+\end{tabular}
+\label{tab:operators}
+\end{table}
+
+\tg algebra, or \tga for short, is compositional: operators take a \tg
+or a pair of \tgs as input, and output a \tg.  Our goal in specifying
+this algebra is completeness -- we provide temporal versions of common
+compositional graph operators and add operators that enable
+evolutionary analysis.  We specify the semantics of \tga using tuple
+relational calculus and by showing a translation of each operator into
+a sequence of Temporal Relational Algebra (\tra) expressions (with
+nesting, to accommodate non-1NF vertex/edge attributes).  The mapping
+to \tra gives us the ability to support \tga in any RDBMS.  However,
+the \tga operators can also be supported by other access methods, as
+we show in Section~\ref{}.
+
+\subsection{Preliminaries}
+\label{sec:algebra:tra}
+
+\tra extends relational algebra by adding a temporal attribute,
+usually with tuple stamping, and specifying how relational operators
+are applied to temporal relations.  Operators are considered temporal
+if they generate temporal relations when applied to temporal
+relations.  \tra may have point or sequenced semantics which dictates
+properties of the operators~\cite{Bohlen1998,Dignos2012}.  Both point
+and sequenced semantics require snapshot reducibility and extended
+snapshot reducibility properties, and sequenced semantics additionally
+requires change preservation.
+
+Snapshot reducibility means that a temporal operator applied to a
+temporal relation produces the same result as an equivalent
+non-temporal operator over corresponding snapshots.  Extended snapshot
+reducibility allows explicit references to timestamps in the operators
+by propagating them as data.  Change preservation dictates how time
+points in the result are combined into periods.  With point semantics,
+value-equivalent consecutive and overlapping tuples are merged into a
+single tuple.  Change preservation, however, states that operators
+only merge contiguous time points of a result if they have the same
+lineage.  See~\cite{Dignos2012} for formal definitions.  We explore
+some of the implications of applying sequenced semantics to evolving
+graphs in~\cite{MoffittEDBT2017}, but in this work we adhere to point
+semantics.
+
+\eat{In Section~\ref{sec:algebra:integrity} we present the primitives
+  that are needed to enforce soundness of \tga.  Then, in
+  Sections~\ref{sec:algebra:unary} through~\ref{sec:algebra:ecreate},
+  we present \tga operators.  Section~\ref{sec:analytics} presents an
+  extension of \tga to support Pregel-style analytics.}
+
+\subsection{Unary operators}
+\label{sec:algebra:unary}
+
+{\bf Slice.} The slice operator, denoted $\slice{\bc}{\ttt}$, where
+$\bc$ is a time interval, cuts a temporal slice from \ttt. The
+resulting \tg will contain vertices and edges whose period $\bp$ has a
+non-empty intersection with $\bc$.  We translate this \tga operator to
+TRA statements over each constituent relation of \tve:
+$\slice{\bc}{\tv}$ and similarly for \te.
+
+%: $\slice{\bc}{\tv} = \{ (v, \bp \cap \bc)~~|~~(v, \bp) \in \tv
+%\wedge (\pred{\bc}{overlaps}{\bp} \vee \pred{\bc}{contains}{\bp})
+%\}$, and analogously for each \te, \tav and \tae.  apply select
+%operator to each of the four constituent relations of \tve: $\forall
+%x \in \{\tv,\te,\tav,\tae \}, x' = \pi_{A,p \cap c}(\sigma_{p \cap c}
+%(x))$, where $A$ is the non-temporal schema of $x$.
+
+\eat{If $p.start < c.start$ or $p.end > c.end$ for some tuple $(g,
+  p)$, then $p$ is trimmed to be within the boundaries of $c$: $\tau_c
+  (\trg) = \{ (g, p \cap c)~~|~~(g, p) \in \trg \wedge
+  (\pred{c}{overlaps}{p} \vee \pred{c}{contains}{p})\}$.  }
+
+%Slice does not violate any of the soundness requirements {\bf R1} ---
+%{\bf R4}. \eat{, see Appendix~\ref{sec:app1} for proofs of this and
+%  similar statements.}
+
+{\bf Subgraph.} Temporal subgraph matching is a generalization of
+subgraph matching for non-temporal graphs~\cite{Wood2012}.  This query
+comes in two variants.
+
+\eat{A temporal vertex-subgraph query $q^T_v(\tve)$ is a conjunctive query
+that takes $\tve (\tv, \te, \tav, \tae)$ as input, and outputs
+$\tve'$, an induced temporal subgraph of \tve in which vertices are
+defined by $q^T_v$.}
+
+Temporal vertex-subgraph \subv{q^t_v}{\ttt} computes an induced
+subgraph of \tve $\tve'(\tv', \te')$, with vertices defined by the
+temporal datalog query (TDQ) $q^t_v$.  Note that this is a
+subgraph query, and so $\tv' \subseteq^T \tv$.
+
+Temporal edge-subgraph \sube{q^t_e}{\ttt} computes a subgraph of \ttt
+$\tve'(\tv', \te')$ in which edges are defined by TDQ $q^t_e$.  Since
+this is a subgraph query, $\te' \subseteq^T \te$.
+
+Queries $q^t_v$ and $q^t_e$ may use any of the constituent relations
+of \tve, and may explicitly reference temporal information, and so
+require both input relations to be
+coalesced~\cite{DBLP:reference/db/Bohlen09}.
+
+Following the computation of $\tv' = q^t_v(\tv)$, \subv{q^t_v}{\ttt}
+must invoke $\coal{\tv'}$ to enforce {\bf R1} and {\bf R3}; and
+$\constr{\te'}{\tv'}$ to enforce {\bf R2}.
+%
+Following the computation $\te' = q^t_e(\te)$, \sube{q^t_e}{\ttt} must
+invoke $\coal{\te'}$ to enforce {\bf R1} and {\bf R3}.
+
+\eat{
+$\sigma_{C_V,C_E} (\ttt) = (\tv',\te',\tav',\tae') ~|~$ \\
+$\tv' = \pi_{v,p} (\sigma_{C_V} ( \tv \bowtie^T_v \tav))$ \\
+$\te' = \pi_{v_1,v_2,p} (\sigma_{C_E} ( \tae \bowtie^T_{v_1} \tav \bowtie^T_{v_2} \tav))$ \\
+$\tav' = \sigma_{C_V} (\tav)$ \\
+$\tae' = \pi_{v_1,v_2,a} (\sigma_{C_E} (\tae \bowtie^T_{v_1} \tav \bowtie^T_{v_2} \tav))$}
+
+\eat{ Note that as B{\"{o}}hlen showed
+  in~\cite{DBLP:reference/db/Bohlen09}, correctness of a select
+  operator with a temporal predicate depends on the coalesced state of
+  the relation.  When composing a triplet, we carry the vertex and
+  edge timestamps in their entirety as data to produce correct
+  results.}
+
+% There is no need for an example here, it is clear what these queries
+% compute.
+
+\eat{Because we allow predicates over the triplets, interesting conditions
+can be expressed.  For example, we can filter out any edges where the
+value of some property of its two vertices does not match.  Assuming
+vertices have property \insql{group}, we can compute
+$\sigma_{T,v1.a.group=v2.a.group}(\ttt)$.}
+
+%\subsection{Temporal map}
+%\label{sec:algebra:project}
+
+{\bf Map.}  Temporal vertex-map and edge-map apply user-defined map
+functions $f_v$ and $f_e$ to vertex or edge attributes.  Temporal
+vertex-map $\vmap{f_v, \tve}$ outputs $\tve'$ in which
+$\tv'=\pi^T_{v,f_v(a)}\tv$ and $\te'=\te$. Temporal edge-map
+$\emap{f_e, \tve}$ is defined analogously.
+
+\eat{Temporal map iterates over the tuples of \trg, and applies the
+user-specified map functions $M_V$ and $M_E$ to the vertices and edges
+of each $g$: $\map_{M_V,M_E} (\trg) = \{(g', p)~~|~~(g,p) \in \trg
+\wedge g'= \map_{M_V,M_E}(g)\}$.
+}  
+
+While $f_v$ and $f_e$ are arbitrary user-specified functions, there
+are some common cases.  Map may specify the set of properties to
+project out or retain, it may aggregate (e.g., \insql{COUNT}) or
+deduplicate values of a collection property, or flatten a nested
+value.
+%
+To produce a valid \tg, $\vmap{f_v, \tve}$ must invoke $\coal{\tv'}$
+and $\emap{f_e, \tve}$ must invoke $\coal{\te'}$.
+
+% because this is an arbitrary operation, we don't need to invent
+% syntax here.  it's also clear what this operation does, I don't
+% think there is a need for an example.
+
+\eat{In such cases we will use short-hand
+notation similar to projection, listing the properties that we wish to
+retain. For example, $\map_{M_V:{school},M_E:\emptyset} (\insql{T1})$
+will keep only the school property of the vertices, and no properties
+of the edges.  Another useful map operation eliminates duplicates in
+the bag of a particular vertex or edge property.  \eat{It may also be
+useful to flatten nested bags or aggregate multiple values of the same
+property of a vertex or edge, e.g., compute a sum or an average
+following temporal intersection or union
+(Section~\ref{sec:algebra:join}).}}
+
+\subsection{Aggregation}
+\label{sec:algebra:agg}
+
+Aggregation is a common graph operation that computes the value of a
+vertex property $pname$ based on information available at the vertex
+itself, at the edges associated with the vertex, and at its immediate
+neighbors.  Aggregation can be used to compute simple properties such
+as in-degree of a vertex, or more complex ones such as the set of
+countries in which the friends of $v$ live.
+
+It is convenient to think of aggregation as operating over a temporal
+view $L(v_1,v_2,e,v_1.a,v_2.a,e.a,p)$, where $v_1$ refers to the
+vertex for which the new property is being computed, $v_2$ refers to
+the vertex from which information is gathered, $e$ refers to the edge
+connecting $v_1$ and $v_2$, $v_1.a$, $v_2.a$ and $e.a$ are attributes
+of the vertices and of the edge, and $p$ is the associated time
+period.  $L$ is computed with a temporal join of \te with two copies
+of \tv, one for each side of the edge
+
+When \tve represents a directed graph, direction of the edge can be
+accounted for in the way the join is set up (e.g., mapping $v_2$ in
+\te to $v_1$ in $L$ if the goal is to aggregate information on
+incoming edges).  When \tve represents an undirected graph (recall
+that we choose a canonical representation of an edge, with $v_1 \leq
+v_2$), or when direction of the edge is unimportant, $L$ can be
+computed from $\te(v_1,v_2,p) \cup^T \te(v_2,v_1,p)$ rather than from
+$\te$.
+
+Aggregation is denoted $\insql{agg}^T(dir,cond,f_m,f_a,pname,\ttt)$,
+where $dir$ is the direction of the edge (one of 'right', 'left' or
+'both') that determines how $L$ is computed, $cond$ is a predicate
+over $L$, $f_m$ is a map function that emits a value for each tuple in
+the result of $\sigma^T_{cond}(L)$ (e.g., 1 for computing degree of
+$v_1$, or $v_2.a.country$ for computing the set of countries in which
+the friends of $v_1$ live).  Finally, $f_a$ is the function that
+aggregates values computed by $f_m$, and $pname$ is the name of the
+property to which the computed value is assigned.  Putting everything
+together, and omitting the computation of $L$ for clarity: we compute
+a temporal relation $R = \coal{v_1 \gamma^T_{f_a} (\pi^T_{v_1,f_m}
+  (\sigma^T_{cond} L))}$. (Here, $\gamma^T$ is the temporal version of
+relational aggregation, and $v_1$ is the grouping attribute.)  We then
+compute an outer join of \tv with $R$, and invoke the resolve
+primitive to reconcile the newly-computed property stored in $R.a$
+with $\tv.a$: $\tv' = \resolve{\insql{set}(pname)}{\tv
+  \rightouterjoin^T_{v=v_1} R}$. Note the use of the resolve primitive
+at the last step.  Although there are no duplicates in the result of
+the outer join of \tv and $R$, since $R$ is temporally coalesced and
+the join is by key, resolve is needed to compute a bag-union of
+properties in $R.a$ and $\tv.a$, and to aggregate the values
+corresponding to $pname$ (in case $pname$ already occurred as a
+property in $\tv.a$).
+
+\eat{The result is a new isomorphic graph $\ttt'$:
+$\agg{cond,msg,red}{\ttt} = \{ \tv, \te, \tav', \tae \}$, where $\tav'
+= \pi^T_{v,a_1+a_2}(\tav \bowtie^T_v$ $_v\vartheta^T_{f} (msg
+(\sigma_{cond} (\tae \bowtie^T_{v_1} \tav \bowtie^T_{v_2} \tav))))$.
+The temporal join is used to add the new properties to the output
+since it may have different periods of validity.  For example, while
+each vertex in \tg may remain unchanged for the whole duration,
+aggregating vertex degrees would result in an attribute value for each
+period of topology change.}
+
+We support various aggregation functions $f_a$, including the standard
+\{ \insql{count} | \insql{min} | \insql{max} | \insql{sum} \}, which
+have their customary meaning.  We also support \{ \insql{any} |
+\insql{first} | \insql{last} | \insql{set} | \insql{list} \}, which
+are possible to compute because properties being reduced have temporal
+information.  \insql{first} and \insql{last} refer to the value of a
+property with the earliest/latest timestamp, while \insql{set} and
+\insql{list} associate a key with a collection of values.
+
+\eat{As an example, to compute vertex in-degrees, we can use
+  $\agg{msg=(dst,p,1),red=count}{\ttt}$.  To compute a set of places
+  that all close friends have visited in the past year, assuming there
+  is a property \insql{places} on friend vertices and closeness of
+  friendship property on edges:\\ $\agg{cond=dst.p \cap [2015,2016) \&
+      a.close > 0.8,msg=(src,p,dst.places)}{\ttt}$.}
+
+%To produce a valid \tg, \insql{agg} must invoke \coal{\tav'}.
+%\julia{I don't think so: {\bf R2}: require reduce function.}
+
+\subsection{Binary set operators}
+\label{sec:algebra:binary}
+
+\begin{figure*}[t]
+\begin{minipage}[b]{0.3\textwidth} %{2.0in}
+\includegraphics[width=2.0in]{figs/T2_rel.pdf}
+\caption{T2.}
+\vspace{-0.5cm}
+\label{fig:tg_t2}
+\end{minipage}
+\begin{minipage}[b]{0.3\textwidth} %{2.5in}
+\includegraphics[width=2.5in]{figs/T1_union_T2_rel.pdf}
+\vspace{-0.5cm}
+\caption{$T1 \cup^T T2.$}
+\label{fig:tg_union}
+\vspace{-0.5cm}
+\end{minipage}\hfill
+\begin{minipage}[b]{0.3\textwidth} %{2.0in}
+\includegraphics[width=2.0in]{figs/T1_inter_T2_rel.pdf}
+\caption{$T1 \cap^T T2.$}
+\label{fig:tg_inter}
+\vspace{-0.5cm}
+\end{minipage}
+%\caption{Binary operators.}
+%\label{fig:binary}
+\end{figure*}
+
+We support temporal versions of the three binary set operators
+intersection ($\cap^T$), union ($\cup^T$), and difference
+($\setminus^T$).
+
+\eat{These \tra operators are not schema robust~\cite{Dignos2012} ---
+  their result is affected if the argument relation is extended by an
+  additional attribute.  This presents a problem when executing the
+  set operations over the \tav and \tae relations as there is no
+  guarantee that a vertex or an edge with the same identity and at the
+  same time instant has the same attribute set.  Thus all three
+  operators require that the resolve primitive be invoked as part of
+  the computation.}
+
+To compute $\insql{T1} \cup^T \insql{T2}$, we compute $\tv' =
+\resolve{f_v}{\tv_1 \fullouterjoin^T_{v} \tv_2}$ and $\te' =
+\resolve{f_e}{\te_1 \fullouterjoin^T_{e} \te_2}$.
+
+Consider \insql{T1} in Figure~\ref{fig:tg_ve} and \insql{T2} in
+Figure~\ref{fig:tg_t2}.  Figure~\ref{fig:tg_union} illustrates
+\insql{T1} $\cup^T$ \insql{T2}.  According to the definition of
+$\cup^T$, periods are split to coincide for any group, and thus the
+attribute values for e.g., $v_1$ have three distinct tuples.
+
+To compute $\insql{T1} \cap^T \insql{T2}$, we compute $\tv' =
+\resolve{f_v}{\tv_1 \Join^T_{v} \tv_2}$ and $\te' =
+\resolve{f_e}{\te_1 \Join^T_{e} \te_2}$.
+
+As an example, when applying \insql{T1} $\cap^T$ \insql{T2}, only the
+vertices and edges present in both \tgs are produced, thus eliminating
+$v_3$ and $v_4$.  Period $[2/15, 4/15)$ for $v_2$ is computed as a
+  result of the join of $[2/15, 5/15)$ in \insql{T1} and [$2/15,
+      4/15)$ in \insql{T2}.  Figure~\ref{fig:tg_inter} illustrates
+      \insql{T1} $\cap^T$ \insql{T2}.
+
+To compute $\insql{T1} \setminus^T \insql{T2}$, we set $\tv' =
+\pi_{\tv_1.v,p,\tv_1.a} \allowbreak (\sigma_{\tv_2.a = NULL}(\tv_1
+\leftouterjoin^T_{v} \tv_2))$ and $\te' =\\
+\pi_{\te_1.e,\te_1.v_1, \te_1.v_2,p,\te_1.a} (\sigma_{\te_2.a =
+  NULL}(\te_1 \leftouterjoin^T_{e} \te_2))$.
+
+To continue the example above, the result of \insql{T1} $\setminus^T$
+\insql{T2} includes vertex v1 before 2/15 and after 6/15, splitting
+one v1 tuple in \tv of T1 into two temporally-disjoint tuples in the
+result.  See Figure~\ref{fig:tg_diff} in
+Appendix~\ref{sec:app:examples} for full result.
+
+Note that both $\cap^T$ and $\cup^T$ require that resolve be invoked,
+to reconcile the vertex/edge attributes associated with vertices/edges
+in the temporal intersection of the inputs.
+
+\eat{As elsewhere, the default reduce function is \insql{set}.  In addition
+to the functions defined in Section~\ref{sec:algebra:agg} we also
+support \{ \insql{left} | \insql{right} \}, which select the attribute
+of the left, resp. right, operand.}
+
+\subsection{Node creation}
+\label{sec:algebra:ncreate}
+
+\begin{figure}[b]
+\includegraphics[width=2in]{figs/agg3.pdf}
+\vspace{-0.2cm}
+\caption{\insql{node}$^T_a(school, set(school), max(cnt).)$}
+\vspace{-0.4cm}
+\label{fig:tg_agg3}
+\end{figure}
+
+The node creation operator enables the user to analyze an evolving
+graph at different levels of granularity.  This operator comes in two
+variants --- based on vertex attributes or based on temporal window.
+
+{\bf Attribute-based node creation} is
+denoted\\ $\insql{node}^T_a(g_1,\ldots,g_i,f_{v1}(k_1),\ldots,f_{vn}(k_n),\tve)$,
+where $g_1,\ldots,g_i$ are the grouping attributes, and each
+$f_{vj}(k_j)$ specifies an aggregation function $f_{vj}$ to be applied
+to a vertex property $k_j$.  This operation allows the user to
+generate a \tg in which vertices correspond to disjoint groups of
+vertices in the input that agree on the values of all grouping
+attributes.  For example, $\insql{node}^T_a(school,\tve)$ will compute
+a vertex for each value of $\tv.a.school$.  Vertices that do not
+specify a value for one or several grouping attributes at a given
+time, will not contribute to the result for the corresponding
+snapshot.
+
+To compute $\tve' =
+\insql{node}^T_a(g_1,\ldots,g_i,f_{v1}(k_1),\ldots,f_{vn}(k_n),\tve)$,
+we generate the new vertex relation $\tv'$ by generating an id for
+each group with a Skolem function and reconcile attribute values
+within each group with the resolve primitive: $\tv' =
+\resolve{f_{v1}(k_1),\ldots,f_{vn}(k_n)}{\pi^T_{skolem(g_1,\ldots,g_i), a} \tv}$.
+
+Vertices of the input are partitioned on their values of the grouping
+attributes.  Because the model supports multigraphs, all edges from
+the input graph are retained, with their source and destination vertex
+ids updated.  To compute the new edges relation $\te'$, we generate a
+temporal conjunctive query that computes $E(e,v_1,v_2,p,a,v_1',v_2')$,
+where $v_1'$ and $v_2'$ are the identifiers of the vertices in \tv' to
+which $v_1$ and $v_2$ are mapped.  Finally, we compute $\te' =
+\coal{\pi^T_{e,v_1',v_2',p,a} E}$.
+
+Figure~\ref{fig:tg_agg3} illustrates attribute-based node creation
+over \insql{T1} in our running example, with \insql{set(school)}
+aggregation function for vertices and and \insql{max(cnt)} for edges.
+Vertices $v_1$ and $v_3$ create a single new vertex $v_{10}$,
+representing Drexel.
+
+{\bf Window-based node creation} is denoted\\
+$\insql{node}^T_w(w,q_v,q_e,f_{v1}(k_1),\ldots,f_{vn}(k_n),f_{e1}(l_1),\ldots,f_{em}(l_m),\tve)$,
+where $w$ is the window specification, $q_v$ and $q_e$ are vertex and
+edge quantifiers, and each $f_{vj}(k_j)$ ($f_{ej}(l_j)$) specifies an
+aggregation function $f_{vj}$ (resp. $f_{ej}$) to be applied to a
+vertex property $k_j$ (resp. edge property $l_j$).  This operation
+corresponds to moving window temporal aggregation, and is inspired by
+the stream aggregation work of~\cite{Li2005} and by generalized
+quantifiers of~\cite{Hsu1995}, both adopted to graphs.
+
+\eat{We argued in the introduction that it is interesting and
+  insightful to analyze an evolving graph at different levels of
+  granularity.  For example, the user may want to aggregate multiple
+  consecutive representative graphs into a single representative
+  graph, coarsening the granularity, or to predefine temporal
+  resolution and look at the graph at that scale, irrespective of
+  whether this resolution happens to be finer or coarse than the
+  natural evolution rate of the graph.  For this, we introduce a node
+  creation operator which is similar to the {\em moving window
+    temporal aggregation} in temporal relational algebra.  Our
+  approach is inspired by stream aggregation work of~\cite{Li2005},
+  adopted to graphs, and by generalized quantifiers
+  of~\cite{Hsu1995}.}
+
+\eat{{\em Grouping attributes} $G_V$ are vertex properties by which
+vertices are grouped into new entities, similar to \insql{GROUP BY}
+clause in SQL.  Since node creation requires new identifiers, the
+combination of the grouping properties can be used in a mechanism
+equivalent to a Skolem function.  The simplest, default grouping
+attribute is the $vid$ of the vertex.}
+
+Window specification $w$ is of the form $n~\{unit|\insql{changes}\}$,
+where $n$ is an integer, and $unit$ is a time unit, e.g., $10~min$,
+$3~years$, or any multiple of the usual time units.  When $w$ is in
+the form $n~\insql{changes}$, it defines the window by the number of
+changes that occurred in \tve (affecting any of its constituent
+relations). Window boundaries are computed left-to-right, i.e., from
+least to most recent.
+
+\eat{Our window specification by change is similar to slide-by-row window
+in stream aggregation~\cite{Li2005}.  Note that, because \tg algebra
+is compositional, we do not support node creation with overlapping
+windows, because it does not produce a valid \tg.  To see why this is
+so, consider applying a sliding window of 3 months range with 1 month
+slide to graph \insql{T} in Figure~\ref{fig:tg_ve}.  We would produce
+the following tuples for $v_1$: $(v_1, [1/15, 4/15), a_1)$, $(v_1,
+  [2/15, 5/15), a_2)$, $(v_1, [3/15, 6/15))$, and so on, which clearly
+      violates the temporally coalesced requirement in
+      definition~\ref{tg}.}
+
+\eat{Similar to~\cite{Li2005} we support creation simultaneously by
+  time and by non-temporal attributes (e.g., vertex properties).  If
+  the window specification is one change, then the operation devolves
+  into pure structural reduce or node creation, as classified by
+  Wood~\cite{Wood2012}.  If the grouping attribute is the vertex
+  $vid$, then the operation is purely temporal, with no structural
+  aspect.}
+
+Vertex and edge quantifiers $q_v$ and $q_e$ are of the form \{
+\insql{all} | \insql{most} | \insql{at least} $n$ | \insql{exists} \},
+where $n$ is a decimal representing the percentage of the time during
+which a vertex or an edge existed, relative to the duration of the
+window (\insql{exists} is the default).  Quantifiers are useful for
+observing different kinds of temporal evolution, e.g., to observe only
+strong connections over a volatile evolving graph, we may want to only
+include vertices that span the entire window ($q_v=\insql{all}$), and
+edges that span a large portion of the window ($q_e=\insql{most}$).
+ 
+\eat{The optional reduce functions compute new values for vertex and
+  edge properties representative of the whole window, e.g.,
+  $any(name), last(school), sum(cnt)$.}
+%
+ 
+\eat{Key-value pairs for vertex and edge properties for which no
+aggregation functions are specified, are collected into a bag
+corresponding to the entity in the result.  These can be subsequently
+transformed with $map^T$ (Section~\ref{sec:algebra:project}).}
+
+\eat{ 
+Temporal aggregation over \tve follows the outline of
+Algorithm~\ref{alg:op}, but requires an additional step, and is
+revisited in Algorithm~\ref{alg:agg_ve}.
+%
+}
+
+For both kinds of window specification (by unit or by number of
+changes), we must (1) compute a mapping from a tuple in a temporal
+relation to one or multiple windows, and (2) aggregate over each
+window.  The $s$ parameter for the split primitive is the smallest
+start date across \tve.
+
+To compute $\tv'$, we apply split to \tv, resolve the attributes with
+the aggregation functions, select only those vertices that meet the
+quantification, and finally coalesce: $\tv' = \coal{\sigma^T_{q_V}
+  (\resolve{f_{v1}(k_1),\ldots,f_{vn}(k_n)}{\wsplit{s}{w}{\tv}})}$.
+$\te'$ is similar but with an additional constrain primitive
+application when node quantification is more strict.
+
+\eat{We compute group periods based on window
+specification: $P = \textsf{computePeriods}(W, \tv, \te, \tav, \tae)$.
+We use temporal aggregation and selection to evaluate $Q_V$ on each
+group in $\tv$: $\tv' = \sigma_{P,Q_V}( _{G_V}\vartheta^T (\tv
+\leftouterjoin^T \tav))$ and similarly for $\te$: $\te' =
+\sigma_{P,Q_E}( _{G_V}\vartheta^T (\te \bowtie^T_{v_1=v} \tav
+\bowtie^T_{v_2=v} \tav))$.  The edge triplets, obtained through
+three-way temporal join of \tae with \tav are required to aggregate
+edges by $G_V$.  }
+
+\eat{
+Node creation over \trg is computed by first calculating time periods
+from $W$ and \trg, and then reducing and combining the representative
+graphs directly.
+}
+
+\begin{figure*}[t]
+%\begin{subfigure}[b]{0.5\textwidth}
+\begin{tabular}{@{}c@{}}
+%\begin{minipage}[b]{0.4\textwidth}
+\includegraphics[width=2.0in,height=100pt]{figs/agg1.pdf} \\[\abovecaptionskip]
+%\caption{By time: $w=3~\textsf{months}$.}
+\small (a) By time: $w=3~\textsf{months}$.
+\label{fig:tg_agg1}
+%\end{subfigure}
+\end{tabular}
+%\end{minipage}\hfill
+%\begin{subfigure}[b]{0.5\textwidth}
+\begin{tabular}{@{}c@{}}
+%\begin{minipage}[b]{0.4\textwidth}
+\includegraphics[width=2.0in,height=100pt]{figs/agg2.pdf} \\[\abovecaptionskip]
+%\caption{By change: $w=3~\textsf{changes}$.}
+\small (b) By change: $w=3~\textsf{changes}$.
+\label{fig:tg_agg2}
+%\end{subfigure}
+\end{tabular}
+%\end{minipage}
+\caption[]{Node creation,
+  $\insql{node}^T_w(\mathsf{q_v=always},\mathsf{q_e=exists,f_v=\{first(name),~first(school)\}},\ttt)$.}
+\vspace{-0.2cm}
+\label{fig:tg_agg}
+\vspace{-0.2cm}
+\end{figure*}
+
+Figure~\ref{fig:tg_agg1} illustrates window-based node creation by
+time ($w=3~\textsf{months}$), and Figure~\ref{fig:tg_agg2} --- by
+change ($w=3~\textsf{changes}$).  Both are applied to \insql{T1} in
+our running example with \insql{all} quantifier for vertices and
+\insql{exists} for edges, and \insql{first} aggregation function for
+vertex and edge properties.  $v_2$ is present in the result in
+Figure~\ref{fig:tg_agg1} starting at $4/15$ because it did not exist
+for the entirety of the first window, while in
+Figure~\ref{fig:tg_agg2} it is produced starting $6/15$.
+
+\eat{Node creation may uncoalesce and requires FK enforcement.}
+
+\eat{{\bf R1, R2}: coalesce every relation in $\ttt'$; {\bf R3}:
+  enforce FK on $\tav', \te', \tae'$; {\bf R4}: require reduce
+  function.}
+
+\eat{ Our aggregation quantifiers are inspired by generalized
+  quantifiers of~\cite{Hsu1995} with n-place delimiters.  $Q(R)$ as a
+  Boolean-valued function of a relation''~\cite{Hsu1995}.  A
+  quantifier contains an n-place determiner, e.g., ``at least one
+  vertex in each window for each group'' is a 2-place determiner
+  quantifier.  \tg algebra supports determiners from the set
+  $\{at\ least\ one, all, most, at\ least\ n\}$, where $n$ is an
+  integer representing a ratio.  $all$ is a usual universal quantifier
+  that in standard SQL can be achieved with the use of two \insql{NOT
+    EXISTS}.}
+
+\subsection{Edge creation}
+\label{sec:algebra:ecreate}
+
+Edge creation
+$\insql{edge}^T(q,f_{v1}(k_1),\ldots,f_{vn}(k_n),f_{e`}(l_1),\ldots,f_{em}(l_m),\ttt_1,\ttt_2)$
+is a binary operator that computes a \tg on the union of the vertices
+of $\ttt_1$ and $\ttt_2$, with edges and edge attributes computed by a
+datalog query over the constituent relations of $\ttt_1$ and $\ttt_2$.
+$\tv' = \resolve{f_{v1}(k_1),\ldots,f_{vn}(k_n)}{\tv_1 \cup^T \tv_2}$,
+$\te' = \resolve{f_{e1}(l_1),\ldots,f_{em}(l_m)}{q(\ttt_1, \ttt_2)}$.
+
+\eat{$\ecr{\ttt_1}{q,red}{\ttt_2}$ be an edge creation operator, where $q$
+is a conjunctive query over constituent relations of $\tve_1$ and
+$\tve_2$ and $red$ is a reduce function. $q$ must return a valid
+temporal relation $(v_1, v_2, a_1, a_2)$.  The reduce function is used
+to compute the final $\tae'$ relation.  $\ecr{\ttt_1}{q,red}{\ttt_2} =
+\{ \tv', \te', \tav', \tae' \}$, where $\tae' =
+\sigma^T_{v_1,v_2,red(a_1,a_2)}(q(\ttt_1, \ttt_2))$ subject to FK
+constraint from $\tv_1 \cup^T \tv_2$, $\te' =
+\sigma^T_{v_1,v_2}(\tae')$, \tv' is a subset of $\tv_1 \cup^T \tv_2$
+such that it contains only vertices with edges in $\te'$, and $\tav'$
+is an empty relation.  Intuitively, edge creation returns a new \tg
+from nodes of $\ttt_1$ and $\ttt_2$ with no attributes, connected by
+edges determined by $q$.}
+
+Edge creation has several important applications.  It can be used to
+compute friend-of-friend edges (passing in the same \tg as both
+arguments).  Since $q$ can be recursive and include predicates over
+the timestamps, $\insql{edge}^T$ can compute journeys.  A journey is a
+path in the evolving graph with non-decreasing time
+edges~\cite{Casteigts2011,Ferreira2004}.  By adding a temporal
+condition to $q$, we can obtain journeys similar to time-concurrent
+paths.
+
+In graph theory, a graph join of two undirected unlabeled disjoint
+graphs is defined as the union of the two graphs and additional edges
+connecting every vertex in graph one with each vertex in graph two.
+We can obtain a graph join by computing $\te' = \tv_1 \times^T \tv_2$.
+
+SocialScope~\cite{Amer-Yahia2009} defines (non-temporal) graph
+composition: compose the edge of the two operands and return an
+edge-induced subgraph.  TGA can express this operator by a combination
+of edge creation and vertex subgraph.
+
+\eat{In \ql temporal graph composition can be computed using node
+  creation of \ttt with itself and a $q = $ a temporal theta-join of
+  $\tae$ and $\tae_2$. }
+
+%\julia{Example of edge transpose goes here.}
+
+\eat{Note that edge creation produces new edges.  To add these edges to the
+original graph, a subsequent union must be performed.}
+
+\eat{Graph composition operator in our algebra is a temporal extension of
+the composition operator in SocialScope~\cite{Amer-Yahia2009}.  It
+produces a graph induced by edges that are composed from edges in the
+two operands for any time point when they coexisted.  The value of the
+new edge attributes is determined by the resolve function, similar to
+the set based operators.}
+
+\eat{
+Let $\odot_{\delta,r}$ be a composition operator, where $\delta$ is a
+directional condition pair $d_1=v_1|v_2, d_2=v_1|v_2$ and $r$ is a
+resolve function.  Then $\ttt_1 \odot_{\delta,r} \ttt_2 = \{ \tv',
+\te', \tav', \tae' \}$, where $\forall (v_x,v_z,p) \in \te' \exists
+(d_1,v_x,p_1) \in \te_1 \wedge (d_2,v_z,p_2) \in \te_2 \wedge p=p_1
+\cap p_2$, \tv' contains only vertices with edges in \te', with FK
+constraint enforced on \tav' from \tv', and $\forall (v_x,v_z,p,a) \in
+\tae' \exists (d_1,v_x,p_1,a_1) \in \tae_1 \wedge (d_2,v_z,p_2) \in
+\tae_2 \wedge p=p_1 \cap p_2 \wedge a=r((a_1,p_1),(a_2,p_2))$.
+}
+
+\eat{{\bf R1, R2}: coalesce $\te'$ and $\tae'$; {\bf R3}: constraint $\te'$
+on $\tv'$, $\tv'$ on $\te'$ (to remove nodes with no edges), and
+$\tae'$ on $\te'$; {\bf R4}: require reduce function.}
+
+
+\input{analytics}
+
+%\input{example}
