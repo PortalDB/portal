@@ -74,9 +74,18 @@ semantics.
 {\bf Slice.} The slice operator, denoted $\slice{\bc}{\ttt}$, where
 $\bc$ is a time interval, cuts a temporal slice from \ttt. The
 resulting \tg will contain vertices and edges whose period $\bp$ has a
-non-empty intersection with $\bc$.  We translate this \tga operator to
-TRA statements over each constituent relation of \tve:
-$\slice{\bc}{\tv}$ and similarly for \te.
+non-empty intersection with $\bc$: $\{ (v, \bp \cap \bc)~~|~~(v, \bp) \in \tv
+\wedge (\pred{\bc}{overlaps}{\bp} \vee \pred{\bc}{contains}{\bp})
+\}$, and analogously for \te.
+
+We translate this \tga operator to TRA statements over each
+constituent relation of \tve: $\slice{\bc}{\tv}$ and similarly for
+\te.
+
+Slice is a common operator in temporal algebras, although its exact
+semantics varies.  It does not have a nontemporal equivalent.  Note
+that slice is only valid in point semantics because it modifies
+individual time stamps and thus violates change preservation property.
 
 %: $\slice{\bc}{\tv} = \{ (v, \bp \cap \bc)~~|~~(v, \bp) \in \tv
 %\wedge (\pred{\bc}{overlaps}{\bp} \vee \pred{\bc}{contains}{\bp})
@@ -94,6 +103,22 @@ $\slice{\bc}{\tv}$ and similarly for \te.
 %{\bf R4}. \eat{, see Appendix~\ref{sec:app1} for proofs of this and
 %  similar statements.}
 
+\begin{example}
+\label{ex:slice}
+Using T1 \tg from Figure~\ref{fig:tg_ve}, let
+$\slice{[2015/5,2015/8)}{\ttt1}$ compute a slice from May to August
+  of 2015.  The result is shown below.
+\begin{table}[h]
+\begin{tabular}{c | c | c}
+\hline
+{\bfseries{\underline v}} & {\bfseries{\underline p}} & {\bfseries a} \\ \hline
+v1 & [2015/5,2015/7) & name=Alice,school=Drexel \\ \hline
+v2 & [2015/5,2015/8) & name=Bob,school=CMU \\ \hline
+v3 & [2015/5,2015/8) & name=Cathy,school=Drexel \\ \hline
+\end{tabular}
+\end{table}
+\end{example}
+
 {\bf Subgraph.} Temporal subgraph matching is a generalization of
 subgraph matching for non-temporal graphs~\cite{Wood2012}.  This query
 comes in two variants.
@@ -105,17 +130,26 @@ defined by $q^T_v$.}
 
 Temporal vertex-subgraph \subv{q^t_v}{\ttt} computes an induced
 subgraph of \tve $\tve'(\tv', \te')$, with vertices defined by the
-temporal datalog query (TDQ) $q^t_v$.  Note that this is a
+temporal datalog query (TDQ) $q^t_v$:  
+Note that this is a
 subgraph query, and so $\tv' \subseteq^T \tv$.
 
 Temporal edge-subgraph \sube{q^t_e}{\ttt} computes a subgraph of \ttt
 $\tve'(\tv', \te')$ in which edges are defined by TDQ $q^t_e$.  Since
 this is a subgraph query, $\te' \subseteq^T \te$.
 
-Queries $q^t_v$ and $q^t_e$ may use any of the constituent relations
-of \tve, and may explicitly reference temporal information, and so
-require both input relations to be
+Queries $q^t_v$ and $q^t_e$ may use either or both of the constituent
+relations of \tve, and may explicitly reference temporal information,
+and so require both input relations to be
 coalesced~\cite{DBLP:reference/db/Bohlen09}.
+
+Many graph languages include subgraph operations, most commonly on the
+attributes of the individual entities (conjunctive query),
+e.g.,~\cite{}.  We generalize this to using datalog queries with the
+generality goal in mind such that regular path queries and conjunctive
+regular path queries are supported.  This allows the user to, for
+example, select only vertices with non-zero degree as a single
+operation or only vertices connected by particular paths.
 
 Following the computation of $\tv' = q^t_v(\tv)$, \subv{q^t_v}{\ttt}
 must invoke $\coal{\tv'}$ to enforce {\bf R1} and {\bf R3}; and
