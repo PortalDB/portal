@@ -18,15 +18,12 @@
 
 % Vocabulary
 \newcommand*{\ql}{\textsf{Portal}\xspace}
-%\newcommand*{\ql}{\textsf{SysXYZ}\xspace}
 \newcommand*{\tg}{\textsf{TGraph}\xspace}
 \newcommand*{\tgs}{\textsf{TGraphs}\xspace}
 \newcommand*{\rgs}{\textsf{representative graphs}\xspace}
 \newcommand*{\ve}{\textsf{vertex-edge}\xspace}
 \newcommand*{\sg}{RG\xspace}
 \newcommand*{\rg}{RG\xspace}
-\newcommand*{\mg}{MG\xspace}
-\newcommand*{\mgc}{MGC\xspace}
 \newcommand*{\og}{OG\xspace}
 \newcommand*{\ogc}{OGC\xspace}
 \newcommand*{\hg}{HG\xspace}
@@ -100,6 +97,11 @@
 \def\leftouterjoin{\mathbin{\ojoin\mkern-5.8mu\Join}}
 \def\rightouterjoin{\mathbin{\Join\mkern-5.8mu\ojoin}}
 \def\fullouterjoin{\mathbin{\ojoin\mkern-5.8mu\Join\mkern-6mu\ojoin}} 
+
+\usepackage{array}
+\newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{C}[1]{>{\centering\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{R}[1]{>{\raggedleft\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
 
 %\newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}p{#1}}
 

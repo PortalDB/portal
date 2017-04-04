@@ -144,19 +144,20 @@ and so require both input relations to be
 coalesced~\cite{DBLP:reference/db/Bohlen09}.
 
 Many graph languages include subgraph operations, most commonly on the
-attributes of the individual entities (conjunctive query),
-e.g.,~\cite{}.  We generalize this to using datalog queries with the
-generality goal in mind such that regular path queries and conjunctive
-regular path queries are supported.  This allows the user to, for
-example, select only vertices with non-zero degree as a single
-operation or only vertices connected by particular paths.
+attributes of the individual entities (conjunctive
+query)~\cite{Wood2012}.  We generalize this to using datalog queries
+with the generality goal in mind such that regular path queries and
+conjunctive regular path queries are supported.  This allows the user
+to, for example, select only vertices with non-zero degree as a single
+operation or only vertices connected by particular paths, including
+using temporal predicates.
 
-Following the computation of $\tv' = q^t_v(\tv)$, \subv{q^t_v}{\ttt}
+\eat{Following the computation of $\tv' = q^t_v(\tv)$, \subv{q^t_v}{\ttt}
 must invoke $\coal{\tv'}$ to enforce {\bf R1} and {\bf R3}; and
-$\constr{\te'}{\tv'}$ to enforce {\bf R2}.
+$\constr{\te'}{\tv'}$ to enforce {\bf R2}.}
 %
-Following the computation $\te' = q^t_e(\te)$, \sube{q^t_e}{\ttt} must
-invoke $\coal{\te'}$ to enforce {\bf R1} and {\bf R3}.
+\eat{Following the computation $\te' = q^t_e(\te)$, \sube{q^t_e}{\ttt} must
+invoke $\coal{\te'}$ to enforce {\bf R1} and {\bf R3}.}
 
 \eat{
 $\sigma_{C_V,C_E} (\ttt) = (\tv',\te',\tav',\tae') ~|~$ \\
