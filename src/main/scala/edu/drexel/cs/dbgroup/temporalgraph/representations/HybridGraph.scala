@@ -47,6 +47,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
   }
  */
 
+  override def computeSpan: Interval = Interval(collectedIntervals.head.start, collectedIntervals.last.end)
+
   /** Query operations */
   
   override def slice(bound: Interval): HybridGraph[VD, ED] = {
@@ -778,9 +780,9 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
     val undirected = !uni
 
     val prank = (grp: Graph[BitSet,(EdgeId,BitSet)], minIndex: Int, maxIndex: Int) => {
-      if (grp.edges.isEmpty)
-        ProgramContext.sc.emptyRDD[(VertexId, Map[TimeIndex, (Double,Double)])]
-      else {
+      //if (grp.edges.isEmpty)
+      //  ProgramContext.sc.emptyRDD[(VertexId, Map[TimeIndex, (Double,Double)])]
+      //else {
         val mergeFunc = (a:Int2IntOpenHashMap, b:Int2IntOpenHashMap) => {
           val itr = a.iterator
 
@@ -860,7 +862,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
         val dir = if (undirected) EdgeDirection.Either else EdgeDirection.Out
         Pregel(prankGraph, initialMessage, numIter, activeDirection = dir)(vertexProgram, sendMessage, messageCombiner)
           .asInstanceOf[Graph[Map[TimeIndex,(Double,Double)], Map[TimeIndex,(Double,Double)]]].vertices
-      }
+      //}
     }
   
     val allgs:ParSeq[RDD[(VertexId, Map[TimeIndex,(Double,Double)])]] = graphs.zipWithIndex.map{ case (g,i) => prank(g, runSums.lift(i-1).getOrElse(0), runSums(i))}
@@ -1105,16 +1107,17 @@ object HybridGraph extends Serializable {
     val widths = intervals.map(ii => ii.size)
     val partialSum: Seq[Int] = widths.scanLeft(0)(_ + _).tail
 
-    val graphs = verts.zip(edgs).zipWithIndex.map{ case ((vs, es), index) =>
-      //grab the subsection of intervals, with their indices that correspond to this part
-      val subintvs = intervalList.zipWithIndex.slice(partialSum.lift(index-1).getOrElse(0), partialSum(index)) 
-      val split: ((Long, Long) => BitSet) = (st: Long, en: Long) => {
-        BitSet() ++ subintvs.flatMap(ii => if (en <= ii._1.getStartSeconds || st >= ii._1.getEndSeconds) None else Some(ii._2))
-      }
+    val zipped = ProgramContext.sc.broadcast(intervalList.toList.map(ii => (ii.getStartSeconds, ii.getEndSeconds)).zipWithIndex)
+    val split: ((Long, Long) => BitSet) = (st: Long, en: Long) => {
+       BitSet() ++ zipped.value.flatMap(ii => if (en > ii._1._1 && st < ii._1._2) Some(ii._2) else None) //None else Some(ii._2))
+    }
 
+    val graphs = verts.zip(edgs).zipWithIndex.map{ case ((vs, es), index) =>
       //take all the vertices in this dataframe, convert to bitset
-      Graph(vs.select("vid", "estart", "eend").rdd.map(r => (r.getLong(0), split(r.getLong(1), r.getLong(2)))).reduceByKey((a,b) => a union b),
-        es.select("eid", "vid1", "vid2", "estart", "eend").rdd.map(r => ((r.getLong(0), r.getLong(1), r.getLong(2)), split(r.getLong(3), r.getLong(4)))).reduceByKey((a,b) => a union b).map(e => Edge(e._1._2, e._1._3, (e._1._1,e._2))),
+      Graph(vs.rdd.map(r => (r.getLong(0), split(r.getLong(1), r.getLong(2)))).reduceByKey((a,b) => a union b),
+        es.rdd.map(r => ((r.getLong(0), r.getLong(1), r.getLong(2)), split(r.getLong(3), r.getLong(4))))
+          .reduceByKey((a,b) => a union b)
+          .map(e => Edge(e._1._2, e._1._3, (e._1._1,e._2))),
         BitSet(), storLevel, storLevel)
     }.par
 

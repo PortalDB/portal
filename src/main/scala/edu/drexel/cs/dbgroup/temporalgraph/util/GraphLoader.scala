@@ -33,7 +33,7 @@ object GraphLoader {
     //get the configuration option for snapshot groups
     val sg = System.getProperty("portal.partitions.sgroup", "")
     //make a filter. RG needs "spatial" layout, i.e. one sorted by time
-    val filter = "_s_" + sg
+    val filter = "_t_" + sg
 
     val (nodes, edges, deflt) = loadDataParquet(url, vattrcol, eattrcol, bounds, filter)
     val col = sg match {
@@ -83,17 +83,30 @@ object GraphLoader {
 
     //make a filter. HG needs "temporal" layout, i.e. one sorted by id
     val filter = "_t_" + sg
-
     //separate dataframe for each path
-    var nodeDFs = getPaths(url, bounds, "nodes" + filter).map(nf => ProgramContext.getSession.read.parquet(nf))
-    var edgeDFs = getPaths(url, bounds, "edges" + filter).map(nf => ProgramContext.getSession.read.parquet(nf))
+    val nodePaths = getPaths(url, bounds, "nodes" + filter)
+    val nh = ProgramContext.getSession.read.parquet(nodePaths.head)
+    //val nodeschema = nh.schema
+    val nreader = ProgramContext.getSession.read.schema(nh.schema)
+    var nodeDFs = nh +: nodePaths.tail.map(nf => nreader.parquet(nf))
+    val edgePaths = getPaths(url, bounds, "edges" + filter)
+    val eh = ProgramContext.getSession.read.parquet(edgePaths.head)
+    //val edgeschema = eh.schema
+    val ereader = ProgramContext.getSession.read.schema(eh.schema)
+    var edgeDFs = eh +: edgePaths.tail.map(nf => ereader.parquet(nf))
 
     //select within bounds
     if (bounds.start != LocalDate.MIN || bounds.end != LocalDate.MAX) {
        val secs1 = math.floor(DateTimeUtils.daysToMillis(bounds.start.toEpochDay().toInt).toDouble / 1000L).toLong
        val secs2 = math.floor(DateTimeUtils.daysToMillis(bounds.end.toEpochDay().toInt).toDouble / 1000L).toLong
-       nodeDFs = nodeDFs.map(nf => nf.filter("NOT (estart >= " + secs2 + " OR eend <= " + secs1 + ")"))
-       edgeDFs = edgeDFs.map(nf => nf.filter("NOT (estart >= " + secs2 + " OR eend <= " + secs1 + ")"))
+       nodeDFs = nodeDFs.zip(nodePaths).map{ case (nf,dp) => 
+         if (bounds.contains(Interval.parse(dp.takeRight(21)))) nf else 
+            nf.filter("NOT (estart >= " + secs2 + " OR eend <= " + secs1 + ")").withColumn("estart", greatest(nf("estart"), lit(secs1))).withColumn("eend", least(nf("eend"), lit(secs2)))
+       }
+       edgeDFs = edgeDFs.zip(edgePaths).map{ case (nf,dp) => 
+          if (bounds.contains(Interval.parse(dp.takeRight(21)))) nf else
+            nf.filter("NOT (estart >= " + secs2 + " OR eend <= " + secs1 + ")").withColumn("estart", greatest(nf("estart"), lit(secs1))).withColumn("eend", least(nf("eend"), lit(secs2)))
+       }
     } 
 
     //the schema should be the same in each df
@@ -128,7 +141,6 @@ object GraphLoader {
       case DoubleType => -1.0
       case _ => null
     }
-
     HybridGraph.fromDataFrames[Any,Any](nodeDFs, edgeDFs, deflt, StorageLevel.MEMORY_ONLY_SER, col)
 
   }
@@ -160,8 +172,8 @@ object GraphLoader {
     if (bounds.start != LocalDate.MIN || bounds.end != LocalDate.MAX) {
       val secs1 = math.floor(DateTimeUtils.daysToMillis(bounds.start.toEpochDay().toInt).toDouble / 1000L).toLong
       val secs2 = math.floor(DateTimeUtils.daysToMillis(bounds.end.toEpochDay().toInt).toDouble / 1000L).toLong
-      users = users.filter("NOT (estart >= " + secs2 + " OR eend <= " + secs1 + ")")
-      links = links.filter("NOT (estart >= " + secs2 + " OR eend <= " + secs1 + ")")
+      users = users.filter("NOT (estart >= " + secs2 + " OR eend <= " + secs1 + ")").withColumn("estart", greatest(users("estart"), lit(secs1))).withColumn("eend", least(users("eend"), lit(secs2)))
+      links = links.filter("NOT (estart >= " + secs2 + " OR eend <= " + secs1 + ")").withColumn("estart", greatest(links("estart"), lit(secs1))).withColumn("eend", least(links("eend"), lit(secs2)))
     }
 
     val vattr = 2 + vattrcol
