@@ -114,8 +114,10 @@ object GraphLoader {
     if (nodeDFs.head.schema.fields.size <= vattr)
       throw new IllegalArgumentException("requested column index " + vattrcol + " which does not exist in the data")
     val eattr = 4 + eattrcol
+    var ec = eattrcol
     if (edgeDFs.head.schema.fields.size <= eattr)
-      throw new IllegalArgumentException("requested column index " + eattrcol + " which does not exist in the data")
+      ec = -1
+      //throw new IllegalArgumentException("requested column index " + eattrcol + " which does not exist in the data")
 
     //if there are more fields in the schema, add the select statement
     if (vattrcol == -1) {
@@ -125,7 +127,7 @@ object GraphLoader {
     }
     else if (nodeDFs.head.schema.fields.size > 4)
       nodeDFs = nodeDFs.map(nf => nf.select("vid", "estart", "eend", nf.schema.fields(vattr).name))
-    if (eattrcol == -1) {
+    if (ec == -1) {
       if (edgeDFs.head.schema.fields.size > 5)
         edgeDFs = edgeDFs.map(nf => nf.select("eid", "vid1", "vid2", "estart", "eend"))
       edgeDFs = edgeDFs.map(nf => nf.withColumn("attr", lit(true)))
@@ -179,9 +181,11 @@ object GraphLoader {
     val vattr = 2 + vattrcol
     if (users.schema.fields.size <= vattr)
       throw new IllegalArgumentException("requested column index " + vattrcol + " which does not exist in the data")
+    var ec = eattrcol
     val eattr = 4 + eattrcol
     if (links.schema.fields.size <= eattr)
-      throw new IllegalArgumentException("requested column index " + eattrcol + " which does not exist in the data")
+      ec = -1
+      //throw new IllegalArgumentException("requested column index " + eattrcol + " which does not exist in the data")
 
     //if there are more fields in the schema, add the select statement
     if (vattrcol == -1) {
@@ -191,7 +195,7 @@ object GraphLoader {
     }
     else if (users.schema.fields.size > 4)
       users = users.select("vid", "estart", "eend", users.schema.fields(vattr).name)
-    if (eattrcol == -1) {
+    if (ec == -1) {
       if (links.schema.fields.size > 5)
         links = links.select("eid", "vid1", "vid2", "estart", "eend")
       links = links.withColumn("attr", lit(true))

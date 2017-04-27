@@ -959,7 +959,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
     }
     else {
       val aggMap = (grp: Graph[BitSet, (EdgeId,BitSet)]) => {
-        grp.aggregateMessages[Int2ObjectOpenHashMap[A]](
+        grp.aggregateMessages[Map[Int,A]](
           ctx => {
             val edge = ctx.toEdgeTriplet
             val triplet = new TEdgeTriplet[VD, ED]
@@ -972,9 +972,9 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
                 tmp.put(index, x._2)
               }
               if (x._1 == edge.srcId)
-                ctx.sendToSrc(tmp)
+                ctx.sendToSrc(tmp.asInstanceOf[Map[Int,A]])
               else if (x._1 == edge.dstId)
-                ctx.sendToDst(tmp)
+                ctx.sendToDst(tmp.asInstanceOf[Map[Int,A]])
               else
                 throw new IllegalArgumentException("trying to send message to a vertex that is neither a source nor a destination")
             }
@@ -991,7 +991,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
 
       val allgs = graphs.zipWithIndex.map { case (g, i) => aggMap(g) }
       //now extract values
-      val vattrs: RDD[(VertexId, Int2ObjectOpenHashMap[A])] = allgs.reduce((a: RDD[(VertexId, Int2ObjectOpenHashMap[A])], b: RDD[(VertexId, Int2ObjectOpenHashMap[A])]) => a union b).reduceByKey((a,b) => (a ++ b).asInstanceOf[Int2ObjectOpenHashMap[A]])
+      val vattrs: RDD[(VertexId, Map[Int,A])] = allgs.reduce((a: RDD[(VertexId, Map[Int,A])], b: RDD[(VertexId, Map[Int,A])]) => a union b).reduceByKey((a,b) => (a ++ b))
       val zipped = ProgramContext.sc.broadcast(collectedIntervals.zipWithIndex)
       //now need to join with the previous value
       val newverts = allVertices.leftOuterJoin(vattrs).flatMap{
