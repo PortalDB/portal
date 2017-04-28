@@ -210,8 +210,6 @@ object TGraphNoSchema {
    * Warning: This is a very expensive operation, use only when needed.
    */
   def constrainEdges[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[TEdge[E]]): RDD[TEdge[E]] = {
-    if (verts.isEmpty) return ProgramContext.sc.emptyRDD[TEdge[E]]
-
     //if we don't have many vertices, we can do a better job with broadcasts
     //FIXME: what should this number be? it should depend on memory size
     //TODO: pull this logic into query optimization or use DataFrames so that sql can do it automatically

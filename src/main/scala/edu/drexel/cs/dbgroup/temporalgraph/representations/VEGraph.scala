@@ -424,7 +424,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     //now join with the old values
     var newverts: RDD[(VertexId, (Interval, (VD, A)))] = allVertices.leftOuterJoin(messages).flatMap { 
       case (vid, (vdata, Some(msg))) => {
-        val contained = msg.filter(ii => ii._1.intersects(vdata._1))
+        val contained = TempGraphOps.coalesceIntervals(msg).filter(ii => ii._1.intersects(vdata._1))
         (contained ::: vdata._1.differenceList(contained.map(_._1)).map(ii => (ii, defVal))).map(ii => (vid, (ii._1, (vdata._2, ii._2))))
       }
       case (vid, (vdata, None)) => Some((vid, (vdata._1, (vdata._2, defVal))))

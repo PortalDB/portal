@@ -66,10 +66,7 @@ class Interval(st: LocalDate, en: LocalDate) extends Serializable {
 
   //like intersects, but returns true if start/end are equal
   def touches(other: Interval):Boolean = {
-    if(other.start.isAfter(end) || other.end.isBefore(start))
-      false
-    else
-      true
+    if (start == other.end || end == other.start) true else false
   }
 
   def union(other: Interval): Interval = Interval(minDate(start, other.start), maxDate(end, other.end))
@@ -146,10 +143,10 @@ class Interval(st: LocalDate, en: LocalDate) extends Serializable {
     */
   //TODO: rewrite this cleaner
   def differenceList(intervals: List[Interval]) : List[Interval] = {
+    var coalescedIntervals = Interval.coalesce(intervals)
     var returnVal = List[Interval]()
-    if (intervals.size == 1) returnVal = this.difference(intervals.head)
-    else if (intervals.size > 1) {
-      var coalescedIntervals = Interval.coalesce(intervals)
+    if (coalescedIntervals.size == 1) returnVal = this.difference(coalescedIntervals.head)
+    else {
       var i = 0
       while(i < coalescedIntervals.size){
         val prevInterval = if(i == 0) None else Some[Interval](coalescedIntervals(i-1))
@@ -157,16 +154,16 @@ class Interval(st: LocalDate, en: LocalDate) extends Serializable {
         val nextInterval = if(i+1 < coalescedIntervals.size) Some[Interval](coalescedIntervals(i+1)) else None
         //beginning
         if(prevInterval == None){
-          Interval.applyOption(start,thisInterval.start) +: returnVal
+          returnVal = Interval.applyOption(start,thisInterval.start) ++: returnVal
         }
         //end
         else if(nextInterval == None){
-          List[Interval](Interval.applyOption(prevInterval.get.end,thisInterval.start).get,
-            Interval.applyOption(thisInterval.end, end).get) ::: returnVal
+          returnVal = Interval.applyOption(prevInterval.get.end,thisInterval.start) ++: returnVal 
+          returnVal = Interval.applyOption(thisInterval.end, end) ++: returnVal
         }
         //middle
         else{
-          Interval.applyOption(prevInterval.get.start,thisInterval.start) +: returnVal
+          returnVal = Interval.applyOption(prevInterval.get.end,thisInterval.start) ++: returnVal
         }
         i += 1
       }
@@ -232,7 +229,7 @@ object Interval {
     val fld = srt.foldLeft(List[Interval]()){(list,elem) =>
       list match{
         case Nil => List(elem)
-        case head :: tail if(!head.touches(elem)) => elem :: head :: tail
+        case head :: tail if(!head.touches(elem) && !head.intersects(elem)) => elem :: head :: tail
         case head :: tail => {
           val newStart = if(head.start.compareTo(elem.start) < 0) head.start else elem.start
           val newEnd = if(head.end.compareTo(elem.end) > 0) head.end else elem.end
