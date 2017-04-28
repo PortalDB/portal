@@ -274,11 +274,11 @@ class HybridGraphSuite extends RepresentationsTestSuite {
     testCCs(empty)
   }
 
-  ignore("undirected shortestPath") {
+  test("undirected shortestPath") {
     testShortestPathsUndirected(empty)
   }
 
-  ignore("directed shortestPath") {
+  test("directed shortestPath") {
     testShortestPathsDirected(empty)
   }
 

@@ -2,6 +2,7 @@ package edu.drexel.cs.dbgroup.temporalgraph.representations
 
 import java.util.Map
 import it.unimi.dsi.fastutil.ints.{Int2DoubleOpenHashMap, Int2ObjectOpenHashMap, Int2IntOpenHashMap, Int2LongOpenHashMap}
+import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap
 
 import scala.collection.JavaConversions._
 import scala.collection.parallel.ParSeq
@@ -47,7 +48,7 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
   }
  */
 
-  override def computeSpan: Interval = Interval(collectedIntervals.head.start, collectedIntervals.last.end)
+  override def computeSpan: Interval = if (collectedIntervals.size > 0) Interval(collectedIntervals.head.start, collectedIntervals.last.end) else Interval(LocalDate.now, LocalDate.now)
 
   /** Query operations */
   
@@ -948,7 +949,130 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
   }
 
   override def shortestPaths(uni: Boolean, landmarks: Seq[VertexId]): HybridGraph[(VD, Map[VertexId, Int]), ED] = {
-    throw new UnsupportedOperationException("shortest paths not yet implemented")
+    if (graphs.size < 1) computeGraphs()
+    val runSums = widths.scanLeft(0)(_ + _).tail
+
+    val paths = (grp: Graph[BitSet,(EdgeId,BitSet)], minIndex: Int, maxIndex: Int) => {
+      val makeMap = (x: Seq[(VertexId, Int)]) => {
+        //we have to make a new map instead of modifying the input
+        //because that has unintended consequences
+        new Long2IntOpenHashMap(x.map(_._1).toArray, x.map(_._2).toArray)
+      }
+
+      val incrementMap = (spmap: Long2IntOpenHashMap) => {
+        //we have to make a new map instead of modifying the input
+        //because that has unintended consequences
+        val itr = spmap.iterator
+        val tmpMap = new Long2IntOpenHashMap()
+
+        while (itr.hasNext) {
+          val(k,v) = itr.next()
+          tmpMap.put(k: Long, v+1)
+        }
+        tmpMap
+      }
+
+      val addMaps = (spmap1: Long2IntOpenHashMap, spmap2:Long2IntOpenHashMap) => {
+        val itr = spmap1.iterator
+        val vals = spmap2.clone
+
+        while (itr.hasNext) {
+          val (index, oldv) = itr.next()
+          vals.update(index, math.min(oldv, spmap2.getOrDefault(index, Int.MaxValue)))
+        }
+        vals
+      }
+
+      val spGraph: Graph[Int2ObjectOpenHashMap[Long2IntOpenHashMap], (EdgeId,BitSet)] = grp.mapVertices { (vid, attr) =>
+        // Set the vertex attributes to vertex id for each interval
+        if (landmarks.contains(vid)) {
+          new Int2ObjectOpenHashMap[Long2IntOpenHashMap](attr.toArray, Array.fill(attr.size)(makeMap(Seq(vid -> 0))))
+        } else new Int2ObjectOpenHashMap[Long2IntOpenHashMap]()
+      }
+
+      val initialMessage: Int2ObjectOpenHashMap[Long2IntOpenHashMap] =
+        new Int2ObjectOpenHashMap[Long2IntOpenHashMap]()
+
+      val addMapsCombined = (a: Int2ObjectOpenHashMap[Long2IntOpenHashMap], b: Int2ObjectOpenHashMap[Long2IntOpenHashMap]) => {
+        val itr = a.iterator
+
+        while(itr.hasNext){
+          val(index, mp) = itr.next()
+          b.put(index.toInt, addMaps(mp, b.getOrElse(index, makeMap(Seq[(VertexId,Int)]()))))
+        }
+        b
+      }
+
+      val vertexProgram = (id: VertexId, attr: Int2ObjectOpenHashMap[Long2IntOpenHashMap], msg: Int2ObjectOpenHashMap[Long2IntOpenHashMap]) => {
+        //need to compute new shortestPaths to landmark for each interval
+        //each edge carries a message for one interval,
+        //which are combined by the combiner into a hash
+        //for each interval in the msg hash, update
+        val vals = attr.clone
+
+        msg.foreach { x =>
+          val (k, v) = x
+          vals.update(k, addMaps(attr.getOrDefault(k, makeMap(Seq[(VertexId,Int)]())), v))
+        }
+
+        vals
+      }
+
+      val sendMessage = if (uni)
+        (edge: EdgeTriplet[Int2ObjectOpenHashMap[Long2IntOpenHashMap], (EdgeId,BitSet)]) => {
+          //each vertex attribute is supposed to be a map of int->spmap
+          edge.attr._2.toList.flatMap { k =>
+            val srcSpMap = edge.srcAttr.getOrDefault(k, makeMap(Seq[(VertexId,Int)]()))
+            val dstSpMap = edge.dstAttr.getOrDefault(k, makeMap(Seq[(VertexId,Int)]()))
+            val newAttr = incrementMap(dstSpMap)
+
+            if (srcSpMap != addMaps(newAttr, srcSpMap))
+              Some((edge.srcId, new Int2ObjectOpenHashMap[Long2IntOpenHashMap](Array(k), Array(newAttr))))
+            else
+              None
+          }
+            .iterator
+        }
+        else
+          (edge: EdgeTriplet[Int2ObjectOpenHashMap[Long2IntOpenHashMap], (EdgeId,BitSet)]) => {
+            //each vertex attribute is supposed to be a map of int->spmap for each index
+            edge.attr._2.toList.flatMap{ k =>
+              val srcSpMap = edge.srcAttr.getOrDefault(k, makeMap(Seq[(VertexId,Int)]()))
+              val dstSpMap = edge.dstAttr.getOrDefault(k, makeMap(Seq[(VertexId,Int)]()))
+              val newAttr = incrementMap(dstSpMap)
+              val newAttr2 = incrementMap(srcSpMap)
+
+              if (srcSpMap != addMaps(newAttr, srcSpMap)) {
+                Some((edge.srcId, new Int2ObjectOpenHashMap[Long2IntOpenHashMap](Array(k), Array(newAttr))))
+              } else if (dstSpMap != addMaps(newAttr2, dstSpMap)) {
+                Some((edge.dstId, new Int2ObjectOpenHashMap[Long2IntOpenHashMap](Array(k), Array(newAttr2))))
+              } else
+                None
+            }
+              .iterator
+          }
+
+      Pregel(spGraph, initialMessage)(vertexProgram, sendMessage, addMapsCombined).asInstanceOf[Graph[Map[TimeIndex,Long2IntOpenHashMap],(EdgeId,BitSet)]].vertices
+    }
+
+    val allgs:ParSeq[RDD[(VertexId, Map[TimeIndex, Long2IntOpenHashMap])]] = graphs.zipWithIndex.map{ case (g,i) => paths(g, runSums.lift(i-1).getOrElse(0), runSums(i))}
+
+    //now extract values
+    val zipped = ProgramContext.sc.broadcast(collectedIntervals.zipWithIndex)
+    val vattrs= allgs.reduce(_ union _).reduceByKey((a,b) => (a ++ b))
+    //now need to join with the previous value
+    val emptyMap = new Long2IntOpenHashMap()
+    val newverts = allVertices.leftOuterJoin(vattrs).flatMap{
+      case (vid, (vdata, Some(sp))) =>
+        zipped.value.filter(ii => ii._1.intersects(vdata._1)).map(ii => (vid, (ii._1, (vdata._2, sp.getOrDefault(ii._2, emptyMap).asInstanceOf[Map[VertexId,Int]]))))
+      case (vid, (vdata, None)) => Some((vid, (vdata._1, (vdata._2, emptyMap.asInstanceOf[Map[VertexId,Int]]))))
+    }
+
+    if (ProgramContext.eagerCoalesce)
+      fromRDDs(newverts, allEdges, (defaultValue, emptyMap.asInstanceOf[Map[VertexId,Int]]), storageLevel, false)
+    else
+      new HybridGraph(collectedIntervals, newverts, allEdges, widths, graphs, (defaultValue, emptyMap.asInstanceOf[Map[VertexId,Int]]), storageLevel, false)
+
   }
 
   override def aggregateMessages[A: ClassTag](sendMsg: TEdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
