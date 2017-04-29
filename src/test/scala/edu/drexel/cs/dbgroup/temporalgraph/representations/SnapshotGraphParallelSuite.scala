@@ -265,5 +265,9 @@ class SnapshotGraphParallelSuite extends RepresentationsTestSuite {
   test("aggregateMessages - vertex predicate") {
     testAggregateMessages3(empty)
   }
+
+  test("triangle count") {
+    testTriangleCount(empty)
+  }
   
 }

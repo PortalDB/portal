@@ -538,7 +538,22 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
       a.outerJoinVertices(b.vertices)((vid, attr, pa) => (attr, pa.getOrElse(defV)))
     }
     new SnapshotGraphParallel(intervals, newGraphs, (defaultValue, defV), storageLevel, coalesced)
+  }
 
+  override def triangleCount: SnapshotGraphParallel[(VD,Int), ED] = {
+    val safeTriangleCount = (grp: Graph[VD, (EdgeId,ED)]) => {
+      if (grp.vertices.isEmpty) {
+        Graph[Int,ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+      } else {
+        grp.triangleCount()
+      }
+    }
+    val tcs = graphs.map(safeTriangleCount)
+    val defV = 0
+    val newGraphs = graphs.zip(tcs).map{ case (a,b) =>
+      a.outerJoinVertices(b.vertices)((vid, attr, tc) => (attr, tc.getOrElse(defV)))
+    }
+    new SnapshotGraphParallel(intervals, newGraphs, (defaultValue, defV), storageLevel, coalesced)
   }
 
   override def aggregateMessages[A: ClassTag](sendMsg: TEdgeTriplet[VD,ED] => Iterator[(VertexId, A)],

@@ -191,4 +191,8 @@ class OneGraphColumnSuite extends RepresentationsTestSuite {
     testAggregateMessages3(empty)
   }
 
+  test("triangle count") {
+    testTriangleCount(empty)
+  }
+
 }

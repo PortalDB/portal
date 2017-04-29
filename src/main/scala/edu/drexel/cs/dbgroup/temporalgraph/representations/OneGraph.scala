@@ -724,6 +724,11 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
     throw new UnsupportedOperationException("shortest paths not yet implemented")
   }
 
+  override def triangleCount(): OneGraph[(VD, Int), ED] = {
+    //FIXME
+    throw new UnsupportedOperationException("analytics not supported")
+  }
+
   override def aggregateMessages[A: ClassTag](sendMsg: TEdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
     mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): OneGraph[(VD, A), ED] = {
 

@@ -302,4 +302,8 @@ class HybridGraphSuite extends RepresentationsTestSuite {
     testAggregateMessages3(empty)
   }
 
+  test("triangle count") {
+    testTriangleCount(empty)
+  }
+
 }

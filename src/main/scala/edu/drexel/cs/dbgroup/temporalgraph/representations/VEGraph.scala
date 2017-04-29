@@ -403,6 +403,10 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     throw new UnsupportedOperationException("analytics not supported")
   }
 
+  override def triangleCount(): VEGraph[(VD, Int), ED] = {
+    throw new UnsupportedOperationException("analytics not supported")
+  }
+
   override def aggregateMessages[A: ClassTag](sendMsg: TEdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
     mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): VEGraph[(VD, A), ED] = {
     val trips: RDD[TEdgeTriplet[VD,ED]] = if (tripletFields == TripletFields.None || tripletFields == TripletFields.EdgeOnly) {

@@ -28,7 +28,7 @@ import edu.drexel.cs.dbgroup.temporalgraph.util.TempGraphOps._
 import java.time.LocalDate
 import java.util.Map
 import it.unimi.dsi.fastutil.ints._
-import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap
+import it.unimi.dsi.fastutil.longs._
 
 class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[TEdge[ED]], grs: Graph[BitSet, (EdgeId, BitSet)], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends VEGraph[VD, ED](verts, edgs, defValue, storLevel, coal) {
 
@@ -843,6 +843,84 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       fromRDDs(newverts, allEdges, (defaultValue, emptyMap.asInstanceOf[Map[VertexId,Int]]), storageLevel, false)
     else
       new OneGraphColumn[(VD, Map[VertexId,Int]), ED](newverts, allEdges, graphs, (defaultValue, emptyMap.asInstanceOf[Map[VertexId,Int]]), storageLevel)
+  }
+
+  override def triangleCount(): OneGraphColumn[(VD, Int), ED] = {
+    if (graphs == null) computeGraph()
+
+    val mergeFunc = (a:Long2ObjectOpenHashMap[BitSet], b:Long2ObjectOpenHashMap[BitSet]) => {
+      val itr = a.iterator
+      while (itr.hasNext){
+        val (index,st) = itr.next()
+        b.update(index, st)
+      }
+      b
+    }
+
+    //compute the set of the neighbors
+    val nbrSets: VertexRDD[Long2ObjectOpenHashMap[BitSet]] =
+      graphs.aggregateMessages[Long2ObjectOpenHashMap[BitSet]](
+        ctx => {
+          ctx.sendToSrc(new Long2ObjectOpenHashMap[BitSet](Array(ctx.dstId),Array(ctx.attr._2)))
+          ctx.sendToDst(new Long2ObjectOpenHashMap[BitSet](Array(ctx.srcId),Array(ctx.attr._2)))
+        },
+        mergeFunc, TripletFields.None)
+ 
+    //add back into the graph
+    val setGraph: Graph[Long2ObjectOpenHashMap[BitSet], (EdgeId, BitSet)] = graphs.outerJoinVertices(nbrSets) {
+      (vid, _, optSet) => optSet.getOrElse(null)
+    }
+
+    val edgeFunc = (ctx: EdgeContext[Long2ObjectOpenHashMap[BitSet], (EdgeId,BitSet), Int2IntOpenHashMap]) => {
+      assert(ctx.srcAttr != null)
+      assert(ctx.dstAttr != null)
+      val (smallSet, largeSet) = if (ctx.srcAttr.size < ctx.dstAttr.size) {
+        (ctx.srcAttr, ctx.dstAttr)
+      } else {
+        (ctx.dstAttr, ctx.srcAttr)
+      }
+      //we need a separate count per time index
+      val counter = new Int2IntOpenHashMap()
+      val iter = smallSet.iterator
+      while (iter.hasNext) {
+        val (vid,bits) = iter.next()
+        if (vid != ctx.srcId && vid != ctx.dstId && largeSet.contains(vid)) {
+          (bits & largeSet.get(vid) & ctx.attr._2).foreach { ii =>
+            counter.update(ii, counter.get(ii) + 1)
+          }
+        }
+      }
+      if (counter.size > 0) {
+        ctx.sendToSrc(counter)
+        ctx.sendToDst(counter)
+      }
+    }
+    val mergeFunc2 = (a:Int2IntOpenHashMap, b:Int2IntOpenHashMap) => {
+      val itr = a.iterator
+      //for some reason if you modify b directly, the whole thing doens't work
+      val ret = b.clone
+
+      while(itr.hasNext){
+        val (index, count) = itr.next()
+        ret.update(index, (count + b.getOrDefault(index, 0)))
+      }
+      ret
+    }
+    val counters: VertexRDD[Int2IntOpenHashMap] = setGraph.aggregateMessages(edgeFunc, mergeFunc2)
+    //merge the values with attributes
+    //TODO: make this work without collect
+    val zipped = ProgramContext.sc.broadcast(collectedIntervals.zipWithIndex)
+    val newVerts: RDD[(VertexId, (Interval, (VD, Int)))] = allVertices.leftOuterJoin(counters).flatMap{ 
+      case (vid, (vdata, Some(count))) =>
+        //FIXME? the count should be even, verify
+        zipped.value.filter(ii => ii._1.intersects(vdata._1)).map(ii => (vid, (ii._1, (vdata._2, count.getOrDefault(ii._2, 0)/2))))
+      case (vid, (vdata, None)) => Some((vid, (vdata._1, (vdata._2, 0))))
+    }
+
+    if (ProgramContext.eagerCoalesce)
+      fromRDDs(newVerts, allEdges, (defaultValue, 0), storageLevel, false)
+    else
+      new OneGraphColumn[(VD, Int), ED](newVerts, allEdges, graphs, (defaultValue, 0), storageLevel, false)
   }
 
   override def aggregateMessages[A: ClassTag](sendMsg: TEdgeTriplet[VD, ED] => Iterator[(VertexId, A)],

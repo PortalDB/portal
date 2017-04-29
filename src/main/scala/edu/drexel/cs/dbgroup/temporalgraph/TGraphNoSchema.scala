@@ -125,6 +125,14 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
   def shortestPaths(uni: Boolean, landmarks: Seq[VertexId]): TGraphNoSchema[(VD,Map[VertexId, Int]), ED]
 
   /**
+    * Compute the number of triangles passing through each vertex.
+    * 
+    * @return Graph with vertices where each vertex attribute has
+    * added a number of triangles.
+    */
+  def triangleCount(): TGraphNoSchema[(VD,Int), ED]
+
+  /**
    * Aggregates values from the neighboring edges and vertices of each vertex, for each representative graph. 
    * Unlike in GraphX, this returns a new graph, not an RDD. The user-supplied
    * `sendMsg` function is invoked on each edge of the graph, generating 0 or more messages to be
