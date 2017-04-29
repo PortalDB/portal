@@ -1154,6 +1154,108 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
 
   }
 
+  override def clusteringCoefficient: HybridGraph[(VD,Double), ED] = {
+    if (graphs.size < 1) computeGraphs()
+
+    val cts = (grp: Graph[BitSet,(EdgeId,BitSet)]) => {
+      val mergeFunc = (a:Long2ObjectOpenHashMap[BitSet], b:Long2ObjectOpenHashMap[BitSet]) => {
+        val itr = a.iterator
+        while (itr.hasNext){
+          val (index,st) = itr.next()
+          b.update(index, st)
+        }
+        b
+      }
+
+      //compute the set of the neighbors
+      val nbrSets: VertexRDD[Long2ObjectOpenHashMap[BitSet]] =
+        grp.aggregateMessages[Long2ObjectOpenHashMap[BitSet]](
+          ctx => {
+            ctx.sendToSrc(new Long2ObjectOpenHashMap[BitSet](Array(ctx.dstId),Array(ctx.attr._2)))
+            ctx.sendToDst(new Long2ObjectOpenHashMap[BitSet](Array(ctx.srcId),Array(ctx.attr._2)))
+          },
+          mergeFunc, TripletFields.None)
+
+      //add back into the graph
+      val setGraph: Graph[Long2ObjectOpenHashMap[BitSet], (EdgeId, BitSet)] = grp.outerJoinVertices(nbrSets) {
+        (vid, _, optSet) => optSet.getOrElse(null)
+      }
+
+      val edgeFunc = (ctx: EdgeContext[Long2ObjectOpenHashMap[BitSet], (EdgeId,BitSet), Int2IntOpenHashMap]) => {
+        assert(ctx.srcAttr != null)
+        assert(ctx.dstAttr != null)
+        val (smallSet, largeSet) = if (ctx.srcAttr.size < ctx.dstAttr.size) {
+          (ctx.srcAttr, ctx.dstAttr)
+        } else {
+          (ctx.dstAttr, ctx.srcAttr)
+        }
+        //we need a separate count per time index
+        val counter = new Int2IntOpenHashMap()
+        val iter = smallSet.iterator
+        while (iter.hasNext) {
+          val (vid,bits) = iter.next()
+          if (vid != ctx.srcId && vid != ctx.dstId && largeSet.contains(vid)) {
+            (bits & largeSet.get(vid) & ctx.attr._2).foreach { ii =>
+              counter.update(ii, counter.get(ii) + 1)
+            }
+          }
+        }
+        ctx.sendToSrc(counter)
+        ctx.sendToDst(counter)
+      }
+      val mergeFunc2 = (a:Int2IntOpenHashMap, b:Int2IntOpenHashMap) => {
+        val itr = a.iterator
+        //for some reason if you modify b directly, the whole thing doens't work
+        val ret = b.clone
+
+        while(itr.hasNext){
+          val (index, count) = itr.next()
+          ret.update(index, (count + b.getOrDefault(index, 0)))
+        }
+        ret
+      }
+      setGraph.aggregateMessages(edgeFunc, mergeFunc2)
+    }
+
+    val deg = (grp: Graph[BitSet, (EdgeId,BitSet)]) => {
+      val mergeFunc: (HashMap[TimeIndex,Int], HashMap[TimeIndex,Int]) => HashMap[TimeIndex,Int] = { case (a,b) =>
+        a ++ b.map { case (index,count) => index -> (count + a.getOrElse(index,0)) }
+      }
+
+      grp.aggregateMessages[HashMap[TimeIndex, Int]](
+        ctx => {
+          ctx.sendToSrc(HashMap[TimeIndex,Int]() ++ ctx.attr._2.seq.map(x => (x,1)))
+          ctx.sendToDst(HashMap[TimeIndex,Int]() ++ ctx.attr._2.seq.map(x => (x,1)))
+        },
+        mergeFunc, TripletFields.None)
+    }
+
+    val allgs:ParSeq[RDD[(VertexId, Int2IntOpenHashMap)]] = graphs.zipWithIndex.map{ case (g,i) => cts(g) }
+
+    //now extract values
+    val zipped = ProgramContext.sc.broadcast(collectedIntervals.zipWithIndex)
+    val vattrs= allgs.reduce(_ union _).reduceByKey((a,b) => (a ++ b).asInstanceOf[Int2IntOpenHashMap])
+    val degsrdd:ParSeq[RDD[(VertexId, HashMap[TimeIndex,Int])]] = graphs.map(g => deg(g))
+    val degs = degsrdd.reduce(_ union _).reduceByKey((a,b) => (a ++ b))
+    //now need to join with the previous value
+    val newverts: RDD[(VertexId, (Interval, (VD,Double)))] = allVertices.leftOuterJoin(vattrs).leftOuterJoin(degs).flatMap{
+      case (vid, ((vdata, Some(cnts)), Some(deg))) =>
+        zipped.value.filter(ii => ii._1.intersects(vdata._1)).map{ii => 
+          if (cnts.getOrDefault(ii._2,0) > 0)
+            (vid, (ii._1, (vdata._2, cnts.getOrDefault(ii._2, 0)/2 / (deg.getOrDefault(ii._2,0) * (deg.getOrDefault(ii._2,0)-1.0)))))
+          else
+            (vid, (ii._1, (vdata._2, 0.0)))
+        }
+      case (vid, ((vdata, _), _)) => Some((vid, (vdata._1, (vdata._2, 0.0))))
+    }
+
+    if (ProgramContext.eagerCoalesce)
+      fromRDDs(newverts, allEdges, (defaultValue, 0.0), storageLevel, false)
+    else
+      new HybridGraph(collectedIntervals, newverts, allEdges, widths, graphs, (defaultValue, 0.0), storageLevel, false)
+
+  }
+
   override def aggregateMessages[A: ClassTag](sendMsg: TEdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
     mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): HybridGraph[(VD, A), ED] = {
     if (graphs.size < 1) computeGraphs()

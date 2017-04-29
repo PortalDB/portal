@@ -269,5 +269,8 @@ class SnapshotGraphParallelSuite extends RepresentationsTestSuite {
   test("triangle count") {
     testTriangleCount(empty)
   }
-  
+
+  test("clustering coefficient") {
+    testCCoeff(empty)
+  }
 }

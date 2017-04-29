@@ -208,7 +208,6 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     fromRDDs(newVerts, newEdges, defaultValue, storageLevel, false)
   }
 
-
   override def createAttributeNodes( vAggFunc: (VD, VD) => VD)(vgroupby: (VertexId, VD) => VertexId ): VEGraph[VD, ED] = {
 
     val locali = ProgramContext.sc.broadcast(intervals.collect)
@@ -405,6 +404,10 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
 
   override def triangleCount(): VEGraph[(VD, Int), ED] = {
     throw new UnsupportedOperationException("analytics not supported")
+  }
+
+  override def clusteringCoefficient: VEGraph[(VD,Double), ED] = {
+    throw new UnsupportedOperationException("ccoeff")
   }
 
   override def aggregateMessages[A: ClassTag](sendMsg: TEdgeTriplet[VD, ED] => Iterator[(VertexId, A)],

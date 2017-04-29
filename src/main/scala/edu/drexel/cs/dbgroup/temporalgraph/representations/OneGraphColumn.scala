@@ -848,6 +848,10 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
   override def triangleCount(): OneGraphColumn[(VD, Int), ED] = {
     if (graphs == null) computeGraph()
 
+    //FIXME: this may produce incorrect results for multigraphs
+    //where we should only count 1 edge between any two pair of nodes
+    //rather than all edges
+
     val mergeFunc = (a:Long2ObjectOpenHashMap[BitSet], b:Long2ObjectOpenHashMap[BitSet]) => {
       val itr = a.iterator
       while (itr.hasNext){
@@ -921,6 +925,99 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
       fromRDDs(newVerts, allEdges, (defaultValue, 0), storageLevel, false)
     else
       new OneGraphColumn[(VD, Int), ED](newVerts, allEdges, graphs, (defaultValue, 0), storageLevel, false)
+  }
+
+  override def clusteringCoefficient: OneGraphColumn[(VD,Double), ED] = {
+    //like triangle count but also computes degrees and then ccoeff from the two numbers
+    if (graphs == null) computeGraph()
+
+    //FIXME: this may produce incorrect results for multigraphs
+    //where we should only count 1 edge between any two pair of nodes
+    //rather than all edges
+
+    val mergeFunc = (a:Long2ObjectOpenHashMap[BitSet], b:Long2ObjectOpenHashMap[BitSet]) => {
+      val itr = a.iterator
+      while (itr.hasNext){
+        val (index,st) = itr.next()
+        b.update(index, st)
+      }
+      b
+    }
+
+    //compute the set of the neighbors
+    val nbrSets: VertexRDD[Long2ObjectOpenHashMap[BitSet]] =
+      graphs.aggregateMessages[Long2ObjectOpenHashMap[BitSet]](
+        ctx => {
+          ctx.sendToSrc(new Long2ObjectOpenHashMap[BitSet](Array(ctx.dstId),Array(ctx.attr._2)))
+          ctx.sendToDst(new Long2ObjectOpenHashMap[BitSet](Array(ctx.srcId),Array(ctx.attr._2)))
+        },
+        mergeFunc, TripletFields.None)
+ 
+    //add back into the graph
+    val setGraph: Graph[Long2ObjectOpenHashMap[BitSet], (EdgeId, BitSet)] = graphs.outerJoinVertices(nbrSets) {
+      (vid, _, optSet) => optSet.getOrElse(null)
+    }
+
+    val edgeFunc = (ctx: EdgeContext[Long2ObjectOpenHashMap[BitSet], (EdgeId,BitSet), Int2IntOpenHashMap]) => {
+      assert(ctx.srcAttr != null)
+      assert(ctx.dstAttr != null)
+      val (smallSet, largeSet) = if (ctx.srcAttr.size < ctx.dstAttr.size) {
+        (ctx.srcAttr, ctx.dstAttr)
+      } else {
+        (ctx.dstAttr, ctx.srcAttr)
+      }
+      //we need a separate count per time index
+      val counter = new Int2IntOpenHashMap()
+      val iter = smallSet.iterator
+      while (iter.hasNext) {
+        val (vid,bits) = iter.next()
+        if (vid != ctx.srcId && vid != ctx.dstId && largeSet.contains(vid)) {
+          (bits & largeSet.get(vid) & ctx.attr._2).foreach { ii =>
+            counter.update(ii, counter.get(ii) + 1)
+          }
+        }
+      }
+      if (counter.size > 0) {
+        ctx.sendToSrc(counter)
+        ctx.sendToDst(counter)
+      }
+    }
+    val mergeFunc2 = (a:Int2IntOpenHashMap, b:Int2IntOpenHashMap) => {
+      val itr = a.iterator
+      //for some reason if you modify b directly, the whole thing doens't work
+      val ret = b.clone
+
+      while(itr.hasNext){
+        val (index, count) = itr.next()
+        ret.update(index, (count + b.getOrDefault(index, 0)))
+      }
+      ret
+    }
+    val counters: VertexRDD[Int2IntOpenHashMap] = setGraph.aggregateMessages(edgeFunc, mergeFunc2)
+    val degrees: VertexRDD[Int2IntOpenHashMap] = graphs.aggregateMessages[Int2IntOpenHashMap](ctx => {
+      ctx.attr._2.foreach { ii =>
+        ctx.sendToSrc{ new Int2IntOpenHashMap(Array(ii),Array(1))}
+        ctx.sendToDst{ new Int2IntOpenHashMap(Array(ii),Array(1))}
+      }},
+      mergeFunc2, TripletFields.None)
+
+    //merge the values with attributes
+    //TODO: make this work without collect
+    val zipped = ProgramContext.sc.broadcast(collectedIntervals.zipWithIndex)
+    val newVerts: RDD[(VertexId, (Interval, (VD, Double)))] = allVertices.leftOuterJoin(counters).leftOuterJoin(degrees).flatMap{ 
+      case (vid, ((vdata, Some(count)), Some(deg))) =>
+        zipped.value.filter(ii => ii._1.intersects(vdata._1)).map{ii => 
+          if (count.getOrDefault(ii._2,0) > 0)
+            (vid, (ii._1, (vdata._2, count.getOrDefault(ii._2, 0)/2 / (deg.getOrDefault(ii._2, 0) * (deg.getOrDefault(ii._2, 0)-1.0)))))
+          else (vid, (ii._1, (vdata._2, 0.0)))
+        }
+      case (vid, ((vdata, _), _)) => Some((vid, (vdata._1, (vdata._2, 0.0))))
+    }
+
+    if (ProgramContext.eagerCoalesce)
+      fromRDDs(newVerts, allEdges, (defaultValue, 0.0), storageLevel, false)
+    else
+      new OneGraphColumn[(VD, Double), ED](newVerts, allEdges, graphs, (defaultValue, 0.0), storageLevel, false)
   }
 
   override def aggregateMessages[A: ClassTag](sendMsg: TEdgeTriplet[VD, ED] => Iterator[(VertexId, A)],

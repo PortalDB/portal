@@ -133,6 +133,16 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
   def triangleCount(): TGraphNoSchema[(VD,Int), ED]
 
   /**
+    * Compute the clustering coefficient of each vertex,
+    * which is equal to the number of triangles that pass through it
+    * divided by k*(k-1), where k is the vertex degree
+    * 
+    * @return Graph with vertices where each vertex attribute has
+    * added a clustering coefficient between 0.0 and 1.0.
+    */
+  def clusteringCoefficient(): TGraphNoSchema[(VD,Double), ED]
+
+  /**
    * Aggregates values from the neighboring edges and vertices of each vertex, for each representative graph. 
    * Unlike in GraphX, this returns a new graph, not an RDD. The user-supplied
    * `sendMsg` function is invoked on each edge of the graph, generating 0 or more messages to be

@@ -556,6 +556,26 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
     new SnapshotGraphParallel(intervals, newGraphs, (defaultValue, defV), storageLevel, coalesced)
   }
 
+  override def clusteringCoefficient: SnapshotGraphParallel[(VD,Double), ED] = {
+    val safeCCoeff = (grp: Graph[VD, (EdgeId,ED)]) => {
+      if (grp.vertices.isEmpty) {
+        Graph[Double,ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
+      } else {
+        val degs = grp.degrees
+        grp.triangleCount().outerJoinVertices(degs)((vid, attr, ds) => 
+          if (attr > 0) attr/(ds.getOrElse(0)*(ds.getOrElse(0)-1.0))
+          else 0.0
+        )
+      }
+    }
+    val tcs = graphs.map(safeCCoeff)
+    val defV = 0.0
+    val newGraphs = graphs.zip(tcs).map{ case (a,b) =>
+      a.outerJoinVertices(b.vertices)((vid, attr, tc) => (attr, tc.getOrElse(defV)))
+    }
+    new SnapshotGraphParallel(intervals, newGraphs, (defaultValue, defV), storageLevel, coalesced)
+  }
+
   override def aggregateMessages[A: ClassTag](sendMsg: TEdgeTriplet[VD,ED] => Iterator[(VertexId, A)],
     mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): SnapshotGraphParallel[(VD, A), ED] = {
 

@@ -306,4 +306,8 @@ class HybridGraphSuite extends RepresentationsTestSuite {
     testTriangleCount(empty)
   }
 
+  test("clusterring coefficient") {
+    testCCoeff(empty)
+  }
+
 }

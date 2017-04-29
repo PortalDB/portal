@@ -195,4 +195,7 @@ class OneGraphColumnSuite extends RepresentationsTestSuite {
     testTriangleCount(empty)
   }
 
+  test("clusterring coefficient") {
+    testCCoeff(empty)
+  }
 }
