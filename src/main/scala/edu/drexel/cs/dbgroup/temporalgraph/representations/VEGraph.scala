@@ -209,7 +209,6 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     fromRDDs(newVerts, newEdges, defaultValue, storageLevel, false)
   }
 
-
   override def createAttributeNodes( vAggFunc: (VD, VD) => VD)(vgroupby: (VertexId, VD) => VertexId ): VEGraph[VD, ED] = {
 
     val locali = ProgramContext.sc.broadcast(intervals.collect)
@@ -404,6 +403,14 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     throw new UnsupportedOperationException("analytics not supported")
   }
 
+  override def triangleCount(): VEGraph[(VD, Int), ED] = {
+    throw new UnsupportedOperationException("analytics not supported")
+  }
+
+  override def clusteringCoefficient: VEGraph[(VD,Double), ED] = {
+    throw new UnsupportedOperationException("ccoeff")
+  }
+
   override def aggregateMessages[A: ClassTag](sendMsg: TEdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
     mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): VEGraph[(VD, A), ED] = {
     val trips: RDD[TEdgeTriplet[VD,ED]] = if (tripletFields == TripletFields.None || tripletFields == TripletFields.EdgeOnly) {
@@ -425,7 +432,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     //now join with the old values
     var newverts: RDD[(VertexId, (Interval, (VD, A)))] = allVertices.leftOuterJoin(messages).flatMap { 
       case (vid, (vdata, Some(msg))) => {
-        val contained = msg.filter(ii => ii._1.intersects(vdata._1))
+        val contained = TempGraphOps.coalesceIntervals(msg).filter(ii => ii._1.intersects(vdata._1))
         (contained ::: vdata._1.differenceList(contained.map(_._1)).map(ii => (ii, defVal))).map(ii => (vid, (ii._1, (vdata._2, ii._2))))
       }
       case (vid, (vdata, None)) => Some((vid, (vdata._1, (vdata._2, defVal))))

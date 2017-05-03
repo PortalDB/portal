@@ -125,6 +125,24 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
   def shortestPaths(uni: Boolean, landmarks: Seq[VertexId]): TGraphNoSchema[(VD,Map[VertexId, Int]), ED]
 
   /**
+    * Compute the number of triangles passing through each vertex.
+    * 
+    * @return Graph with vertices where each vertex attribute has
+    * added a number of triangles.
+    */
+  def triangleCount(): TGraphNoSchema[(VD,Int), ED]
+
+  /**
+    * Compute the clustering coefficient of each vertex,
+    * which is equal to the number of triangles that pass through it
+    * divided by k*(k-1), where k is the vertex degree
+    * 
+    * @return Graph with vertices where each vertex attribute has
+    * added a clustering coefficient between 0.0 and 1.0.
+    */
+  def clusteringCoefficient(): TGraphNoSchema[(VD,Double), ED]
+
+  /**
    * Aggregates values from the neighboring edges and vertices of each vertex, for each representative graph. 
    * Unlike in GraphX, this returns a new graph, not an RDD. The user-supplied
    * `sendMsg` function is invoked on each edge of the graph, generating 0 or more messages to be
@@ -210,8 +228,6 @@ object TGraphNoSchema {
    * Warning: This is a very expensive operation, use only when needed.
    */
   def constrainEdges[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[TEdge[E]]): RDD[TEdge[E]] = {
-    if (verts.isEmpty) return ProgramContext.sc.emptyRDD[TEdge[E]]
-
     //if we don't have many vertices, we can do a better job with broadcasts
     //FIXME: what should this number be? it should depend on memory size
     //TODO: pull this logic into query optimization or use DataFrames so that sql can do it automatically

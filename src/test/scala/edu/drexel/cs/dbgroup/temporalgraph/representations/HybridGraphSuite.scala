@@ -274,11 +274,11 @@ class HybridGraphSuite extends RepresentationsTestSuite {
     testCCs(empty)
   }
 
-  ignore("undirected shortestPath") {
+  test("undirected shortestPath") {
     testShortestPathsUndirected(empty)
   }
 
-  ignore("directed shortestPath") {
+  test("directed shortestPath") {
     testShortestPathsDirected(empty)
   }
 
@@ -300,6 +300,14 @@ class HybridGraphSuite extends RepresentationsTestSuite {
 
   test("aggregateMessages - vertex predicate") {
     testAggregateMessages3(empty)
+  }
+
+  test("triangle count") {
+    testTriangleCount(empty)
+  }
+
+  test("clusterring coefficient") {
+    testCCoeff(empty)
   }
 
 }
