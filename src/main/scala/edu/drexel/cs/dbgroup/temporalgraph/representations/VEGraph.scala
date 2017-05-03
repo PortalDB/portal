@@ -146,7 +146,6 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     else
     {
       val newVerts: RDD[(VertexId, (Interval, VD))] = allVertices
-      //FIXME? If allEdges are not coalesced, this is perhaps incorrect
       val newEdges = triplets.filter(e => pred(e))
       fromRDDs(newVerts, newEdges.map { e => TEdge.apply(e.eId, e.srcId, e.dstId, e.interval, e.attr) }, defaultValue, storageLevel, coalesced)
     }
