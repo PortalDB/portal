@@ -125,7 +125,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     fromRDDs(newVerts, newEdges, defaultValue, storageLevel, coalesced)
   }
 
-  override def esubgraph(pred: (TEdgeTriplet[VD,ED]) => Boolean,tripletFields: TripletFields = TripletFields.All ): VEGraph[VD,ED] = {
+  def esubgraphHelper(pred: (TEdgeTriplet[VD,ED]) => Boolean,tripletFields: TripletFields = TripletFields.All ): VEGraph[VD,ED] = {
     //TODO: tripletfields
     if (tripletFields == TripletFields.None || tripletFields == TripletFields.EdgeOnly) {
       val newVerts: RDD[(VertexId, (Interval, VD))] = allVertices
@@ -145,12 +145,13 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     else
     {
       val newVerts: RDD[(VertexId, (Interval, VD))] = allVertices
-      //FIXME? If allEdges are not coalesced, this is perhaps incorrect
       val newEdges = triplets.filter(e => pred(e))
       fromRDDs(newVerts, newEdges.map { e => TEdge.apply(e.eId, e.srcId, e.dstId, e.interval, e.attr) }, defaultValue, storageLevel, coalesced)
-
     }
+  }
 
+  override def esubgraph(pred: (TEdgeTriplet[VD,ED]) => Boolean,tripletFields: TripletFields = TripletFields.All ): VEGraph[VD,ED] = {
+    coalesce().esubgraphHelper(pred, tripletFields)
   }
 
   override  protected  def aggregateByChange(c: ChangeSpec,  vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): VEGraph[VD, ED] = {

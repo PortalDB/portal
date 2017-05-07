@@ -360,4 +360,54 @@ class VEGraphSuite  extends RepresentationsTestSuite {
     testNodeCreateStructural(empty)
   }
 
+  test("eSubGraph uncoalesced test"){
+    //Regular cases
+    val users: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2017-01-01")), "John")),
+      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), "Mike")),
+      (3L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2011-01-01")), "Ron")),
+      (3L, (Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2014-01-01")), "Ron")),
+      (4L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2017-01-01")), "Julia")),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2015-01-01")), "Vera")),
+      (6L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), "Halima")),
+      (7L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2011-01-01")), "Sanjana")),
+      (8L, (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), "Lovro")),
+      (9L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), "Ke"))
+    ))
+    val edges: RDD[TEdge[Int]] = {
+      ProgramContext.sc.parallelize(Array(
+        TEdge[Int](1L, 1L, 4L, Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), 42),
+        TEdge[Int](2L, 3L, 5L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), 42),
+        TEdge[Int](2L, 3L, 5L, Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2013-01-01")), 42),
+        TEdge[Int](3L, 1L, 2L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2016-01-01")), 22),
+        TEdge[Int](4L, 5L, 7L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2011-01-01")), 22),
+        TEdge[Int](5L, 4L, 8L, Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), 42),
+        TEdge[Int](6L, 4L, 9L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), 22)
+      ))
+    }
+
+    val g = VEGraph.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
+
+    val expectedUsers: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
+      (1L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2017-01-01")), "John")),
+      (2L, (Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2018-01-01")), "Mike")),
+      (3L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2014-01-01")), "Ron")),
+      (4L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2017-01-01")), "Julia")),
+      (5L, (Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2015-01-01")), "Vera")),
+      (6L, (Interval(LocalDate.parse("2012-01-01"), LocalDate.parse("2015-01-01")), "Halima")),
+      (7L, (Interval(LocalDate.parse("2009-01-01"), LocalDate.parse("2011-01-01")), "Sanjana")),
+      (8L, (Interval(LocalDate.parse("2016-01-01"), LocalDate.parse("2017-01-01")), "Lovro")),
+      (9L, (Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2014-01-01")), "Ke"))
+    ))
+    val expectedEdges: RDD[TEdge[Int]] = ProgramContext.sc.parallelize(Array(
+      TEdge[Int](2L, 3L, 5L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2013-01-01")), 42)
+    ))
+    val expectedg = VEGraph.fromRDDs(expectedUsers, expectedEdges, "Default", StorageLevel.MEMORY_ONLY_SER)
+    val actualg = g.esubgraph(pred = tedgeTriplet => tedgeTriplet.interval.intersects(Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01"))), tripletFields = TripletFields.All)
+
+    assert(expectedg.vertices.collect() === actualg.vertices.collect())
+    assert(expectedg.edges.collect() === actualg.edges.collect())
+    assert(expectedg.getTemporalSequence.collect === actualg.getTemporalSequence.collect)
+  }
+
 }
