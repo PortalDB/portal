@@ -103,7 +103,7 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
   )
 
   lazy val graph = ("(" ~> select <~ ")" ^^ { case s => Nested(s) }
-    | stringLit ~ numericLiteral.? ^^ { case s ~ c => DataSet(s, c.getOrElse("0").toInt) }
+    | stringLit ~ numericLiteral.? ^^ { case s ~ c => DataSet(s, c.getOrElse("1").toInt) }
   )
 
   lazy val literal: Parser[String] =

@@ -33,6 +33,7 @@ object AssignEdgeIds {
     var conf = new SparkConf().setAppName("Dataset Converter").setSparkHome(System.getenv("SPARK_HOME"))
     conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
     conf.set("spark.network.timeout", "240")   
+    conf.set("spark.hadoop.dfs.replication", "1")
 
     //directory where we assume nodes.parquet and edges.parquet live
     var source: String = args(0)
@@ -43,7 +44,7 @@ object AssignEdgeIds {
     val sqlContext = ProgramContext.getSession
     //import sqlContext.implicits._
     sqlContext.conf.set("spark.sql.files.maxPartitionBytes", "16777216")
-
+    sqlContext.conf.set("spark.sql.shuffle.partitions", "1024")
     convert(source, dest)
 
     sc.stop

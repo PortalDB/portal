@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.ints.{Int2DoubleOpenHashMap, Int2ObjectOpenHashMap,
 import it.unimi.dsi.fastutil.longs._
 
 import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import scala.collection.parallel.ParSeq
 import scala.collection.immutable.BitSet
 import scala.collection.mutable.HashMap
@@ -1234,7 +1235,14 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
 
     //now extract values
     val zipped = ProgramContext.sc.broadcast(collectedIntervals.zipWithIndex)
-    val vattrs= allgs.reduce(_ union _).reduceByKey((a,b) => (a ++ b).asInstanceOf[Int2IntOpenHashMap])
+    val vattrs= allgs.reduce(_ union _).reduceByKey((a,b) => {
+       val itr = a.iterator
+       while (itr.hasNext) {
+         val (index,st) = itr.next()
+         b.update(index,st)
+       }
+       b
+    })
     val degsrdd:ParSeq[RDD[(VertexId, HashMap[TimeIndex,Int])]] = graphs.map(g => deg(g))
     val degs = degsrdd.reduce(_ union _).reduceByKey((a,b) => (a ++ b))
     //now need to join with the previous value

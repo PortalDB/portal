@@ -75,7 +75,7 @@ object GStar {
   //computes average vertex degree for each representative graph in the data range
   def runAverageVertexDegree(data: String, range: Interval, coal: Boolean): Unit = {
     //load data
-    val g = GraphLoader.buildHG(data, -1, -1, range)
+    val g = GraphLoader.buildVE(data, -1, -1, range)
     //compute degree per vertex
     val degs = g.aggregateMessages[Int](sendMsg = (et => Iterator((et.dstId,1),(et.srcId,1))), (a,b) => a+b, 0, TripletFields.None)
     //compute one vertex per rg with sum of degrees and count of vertices
@@ -136,7 +136,7 @@ object GStar {
   //but uses sparksql for aggregation
   def runAverageVertexDegreeSQL(data: String, range: Interval): Unit = {
     //load data
-    val g = GraphLoader.buildHG(data, -1, -1, range)
+    val g = GraphLoader.buildVE(data, -1, -1, range)
     //compute degree per vertex
     val degs = g.aggregateMessages[Int](sendMsg = (et => Iterator((et.dstId,1),(et.srcId,1))), (a,b) => a+b, 0, TripletFields.None)
     val df = makeDataFrameInt(degs.vmap((vid, intv, attr) => attr._2, 0).allVertices)

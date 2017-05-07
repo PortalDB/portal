@@ -49,7 +49,7 @@ package object temporalgraph {
       if (session == null) session = SparkSession.builder().getOrCreate()
       session
     }
-    lazy val eagerCoalesce: Boolean = if (sc.getConf.get("portal.coalesce", "lazy") == "eager") true else false
+    lazy val eagerCoalesce: Boolean = if (System.getProperty("portal.coalesce", "lazy") == "eager") true else false
   }
 
   object PartitionStrategyType extends Enumeration {
