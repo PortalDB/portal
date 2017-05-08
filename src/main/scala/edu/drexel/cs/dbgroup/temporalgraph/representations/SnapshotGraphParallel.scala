@@ -111,7 +111,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
   /** Algebraic operations */
 
   override def slice(bound: Interval): SnapshotGraphParallel[VD, ED] = {
-    if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
+    if (bound.contains(span)) return this
     if (!span.intersects(bound)) {
       return SnapshotGraphParallel.emptyGraph[VD,ED](defaultValue)
     }

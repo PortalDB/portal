@@ -40,7 +40,7 @@ class OneGraphColumn[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval
 
   override def slice(bound: Interval): OneGraphColumn[VD, ED] = {
     if (graphs == null) return super.slice(bound).partitionBy(partitioning).asInstanceOf[OneGraphColumn[VD,ED]]
-    if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
+    if (bound.contains(span)) return this
     if (span.intersects(bound)) {
       if (graphs == null) computeGraph()
       val startBound = maxDate(span.start, bound.start)

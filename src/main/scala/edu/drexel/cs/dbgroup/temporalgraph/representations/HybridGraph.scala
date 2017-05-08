@@ -55,8 +55,8 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
   
   override def slice(bound: Interval): HybridGraph[VD, ED] = {
     if (graphs.size < 1) return super.slice(bound).partitionBy(partitioning).asInstanceOf[HybridGraph[VD,ED]]
-    if (span.start.isEqual(bound.start) && span.end.isEqual(bound.end)) return this
-    
+    if (bound.contains(span)) return this
+ 
     if (span.intersects(bound)) {
       if (graphs.size < 1) computeGraphs()
 
