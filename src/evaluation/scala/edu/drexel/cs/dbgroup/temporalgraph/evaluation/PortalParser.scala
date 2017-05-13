@@ -15,7 +15,7 @@ import edu.drexel.cs.dbgroup.temporalgraph.util.{LinearTrendEstimate, GraphLoade
 import edu.drexel.cs.dbgroup.temporalgraph.representations._
 
 object PortalParser extends StandardTokenParsers with PackratParsers {
-  lexical.reserved += ("select", "from", "union", "intersection", "min", "max", "sum", "any", "all", "exists", "directed", "undirected", "vertices", "edges", "group", "by", "vgroup", "with", "return", "compute", "pagerank", "degree", "components", "count", "id", "attr", "trend", "list", "ave", "year", "month", "day", "changes", "start", "end", "where", "and", "length", "value", "spaths", "months", "days", "years", "project", "first", "second", "OG", "HG", "VE", "RG", "E2D", "CRVC",
+  lexical.reserved += ("select", "from", "union", "intersection", "differ", "min", "max", "sum", "any", "all", "exists", "directed", "undirected", "vertices", "edges", "group", "by", "vgroup", "with", "return", "compute", "pagerank", "degree", "components", "count", "id", "attr", "trend", "list", "ave", "year", "month", "day", "changes", "start", "end", "where", "and", "length", "value", "spaths", "months", "days", "years", "project", "first", "second", "OG", "HG", "VE", "RG", "E2D", "CRVC",
     //these are for debugging and testing
     "materialize")
   lexical.delimiters ++= List("-", "=", ".", "<", ">", "(", ")", "+", ",")
@@ -43,6 +43,7 @@ object PortalParser extends StandardTokenParsers with PackratParsers {
 
   lazy val expr: PackratParser[Expression] = ( select ~ "union" ~ "with" ~ function ~ function ~ select ^^ { case g1 ~ _ ~ _ ~ func1 ~ func2 ~ g2 => Union(g1, g2, func1, func2)}
     | select ~ "intersection" ~ "with" ~ function ~ function ~ select ^^ { case g1 ~ _ ~ _ ~ func1 ~ func2 ~ g2 => Intersect(g1, g2, func1, func2)}
+    | select ~ "differ" ~ select ^^ { case g1 ~ _ ~ g2 => Difference(g1, g2)}
     | select ^^ { case sel => PlainSelect(sel)}
   )
 
@@ -255,6 +256,10 @@ object Interpreter {
               case an: AnyFunc => du
               case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the union operation")
             }
+            case bl: StructureOnlyAttr => vfunc match {
+              case an: AnyFunc => bl
+              case _ => throw new IllegalArgumentException("only any supported for structureonlyattr type")
+            }
             case null => null
             case _ => throw new IllegalArgumentException("unsupported data type " + s1.getClass + " in union")
           }
@@ -281,6 +286,10 @@ object Interpreter {
               case ma: MaxFunc => math.max(du, s2.asInstanceOf[Double])
               case an: AnyFunc => du
               case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the union operation")
+            }
+            case bl: StructureOnlyAttr => vfunc match {
+              case an: AnyFunc => bl
+              case _ => throw new IllegalArgumentException("only any supported for structureonlyattr type")
             }
             case null => null
             case _ => throw new IllegalArgumentException("unsupported data type " + s1.getClass + " in union")
@@ -321,6 +330,10 @@ object Interpreter {
               case an: AnyFunc => du
               case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the intersection operation")
             }
+            case bl: StructureOnlyAttr => vfunc match {
+              case an: AnyFunc => bl
+              case _ => throw new IllegalArgumentException("only any supported for structureonlyattr type")
+            }
             case null => null
             case _ => throw new IllegalArgumentException("unsupported data type " + s1.getClass + " in intersection")
           }
@@ -348,6 +361,10 @@ object Interpreter {
               case an: AnyFunc => du
               case _ => throw new IllegalArgumentException("only sum/min/max/any are supported for the intersection operation")
             }
+            case bl: StructureOnlyAttr => vfunc match {
+              case an: AnyFunc => bl
+              case _ => throw new IllegalArgumentException("only any supported for structureonlyattr type")
+            }
             case null => null
             case _ => throw new IllegalArgumentException("unsupported data type " + s1.getClass + " in intersection")
           }
@@ -356,6 +373,17 @@ object Interpreter {
         val countEnd = System.currentTimeMillis()
         val total = countEnd - countStart
         println(f"Intersection Runtime: $total%dms ($argNum%d)")
+        argNum += 1
+        res
+      }
+      case Difference(g1,g2) => {
+        val gr1 = parseSelect(g1)
+        val gr2 = parseSelect(g2)
+        val countStart = System.currentTimeMillis()
+        val res = gr1.difference(gr2)
+        val countEnd = System.currentTimeMillis()
+        val total = countEnd - countStart
+        println(f"Difference Runtime: $total%dms ($argNum%d)")
         argNum += 1
         res
       }
@@ -700,6 +728,7 @@ sealed abstract class Expression
 case class PlainSelect(sel: Select) extends Expression
 case class Union(graph1: Select, graph2: Select,vfunc: Function, efunc: Function) extends Expression
 case class Intersect(graph1: Select, graph2: Select, vfunc: Function, efunc: Function) extends Expression
+case class Difference(graph1: Select, graph2: Select) extends Expression
 
 sealed abstract class Entity
 case class Vertices() extends Entity

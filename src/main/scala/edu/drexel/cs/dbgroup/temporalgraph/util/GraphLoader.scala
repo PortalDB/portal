@@ -187,6 +187,14 @@ object GraphLoader {
       ec = -1
       //throw new IllegalArgumentException("requested column index " + eattrcol + " which does not exist in the data")
 
+    val deflt: Any = if (vattrcol == -1) false else users.schema.fields(vattr).dataType match {
+      case StringType => ""
+      case IntegerType => -1
+      case LongType => -1L
+      case DoubleType => -1.0
+      case _ => null
+    }
+
     //if there are more fields in the schema, add the select statement
     if (vattrcol == -1) {
       if (users.schema.fields.size > 3)
@@ -202,14 +210,6 @@ object GraphLoader {
     }
     else if (links.schema.fields.size > 6)
       links = links.select("eid", "vid1", "vid2", "estart", "eend", links.schema.fields(eattr).name)
-
-    val deflt: Any = if (vattrcol == -1) false else users.schema.fields(vattr).dataType match {
-      case StringType => ""
-      case IntegerType => -1
-      case LongType => -1L
-      case DoubleType => -1.0
-      case _ => null
-    }
 
     (users, links, deflt)
   }
