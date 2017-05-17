@@ -13,7 +13,7 @@
         <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
             <ul class="nav navbar-nav navbar-right">
                 <!-- toggle sidebar button -->
-                <li><a id="tg-sb-link" href="#"><i id="tg-sb-icon" class="fa fa-toggle-on"></i> Nav</a></li>
+                <!-- removed navbar <li><a id="tg-sb-link" href="#"><i id="tg-sb-icon" class="fa fa-toggle-on"></i> Nav</a></li> -->
                 <!-- entries without drop-downs appear here -->
                 {% for entry in site.data.topnav.topnav %}
                 {% for item in entry.items %}
@@ -46,12 +46,12 @@
                 </li>
                 {% endfor %}
                 {% endfor %}
-                {% if site.feedback_disable == null or site.feedback_disable == false %}
+                <!-- removed feedback {% if site.feedback_disable == null or site.feedback_disable == false %}
 			{% include feedback.html %}
-		{% endif %}
+		{% endif %} -->
                 <!--comment out this block if you want to hide search-->
+                <!-- removed search
                 <li>
-                    <!--start search-->
                     <div id="search-demo-container">
                         <input type="text" id="search-input" placeholder="{{site.data.strings.search_placeholder_text}}">
                         <ul id="results-container"></ul>
@@ -68,8 +68,9 @@
                             fuzzy: true,
                     })
                     </script>
-                    <!--end search-->
                 </li>
+                -->
+
             </ul>
         </div>
         </div>
