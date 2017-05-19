@@ -1,0 +1,170 @@
+\appendix 
+
+\section{Definition Equivalence}
+
+\begin{theorem}
+Let ${\cal TG}$ be the set of valid \tgs (per Def.~\ref{def:tg1}) and let
+${\cal TG^R}$ be the set of valid TGraph-Relations (per
+Def~\ref{def:tg2}).  There is a bijection between ${\cal TG}$ and ${\cal
+  TG^R}$.
+%\tg-Relational can represent every \tg.
+\label{tgr_tg}
+\end{theorem}
+
+\begin{proof}
+  We prove this theorem in two parts.  In the first part, we show
+  that, given ${\cal G} \in {\cal TG}$, we can construct a ${\cal G^R}
+  \in {\cal TG^R}$ in polynomial time.  In the second part, we show
+  that, give ${\cal G^R} \in {\cal TG^R}$, we can construct a ${\cal
+    G} \in {\cal TG}$ in polynomial time.
+\\
+Part 1:
+
+\begin{enumerate}[itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=0pt]
+\item Assume that $T$ is a set of all time instances in ${\cal G}$.
+  For each node $v \in V$ and property in $\Pi$, we retrieve the set
+  of property values and their periods of validity by applying
+  function $\lambda^T_v$ to each point in $\Omega^T$.  The input size is
+  $|V|$.  The output size is at most $|V|\times|T|\times|\Pi|$ if
+  every node exists at every time instant of $T$ and has every
+  property in $\Pi$.  Recollect that the time domain is of limited
+  precision and we use point semantics, so we can probe every point
+  once\eat{ rather than all possible intervals in $T$}.  The result is
+  a relation instance $\mathbf{b}$ with schema $(v, K, B~|~T)$, where
+  $K$ is the property name and $B$ is the property value.
+\item Nest $K$ and $B$ into a single nested attribute $a$.  The result
+  is a relation with the same schema as \tv and of size at most $|V|
+  \times |T|$.  Coalesce the result, which can be done in polynomial time~\cite{DBLP:conf/vldb/BohlenSS96}.
+\eat{\item Combine $\mathbf{b}$ and $\mathbf{c}$ into
+    consecutive nonoverlapping intervals.  This can be done using
+    union followed by temporal aggregation (Def.~\ref{def:aggt}) and
+    coalescing the final result.  The size of the input is
+    $|V|\times|T|$ for both $\mathbf{b}$ and $\mathbf{c}$.  The size
+    of the output of the union is $|V| \times |T|$, since the input is
+    uncoalesced.}
+\item For each edge $e \in E$ retrieve the set of intervals of
+  validity and property sets in the same fashion as in points 1 and 2
+  above, but using function $\lambda^T_e$.  The result is a relation
+  instance $\mathbf{d}$ with a schema $(e, a|T)$, where $a$ is the
+  property relation.  As in points 1-2, the input size is $|E|$ and
+  the output size is $|E| \times |T|$.
+\item For each edge $e \in E$ retrieve the source and destination
+  nodes using function $\rho$.  The result is a nontemporal relation
+  instance $\mathbf{f}$ with a schema $e, v_1, v_2$.  The input size
+  and the output size are the same: $|E|$.
+\item $\te = \mathbf{d} \Join^T_e \mathbf{f}$.  We join relation
+  instances $\mathbf{d}$ and $\mathbf{f}$ by key, and the size of the
+  result is $|\mathbf{d}|$, as there is a single tuple per edge in
+  $\mathbf{f}$ (edge source and destination points cannot change
+  through time).
+\end{enumerate}
+
+The above steps may be simplified if the set of validity periods of
+the functions $\xi^T$, $\lambda^T_v$, and $\lambda^T_e$ are directly
+available.
+\\
+Part 2:
+
+\begin{enumerate}[itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=0pt]
+\item The set of nodes $V$ is a result of nontemporal projection of
+  \tv onto key $v$: $V = \pi_v(\tv)$.  The input size has an upper
+  bound of $|V| \times c$, where $c$ is the maximum number of changes
+  of any $v \in V$.  The output size is $|V|$.  Note: this can be
+  expressed solely in \tra as a union of timeslices over temporal
+  projection onto $v$: $V = \forall p \in T \bigcup
+  \tau_p(\pi^T_v(\tv))$.
+\item The set of edges $E$ is a result of nontemporal projection of
+  \te onto key $e$: $E = \pi_e(\te)$.  The output size is $|E|$.
+\item The set of available properties $\Pi = \pi_k(\mu^T(\tv)) \cup
+  \pi_k(\mu^T(\te))$.  The input size is the total number of node
+  tuples, upper-bounded by $|V| \times c$.  Unnesting \tv has an upper
+  bound of size $|V| \times c \times |\Pi|$ if every node has every
+  property in $\Pi$. The same applies for \te.  The final nontemporal
+  projection leads to all the properties available, at most $|\Pi|$.
+\item Function $\rho(e_1)$ is computed by \eat{computing the result of
+}a key lookup on $e_1$ in \te, i.e.,
+  $\pi^T_{v_1,v_2}(\sigma^T_{e=e_1}(\te))$.  The size of the output is
+  either 0 or 1, since edge end points cannot change with time.
+\item Function $\xi^T$ is computed by \eat{computing the result of }a
+  selection query, followed by a slice on \tv for nodes (\te for edges
+  resp.): $\xi^T(v_1,t) = \tau_t(\sigma^T_{v=v_1,T=t}(\tv)), \xi(e_1,t)
+  = \tau_t(\sigma^T_{e=e_1,T=t}(\te))$.  The size of the output is
+  either 0 or 1.
+\item Function $\lambda^T_v$ is computed by a selection query with an
+  equality predicate on $k$ on \tv, followed by a slice:
+  $\lambda^T_v(v_1,l,t) =
+  \tau_t(\sigma^T_{K=l}(\mu^T(\sigma^T_{v=v_1,T=t}(\tv)))$.  The size
+  of the first selection is at most 1, since only one tuple may exist
+  in \tv for a node at any given time (per Def.~\ref{def:tg2},
+  requirement R1).  The output of unnesting is of size at most $|\Pi|$
+  if node $v_1$ has all the possible properties in $\Pi$.  Finally,
+  the output of the last selection is of size at most 1 if the node
+  $v_1$ has property $l$.
+\item Function $\lambda^T_e$ is computed by a selection query with a
+  temporal predicate and an equality predicate on $k$ on \te, followed
+  by a slice: $\lambda^T_e(e_1,l,t) =
+  \tau_t(\sigma^T_{K=l}(\mu^T(\sigma^T_{e=e_1,T=t}(\te))))$.  The same
+  argument applies as in point 6.
+\end{enumerate}
+\end{proof}
+
+\section{Proof of Theorem 4.2}
+
+\begin{proof}
+To prove this Theorem we consider each equivalence in turn, using
+either the property graph (Def.~\ref{def:tg1}) or the relational
+definition (Def.~\ref{def:tg2}) as convenient.
+
+\begin{itemize}[itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=0pt]
+
+\item {\bf vertex-map:}
+
+$\textsf{snap}_p(\vmap{f_v,\ttt}) = \textsf{snap}_p(\vmap{f_v,(\tv,\te)}) = \break\textsf{snap}_p(~(\{(v,a'|T) ~|~ (v,a|T) \in \tv \land a'=f_v(v,a|T)\}, \te)~) = (\{(v,a')~|~ p \in T \land (v,a|T) \in \tv \land a'=f_v(v,a|T)\}, \tau_p(\te))$
+
+$\textsf{map}_v(f_v,\textsf{snap}_p(\ttt)) = \textsf{map}_v(f_v,\textsf{snap}_p(~(\tv,\te)~) = \break\textsf{map}_v(f_v, (\tau_p(\tv),\tau_p(\te))) = \textsf{map}_v(f_v, (\{(v,a)~|~ (v,a|T) \in \tv \land p \in T\}, \tau_p(\te))) = (\{(v,a')~|~ (v,a|T) \in \tv \land p \in T \land a'=f_v(v,a)\}, \tau_p(\te))$
+
+To show that these two are equivalent, we exploit the commutativity of conjunction to rewrite the $p \in T \land (v,a|T) \in \tv$ to $(v,a|T) \in \tv \land p \in T$.  Since the theorem restricts $f_v$ from using time, $f_v(v,a|T) = f_v(v,a)$.  The equivalence follows.
+
+\item {\bf edge-map:}
+
+$\textsf{snap}_p(\emap{f_e,\ttt}) = \textsf{snap}_p(\emap{f_e,(\tv,\te)}) = \break\textsf{snap}_p(~(\tv, \{(e,v1,v2,a'|T) ~|~ (e,v1,v2,,a|T) \in \te \land a'=f_e(e,v1,v2,,a|T)\})~) = (\tau_p(\tv), \{(e,v1,v2,a')~|~ p \in T \land (e,v1,v2,a|T) \in \te \land a'=f_e(e,v1,v2,a|T)\}, \tau_p(\te))$
+
+$\textsf{map}_e(f_e,\textsf{snap}_p(\ttt)) = \textsf{map}_e(f_e, \textsf{snap}_p(~(\tv,\te)~)) = \break\textsf{map}_e(f_e, (\tau_p(\tv),\tau_p(\te))) = \break\textsf{map}_e(f_e, (\tau_p(\tv), \{(e,v1,v2,a)~|~ (e,v1,v2,a|T) \in \te \land p \in T\})) = (\tau_p(\tv), \{(e,v1,v2,a')~|~ (e,v1,v2,a|T) \in \te \land p \in T \land a'=f_e(e,v1,v2,a)\})$
+
+Just as with \insql{vertex-map}, we exploit the commutativity of conjunction to rewrite the $p \in T \land (e,v1,v2,a|T) \in \te$ to $(e,v1,v2,a|T) \in \te \land p \in T$.  Since the theorem restricts $f_e$ from using time, $f_e(e,v1,v2,a|T) = f_e(e,v1,v2,a)$.  The equivalence follows.
+
+\item {\bf subgraph:}
+
+$\textsf{snap}_p(\sub{P}{\ttt}) = \textsf{snap}_p(~(q_v(P,\ttt), q_e(P,\ttt), \Pi,\rho,\xi^T,\lambda^T_v,\lambda^T_e))$\\
+$~~\Downarrow$ apply definition of get-snapshot\\
+$(\{ v~|~ v \in q_v(P,\ttt) \land \exists t (\xi^T(v,t) \land p \in t)\}, \{ e~|~ e \in q_e(P,\ttt) \land \exists t (\xi^T(e,t) \land p \in t)\}, \Pi, \rho, \lambda^T_v([p,p+1)), \lambda^T_e([p,p+1)))$
+
+$\textsf{subgraph}(P,\textsf{snap}_p(\ttt)) = \textsf{subgraph}(P, (\{v~|~ v \in V \land \exists t (\xi^T(v,t) \land p \in t)\}, \{e~|~ e \in E \land \exists t (\xi^T(e,t) \land p \in t)\}, \Pi, \rho, \lambda^T_v([p,p+1)), \lambda^T_e([p,p+1))))$\\
+$~~\Downarrow$ apply definition of subgraph\\
+$(\{v~|~ v \in V \land \exists t (\xi^T(v,t) \land p \in t) \land v \in q_v(P, (\{v~|~ v \in V \land \exists t (\xi^T(v,t) \land p \in t)\},\{e~|~ e \in E \land \exists t (\xi^T(e,t) \land p \in t)\}, \Pi, \rho, \lambda^T_v([p,p+1)), \lambda^T_e([p,p+1))))\},$\\$ \{e~|~ e \in E \land \exists t (\xi^T(e,t) \land p \in t) \land e \in q_e(P, (\{v~|~ v \in V \land \exists t (\xi^T(v,t) \land p \in t)\}, \{e~|~ e \in E \land \exists t (\xi^T(e,t) \land p \in t)\}, \Pi, \rho, \lambda^T_v([p,p+1)), \lambda^T_e([p,p+1))))\},$\\$ \Pi, \rho, \lambda^T_v([p,p+1)), \lambda^T_e([p,p+1)))$\\
+$~~\Downarrow$ substitute graph snapshot with $G$\\
+$(\{v~|~ v \in V \land \exists t (\xi^T(v,t) \land p \in t) \land v \in q_v(P, G)\},\{e~|~ e \in E \land \exists t (\xi^T(e,t) \land p \in t) \land e \in q_e(P,G)\}, \Pi, \rho, \lambda^T_v([p,p+1)), \lambda^T_e([p,p+1)))$
+
+The difference between the two expansions is only in the application
+of the $q_v$ and $q_e$ to a \tg or a snapshot graph $G$.  Per
+Def.~\ref{def:tngp}, when the temporal navigational pattern $P$ is
+restricted to have no temporal predicates, it is equivalent to a
+regular navigational graph pattern over each snapshot.  Thus the
+snapshot reducibility property is observed by design.
+
+\item {\bf aggregation:}
+
+The proof for the aggregation operation is essentially the same as for
+the subgraph, since the aggregation operator uses a TNGP $P^T$, which
+reduces to a nontemporal pattern $P$ when no temporal predicates are
+present.
+
+\item {\bf node creation:}
+
+The proof for the node creation operation is essentially the same as for
+the subgraph, since the node creation operator uses a TNGP $P^T$, which
+reduces to a nontemporal pattern $P$ when no temporal predicates are
+present.
+
+\end{itemize}
+\end{proof}

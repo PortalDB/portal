@@ -1,0 +1,101 @@
+\section{Related Work}
+\label{sec:related}
+
+{\bf Conceptual models.}  While the temporal models in the relational
+literature are very mature, the same cannot be said for the evolving
+graphs literature.  Evolving graph models differ in what time model
+they adopt (point or interval), what top-level entities they model
+(graphs or sets of nodes and edges), whether they represent topology
+only or attributes or weights as well, and what types of evolution are
+allowed.  All evolving graph models require node identity, and thus
+edge identity as well, to persist across time.
+
+The first mention of evolving graphs that we are aware of is by Harary
+and Gupta~\cite{Harary1997} who informally proposed to model the
+evolution as a sequence of static graphs\eat{, as depicted in
+  Figure~\ref{fig:snapshots}}.  This model has been predominant in the
+research literature
+since~\cite{Ferreira2004,Kan2009,Khurana2013,Lerman2010,Ren2011,Semertzidis2015},
+with various restrictions on the kinds of changes that can take place
+in the graph evolution.  For example, Khurana and Deshpande use this
+model but a node, once removed, cannot reappear~\cite{Khurana2013}.
+In~\cite{Labouseur2015,Ren2011} there is no notion of time at all,
+only a sequence of graphs.  \eat{In~\cite{Borgwardt2006}
+  and~\cite{Kan2009} the time series of graphs represent topology
+  only, with no attributes, and only edges can vary with time, while
+  the nodes remain unchanged.  Ferreira's model~\cite{Ferreira2004}
+  allows both node and edge evolution, but again, only restricted to
+  topology.}
+
+The advantages of the snapshot sequence model are that it is simple
+and if snapshots are obtained by periodic sampling, which is a very
+common approach, it accurately represents the state at that point
+without making statements about other unknowable times.  For example,
+the WWW is so large that it is impossible to create a fully accurate
+snapshot that represents any moment in time.
+
+\eat{The snapshot sequence approach has several limitations.  The state of
+the graph can be undefined at some time $t$ unless a snapshot is
+associated with each possible value in the discrete range $[t_{start},
+  now)$.  So either there are many consecutive equivalent snapshots or
+  the state of the graph is undefined.  It also forces a specific time
+  granularity since the time is discrete, whereas open-closed time
+  intervals can be broken down into any desired level of granularity.}
+  \eat{Second, it is not compact: every change to an entity (node or
+    edge) requires a new snapshot.  For large graphs, consecutive
+    snapshots have degree of similarity approaching 1 (on the scale of
+    0 of no similarity and 1 full similarity).  The compactness of a
+    logical model is not a critical issue since many different
+    physical representations can support it efficiently.  }
+
+The biggest problem with the snapshot sequence as the underlying
+conceptual model is that it restricts the range of operations that can
+be naturally expressed.  For example, it is impossible to select a
+subgraph over a snapshot sequence using a temporal predicate, as we do
+in Definition~\ref{def:subv}, because each snapshot is nontemporal and
+independent of the others.  Stated formally, the snapshot
+  sequence model lacks the extended snapshot reducibility property.
+
+A sequence of snapshots can be computed from our model with a slice
+over all time points.  We emphasize that the choice of the logical
+model impacts the expressiveness of the algebra and advocate our model
+over the snapshot sequence from that perspective.  Our model supports
+fully evolved graphs (both topological and attribute evolution for
+both nodes and edges), uses time intervals for time granularity, and
+provides both graph-centric and entity-centric views.
+
+{\bf Evolving graph queries.}  Evolving graph analysis and mining have
+been receiving increased attention over the past few years.  Several
+researchers have proposed individual queries, or classes of queries,
+for evolving graphs, but without a unifying syntax or general
+framework.
+
+The proposed operators can also be divided into temporal, i.e., those
+that return a temporal result, and nontemporal.
+
+Temporal operators include retrieval of version data for a particular
+node and edge~\cite{George2006}, of
+journeys~\cite{Casteigts2011,George2009}, subgraph by time or
+attributes~\cite{Huo2014,Khurana2016}, snapshot
+analytics~\cite{Khurana2016,Labouseur2015,Miao2015}, and computation
+of time-varying versions of whole-graph analytics like maximal
+time-connected component~\cite{Ferreira2004} and dynamic graph
+centrality~\cite{Lerman2010}.
+
+Nontemporal operators are focused on local and global point queries.
+George and Shekhar support retrieval of specific nodes, edges, or
+routes at a specific time point~\cite{George2006}.  The same
+functionality is also supported in the Historical Graph
+Store~\cite{Khurana2016} and in Koloniari et al.~\cite{Koloniari2012}.
+Georte et al. support anomaly detection through a subgraph query to
+locate specific nodes that have anomalous readings (compared to the
+domain model) at any time point~\cite{George2009}.  Khurana and
+Deshpande provide a snapshot retrieval operation for a specific time
+point~\cite{Khurana2013}, as does the G* system~\cite{Labouseur2015}.
+The main focus in all these approaches is the physical layout of the
+data and the access methods for fastest retrieval.  
+
+Note that any closed algebra on evolving graphs cannot support these
+operators directly because the result is inherently nontemporal.
+However, the spirit of the queries can be supported through subgraphs
+with a temporal predicate or with \insql{trim}.

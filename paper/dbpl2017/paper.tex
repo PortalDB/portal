@@ -1,0 +1,60 @@
+%\documentclass[sigconf]{acmart}
+\documentclass{style/sig-alternate}
+
+\input{package}
+\input{preamble}
+
+\clubpenalty=10000 
+\widowpenalty = 10000
+\tolerance=10000
+
+\begin{document}
+
+\title{Temporal Graph Algebra}
+%\title{Querying Evolving Graphs with SystemXYZ}
+
+\numberofauthors{2}
+\author{
+  \alignauthor Vera Zaychik Moffitt\\
+  \affaddr{Drexel University}\\
+  \email{zaychik@drexel.edu}  \and
+%
+  \alignauthor Julia Stoyanovich\\
+  \affaddr{Drexel University}\\
+  \email{stoyanovich@drexel.edu}  \\
+ %
+}
+%\author{Vera Zaychik Moffitt}
+%\affiliation{Drexel University}
+%\email{zaychik@drexel.edu}
+%\author{Julia Stoyanovich}
+%\affiliation{Drexel University}
+%\email{stoyanovich@drexel.edu}
+
+\maketitle
+
+\thispagestyle{empty}
+
+\input{abstract}
+\input{intro}
+\input{model}
+\input{algebra}
+\input{formal}
+\input{usecases}
+%\input{analysis}
+%\input{system}
+%\input{experiments}
+\input{related}
+\input{conc}
+
+\newpage
+
+%\bibliographystyle{ACM-Reference-Format}
+\bibliographystyle{abbrv}
+\bibliography{temporal}
+
+\input{appendix}
+
+\end{document}
+
+
