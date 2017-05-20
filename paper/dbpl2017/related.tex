@@ -30,39 +30,18 @@ only a sequence of graphs.  \eat{In~\cite{Borgwardt2006}
 The advantages of the snapshot sequence model are that it is simple
 and if snapshots are obtained by periodic sampling, which is a very
 common approach, it accurately represents the state at that point
-without making statements about other unknowable times.  For example,
-the WWW is so large that it is impossible to create a fully accurate
-snapshot that represents any moment in time.
+without making statements about other unknowable times.  The biggest
+problem with the snapshot sequence as the underlying conceptual model
+is that it restricts the range of operations that can be naturally
+expressed.  For example, it is impossible to select a subgraph over a
+snapshot sequence using a temporal predicate, because each snapshot is
+nontemporal and independent of the others.  Stated formally, the
+snapshot sequence model lacks the extended snapshot reducibility
+property.
 
-\eat{The snapshot sequence approach has several limitations.  The state of
-the graph can be undefined at some time $t$ unless a snapshot is
-associated with each possible value in the discrete range $[t_{start},
-  now)$.  So either there are many consecutive equivalent snapshots or
-  the state of the graph is undefined.  It also forces a specific time
-  granularity since the time is discrete, whereas open-closed time
-  intervals can be broken down into any desired level of granularity.}
-  \eat{Second, it is not compact: every change to an entity (node or
-    edge) requires a new snapshot.  For large graphs, consecutive
-    snapshots have degree of similarity approaching 1 (on the scale of
-    0 of no similarity and 1 full similarity).  The compactness of a
-    logical model is not a critical issue since many different
-    physical representations can support it efficiently.  }
-
-The biggest problem with the snapshot sequence as the underlying
-conceptual model is that it restricts the range of operations that can
-be naturally expressed.  For example, it is impossible to select a
-subgraph over a snapshot sequence using a temporal predicate, as we do
-in Definition~\ref{def:subv}, because each snapshot is nontemporal and
-independent of the others.  Stated formally, the snapshot
-  sequence model lacks the extended snapshot reducibility property.
-
-A sequence of snapshots can be computed from our model with a slice
-over all time points.  We emphasize that the choice of the logical
-model impacts the expressiveness of the algebra and advocate our model
-over the snapshot sequence from that perspective.  Our model supports
-fully evolved graphs (both topological and attribute evolution for
-both nodes and edges), uses time intervals for time granularity, and
-provides both graph-centric and entity-centric views.
+Other attempts at adding time as data have encountered issues of
+scalability~\cite{Cattuto2013}, in addition to the difficulties placed
+on the user to phrase correct queries.
 
 {\bf Evolving graph queries.}  Evolving graph analysis and mining have
 been receiving increased attention over the past few years.  Several
@@ -74,7 +53,7 @@ The proposed operators can also be divided into temporal, i.e., those
 that return a temporal result, and nontemporal.
 
 Temporal operators include retrieval of version data for a particular
-node and edge~\cite{George2006}, of
+node and edge~\cite{Khurana2016}, of
 journeys~\cite{Casteigts2011,George2009}, subgraph by time or
 attributes~\cite{Huo2014,Khurana2016}, snapshot
 analytics~\cite{Khurana2016,Labouseur2015,Miao2015}, and computation
@@ -83,19 +62,44 @@ time-connected component~\cite{Ferreira2004} and dynamic graph
 centrality~\cite{Lerman2010}.
 
 Nontemporal operators are focused on local and global point queries.
-George and Shekhar support retrieval of specific nodes, edges, or
-routes at a specific time point~\cite{George2006}.  The same
-functionality is also supported in the Historical Graph
+This includes the retrieval of specific nodes, edges, or routes at a
+specific time point, supported in the Historical Graph
 Store~\cite{Khurana2016} and in Koloniari et al.~\cite{Koloniari2012}.
 Georte et al. support anomaly detection through a subgraph query to
-locate specific nodes that have anomalous readings (compared to the
-domain model) at any time point~\cite{George2009}.  Khurana and
-Deshpande provide a snapshot retrieval operation for a specific time
-point~\cite{Khurana2013}, as does the G* system~\cite{Labouseur2015}.
-The main focus in all these approaches is the physical layout of the
-data and the access methods for fastest retrieval.  
+locate specific nodes that have anomalous readings~\cite{George2009}.
+Khurana and Deshpande provide a snapshot retrieval operation for a
+specific time point~\cite{Khurana2013}, as does the G*
+system~\cite{Labouseur2015}.  The main focus in all these approaches
+is the physical layout of the data and the access methods for fastest
+retrieval.
 
-Note that any closed algebra on evolving graphs cannot support these
+\eat{Note that any closed algebra on evolving graphs cannot support these
 operators directly because the result is inherently nontemporal.
-However, the spirit of the queries can be supported through subgraphs
-with a temporal predicate or with \insql{trim}.
+However, the spirit of the queries can be supported through, e.g.,
+subgraphs with a temporal predicate.}
+
+Three systems in the literature focus on systematic support of
+evolving graphs, all of them non-compositional.  Miao et
+al.~\cite{Miao2015} developed ImmortalGraph, a proprietary in-memory
+execution engine for temporal graph analytics.  ImmortalGraph does not
+provide a query language, focusing primarily on efficient physical
+data layout.  The G* system~\cite{Labouseur2015} manages graphs that
+correspond to periodic snapshots, with the focus on efficient data
+layout.  Time is not an intrinsic part of the system, as it is in
+\tga, and thus temporal queries with time predicates like node
+creation are not supported.  G* provides graph operators such as
+retrieving vertices and their edges from disk and non-graph operators
+like aggregate, union, projection, and join.  Finally, the Historical
+Graph Store (HGS) system~\cite{Khurana2016} is an evolving graph query
+system based on Spark.  It uses the property graph model and supports
+retrieval tasks along time and entity dimensions through Java and
+Python API.  It provides a range of operators such as selection,
+timeslice, nodecompute (similar to map but also with no temporal
+information), as well as various evolution-centered operators.  HGS
+does not provide formal semantics for any of the operations it
+supports and the main focus is on efficient on-disk representation for
+retrieval.
+
+\tga is strictly more expressive than any of the three systems and is
+the only evolving graph algebra to provide node and edge creation as
+well as suport for temporal predicates.

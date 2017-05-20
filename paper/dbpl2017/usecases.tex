@@ -62,14 +62,10 @@ time during a particular period of interest, we can:
 
 \begin{enumerate}[itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=0pt]
 \item Select a subset of the data representing the 5 years of
-  interest, using \insql{trim}:
-
-$\ttt_1 = \slice{[2010,2015)}{wikitalk}$
+  interest, using \insql{trim}:  $\ttt_1 = \slice{[2010,2015)}{wikitalk}$
 
 \item Compute in-degree (prominence) of each node during each time
-  point using aggregation and pattern $p_1$ depicted in Figure~\ref{fig:degrees}:
-
-$\ttt_2 = \insql{agg}^T_{p_1}(\ttt_1)$
+  point using aggregation and pattern $p_1$ depicted in Figure~\ref{fig:degrees}:  $\ttt_2 = \insql{agg}^T_{p_1}(\ttt_1)$
 
 \item Aggregate degree information per node across the timespan of
   $\ttt_2$, collecting values into a map using the window-based node
@@ -103,18 +99,17 @@ This example demonstrates the need to compute graph centrality at
 every point in its lifetime and to do so at different temporal
 resolution.  For most graph centrality measures, the two-step process
 involves first calculating some measure, such as in-degree, for each
-graph node, and then accumulating them into one.  \eat{This calls for an
-operation that can group multiple nodes, in this case all of them,
-into a new node.  Wood terms this operation {\em node
-creation}~\cite{Wood2012} and shows that many graph languages such as
-GraphQL~\cite{He2008} support it if there is a need to output new
-nodes that were not part of the input.  Creating a single node to
-represent the whole graph is one way to support computation of some
-whole-graph measure, but, as we show later, node creation is useful
-for other types of analyses.  Use of temporal windows is also
-important here to consider different temporal resolution, which is
-similar to temporal aggregation in temporal relational databases.}
-
+graph node, and then accumulating them into one.  \eat{This calls for
+  an operation that can group multiple nodes, in this case all of
+  them, into a new node.  Wood terms this operation {\em node
+    creation}~\cite{Wood2012} and shows that many graph languages such
+  as GraphQL~\cite{He2008} support it if there is a need to output new
+  nodes that were not part of the input.  Creating a single node to
+  represent the whole graph is one way to support computation of some
+  whole-graph measure, but, as we show later, node creation is useful
+  for other types of analyses.  Use of temporal windows is also
+  important here to consider different temporal resolution, which is
+  similar to temporal aggregation in temporal relational databases.}
 To analyze how the graph centrality measure changed over time, we can:
 
 \begin{figure}
@@ -133,9 +128,7 @@ To analyze how the graph centrality measure changed over time, we can:
 
 $\ttt_1 = \insql{node}^T_w(\mathsf{w=2~mon},\mathsf{r_v=always},\mathsf{r_e=always},wikitalk)$
 
-\item Compute in-degree of each node with the aggregation operator:
-
-$\ttt_2 = \insql{agg}^T_{p_1}(\ttt_1)$
+\item Compute in-degree of each node with the aggregation operator:  $\ttt_2 = \insql{agg}^T_{p_1}(\ttt_1)$
 
 \item Create a new graph, in which all nodes that are present at a
   given time point (snapshot) are grouped into a single node with the
@@ -149,9 +142,7 @@ $\ttt_3 =\insql{node}^T_a(p_2,\ttt_2)$
 %
 %$\ttt_4 = \subv{p_3}{\ttt_3}$
 
-\item Compute degree centrality at each time point using the vertex-map operator:
-
-$\medmuskip=0mu\ttt_4 = \vmap{\mathsf{f_v=cent=(max*cnt-sum)/(cnt^2-3*cnt+2)}, \ttt_3}$
+\item Compute degree centrality at each time point using the vertex-map operator:  $\medmuskip=0mu\ttt_4 = \vmap{\mathsf{f_v=cent=(max*cnt-sum)/(cnt^2-3*cnt+2)}, \ttt_3}$
 \end{enumerate}
 
 \subsection{Communities over Time} 
@@ -183,13 +174,11 @@ below a reasonable threshold, for example of size smaller than two:
 \end{figure}
 
 \begin{enumerate}[itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=0pt]
-\item Aggregate the graph into 6-month windows:\\
+\item Aggregate the graph into 6-month windows:
 
 $\ttt_1 = \insql{node}^T_w(\mathsf{w=6~mon},\mathsf{r_v=always},\mathsf{r_e=always},wikitalk)$
 
-\item Compute weakly connected components at each time point using the aggregation operator and a pattern $p_3$ depicted in Figure~\ref{fig:ccp}:
-
-$\ttt_2 = \insql{agg}^T_{p_3}(\ttt_1)$
+\item Compute weakly connected components at each time point using the aggregation operator and a pattern $p_3$ depicted in Figure~\ref{fig:ccp}:  $\ttt_2 = \insql{agg}^T_{p_3}(\ttt_1)$
 %$\ttt_2 = \insql{pregel}^T_{cc} (\mathsf{pname=comp}, \ttt_1)$
 
 \item Add a node for each connected component, and compute the size of

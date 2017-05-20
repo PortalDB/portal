@@ -5,12 +5,11 @@ Several properties of temporal languages have been studied: temporal
 groupedness, temporal semi-completeness, and temporal
 completeness~\cite{Bohlen1995}.  We show that the \tg model is
 temporally ungrouped but strongly equivalent to the canonical
-temporally grouped model.  We also show that \tga is is snapshot
+temporally grouped model.  We also show that \tga is snapshot
 reducible with respect to a generalized nontemporal graph query
 language described in~\cite{Wood2012}.  Additionally, we show that
 \tga is not temporally semi-complete or temporally complete.  We
-review each of these points in turn.  Finally, we study the expressive
-power of a fragment of \tga.
+review each of these points.
 
 \subsection{Temporal Groupedness}
 
@@ -23,9 +22,7 @@ ungrouped~\cite{Bohlen1995}, since each tuple is associated with its
 period of validity.  In such a model, a change to one attribute
 results in a new tuple.  In a temporally grouped model related facts
 are grouped and their attributes are associated with their individual
-periods of validity with the use of a function.
-
-Formally:
+periods of validity with the use of a function.  Formally:
 
 \begin{definition}[Canonical temporally ungrouped relation model]
 [adapted from~\cite{Clifford1994}, pp. 69-70]  Let $U_D =
@@ -106,8 +103,8 @@ model is strongly equivalent to the canonical temporally grouped model.
 
 The reasons that we chose the ungrouped model are two-fold: a) it is
 the de-facto standard in the temporal relational database community
-after more than two decades of discussion, and b) it is easier to
-express temporal predicates over the ungrouped model.
+after more than two decades of discussion, and b) it is conceptually
+easier to express temporal predicates over the ungrouped model.
 
 \subsection{Temporal Completeness}
 \label{sec:formal:reducible}
@@ -149,7 +146,7 @@ to the generalized graph query language based on the survey by
 Wood~\cite{Wood2012}.  $\textsf{snap}_p$ is an operator over \tgs that
 computes a graph snapshot at point $p$.
 
-\begin{enumerate}[itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=5pt]
+\begin{enumerate}[itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=7pt]
 \item $\forall p \in \Omega^T (\textsf{snap}_p(\vmap{f_v,\ttt}) \Leftrightarrow \textsf{map}_v(f_v,\textsf{snap}_p(\ttt)))$
 
 \item $\forall p \in \Omega^T (\textsf{snap}_p(\emap{f_e,\ttt}) \Leftrightarrow \textsf{map}_e(f_e,\textsf{snap}_p(\ttt)))$
@@ -165,13 +162,18 @@ computes a graph snapshot at point $p$.
 %\item $\forall p \in \Omega^T (\textsf{snap}_p(\sub{P_1}{\textsf{edge}^T_{P_2,f_{v1}(k_1)=\ldots=f_{vn}(k_n)=\textsf{any}}(\ttt_1,\ttt_2)}) \Leftrightarrow \textsf{snap}_p(\ttt_1) \odot_{\sigma1,\sigma2,g} \textsf{snap}_p(\ttt_2))$
 \end{enumerate}
 
-The equivalences hold for arbitrary \tgs, except equivalence 6, graph
-join, which is defined specifically for disjoint graphs.  The only
-restriction in this theorem is that any pattern $P$ and mapping
-function $f_v$/$f_e$ do not refer to the time attribute.
+The equivalences hold for arbitrary \tgs.  The only restriction in
+this theorem is that any pattern $P$ and mapping function $f_v$/$f_e$
+do not refer to the time attribute, in line with snapshot reducibility.
 \end{theorem}
 
 The proof is included in Appendix B.
+
+Extended snapshot-reducibility requires that $L^t$ provide an ability
+to make explicit references to timestamps alongside non-temporal
+predicates.  \tga is extended snapshot-reducible because, for each
+operator in \tga that includes patterns or predicates, temporal
+predicates are explicitly supported, according to Def.~\ref{def:tngp}.
 
 As noted, snapshot reducibility places no restrictions on the syntax
 of the temporal language.  To deal with the syntax, B{\"{o}}hlen, et
@@ -185,7 +187,7 @@ model and $M^T = (DS^t,L^t)$ be a valid-time temporal data model.
 Then data model $M^t$ is temporally semi-complete with respect to $M$
 iff:
 
-\begin{itemize}[noitemsep,itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=5pt]
+\begin{enumerate}[noitemsep,itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=7pt]
 \item For every relation $\mathbf{r}$ in $DS$ there exists a temporal
   relation $\mathbf{r^t}$ in $DS^T$ such that $\mathbf{r} =
   \tau_t(\mathbf{r^t})$.
@@ -194,7 +196,7 @@ iff:
 \item There exist two text strings $S_1$ and $S_2$ such that for all
   pairs of queries $(q,q^t)$, where $q^t$ is snapshot reducible to
   $q$, query $q^t$ is syntactically identical to $S_1qS_2$.
-\end{itemize}
+\end{enumerate}
 \end{definition}
 
 The intent of temporal semi-completeness is to provide a kind of
@@ -223,14 +225,20 @@ Since \tga does not specify a syntax, requirement 3 cannot
   language.
 
 A further notion of upward compatability is {\em temporal
-  completeness}.
+  completeness}, which requires semi-completeness, as well as an
+ability to override snapshot reducibility and to refer to original
+intervals as specified by the user~\cite{Bohlen1995}.  The last
+condition is termed {\em change preservation}~\cite{Dignos2012} and is
+a property of sequenced semantics.
 
+\eat{
 \begin{definition}[Temporal completeness]
 [\cite{Bohlen1995}, p. 166]  Let $M = (DS,L)$ be a nontemporal data
 model and $M^T = (DS^t,L^t)$ be a valid-time temporal data model.
 Then data model $M^t$ is temporally complete with respect to $M$
 iff:
-
+}
+\eat{
 \begin{itemize}[noitemsep,itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=5pt]
 \item $M^t$ is temporally semi-complete with respect to $M$.
 \item It is possible to override snapshot reducibility for every
@@ -241,19 +249,20 @@ iff:
 \item It is possible to refer to both the (a) coalesced interval and (b) original intervals as specified by the user.
 \end{itemize}
 \end{definition}
+}
 
-Condition 2 is elsewhere termed {\em
+\eat{Condition 2 is elsewhere termed {\em
   nonrestrictiveness}~\cite{Bohlen2000} and gives the user full
 control over the timestamps as regular values if desired. Condition 5
 essentially refers to the change preservation property of sequence
 semantics~\cite{Dignos2012}, without which the intervals specified by
 the user have no special meaning.  Any point semantics coalesces
 value-equivalent consecutive and overlapping tuples and does not
-preserve user-specified intervals.
+preserve user-specified intervals.}
 
 \tga is not temporally complete both because it is not temporally
 semi-complete and because it uses point semantics, thus violating the
-final condition.
+change preservation property.
 
 %\revision{
 %\tga is S-reducible because for each operator in \tga, one of the following hold:}
@@ -318,87 +327,4 @@ hold over the queries that produce vertices and edges in \ql.}
 \section{Operation equivalences}
 \label{sec:equivalences}
 }
-
-\subsection{Expressive Power}
-\label{sec:epower}
-
-In this section we study expressiveness of the \tg model, which
-consists of the \tg data structure (Definition~\ref{def:tg2}) and of
-\tga, an algebra for querying the data structure
-(Section~\ref{sec:algebra}). We stress that ours is a valid-time data
-model that does not provide transaction-time and bi-temporal support.
-
-{\bf Important note:} We restrict our attention to a subset of \tga
-operations, excluding recursive queries.  That is, every operation
-where Temporal Navigational Graph Patterns (Def.~\ref{def:tngp}) are
-applied is restricted to Basic Graph
-Patterns~\cite{DBLP:journals/corr/AnglesABHRV16} with temporal
-predicates.  A Basic Graph Pattern is equivalent to a regular
-conjunctive query without projection~\cite{Abiteboul1995}.  We also
-restrict the property values to atomic types for the purposes of this
-discussion.
-
-We start by proposing two natural notions of completeness for a
-temporal graph query language.
-
-\begin{definition}
-  Let $L^t$ be a temporal relational language and $\tve$ --- a
-  relational representation of a temporal graph.  An \edgeq $q^t_e$ in
-  $L$ takes a graph $\tve (\tv, \te)$ as input, and
-  outputs another graph $\tve'$ on the vertices of $\tve$ such that
-  the edges of $\tve'$ are defined by $q^t_e$.  A language is
-  $L^t$-\edgec if it can express each $q^t_e$ in $L^t$.
-  \label{def:edgecomplete}
-\end{definition}
-
-Note that the query $q^t_e$ is not restricted to act on \te alone, and
-may refer to the other constituent relation of \tve, namely, \tv.
-
-\begin{definition}
-  Let $L^t$ be a temporal relational language, and let $\tve$ be a
-  relational representation of a temporal graph.  A \vertexq $q^t_v$
-  in $L^t$ takes a graph $\tve (\tv, \te)$ as input, and
-  outputs another graph $\tve'$ such that the vertices of $\tve'$ are
-  defined by $q^t_v$. A language is $L^t$-\vertexc if it can express
-  each $q^t_v$ in $L^t$.
-\label{def:vertexcomplete}
-\end{definition}
-
-We now refer to definitions~\ref{def:edgecomplete}
-and~\ref{def:vertexcomplete} and show that \tga is \edgec and
-\vertexc, with respect to the valid-time fragment of temporal
-relational algebra (\tra).  \tra is an algebra that corresponds to
-temporal relational calculus~\cite{DBLP:reference/db/ChomickiT09b}, a
-first-order logic that extends relational calculus, supporting
-variables and quantifiers over both the data domain and time domain.
-
-\begin{theorem}
-\tga is TRA-\edgec.
-\label{th:edgecomplete}
-\end{theorem}
-
-\begin{proof}
-%  \mathsf{(sketch)}
-  The result of every conjunctive edge-query over the vertices of \ttt
-  can be expressed by $\sigma_{c} (\tv \times^T \tv)$.  Queries of
-  this kind can be expressed by the edge creation operator of \tga
-  (Def.~\ref{def:edgecr}), invoked as:\\
-  $\insql{edge}^T(q=\sigma_{c} (\ttt_1.\tv \times^T \ttt_2.\tv),\ttt_1
-  = \ttt,\ttt_2=\ttt)$\end{proof}
-
-\begin{theorem}
-\tga is TRA-\vertexc.
-\label{th:vertexcomplete}
-\end{theorem}
-
-\begin{proof}
-%  \mathsf{(sketch)}
-  Every \tra vertex-query can be expressed in \tga
-  by a sequence of vertex-subgraph $q^T_v(\tve)$
-  (Def.~\ref{def:subv}) and attribute-based node creation
-  $\insql{node}^T_a$ (Def.~\ref{def:nodecra}).
-  Attribute-based node creation supports Skolem functions, and is
-  necessary to handle queries that introduce vertex identifiers.  
-\end{proof}
-
 

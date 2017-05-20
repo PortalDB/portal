@@ -49,7 +49,7 @@ in line with the nontemporal graph definitions.
 In order to represent evolving graphs, we provide two definitions: 1)
 an extension of the property graph
 definition~\cite{DBLP:journals/corr/AnglesABHRV16}, and 2) one that is
-based on temporal relataional model.  The two models are equivalent,
+based on the temporal relataional model.  The two models are equivalent,
 but it is sometimes easier to define the semantics of an operation
 over one definition than the other.  We extend the property graph
 model to represent graph nodes and edges as follows: each node and
@@ -57,8 +57,8 @@ edge is associated with a period of validity, as is each property
 value.\eat{during time $t$ is associated with a (possibly empty) {\em
     set} of properties, and each property is represented by a
   key-value pair.}  A \tg can also be represented with two nested
-temporal relations, associating a fact (existence of a vertex or edge,
-and an assignment of a value to a vertex or edge attribute) with a
+temporal relations, associating a fact (existence of a vertex or an edge,
+and an assignment of a value to a vertex or an edge attribute) with a
 time period.
 
 \begin{table*}
@@ -88,7 +88,7 @@ Table~\ref{tab:tg} gives an example of a \tg that shows evolution of a
 co-authorship network in the nested temporal relational model.  Node
 \insql{1} persists without change from '15/1 to '15/7, but node
 \insql{2} has a property change event at '15/5, thus creating a new
-tuple.  For the same of readability we display the nested attribute
+tuple.  For the sake of readability we display the nested attribute
 $a$ as a list of key value pairs.
 
 We now give a formal definition of a \tg.
@@ -130,9 +130,9 @@ using two nested temporal relations, assuming, for the
 \label{def:tg2}
 A \tg is a pair $\mathcal{G}=(\tv, \te)$. \tv is a valid-time nested
 temporal relation with schema $\tv(\underline{v}, a: (K,B) ~|~T)$,
-where $K$ is a property key string, and $B$ is a property value
+where $K$ is a property key string, and $B$ is a property value.
 \eat{each $B_i, 0 \geq i \geq m$ is a value of a property of domain
-  $D_i$, and $m$ is the number of different domains in $\Pi$}.  \tv
+  $D_i$, and $m$ is the number of different domains in $\Pi$.}  \tv
 associates a vertex and its property set with the time period during
 which it is present and unchanged. \te is a valid-time nested temporal
 relation with schema $\te(\underline{e}, v_1, v_2, a:
@@ -152,7 +152,7 @@ Relations of $\mathcal{G}$ must meet the following requirements:
   with consecutive or overlapping time periods are merged.  For a
   nested attribute, value equivalence is a standard set equivalence,
   i.e., that the sets of property pairs are the same.
-\item [R4: Required property] For any tuple $v \in \tv, v.a \neq
+\item [R4: Required property] For any tuple $\medmuskip=0mu v \in \tv, v.a \neq
   \emptyset$, and for any tuple $e \in \te, e.a \neq \emptyset$.  That
   is, we require that each node and edge have at least one property in
   its property set.

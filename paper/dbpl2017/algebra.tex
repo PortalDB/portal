@@ -6,6 +6,16 @@ short.  Our goal is to enable a wide range of analyses useful to
 potential users, with a focus on analysis over time, and motivated by
 our examples and those we found in the literature.
 
+\tga uses point semantics: the intervals associated with a node or an
+edge indicate the validity of the associated values without regard for
+the original user-entered values~\cite{DBLP:reference/db/JensenS09k}.
+Two value-equivalent tuples with overlapping or consecutive intervals
+are coalesced, per Def.~\ref{def:tg2}.  As desired with a point
+semantics, the semantics of the \tga operators is guided by the
+snapshot reducibility and extended snapshot reducibility
+properties~\cite{Dignos2012}.  We analyze this formally in
+Section~\ref{sec:formal}.
+
 The semantics of each operator is specified either by a translation
 into a sequence of \tra operators~\cite{Dignos2012}, or by applying
 navigational patterns~\cite{DBLP:journals/corr/AnglesABHRV16},
@@ -17,7 +27,8 @@ in the final output, and that the integrity constraints from \te to
 method that allows the operation and then modifies the output to
 remove (or trim) tuples from \te for which a corresponding entry does
 not exist in \tv.  For readability sake, we use a shorthand notation
-and refer to $\tve.\tv$ as $\tv$ and to $\tve.\te$ as $\te$.
+and refer to $\tve.\tv$ as $\tv$ and to $\tve.\te$ as $\te$, when \tve
+is clear from context.
 
 {\bf Trim.}  It is useful to focus analysis on a particular portion of
 the overall \tg history.  The \insql{trim} operator computes a new
@@ -101,6 +112,7 @@ projection over \tv that retains all attributes of \tv but changes the
 nested attribute \insql{a}.  Because node periods are not modified, no
 changes to \te are made to enforce referential integrity.  The $\tv'$
 relation must be coalesced, which is done automatically by the model.
+The \insql{edge-map} is defined similarly.
 
 \begin{table}
 \centering
@@ -134,14 +146,12 @@ generate only a single tuple over the combined time period due to
 coalescing.
 \end{example}
 
-The \insql{edge-map} is defined similarly.
-
 {\bf Subgraph.}  Temporal subgraph matching is a generalization of
 subgraph matching for non-temporal graphs~\cite{Wood2012}.  Subgraph
 returns a \tg matching the input navigational graph pattern that may
 include temporal predicates.
 
-To state this formally, we define a graph pattern to include time:
+We define a graph pattern to include time:
 
 \begin{definition}[Temporal Navigational Graph Pattern]
 \label{def:tngp}
@@ -158,7 +168,7 @@ When no temporal predicates are present in the TNGP, it is
   each snapshot of \ttt.
 \end{definition}
 
-We now define $\insql{subgraph}^T$ as follows:
+%We now define $\insql{subgraph}^T$ as follows:
 
 \begin{definition}[Temporal subgraph]
 \label{def:subv}
@@ -207,7 +217,7 @@ e2 & v2 & v3 & type=co-author,cnt=4 & ['15/7,'15/10) \\ \hline
 \vspace{-0.2cm}
 \begin{example}
 Consider \tg \ttt from our running example (Table~\ref{tab:tg}).
-Let's say that we are only interested in non-isolated nodes, i.e.,
+Suppose that we are only interested in non-isolated nodes, i.e.,
 only those that have a non-zero degree.  Pattern $P_1$, shown in
 Figure~\ref{fig:nonisolated}, yields new \tg \ttt' depicted in
 Table~\ref{tab:vsubgraph1}.  Observe that while the number of node
@@ -237,7 +247,7 @@ $\insql{agg}^T(P,G) = (TV',TE') ~|~ TV' = TV \cup^T q_v(P,\ttt) \land TE' = TE$
 \end{definition}
 
 Aggregation can be used to compute the lengths of {\em journeys}.  A
-journey is transitive closure on the graph conditional on the time
+journey is a transitive closure on the graph conditional on the time
 property of the edges -- two nodes are connected by a new edge if
 there is a non-decreasing time path between
 them~\cite{Casteigts2011,Ferreira2004}.
@@ -272,7 +282,7 @@ containing a Skolem function, is defined as:
 $\insql{node}^T_a(P,\ttt) = (TV',TE') ~|~ TV' = q_v(P,\ttt) \land TE' = q_e(P,\ttt)$
 \end{definition}
 
-Intuitively, like in the non-temporal version, the nodes are computed
+Intuitively\eat{, like in the non-temporal version,} the nodes are computed
 by applying the pattern.  Every new node is assigned an identity by a
 Skolem function.  Each new node is connected to the pattern from which
 it originated with new edges, the identity of which is also assigned
@@ -372,9 +382,7 @@ defined left-to-right, i.e., from least to most recent.
 
 Window specification generates a temporal relation $W$ with the schema
 $(N|T)$, where each tuple associates a window number with its
-duration.
-
-Putting it all together:
+duration.  Putting it all together:
 
 \begin{definition}[Window-based node creation]
 \label{def:nodecrw}
@@ -411,11 +419,11 @@ in stream aggregation~\cite{Li2005}.  Note that, because \tg algebra
 is compositional, we do not support node creation with overlapping
 windows, because it does not produce a valid \tg.  To see why this is
 so, consider applying a sliding window of 3 months range with 1 month
-slide to graph \insql{T} in our running example \tg \ttt.  We would
+slide to graph \insql{T} in our running example.  We would
 produce the following tuples for $v_1$: $(v_1, ['15/1, '15/4), a_1)$,
   $(v_1, ['15/2, '15/5), a_2)$, $(v_1, ['15/3, '15/6))$, and so on, which
       clearly violates the temporally coalesced requirement in
-      definition~\ref{def:tg2}.
+      Definition~\ref{def:tg2}.
 
 \begin{table}
 \centering
@@ -463,19 +471,19 @@ function for node and edge properties.  \eat{The windows computed
 
 {\bf Set-based operators.}  We support temporal versions of the three binary set operators
 intersection ($\cap^{TG}$), union ($\cup^{TG}$), and difference
-($\setminus^{TG}$).  The union operator produces a \tg that contains
-nodes and edges that exist in either $\ttt_1$ or $\ttt_2$.
+($\setminus^{TG}$).  
 
-There is a graph-specific difference between \tra union and \tga union
-related to identity, namely, there is no guarantee that a node or an
-edge with the same identity and at the same time instant has the same
-property set in both input graphs.  Previously published work either
-avoided this problem by not using the property model (as long as ids
-match there is no issue) or side-stepped it by requiring that both
-input graphs are drawn from the same underlying graph
-\eat{~\cite{Amer-Yahia2009}}.  We aim to provide a more general operation
-without this restriction.  To this end we require aggregation
-functions as additional input to $\cup^{TG}$ to resolve
+The union operator produces a \tg that contains nodes and edges that
+exist in either $\ttt_1$ or $\ttt_2$.  There is a graph-specific
+difference between \tra union and \tga union related to identity,
+namely, there is no guarantee that a node or an edge with the same
+identity and at the same time instant has the same property set in
+both input graphs.  Previously published work either avoided this
+problem by not using the property model (as long as ids match there is
+no issue) or side-stepped it by requiring that both input graphs are
+drawn from the same underlying graph.  We aim to provide a more
+general operation without this restriction.  To this end we require
+aggregation functions as additional input to $\cup^{TG}$ to resolve
 identity-equivalent tuples with overlapping periods.
 
 \begin{definition}[Union]
@@ -528,7 +536,7 @@ done in any order or in parallel.
 
 The difference operator produces nodes and edges that exist in
 $\ttt_1$ but not in $\ttt_2$.  It does not require aggregation
-functions for resolution but is otherwise defined in a similar manner:
+functions for resolution but is otherwise defined similarly:
 
 \begin{definition}[Difference]
 \label{def:difftg}
@@ -541,8 +549,7 @@ $\ttt_1 \setminus^{TG} \ttt_2 = (TV', TE') ~|~ $\\$TV' = \pi^T_{TV_1.v,TV_1.a}(\
 Since we operate based on node (resp. edge) identity rather than tuple
 equivalence, instead of the \tra's difference operator we use a left
 outer join, select only those tuples that exist in $\ttt_1$ but not in
-$\ttt_2$ using the $not NULL$ predicate, and then project out the
-extra columns.
+$\ttt_2$, and project out the extra columns.
 
 {\bf Edge creation.}  Edge creation is a binary operator and is a
 temporal generalization of the various non-temporal graph products.
@@ -560,7 +567,7 @@ The edge creation operator $\insql{edge}^T_{P}(\ttt_1,\ttt_2)$, where
 $q_e$ is a set of edges with an expression containing a Skolem
 function in a TNGP $P$ over $\ttt_1$ and $\ttt_2$ extended with
 namespaces, and each $f_{vj}(k_j)$ specifies an aggregation function
-$f_{vj}$ to be applied to a node property $k_j$, is defined as:
+$f_{vj}$ to be applied to a node property $k_j$, is defined:
 
 $\textsf{edge}^T_{P,f_{v1}(k_1),\ldots,f_{vn}(k_n)}(\ttt_1,\ttt_2) = (TV',TE') ~|~ \break TV' = \resolve{f_{v1},\ldots,f_{vn}}{TV_1 \cup^T TV_2} \land TE' = q_e(P,\ttt_1,\ttt_2)$
 \end{definition}
