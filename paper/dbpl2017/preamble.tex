@@ -102,6 +102,13 @@
 
 \def\url#1{\expandafter\string\csname #1\endcsname}
 
+\makeatletter
+\newcommand{\shorteq}{%
+  \settowidth{\@tempdima}{-}% Width of hyphen
+  \resizebox{\@tempdima}{\height}{=}%
+}
+\makeatother
+
 % "define" Scala
 %\lstdefinelanguage{scala}{morekeywords={class,object,trait,extends,with,new,if,while,for,def,val,var,this},
 %otherkeywords={->,=>},

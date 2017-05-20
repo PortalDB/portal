@@ -145,8 +145,9 @@ $\ttt_3 =\insql{node}^T_a(p_2,\ttt_2)$
 \item Compute degree centrality at each time point using the vertex-map operator:  $\medmuskip=0mu\ttt_4 = \vmap{\mathsf{f_v=cent=(max*cnt-sum)/(cnt^2-3*cnt+2)}, \ttt_3}$
 \end{enumerate}
 
-\subsection{Communities over Time} 
-
+%\subsection{Communities over Time} 
+%
+\eat{
 Interaction networks are sparse because edges are so short-lived.  It
 may be useful to zoom out in time by changing the time granularity of
 the data such that all durations are, for example, in months or years.
@@ -157,13 +158,15 @@ analysis.  After decreasing temporal resolution we can run a community
 detection algorithm, e.g., compute the connected components of the
 network, and then consider the number of and size of connected
 components.  
-
+}
+\eat{
 To see whether communities form and at what time scale, we vary the
 time scale and compute communities, e.g., through connected components
 detection, group the nodes by the community they form and calculate
 their size.  We can filter out nodes that represent communities
 below a reasonable threshold, for example of size smaller than two:
-
+}
+\eat{
 \begin{figure}
 \centering
 \includegraphics[width=3in]{figs/ccp.pdf}
@@ -172,28 +175,28 @@ below a reasonable threshold, for example of size smaller than two:
 \label{fig:ccp}
 \vspace{-0.2cm}
 \end{figure}
-
+}
+\eat{
 \begin{enumerate}[itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=0pt]
 \item Aggregate the graph into 6-month windows:
-
-$\ttt_1 = \insql{node}^T_w(\mathsf{w=6~mon},\mathsf{r_v=always},\mathsf{r_e=always},wikitalk)$
-
-\item Compute weakly connected components at each time point using the aggregation operator and a pattern $p_3$ depicted in Figure~\ref{fig:ccp}:  $\ttt_2 = \insql{agg}^T_{p_3}(\ttt_1)$
+}
+%$\ttt_1 = \insql{node}^T_w(\mathsf{w=6~mon},\mathsf{r_v=always},\mathsf{r_e=always},wikitalk)$
+%
+%\item Compute weakly connected components at each time point using the aggregation operator and a pattern $p_3$ depicted in Figure~\ref{fig:ccp}:  $\ttt_2 = \insql{agg}^T_{p_3}(\ttt_1)$
 %$\ttt_2 = \insql{pregel}^T_{cc} (\mathsf{pname=comp}, \ttt_1)$
-
-\item Add a node for each connected component, and compute the size of
-  the connected component, using attribute-based node creation and
-  pattern $p_4$ (not depicted): 
-
-$\ttt_3 =
-  \insql{node}^T_a(p_4,\ttt_2)$
-
-\item Filter out nodes that represent communities too small to be
-  useful (e.g., of 1-2 people) using vertex-subgraph and a simple
-  pattern $p_5$ with \insql{size>3} predicate (not depicted): 
-
-$\ttt_4 = \sub{p_5}{\ttt_3}$
-\end{enumerate}
+%
+%\item Add a node for each connected component, and compute the size of
+%  the connected component, using attribute-based node creation and
+%  pattern $p_4$ (not depicted): 
+%
+%$\ttt_3 =  \insql{node}^T_a(p_4,\ttt_2)$
+%
+%\item Filter out nodes that represent communities too small to be
+%  useful (e.g., of 1-2 people) using vertex-subgraph and a simple
+%  pattern $p_5$ with \insql{size>3} predicate (not depicted): 
+%
+%$\ttt_4 = \sub{p_5}{\ttt_3}$
+%\end{enumerate}
 
 \subsection{ Spread of Information} 
 

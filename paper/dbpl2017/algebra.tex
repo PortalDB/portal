@@ -30,6 +30,44 @@ not exist in \tv.  For readability sake, we use a shorthand notation
 and refer to $\tve.\tv$ as $\tv$ and to $\tve.\te$ as $\te$, when \tve
 is clear from context.
 
+But first we need to introduce a new primitive {\bf resolve}, itself a
+sequence of \tra operators.  Recollect that in \tra tuples have no
+identity and are coalesced only if they are value-equivalent.  \tga,
+however, while using temporal valid-time relations, includes both node
+and edge identity.  Identifiers are required in order to distinguish
+between nodes, resp. edges, as their properties may change over time.
+We refer to such nodes, resp. edges, as {\bf
+  identity-equivalent}.
+
+To produce a valid \tg, we need to output valid {\em keyed} relations
+\tv and \te with no identity-equivalent nodes or edges over
+overlapping time instants.  \tra does not have a mechanism for
+coalescing based on key only.  In addition, \tv and \te are {\em
+  nested} relations, since each node and edge attribute is a set of
+key-value pairs.  Thus, any \tga operation that may produce multiple
+identity-equivalent nodes or edges over overlaping time periods in its
+intermediate result requires an additional user input, which is a set
+of aggregate functions, to be used in the resolve primitive.
+
+\begin{definition}[Resolve primitive]
+\label{def:resolve}
+Resolve primitive $\resolve{f_1(k_1), \ldots, f_n(k_n)}{\mathbf{r}}$
+where $id$ is the nontemporal key of the input relation $\mathbf{r}$
+(e.g., $v$ for \tv or $e$ for \te), $k_1, \ldots, k_n$ are property
+names, and $f_1, \ldots, f_n$ are aggregate functions over those
+properties is defined as:
+
+$\resolve{f_1(k_1), \ldots, f_n(k_n)}{\mathbf{r}} = \nu^T_{a,k,b}(\bigcup
+  _{id}\gamma^T_{f_i(k_i)}(\pi^T_{k=k_i}(\mu^T_a(\mathbf{r}))))$
+%%\nu_{a,k_1,\ldots,k_n}(_{id}\gamma^T_{f_1(k_1),\ldots,f_n(k_n)}(\mu_a(\mathbf{r})))$
+\end{definition}
+
+In other words, \insql{resolve} unnests the input relation, computes a
+temporal aggregation by key, applying specified aggregate function to
+each property, and then nests to produce the final result consistent
+with the \tg model.  With this foundation we can now define our \tga
+operators.
+
 {\bf Trim.}  It is useful to focus analysis on a particular portion of
 the overall \tg history.  The \insql{trim} operator computes a new
 \tg, limited only to those nodes and edges that existed during the
@@ -45,24 +83,26 @@ $\slice{\bc}{\ttt} = (TV', TE') ~|~$\\ $TV' = \pi_{v,T \text{ intersect } \bc,a}
 
 \begin{table}
 \centering
+\setlength\tabcolsep{1.8pt}
 \caption{$\slice{['15/5,'15/8)}{\ttt}$}
 \vspace{-0.2cm}
 \label{tab:slice}
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{| c | c | c | c | c |}
+%\resizebox{\columnwidth}{!}{%
+%\begin{tabular}{| c | c | c | p{2in} | c |}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}|c|c|c|p{1.9in}|c|}
 \hline
 \multicolumn{5}{|l|}{$TV$} \\
-\multicolumn{3}{|c}{\bfseries{\underline v}} & \multicolumn{1}{c}{\bfseries a} & \multicolumn{1}{c|}{\bfseries T} \\ \hline
-\multicolumn{3}{|c|}{v1} & type=person,name=Alice,school=Drexel & ['15/5,'15/7) \\ \hline
-\multicolumn{3}{|c|}{v2} & type=person,name=Bob,school=CMU & ['15/5,'15/8) \\ \hline
-\multicolumn{3}{|c|}{v3} & type=person,name=Cathy,school=Drexel & ['15/5,'15/8) \\ \hline
+\multicolumn{3}{|c}{\bfseries{\underline v}} & \multicolumn{1}{p{1.9in}}{\bfseries a} & \multicolumn{1}{c|}{\bfseries T} \\ \hline
+\multicolumn{3}{|c|}{v1} & type$\shorteq$p,name$\shorteq$Alice,school$\shorteq$Drexel & ['15/5,'15/7) \\ \hline
+\multicolumn{3}{|c|}{v2} & type$\shorteq$p,name$\shorteq$Bob,school$\shorteq$CMU & ['15/5,'15/8) \\ \hline
+\multicolumn{3}{|c|}{v3} & type$\shorteq$p,name$\shorteq$Cathy,school$\shorteq$Drexel & ['15/5,'15/8) \\ \hline
 \multicolumn{5}{|l|}{} \\
 \multicolumn{5}{|l|}{$TE$} \\
-\multicolumn{1}{|c}{\bfseries{\underline e}} & \multicolumn{1}{c}{\bfseries v1} & \multicolumn{1}{c}{\bfseries v2} & \multicolumn{1}{c}{\bfseries a} & \multicolumn{1}{c|}{\bfseries T} \\ \hline
-e1 & v1 & v2 & type=co-author,cnt=3 & ['15/5,'15/6) \\ \hline
-e2 & v2 & v3 & type=co-author,cnt=4 & ['15/7,'15/8) \\ \hline
-\end{tabular}
-}
+\multicolumn{1}{|c}{\bfseries{\underline e}} & \multicolumn{1}{c}{\bfseries v1} & \multicolumn{1}{c}{\bfseries v2} & \multicolumn{1}{p{1.9in}}{\bfseries a} & \multicolumn{1}{c|}{\bfseries T} \\ \hline
+e1 & v1 & v2 & type$\shorteq$co-author,cnt$\shorteq$3 & ['15/5,'15/6) \\ \hline
+e2 & v2 & v3 & type$\shorteq$co-author,cnt$\shorteq$4 & ['15/7,'15/8) \\ \hline
+\end{tabular*}
+%}
 \vspace{-0.2cm}
 \end{table}
 
@@ -116,24 +156,25 @@ The \insql{edge-map} is defined similarly.
 
 \begin{table}
 \centering
+\setlength\tabcolsep{1.8pt}
 \caption{$\vmap{\pi_{type,name},\ttt}$}
 \vspace{-0.2cm}
 \label{tab:vmap}
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{| c | c | c | c | c |}
+%\resizebox{\columnwidth}{!}{%
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}|c|c|c|p{1.8in}|c|}
 \hline
 \multicolumn{5}{|l|}{$TV$} \\
-\multicolumn{3}{|c}{\bfseries{\underline v}} & \multicolumn{1}{c|}{\bfseries a} & \multicolumn{1}{c|}{\bfseries T} \\ \hline
-\multicolumn{3}{|c|}{v1} & type=person,name=Alice & ['15/1,'15/7) \\ \hline
-\multicolumn{3}{|c|}{v2} & type=person,name=Bob & ['15/2,'15/10) \\ \hline
-\multicolumn{3}{|c|}{v3} & type=person,name=Cathy & ['15/1,'15/10) \\ \hline
+\multicolumn{3}{|c}{\bfseries{\underline v}} & \multicolumn{1}{p{1.8in}}{\bfseries a} & \multicolumn{1}{c|}{\bfseries T} \\ \hline
+\multicolumn{3}{|c|}{v1} & type$\shorteq$p,name$\shorteq$Alice & ['15/1,'15/7) \\ \hline
+\multicolumn{3}{|c|}{v2} & type$\shorteq$p,name$\shorteq$Bob & ['15/2,'15/10) \\ \hline
+\multicolumn{3}{|c|}{v3} & type$\shorteq$p,name$\shorteq$Cathy & ['15/1,'15/10) \\ \hline
 \multicolumn{5}{|l|}{} \\
 \multicolumn{5}{|l|}{$TE$} \\
-\multicolumn{1}{|c}{\bfseries{\underline e}} & \multicolumn{1}{c}{\bfseries v1} & \multicolumn{1}{c}{\bfseries v2} & \multicolumn{1}{c|}{\bfseries a} & \multicolumn{1}{c|}{\bfseries T} \\ \hline
-e1 & v1 & v2 & type=co-author,cnt=3 & ['15/2,'15/6) \\ \hline
-e2 & v2 & v3 & type=co-author,cnt=4 & ['15/7,'15/10) \\ \hline
-\end{tabular}
-}
+\multicolumn{1}{|c}{\bfseries{\underline e}} & \multicolumn{1}{c}{\bfseries v1} & \multicolumn{1}{c}{\bfseries v2} & \multicolumn{1}{p{1.8in}}{\bfseries a} & \multicolumn{1}{c|}{\bfseries T} \\ \hline
+e1 & v1 & v2 & type$\shorteq$co-author,cnt$\shorteq$3 & ['15/2,'15/6) \\ \hline
+e2 & v2 & v3 & type$\shorteq$co-author,cnt$\shorteq$4 & ['15/7,'15/10) \\ \hline
+\end{tabular*}
+%}
 \vspace{-0.2cm}
 \end{table}
 
@@ -183,25 +224,26 @@ $\sub{P}{\ttt} = (q_v(P,\ttt), q_e(P,\ttt),\Pi,\rho,\xi^T,\lambda^T_v,\lambda^T_
 
 \begin{table}
 \centering
+\setlength\tabcolsep{1.8pt}
 \caption{$\insql{subgraph}^T$ with pattern $P_1$ returns a graph with no isolated nodes.}
 \vspace{-0.2cm}
 \label{tab:vsubgraph1}
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{| c | c | c | c | c |}
+%\resizebox{\columnwidth}{!}{%
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}|c|c|c|p{1.84in}|c|}
 \hline
 \multicolumn{5}{|l|}{$TV$} \\
-\multicolumn{3}{|c}{\bfseries{\underline v}} & \multicolumn{1}{c}{\bfseries a} & \multicolumn{1}{c|}{\bfseries T} \\ \hline
-\multicolumn{3}{|c|}{v1} & type=person,name=Alice,school=Drexel & ['15/2,'15/6) \\ \hline
-\multicolumn{3}{|c|}{v2} & type=person,name=Bob & ['15/2,'15/5) \\ \hline
-\multicolumn{3}{|c|}{v2} & type=person,name=Bob,school=CMU & ['15/5,'15/10) \\ \hline
-\multicolumn{3}{|c|}{v3} & type=person,name=Cathy,school=Drexel & ['15/7,'15/10) \\ \hline
+\multicolumn{3}{|c}{\bfseries{\underline v}} & \multicolumn{1}{p{1.84in}}{\bfseries a} & \multicolumn{1}{c|}{\bfseries T} \\ \hline
+\multicolumn{3}{|c|}{v1} & type$\shorteq$p,name$\shorteq$Alice,school$\shorteq$Drexel & ['15/2,'15/6) \\ \hline
+\multicolumn{3}{|c|}{v2} & type$\shorteq$p,name$\shorteq$Bob & ['15/2,'15/5) \\ \hline
+\multicolumn{3}{|c|}{v2} & type$\shorteq$p,name$\shorteq$Bob,school$\shorteq$CMU & ['15/5,'15/10) \\ \hline
+\multicolumn{3}{|c|}{v3} & type$\shorteq$p,name$\shorteq$Cathy,school$\shorteq$Drexel & ['15/7,'15/10) \\ \hline
 \multicolumn{5}{|l|}{} \\
 \multicolumn{5}{|l|}{$TE$} \\
-\multicolumn{1}{|c}{\bfseries{\underline e}} & \multicolumn{1}{c}{\bfseries v1} & \multicolumn{1}{c}{\bfseries v2} & \multicolumn{1}{c}{\bfseries a} & \multicolumn{1}{c|}{\bfseries T} \\ \hline
-e1 & v1 & v2 & type=co-author,cnt=3 & ['15/2,'15/6) \\ \hline
-e2 & v2 & v3 & type=co-author,cnt=4 & ['15/7,'15/10) \\ \hline
-\end{tabular}
-}
+\multicolumn{1}{|c}{\bfseries{\underline e}} & \multicolumn{1}{c}{\bfseries v1} & \multicolumn{1}{c}{\bfseries v2} & \multicolumn{1}{p{1.84in}}{\bfseries a} & \multicolumn{1}{c|}{\bfseries T} \\ \hline
+e1 & v1 & v2 & type$\shorteq$co-author,cnt$\shorteq$3 & ['15/2,'15/6) \\ \hline
+e2 & v2 & v3 & type$\shorteq$co-author,cnt$\shorteq$4 & ['15/7,'15/10) \\ \hline
+\end{tabular*}
+%}
 \vspace{-0.2cm}
 \end{table}
 
@@ -305,31 +347,32 @@ node for each connected component and assign it a size property.
 
 \begin{table}
 \centering
+\setlength\tabcolsep{1.8pt}
 \caption{Attribute-based node creation based on property \insql{school}.}
 \vspace{-0.2cm}
 \label{tab:nodecra1}
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{| c | c | c | c | c |}
+%\resizebox{\columnwidth}{!}{%
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}|c|c|c|p{1.84in}|c|}
 \hline
 \multicolumn{5}{|l|}{$TV$} \\
 \multicolumn{3}{|c}{\bfseries{\underline v}} & \multicolumn{1}{c}{\bfseries a} & \multicolumn{1}{c|}{\bfseries T} \\ \hline
-\multicolumn{3}{|c|}{v1} & type=person,name=Alice,school=Drexel & ['15/1,'15/7) \\ \hline
-\multicolumn{3}{|c|}{v2} & type=person,name=Bob & ['15/2,'15/5) \\ \hline
-\multicolumn{3}{|c|}{v2} & type=person,name=Bob,school=CMU & ['15/5,'15/10) \\ \hline
-\multicolumn{3}{|c|}{v3} & type=person,name=Cathy,school=Drexel & ['15/1,'15/10) \\ \hline
-\multicolumn{3}{|c|}{Drexel} & type=school,students=2 & ['15/1,'15/7) \\ \hline
-\multicolumn{3}{|c|}{Drexel} & type=school,students=1 & ['15/7,'15/10) \\ \hline
-\multicolumn{3}{|c|}{CMU} & type=school,students=1 & ['15/5,'15/10) \\ \hline
+\multicolumn{3}{|c|}{v1} & type$\shorteq$p,name$\shorteq$Alice,school$\shorteq$Drexel & ['15/1,'15/7) \\ \hline
+\multicolumn{3}{|c|}{v2} & type$\shorteq$p,name$\shorteq$Bob & ['15/2,'15/5) \\ \hline
+\multicolumn{3}{|c|}{v2} & type$\shorteq$p,name$\shorteq$Bob,school$\shorteq$CMU & ['15/5,'15/10) \\ \hline
+\multicolumn{3}{|c|}{v3} & type$\shorteq$p,name$\shorteq$Cathy,school$\shorteq$Drexel & ['15/1,'15/10) \\ \hline
+\multicolumn{3}{|c|}{Dr} & type$\shorteq$school,students$\shorteq$2 & ['15/1,'15/7) \\ \hline
+\multicolumn{3}{|c|}{Dr} & type$\shorteq$school,students$\shorteq$1 & ['15/7,'15/10) \\ \hline
+\multicolumn{3}{|c|}{C} & type$\shorteq$school,students$\shorteq$1 & ['15/5,'15/10) \\ \hline
 \multicolumn{5}{|l|}{} \\
 \multicolumn{5}{|l|}{$TE$} \\
 \multicolumn{1}{|c}{\bfseries{\underline e}} & \multicolumn{1}{c}{\bfseries v1} & \multicolumn{1}{c}{\bfseries v2} & \multicolumn{1}{c}{\bfseries a} & \multicolumn{1}{c|}{\bfseries T} \\ \hline
-e1 & v1 & v2 & type=co-author,cnt=3 & ['15/2,'15/6) \\ \hline
-e2 & v2 & v3 & type=co-author,cnt=4 & ['15/7,'15/10) \\ \hline
-e3 & v1 & Drexel & type=studentAt & ['15/1,'15/7) \\ \hline
-e4 & v3 & Drexel & type=studentAt & ['15/1,'15/10) \\ \hline
-e5 & v2 & CMU & type=studentAt & ['15/5,'15,10) \\ \hline
-\end{tabular}
-}
+e1 & v1 & v2 & type$\shorteq$co-author,cnt$\shorteq$3 & ['15/2,'15/6) \\ \hline
+e2 & v2 & v3 & type$\shorteq$co-author,cnt$\shorteq$4 & ['15/7,'15/10) \\ \hline
+e3 & v1 & Dr & type$\shorteq$studentAt & ['15/1,'15/7) \\ \hline
+e4 & v3 & Dr & type$\shorteq$studentAt & ['15/1,'15/10) \\ \hline
+e5 & v2 & C & type$\shorteq$studentAt & ['15/5,'15,10) \\ \hline
+\end{tabular*}
+%}
 \vspace{-0.2cm}
 \end{table}
 
@@ -427,11 +470,12 @@ produce the following tuples for $v_1$: $(v_1, ['15/1, '15/4), a_1)$,
 
 \begin{table}
 \centering
+\setlength\tabcolsep{1.8pt}
 \caption{$\insql{node}^T_w(r_v=\insql{always},r_e=\insql{exists},f_{v_1}=\insql{first(name)},f_{v_2}=\insql{first(school)},\ttt)$}
 \vspace{-0.2cm}
 \label{tab:nodecrw2}
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{| c | c | c | c | c |}
+%\resizebox{\columnwidth}{!}{%
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}|c|c|c|p{1.84in}|c|}
 \hline
 \multicolumn{5}{|l|}{$W$} \\
 \multicolumn{4}{|c}{\bfseries{\underline N}} & \multicolumn{1}{c|}{\bfseries T} \\ \hline
@@ -440,16 +484,16 @@ produce the following tuples for $v_1$: $(v_1, ['15/1, '15/4), a_1)$,
 \multicolumn{5}{|l|}{} \\
 \multicolumn{5}{|l|}{$TV$} \\
 \multicolumn{3}{|c}{\bfseries{\underline v}} & \multicolumn{1}{c}{\bfseries a} & \multicolumn{1}{c|}{\bfseries T} \\ \hline
-\multicolumn{3}{|c|}{v1} & type=person,name=Alice,school=Drexel & ['15/1,'15/6) \\ \hline
-\multicolumn{3}{|c|}{v2} & type=person,name=Bob,school=CMU & ['15/5,'15/10) \\ \hline
-\multicolumn{3}{|c|}{v3} & type=person,name=Cathy,school=Drexel & ['15/1,'15/10) \\ \hline
+\multicolumn{3}{|c|}{v1} & type$\shorteq$p,name$\shorteq$Alice,school$\shorteq$Drexel & ['15/1,'15/6) \\ \hline
+\multicolumn{3}{|c|}{v2} & type$\shorteq$p,name$\shorteq$Bob,school$\shorteq$CMU & ['15/5,'15/10) \\ \hline
+\multicolumn{3}{|c|}{v3} & type$\shorteq$p,name$\shorteq$Cathy,school$\shorteq$Drexel & ['15/1,'15/10) \\ \hline
 \multicolumn{5}{|l|}{} \\
 \multicolumn{5}{|l|}{$TE$} \\
 \multicolumn{1}{|c}{\bfseries{\underline e}} & \multicolumn{1}{c}{\bfseries v1} & \multicolumn{1}{c}{\bfseries v2} & \multicolumn{1}{c}{\bfseries a} & \multicolumn{1}{c|}{\bfseries T} \\ \hline
-e1 & v1 & v2 & type=co-author,cnt=3 & ['15/5,'15/6) \\ \hline
-e2 & v2 & v3 & type=co-author,cnt=4 & ['15/6,'15/10) \\ \hline
-\end{tabular}
-}
+e1 & v1 & v2 & type$\shorteq$co-author,cnt$\shorteq$3 & ['15/5,'15/6) \\ \hline
+e2 & v2 & v3 & type$\shorteq$co-author,cnt$\shorteq$4 & ['15/6,'15/10) \\ \hline
+\end{tabular*}
+%}
 \vspace{-0.2cm}
 \end{table}
 
@@ -546,7 +590,7 @@ $\setminus^{TG}$ is defined as:
 $\ttt_1 \setminus^{TG} \ttt_2 = (TV', TE') ~|~ $\\$TV' = \pi^T_{TV_1.v,TV_1.a}(\sigma^T_{TV_2.a is NULL}(TV_1 \leftouterjoin^T_{v} TV_2)) \land $\\$TE' = \pi^T_{TE_1.e,TE_1.v1,TE_1.v2,TE_1.a}(\sigma^T_{TE_2.a is NULL}(TE_1 \leftouterjoin^T_{e} TE_2))$
 \end{definition}
 
-Since we operate based on node (resp. edge) identity rather than tuple
+Since we operate based on node (resp. edge) identity rather than the tuple
 equivalence, instead of the \tra's difference operator we use a left
 outer join, select only those tuples that exist in $\ttt_1$ but not in
 $\ttt_2$, and project out the extra columns.

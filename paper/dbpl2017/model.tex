@@ -71,10 +71,10 @@ time period.
 \hline
 \multicolumn{5}{|l|}{$TV$} \\
 \multicolumn{3}{|c}{\bfseries{\underline v}} & \multicolumn{1}{c}{\bfseries a} & \multicolumn{1}{c|}{\bfseries T}\\ \hline
-\multicolumn{3}{|c|}{v1} & type=person,name=Alice,school=Drexel & ['15/1,'15/7) \\ \hline
-\multicolumn{3}{|c|}{v2} & type=person,name=Bob & ['15/2,'15/5) \\ \hline
-\multicolumn{3}{|c|}{v2} & type=person,name=Bob,school=CMU & ['15/5,'15/10) \\ \hline
-\multicolumn{3}{|c|}{v3} & type=person,name=Cathy,school=Drexel & ['15/1,'15/10) \\ \hline
+\multicolumn{3}{|c|}{v1} & type=p,name=Alice,school=Drexel & ['15/1,'15/7) \\ \hline
+\multicolumn{3}{|c|}{v2} & type=p,name=Bob & ['15/2,'15/5) \\ \hline
+\multicolumn{3}{|c|}{v2} & type=p,name=Bob,school=CMU & ['15/5,'15/10) \\ \hline
+\multicolumn{3}{|c|}{v3} & type=p,name=Cathy,school=Drexel & ['15/1,'15/10) \\ \hline
 \multicolumn{5}{|l|}{} \\
 \multicolumn{5}{|l|}{$TE$} \\
 \multicolumn{1}{|c}{\bfseries{\underline e}} & \multicolumn{1}{c}{\bfseries v1} & \multicolumn{1}{c}{\bfseries v2} & \multicolumn{1}{c}{\bfseries a} & \multicolumn{1}{c|}{\bfseries T} \\ \hline
@@ -97,7 +97,7 @@ We now give a formal definition of a \tg.
 \label{def:tg1}
 A \tg $\tve$ is a 7-tuple \break $(V,E,\Pi,\rho,\xi^T,\lambda^T_v,\lambda^T_e)$, where:
 
-\begin{itemize}[noitemsep,itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=5pt]
+\begin{itemize}[noitemsep,itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=7pt]
 \item $V$ is a finite set of {\em nodes},
 \item $E$ is a finite set of {\em edges},
 \item $\Pi$ is a set of available properties, where each element in $\Pi$ is a pair $(L_i,D_i)$, $L_i$ is a property name, and $D_i$ is the domain of property $L_i$,
