@@ -28,10 +28,10 @@ breadth, based on the analysis of the related work.
 \subsection{Node Influence Over Time}
 
 In an interaction graph, node centrality is a measure of how important
-or influential nodes are in the graph.  Over a dozen different
+or influential nodes are in the graph.  \eat{Over a dozen different
 centrality measures exist, providing indicators of how much
 information ``flows'' through the node or how the node contributes
-to the overall cohesiveness of the network.  Node importance
+to the overall cohesiveness of the network.  }Node importance
 fluctuates over time.  To see whether the wiki-talk graph has
 high-importance nodes, and how stable node importance is over
 time during a particular period of interest, we can:
@@ -86,11 +86,8 @@ Graph centrality is a popular measure that is used to evaluate how
 connected or centralized the community is.  This measure can be
 computed by aggregating in-degree values of graph nodes and may change
 as communication patterns evolve, or as high influencers appear or
-disappear.  In this case the graph centrality consistently diminishes
-as the graph grows over time and is large at any point.  It is fair to
-say that the wiki-talk community is quite distributed and not
-centralized, likely with many different sub-communities that
-corresponds to our intuition.  In sparse interaction graphs there is
+disappear.  In wiki-talk the graph centrality consistently diminishes
+as the graph grows over time.  In sparse interaction graphs there is
 an additional question of temporal resolution to consider: if two
 people communicated on May 16, 2010, how long do we consider them to
 be connected?
@@ -204,17 +201,16 @@ We can analyze evolving interaction networks to study how information
 spreads over time.  Suppose each edge has a \insql{topic} attribute
 that indicates what each communication between users is about.  To see
 how far and how quickly information spreads, we can compute {\em
-journeys}.  A journey connects any two nodes by a new edge if there is
-a path between them such that the edge times are non-decreasing.  For
-example, a journey can be over edges that all co-exist or over edges
-that follow each other in time.  A conditional journey is one where
-additional predicates on the nodes or edges are specified.  In this
-example, we connect any two nodes that have a path between them on the
-same topic and assign new edges a length property equal to the sum of
-the edges in the path.  This is an example of an edge creation
-operation extended for evolving graphs.  To see how far information
-may travel and who the sources are, we can select a subset of the
-network, consisting only of nodes that originate the longest edges.
+  journeys}.  A journey connects any two nodes by a new edge if there
+is a path between them such that the edge times are non-decreasing.
+For example, a journey can be over edges that all co-exist or over
+edges that follow each other in time.  In this example, we connect any
+two nodes that have a path between them on the same topic and assign
+new edges a length property equal to the sum of the edges in the path.
+This is an example of an edge creation operation extended for evolving
+graphs.  To see how far information may travel and who the sources
+are, we can select a subset of the network, consisting only of nodes
+that originate the longest edges.
 
 \begin{figure}
 \centering
