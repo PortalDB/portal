@@ -1,0 +1,27 @@
+\section{Conclusion}
+\label{sec:conc}
+
+In this paper we presented \tga: an extension of the property graph
+model with tuple timestamping for evolving graphs, and a rich set of
+operations with point semantics.  TGA is ungrouped, snapshot
+reducible, and extended snapshot reducible.  We examined several use
+cases and showed how \tga can be used to express them.
+
+\eat{A model previously used in the literature, a sequence of snapshots,
+can be computed from our model with a slice over all time points.  We
+emphasize that the choice of the logical model impacts the
+expressiveness of the algebra and advocate our model over the snapshot
+sequence from that perspective.  Our model supports fully evolved
+graphs% (both topological and attribute evolution for both nodes and edges)
+, uses time intervals for time granularity, and provides both
+graph-centric and entity-centric views.}
+
+One of the limitations of \tga that prevents its temporal completeness
+is lack of change preservation as part of sequence semantics.  Work on
+adapting \tga for sequence semantics is in
+progress~\cite{MoffittEDBT17}.
+%
+We have developed a prototype implementation of \tga in scope of
+Apache Spark, which we will make available to the public shortly.  It
+is in our immediate plans to develop a declarative syntax for \tga,
+making it accessible to a wider audience of users.

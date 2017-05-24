@@ -1,0 +1,190 @@
+\section{Temporal Graph Model}
+\label{sec:model}
+
+Our data model represents a single evolving graph, consisting of
+nodes, node properties, edges, edge properties, and addition,
+modification, and deletion of these over time.  It uses a closed world
+semantics -- we assume that evolution history is complete, the state
+of the graph is fully known and recorded at each time instant, and
+there is no uncertain or incomplete information.
+
+\subsection{Preliminaries}
+
+We assume a linearly ordered, discrete time domain $\Omega^T$ where
+time {\em instances} have limited precision.  In temporal relational
+databases, a {\em valid-time} temporal relation schema is represented
+as $R = (A_1, \ldots, A_m~|~T)$, where $A_1, \ldots, A_m$ are
+nontemporal attributes with domain $\Omega_i$ and $T$ is a temporal
+attribute over $\Omega^T \times \Omega^T$.  The timestamp attribute is
+special and thus separated by a $|$ symbol in the list of attributes.
+\eat{It is also always listed last.  }This is called {\em tuple
+  timestamping}~\cite{Montanari2009}, since each tuple in a relation
+is associated with a single time attribute during which it is known to
+hold.  In principle, the time attribute can be a single time instant
+or a set of instants.  We use periods to compactly represent the
+constituent time points.  This is a common representation technique,
+which does not add expressive power to the data model, compared to
+associating each tuple with a single time
+instant~\cite{DBLP:conf/ictl/Chomicki94}.  Following the SQL:2011
+standard~\cite{DBLP:journals/sigmod/KulkarniM12}, a period (or
+interval) $T = [s, e)$ represents a discrete contiguous set of time
+  instances from domain $\Omega^T$, starting from and including the
+  start time $s$, continuing to but excluding the end time $e$.
+
+With point semantics, a temporal relation is required to be coalesced
+-- there are no value-equivalent tuples with consecutive timestamps.
+The statement that a relation is coalesced means that each fact is
+represented once for each time period of maximal length when it
+holds~\cite{DBLP:conf/vldb/BohlenSS96}.  Requiring that relations be
+coalesced is both space-efficient and avoids semantic
+ambiguity~\cite{DBLP:reference/db/JensenS09k}.
+
+\subsection{TGraph}
+
+We now describe the logical representation of an evolving graph,
+called a \tg.  A \tg represents a single graph, and models the
+evolution of its topology and of vertex and edge properties.  This is
+in line with the nontemporal graph definitions.  
+
+In order to represent evolving graphs, we provide two definitions: 1)
+an extension of the property graph
+definition~\cite{DBLP:journals/corr/AnglesABHRV16}, and 2) one that is
+based on the temporal relataional model.  The two models are equivalent,
+but it is sometimes easier to define the semantics of an operation
+over one definition than the other.  We extend the property graph
+model to represent graph nodes and edges as follows: each node and
+edge is associated with a period of validity, as is each property
+value.\eat{during time $t$ is associated with a (possibly empty) {\em
+    set} of properties, and each property is represented by a
+  key-value pair.}  A \tg can also be represented with two nested
+temporal relations, associating a fact (existence of a vertex or an edge,
+and an assignment of a value to a vertex or an edge attribute) with a
+time period.
+
+\begin{table*}
+\caption{A co-authorship network represented using the \tg model,
+  consisting of two nested temporal relations.}
+\vspace{-0.2cm}
+\label{tab:tg}
+\centering
+\begin{tabular}{| c | c | c | c | c |}
+\hline
+\multicolumn{5}{|l|}{$TV$} \\
+\multicolumn{3}{|c}{\bfseries{\underline v}} & \multicolumn{1}{c}{\bfseries a} & \multicolumn{1}{c|}{\bfseries T}\\ \hline
+\multicolumn{3}{|c|}{v1} & type=p,name=Alice,school=Drexel & ['15/1,'15/7) \\ \hline
+\multicolumn{3}{|c|}{v2} & type=p,name=Bob & ['15/2,'15/5) \\ \hline
+\multicolumn{3}{|c|}{v2} & type=p,name=Bob,school=CMU & ['15/5,'15/10) \\ \hline
+\multicolumn{3}{|c|}{v3} & type=p,name=Cathy,school=Drexel & ['15/1,'15/10) \\ \hline
+\multicolumn{5}{|l|}{} \\
+\multicolumn{5}{|l|}{$TE$} \\
+\multicolumn{1}{|c}{\bfseries{\underline e}} & \multicolumn{1}{c}{\bfseries v1} & \multicolumn{1}{c}{\bfseries v2} & \multicolumn{1}{c}{\bfseries a} & \multicolumn{1}{c|}{\bfseries T} \\ \hline
+e1 & v1 & v2 & type=co-author,cnt=3 & ['15/2,'15/6) \\ \hline
+e2 & v2 & v3 & type=co-author,cnt=4 & ['15/7,'15/10) \\ \hline
+\end{tabular}
+\vspace{-0.2cm}
+\end{table*}
+
+Table~\ref{tab:tg} gives an example of a \tg that shows evolution of a
+co-authorship network in the nested temporal relational model.  Node
+\insql{1} persists without change from '15/1 to '15/7, but node
+\insql{2} has a property change event at '15/5, thus creating a new
+tuple.  For the sake of readability we display the nested attribute
+$a$ as a list of key value pairs.
+
+We now give a formal definition of a \tg.
+
+\begin{definition}[TGraph]
+\label{def:tg1}
+A \tg $\tve$ is a 7-tuple \break $(V,E,\Pi,\rho,\xi^T,\lambda^T_v,\lambda^T_e)$, where:
+
+\begin{itemize}[noitemsep,itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=7pt]
+\item $V$ is a finite set of {\em nodes},
+\item $E$ is a finite set of {\em edges},
+\item $\Pi$ is a set of available properties, where each element in $\Pi$ is a pair $(L_i,D_i)$, $L_i$ is a property name, and $D_i$ is the domain of property $L_i$,
+\item $\rho: E \to (V \times V)$ is a total function that maps an edge to its source and destination node,
+\item $\xi^T: (V \cup E) \times T \to B$ is a total function that maps a node or an edge and time period to a boolean, indicating whether the node (resp. edge) existed during that whole time period,
+\item $\lambda^T_v: V \times \bigcup L_i \times T \to Val$ is a partial function that maps a node from $V$ and a property label in $L$ during time period $T$ to a value in domain $D$ at that time,
+\item $\lambda^T_e: E \times \bigcup L_i \times T \to Val$ maps an edge in $E$ and a property label in $L$ during time period $T$ to a value of that property in its domain $D$ at that time.
+\end{itemize}
+\end{definition}
+
+This definition is similar to the static graph
+definition~\cite{DBLP:journals/corr/AnglesABHRV16}, with the addition
+of the $\xi^T$ function that asociates nodes and edges with their
+periods of validity, and the modification of the $\lambda$ functions
+that map from entities to their property values, to include time.
+Properties can only take on a value during time periods when the node
+(resp. edge) exists.
+
+As in temporal relational algebra, time is part of the model rather
+than an additional property in the property set.  Time is treated
+special and cannot be modified by the user directly, although it can
+be accessed in predicates.  \eat{This is one of the lessons from the
+  temporal relational work and we incorporate it here.}
+
+In order to take advantage of \tra, we provide an alternate definition
+using two nested temporal relations, assuming, for the
+  moment, that all node/edge properties are in a single domain $D$.
+
+\begin{definition}[TGraph-Relational]
+\label{def:tg2}
+A \tg is a pair $\mathcal{G}=(\tv, \te)$. \tv is a valid-time nested
+temporal relation with schema $\tv(\underline{v}, a: (K,B) ~|~T)$,
+where $K$ is a property key string, and $B$ is a property value.
+\eat{each $B_i, 0 \geq i \geq m$ is a value of a property of domain
+  $D_i$, and $m$ is the number of different domains in $\Pi$.}  \tv
+associates a vertex and its property set with the time period during
+which it is present and unchanged. \te is a valid-time nested temporal
+relation with schema $\te(\underline{e}, v_1, v_2, a:
+(K,B) ~|~T)$, connecting pairs of vertices from \tv.
+
+Relations of $\mathcal{G}$ must meet the following requirements:
+
+\begin{description}[noitemsep,itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=0pt]
+\item [R1: Unique vertices/ edges] In every snapshot $\tau_p (\tv)$
+  and $\tau_p (\te)$, where $p$ is a time point, a vertex/edge
+  exists at most once.  That is, we require set-based semantics with
+  duplicate free temporal relations.
+\item [R2: Referential integrity] In every snapshot $\tau_p(\te)$
+  foreign key constraints hold to $\tau_p (\tv)$ on both $v_1$ and
+  $v_2$.
+\item [R3: Coalesced] Value-equivalent tuples in all relations of \tve
+  with consecutive or overlapping time periods are merged.  For a
+  nested attribute, value equivalence is a standard set equivalence,
+  i.e., that the sets of property pairs are the same.
+\item [R4: Required property] For any $v \in \tv,
+  v.a\neq\emptyset$, and for any $e \in \te, e.a\neq\emptyset$.
+  That is, we require that each node and edge have at least one
+  property in its property set.
+\end{description}
+\end{definition}
+
+Property sets are represented by a nontemporal nested relation, and,
+more specifically, a V-relation~\cite{Abiteboul1995}.
+Definition~\ref{def:tg2} assumes, for simplicity, that all properties
+draw values from a single domain.  It is straight-forward to
+generalize this definition, allowing the set of property domains to
+not be limited to a single domain or even to atomic values.  We can
+include any domain that can be represented by an atomic type or a
+nested relation.  \eat{Observe that the set of property domains
+  $\bigcup B_i$ is not limited to atomic values, but can be a nested
+  relation.  Thus sets of atomic values, maps, and similar
+  complex-value property types are supported.  }
+
+Requirements {\bf R1 and R2} guarantee soundness of the \tg data
+structure, ensuring that every snapshot of a \tg is a valid graph.  If
+we remove requirement {\bf R1}, a snapshot at some point $p$ may
+contain two instances of the same node or edge, which breaks the
+set-based graph semantics.  Requirement {\bf R2} prevents a situation
+where an edge connects a node that does not exist at that time
+instant.  Requirement {\bf R3} avoids semantic ambiguity and ensures
+correctness of algebraic operations in point-stamped temporal models
+such as ours~\cite{DBLP:reference/db/JensenS09k}.  Requirement {\bf
+  R4} provides compatability with the graph-based definition, where
+property \insql{type} is required, and avoids any loss of information
+when relations \tv and \te are unnested during operations.
+
+Definitions~\ref{def:tg1} and~\ref{def:tg2} are equivalent.  We prove
+this by construction in the Appendix.  When we define operations of
+our graph algebra, we will use either \tg or \tg-relational model, as
+convenient.

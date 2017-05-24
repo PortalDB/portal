@@ -1,0 +1,123 @@
+\section{Introduction}
+\label{sec:intro}
+
+Evolving graphs analysis is a rich new area of research that has been
+getting increasing
+attention~\cite{DBLP:journals/csur/AggarwalS14,Miao2015,Ren2011,Semertzidis2015}.
+This is a natural consequence of the prevalence of graph datasets to
+represent such wide-ranging phenomena as social networks and the Web.
+The phenomena change with time, and the evolution provides another
+dimension of interest from which to draw insight.
+
+Given the progress both in the area of graph databases and temporal
+databases, it is expected that evolving graphs would be supported as
+well, being at the intersection of the two areas.  And yet, systematic
+support for scalable querying and analytics over evolving graphs still
+lacks, despite much recent interest and activity, and despite increased
+variety and availability of evolving graph data.  This support is
+urgently needed, due to the scalability and efficiency challenges
+inherent in evolving graph analysis, and to considerations of
+usability and ease of dissemination.  The goal of our work is to fill
+this gap by combining the advances in graph databases and temporal
+relational databases.
+
+Previous efforts pursued ad hoc approaches to modeling evolving graphs
+by representing time as data or using a snapshot sequence model, with
+all inherent limitations.  As a result, while the types of analyses on
+evolving graphs are numerous in the literature, there is no unifying
+model or a query language.  Previous efforts to provide {\em
+  systematic} support have addressed two main areas: efficient
+snapshot retrieval~\cite{Khurana2013,Khurana2016} and efficient
+snapshot analytics~\cite{Miao2015,MoffittTempWeb16}.  This still
+leaves many other kinds of analyses, from discovery of spatio-temporal
+patterns, to changing the temporal resolution of the data for a
+different look, to combining multiple evolving graph sources into one.
+
+% General motivation
+\eat{
+The importance of networks in scientific and commercial domains cannot
+be overstated.  Considerable research and engineering effort is being
+devoted to developing effective and efficient graph representations
+and analytics.  Efficient graph abstractions and analytics for {\em
+  static graphs} are available to researchers and practitioners in
+scope of open source platforms such as Apache Giraph, Apache Spark /
+GraphX~\cite{DBLP:conf/osdi/GonzalezXDCFS14} and GraphLab /
+PowerGraph~\cite{DBLP:conf/osdi/GonzalezLGBG12}.
+}
+
+\eat{
+Arguably the most interesting and important questions one can ask
+about networks have to do with their evolution, rather than with their
+static state.  Analysis of {\em evolving graphs} has been receiving
+increasing
+attention~\cite{DBLP:journals/csur/AggarwalS14,Chan2008,Kan2009,Miao2015,Ren2011,Semertzidis2015}.
+Yet, despite much recent activity, and despite increased variety and
+availability of evolving graph data, systematic support for scalable
+querying and analysis of evolving graphs still lacks.  This support is
+urgently needed, due first and foremost to the scalability and
+efficiency challenges inherent in evolving graph analysis, but also to
+considerations of usability and ease of dissemination.  The goal of
+our work is to fill this gap.  In this paper, we present an algebraic
+query language called \tg algebra, or \tga, and its scalable
+implementation in \ql, an open-source distributed framework on top of
+Apache Spark.
+}
+
+\eat{
+Our goal in developing \tga is to give users an ability to concisely
+express a wide range of common analysis tasks over evolving graphs,
+while at the same time preserving inter-operability with temporal
+relational algebra (\tra).  Implementing (non-temporal) graph querying
+and analytics in an RDBMS has been receiving renewed
+attention~\cite{DBLP:conf/sigmod/AbergerTOR16,DBLP:conf/sigmod/SunFSKHX15,DBLP:journals/pvldb/Xirogiannopoulos15},
+and our work is in-line with this trend. Our data model is based on
+the temporal relational model, and our algebra corresponds to temporal
+relational algebra, but is designed specifically for evolving graphs.
+}
+
+\eat{We give a translation of our operators in relational algebra, and, as
+a consequence, can implement our algebraic framework on top of a
+relational engine.  Th advantages of incorporating graph querying
+into a general-purpose relational system are two-fold: usability and
+access to the relational data modeling and query processing
+infrastructure.}
+
+\eat{For this reason our data model is based on the temporal relational
+model, and our query language corresponds to temporal relational
+calculus, a two-sorted logic with variables and quantifiers explicitly
+ranging over the time domain~\cite{DBLP:reference/db/Toman09}, for
+graphs.}
+
+\eat{
+We represent graph evolution, including changes in topology and in
+attribute values of vertices and edges, using the \tg abstraction ---
+a collection of temporal SQL relations with appropriate integrity
+constraints.  An example of a \tg is given in Figure~\ref{fig:tg_ve},
+where we show evolution of a co-authorship network.
+}
+
+%\subsection{Contributions and roadmap}
+
+%
+%\begin{enumerate}[noitemsep,leftmargin=*]
+%\begin{description}[noitemsep]
+%
+We propose a conceptual representation of an evolving graph, called a
+\tg, that captures the evolution of both graph topology and node and
+edge attributes (Section~\ref{sec:model}).  This representation builds
+on both temporal relational models and graph property models.  To
+provide systematic support for analysis of evolving graphs, we propose
+a \tg algebra, \tga (Section~\ref{sec:algebra}).  Our goal in
+developing \tga is to give users an ability to concisely express a
+wide range of common analysis tasks over evolving
+graphs~\cite{DBLP:journals/csur/AggarwalS14}.  We present formal
+properties of \tga, with a focus on its temporal completeness
+(Section~\ref{sec:formal}).  It is the goal of this work to define an
+algebra that has clear semantics and is sufficiently expressive to
+support evolving graph analysis for a wide audience of data scientists
+and researchers.  We illustrate how \tga can be used on several
+motivating examples (Section~\ref{sec:usecases}).
+
+%\end{enumerate}
+
+
