@@ -1,0 +1,166 @@
+\section{Distributed stabbing count}
+\label{sec:distributed}
+
+The stabbing count array construction requires a sequential sweep
+method which does not take advantage of a distributed environment and
+leads to poor performance on large datasets.
+
+Observe that the stabbing count array can be constructed with the
+following two SQL queries:
+
+\begin{small}
+\begin{verbatim}
+SELECT A.s, A.e, A.id, count(*) 
+FROM I as A, I as B 
+WHERE A.s > B.s and A.s < B.e 
+ORDER BY A.s, A.e, A.id
+
+SELECT A.s, A.e, A.id, count(*)
+FROM I as A, I as B
+WHERE A.s = B.s and 
+   (A.e > B.e or (A.e = B.e and A.id > B.id))
+ORDER BY A.s, B.e, A.id
+\end{verbatim}
+\end{small}
+
+Translated into a sequence of operations, this naive method is a
+theta-join, followed by aggregation, followed by a sort.  The
+performance of a theta-join in a distributed environment is poor as it
+usually reduces to a cartesian, thus $W(N) = \Theta(N^2) + \Theta(N^2)
++ \Theta(N~log~N) = O(N^2)$, $S(N) = \Theta(1) + \Theta(2~log~N) +
+\Theta(log^2 N) = O(log^2 N)$.  Both work and span are higher than in
+the base case, with total parallelism $P(N) = O(N^2 / log^2 N) >
+O(log~N)$.
+
+This direct approach has quadratic performance, but a divide and
+conquer algorithm can do better.
+
+\begin{algorithm}
+\caption{SCParallel(E)}
+\begin{algorithmic}[1]
+\Require $E$ is sorted
+\State $n \gets |E|$
+\If {$n = 1$}
+\If {$E(1) = \text{starting value}$} 
+\State $A(1) \gets (0,0,E(1))$
+\State $c \gets 1; c_{\delta} \gets 1; s_{last} \gets E(1)$
+\Else \Comment {$E(1) =$ ending value} 
+\State $A(1) \gets \emptyset; c \gets -1; c_{\delta} \gets 0; s_{last} \gets -\infty$
+\EndIf
+\Else
+\State $(L,c_l,c_{\delta l},s_l) \gets SCParallel(E(1:\floor{n/2}))$
+\State $(R,c_r,c_{\delta r},s_r) \gets SCParallel(E(\ceil{n/2}:n))$
+\For {$j \gets 1, \ldots, |R|$}
+\State $(\sigma, \delta, s) \gets R(j)$
+\If {$s_l = s$}
+\State $R(j) \gets (\sigma + c_l - c_{\delta l}, \delta + c_{\delta l}, s)$
+\Else
+\State $R(j) \gets (\sigma + c_l, \delta, s)$
+\EndIf
+\EndFor
+\State $A = L + R; c \gets c_l + c_r$
+\If {$s_l = s_r$}
+\State $c_{\delta} \gets c_{\delta l} + c_{\delta r}; s_{last} \gets s_l$
+\Else
+\If {$s_l > s_r$}
+\State $c_{\delta} \gets c_{\delta l}; s_{last} \gets s_l$
+\Else
+\State $c_{\delta} \gets c_{\delta r}, s_{last} \gets s_r)$
+\EndIf
+\EndIf
+\EndIf
+\State \Return $A, c, c_{\delta}, s_{last}$
+\end{algorithmic}
+\label{alg:divideconquer}
+\end{algorithm}
+
+\begin{lemma}
+The stabbing count array can be built in $O(N~log~N)$ work and
+$O(log^2 N)$ span.
+\end{lemma}
+
+\begin{proof}
+The algorithm uses a divide and conquer approach.  First we sort the
+start and end points, as in the baseline method, but using merge sort
+or any of the stanard parallel approaches.  This requires $O(N~log~N)$
+work and $O(log^2 N)$ span.  Let's denote the sorted array $E$, as
+before.  Next, instead of a scan, we execute a recursive divide and
+merge procedure $SCParallel$.  $SCParallel$ returns a computed array
+and 3 other elements: $c$, $c_{\delta}$, and $s_{last}$.  The return
+array also has 3 elements: $\sigma, \delta$, and $s$.  If the input
+array is of size 1 and is a starting value, we return an array of size
+1 with a triple element (0,0,element) and $c=1, c_{\delta}=1,
+s_{last}=$element.  If it is an ending value, we return an empty array
+and $c=-1, c_{\delta}=0, s_{last}=-\infty$.  If the input array is of
+size $>1$, we divide it in half and call $SCParallel$ on each half.
+Let's denote the left invocation result as $L, c_l, c_{\delta l}, s_l$
+and the right invocation result as $R, c_r, c_{\delta r}, s_r$.  We
+merge left and right invocation results as follows: 
+
+\begin{itemize}
+\item For every element in $R$, if it is equal to $s_l$, we add
+  $c_l-c_{\delta l}$ to $\sigma$ value, $c_{\delta l}$ to $\delta$,
+  and $s$ is unchanged.  Otherwise, we add $c_l$ to $\sigma$, and
+  $\delta$ and $s$ remain unchanged.
+\item Return array value is processed $R$ appended to $L$.
+\item If $s_l=s_r$, $c=c_l + c_r$, $c_{\delta} =
+  c_{\delta l} + c_{\delta r}$, and $s_{last}=s_l$.  Otherwise,
+  $c=c_l + c_r$, $c_{\delta}=c_{\delta}$ associated with the later of
+  two $s_{last}$, and $s_{last}$ is the later of two $s_{last}$.
+\end{itemize}
+
+This is shown in Algorithm~\ref{alg:divideconquer}.
+
+\vera{Need to give a proof of correctness here}
+
+Algorithm~\ref{alg:divideconquer} uses a sort with the usual $W(N) =
+\Theta(N~log~N)$, $S(N) = \Theta(log^2 N)$, followed by a
+divide-and-conquer $SCParallel$ procedure where we can use
+recursion for performance as follows:
+
+$W(n) =
+\begin{cases}
+\Theta(1)~~~~~~~~~~~~~~~~~~~\text{if} ~~n \leq 1\\
+2W(n/2) + \Theta(n) ~~~\text{otherwise}\\
+\end{cases}$
+
+$S(n) ~= 
+\begin{cases}
+\Theta(1)~~~~~~~~~~~~~~~~~~~\text{if} ~~n \leq 1\\
+S(n/2) + \Theta(1) ~~~~~~\text{otherwise}\\
+\end{cases}$
+
+We can solve the recurrances to obtain $W(N) = \Theta(N~log~N)$, $S(N)
+= \Theta(log~N)$.  Thus the overal algorithm has $W(N) =
+\Theta(N~log~N) + \Theta(N~log~N) = O(N~log~N), S(N) = \Theta(log^2 N)
++ \Theta(log~N) = O(log^2 N)$, which produces higher parallelism than
+the baseline and the naive method with the same amount of work,
+asymptotically, as the baseline method.
+\end{proof}
+
+\begin{algorithm}
+\caption{StabbingCount-MR(I)}
+\begin{algorithmic}[1]
+\State Map 1: Input: (endpoint; s)
+\State ...
+\end{algorithmic}
+\label{alg:mapred}
+\end{algorithm}
+
+{\bf Map-reduce variant.}  Divide and conquer is a commonly used
+technique in parallel algorithms, but it is not generally available in
+distributed architectures like MapReduce and Apache Spark.  We can
+modify the algorithm as follows: after sort of the ends points of I,
+compute $c$, $c_\delta$, and $s_{last}$ values within each partition
+of $E$ in parallel.  Use these values to compute the starting
+partition values of $c$, $c_\delta$, and $s_{last}$ by a single sweep
+from smallest to largest, and then compute the stabbing count array
+values within each partition independently using the starting values.
+This is shown in Algorithm~\ref{alg:mapred}.
+
+Algorithm~\ref{alg:mapred} requires $W(n) = \Theta(n~log~n) +
+\Theta(n) + \Theta(n) = O(n~log~n), S(n) = \Theta(log^2 n) +
+\Theta(n/k) + \Theta(k) + \Theta(n/k) = O(n)$, where $k$ is the number
+of partitions.  Asymptotically, this method is no better than a single
+sweeping technique of the centralized method, but it is in fact k
+times faster. \vera{analysis of communication cost here.}
