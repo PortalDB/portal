@@ -3,18 +3,24 @@
 topnav:
 - title: Topnav
   items:
-    - title: Sample page
-      url: /samplepage
+    - title: Sample Use Cases
+      url: /sampleusecases
+    - title: API
+      url: /api
+    - title: Graph Representations
+      url: /graphRepresentations
+    #- title: Sample page
+    #  url: /samplepage
 
 #Topnav dropdowns
-topnav_dropdowns:
-- title: Topnav dropdowns
-  folders:
-    - title: Dropdown example
-      folderitems:
-        - title: Documentation Theme Github Repo
-          external_url: https://github.com/tomjohnson1492/documentation-theme-jekyll
-        - title: Jekyll documentation
-          external_url: http://jekyllrb.com/docs/home/
-        - title: Jekyll on Stack Overflow
-          external_url: http://stackoverflow.com/questions/tagged/jekyl
+#topnav_dropdowns:
+#- title: Topnav dropdowns
+#  folders:
+#    - title: Dropdown example
+#      folderitems:
+#        - title: Documentation Theme Github Repo
+#          external_url: https://github.com/tomjohnson1492/documentation-theme-jekyll
+#        - title: Jekyll documentation
+#          external_url: http://jekyllrb.com/docs/home/
+#        - title: Jekyll on Stack Overflow
+#          external_url: http://stackoverflow.com/questions/tagged/jekyl

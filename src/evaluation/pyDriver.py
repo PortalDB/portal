@@ -79,8 +79,8 @@ def collect_args(query, strat, run):
             arg2 = line[i+3]
             arg3 = line[i+5]
             arg4 = line[i+8].strip('\)') #if in a subquery
-            if line[i+10] == "vgroupby":
-                arg5 = line[i+11]
+            if line[i+10] == "vgroup":
+                arg5 = line[i+12]
             else:
                 arg5 = None
             runW = int(line[i+2])

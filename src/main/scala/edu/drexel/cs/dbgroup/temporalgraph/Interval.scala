@@ -50,7 +50,7 @@ class Interval(st: LocalDate, en: LocalDate) extends Serializable {
   def compare(other: Interval): Int = {
     if (start.isEqual(other.start) && end.isEqual(other.end))
       0
-    else if (start.isBefore(other.start))
+    else if (start.isBefore(other.start) || (start.isEqual(other.start) && end.isBefore(other.end)))
       -1
     else
       1
