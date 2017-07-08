@@ -19,7 +19,7 @@ since~\cite{Ferreira2004,Kan2009,Khurana2013,Lerman2010,Ren2011,Semertzidis2015}
 with various restrictions on the kinds of changes that can take place
 in the graph evolution.  For example, Khurana and Deshpande use this
 model but a node, once removed, cannot reappear~\cite{Khurana2013}.
-In~\cite{Labouseur2015,Ren2011} there is no notion of time at all,
+In others~\cite{Labouseur2015,Ren2011} there is no notion of time at all,
 only a sequence of graphs.  \eat{In~\cite{Borgwardt2006}
   and~\cite{Kan2009} the time series of graphs represent topology
   only, with no attributes, and only edges can vary with time, while
@@ -65,13 +65,13 @@ Nontemporal operators are focused on local and global point queries.
 This includes the retrieval of specific nodes, edges, or routes at a
 specific time point, supported in the Historical Graph
 Store~\cite{Khurana2016} and in Koloniari et al.~\cite{Koloniari2012}.
-Georte et al. support anomaly detection through a subgraph query to
+George et al. support anomaly detection through a subgraph query to
 locate specific nodes that have anomalous readings~\cite{George2009}.
 Khurana and Deshpande provide a snapshot retrieval operation for a
 specific time point~\cite{Khurana2013}, as does the G*
 system~\cite{Labouseur2015}.  The main focus in all these approaches
-is the physical layout of the data and the access methods for fastest
-retrieval.
+is the physical layout of the data and the access methods\eat{ for fastest
+retrieval}.
 
 \eat{Note that any closed algebra on evolving graphs cannot support these
 operators directly because the result is inherently nontemporal.
@@ -90,15 +90,15 @@ layout.  Time is not an intrinsic part of the system, as it is in
 creation are not supported.  G* provides graph operators such as
 retrieving vertices and their edges from disk and non-graph operators
 like aggregate, union, projection, and join.  Finally, the Historical
-Graph Store (HGS) system~\cite{Khurana2016} is an evolving graph query
-system based on Spark.  It uses the property graph model and supports
+Graph Store (HGS)~\cite{Khurana2016} is an evolving graph query system
+based on Spark.  It uses the property graph model and supports
 retrieval tasks along time and entity dimensions through Java and
 Python API.  It provides a range of operators such as selection,
-timeslice, nodecompute, as well as various evolution-centered operators.  HGS
-does not provide formal semantics for any of the operations it
-supports and the main focus is on efficient on-disk representation for
+timeslice, nodecompute, as well as various evolution-centered
+operators.  HGS does not provide formal semantics for any of its
+operations, focusing on the efficient on-disk representation for
 retrieval.
 
 \tga is strictly more expressive than any of the three systems and is
-the only evolving graph algebra to provide node and edge creation as
-well as suport for temporal predicates.
+the only evolving graph algebra to provide node and edge creation and
+support for temporal predicates.

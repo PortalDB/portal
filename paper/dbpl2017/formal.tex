@@ -36,11 +36,12 @@ distinguished time attribute not in $U_A$.
 A temporally ungrouped (TU) relation schema $R_{TU}$ is a 3-tuple
 $R_{TU} = <\mathbf{A},\mathbf{K},\mathbf{DOM}>$, where:
 
-\begin{itemize}[noitemsep,itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=5pt]
+\begin{itemize}[noitemsep,topsep=0pt,itemindent=\dimexpr\labelwidth+\labelsep\relax,leftmargin=5pt]
 \item $\mathbf{A} \cup \{T\} (\mathbf{A} \subseteq U_A)$ is the set of attributes of the schema.
-\item $\mathbf{K} \cup \{T\} (\mathbf{K} \subseteq \mathbf{A})$ is the key of the schema, i.e., $\mathbf{K} \cup \{T\} \to \mathbf{A}$.
+\item $\mathbf{K} \cup \{T\} (\mathbf{K} \subseteq \mathbf{A})$ is the key of the schema, $\mathbf{K} \cup \{T\} \to \mathbf{A}$.
 \item $\mathbf{DOM}: \mathbf{A} \cup \{T\} \to U_D \cup \{\Omega^T\}$ is a function that assigns domains to attributes in $\mathbf{A}$ and $T$ to $\Omega^T$.
 \end{itemize}
+%\vspace{-0.2cm}
 
 A TU database schema $DB_{TU}$ is a finite set of TU relation schemas.
 A tuple $rt$ on schema $R_{TU}$ is a function that associates a value
@@ -54,48 +55,16 @@ Section~\ref{sec:model:temporal} is isomorphic to a temporally
 ungrouped relation structure, by using intervals instead of time
 points.  This is formally shown in~\cite{Bohlen1995}.}
 
-A canonical temporally grouped relation maintains the notion of an
-object changing over time.  As we will show that the \tg model is
-isomorphic to TU, We do not include the formal definition of the
-canonically grouped relation model.  Refer to~\cite{Clifford1994} for
-the definition and additional discussion.
-
-%Formally:
-\eat{
-\begin{definition}[Canonical temporally grouped relation model]
-[adapted from~\cite{Clifford1994}, pp. 70-71] Let $U_D$, $\mathbf{D}$,
-$\Omega^T$, and $U_A$ be defined as for the canonical temporally
-ungrouped relation structure above.  Any subset of $\mathbf{L}
-\subseteq \Omega^T$ is called a {\em lifespan}.
-}
-\eat{
-A temporally grouped (TG) relation schema $R_{TG}$ is a 3-tuple
-$R_{TG} = <\mathbf{A},\mathbf{K},\mathbf{DOM}>$, where:
-}
-\eat{
-\begin{itemize}
-\item $\mathbf{A} \subseteq U_A$ is the set of attributes of the schema.
-\item $\mathbf{K} \subseteq \mathbf{A}$ is the key of the schema, i.e., $\mathbf{K} \to \mathbf{A}$.
-\item $\mathbf{DOM}: \mathbf{A} \to U_D \cup \{\Omega^T\}$ is a
-  function that assigns to each attribute a value domain and the
-  corresponding temporal domain.
-\end{itemize}
-}
-\eat{
-A TG database schema $DB_{TG}$ is a finite set of TG relation schemas.
-A tuple $rt$ on schema $R_{TG}$ is a function that associates with
-each attribute $A_i \in \mathbf{A}$ a temporal function from the tuple
-lifespan to the domain assigned to the attribute $\mathbf{DOM}(A_i)$.
-A TG relation is a finite set of TG tuples such that no two tuples
-agree on all keys at any instant in time.
-\end{definition}
-}
-
-What makes TU relations ungrouped is that there is no mechanism to
-identify the tuples that correspond to the same entity over time,
-i.e., there is no unique grouped relation for an ungrouped relation.
-Without a grouping mechanism the TU model and the TG model are only
-{\em weakly} equivalent~\cite{Clifford1994}.
+A canonical temporally grouped (TG) relation maintains the notion of
+an object changing over time.  As we will show that the \tg model is
+isomorphic to TU, we do not include the formal definition of the TG
+model.  Refer to Clifford~\cite{Clifford1994} for the
+definition and additional discussion.  What makes TU relations
+ungrouped is that there is no mechanism to identify the tuples that
+correspond to the same entity over time, i.e., there is no unique
+grouped relation for an ungrouped relation.  Without a grouping
+mechanism the TU model and the TG model are {\em weakly}
+equivalent~\cite{Clifford1994}.
 
 The \tg model is ungrouped by the virtue of being expressed over an
 ungrouped relational model of \tra.  However, the \tg model requires
@@ -181,8 +150,8 @@ predicates are explicitly supported, according to Def.~\ref{def:tngp}.
 As noted, snapshot reducibility places no restrictions on the syntax
 of the temporal language.  To deal with the syntax, B{\"{o}}hlen, et
 al., define a more restrictive type of upward compatability termed {\em
-  temporal semi-completeness}~\cite{Bohlen1995} or
-S-reducibility~\cite{Bohlen2000}.
+  temporal semi-completeness}~\cite{Bohlen1995}\eat{ or
+S-reducibility~\cite{Bohlen2000}}.
 
 \begin{definition}[Temporal semi-completeness]
 [\cite{Bohlen1995}, p. 162] Let $M = (DS,L)$ be a nontemporal data
@@ -232,7 +201,9 @@ A further notion of upward compatability is {\em temporal
 ability to override snapshot reducibility and to refer to original
 intervals as specified by the user~\cite{Bohlen1995}.  The last
 condition is termed {\em change preservation}~\cite{Dignos2012} and is
-a property of sequenced semantics.
+a property of sequenced semantics.  \tga is not temporally complete
+both because it is not temporally semi-complete and because it uses
+point semantics, thus violating change preservation.
 
 \eat{
 \begin{definition}[Temporal completeness]
@@ -262,10 +233,6 @@ semantics~\cite{Dignos2012}, without which the intervals specified by
 the user have no special meaning.  Any point semantics coalesces
 value-equivalent consecutive and overlapping tuples and does not
 preserve user-specified intervals.}
-
-\tga is not temporally complete both because it is not temporally
-semi-complete and because it uses point semantics, thus violating the
-change preservation property.
 
 %\revision{
 %\tga is S-reducible because for each operator in \tga, one of the following hold:}

@@ -22,7 +22,7 @@ pages.
 We now present common analysis tasks and show how they can be
 expressed in \tga. We are primarily interested in analyses of the {\em
   evolution} of the phenomena the graph represents in the form of
-queries posed by the user.  The examples below were selected for their
+queries\eat{ posed by the user}.  The examples were selected for their
 breadth, based on the analysis of the related work.
 
 \subsection{Node Influence Over Time}
@@ -53,9 +53,9 @@ time during a particular period of interest, we can:
 
 \begin{figure}
 \centering
-\includegraphics[width=3in]{figs/degrees.pdf}
-\caption{Temporal navigational graph pattern $p_1$ to compute node degrees.}
+\includegraphics[width=2.5in]{figs/degrees.pdf}
 \vspace{-0.2cm}
+\caption{Temporal navigational graph pattern $p_1$ to compute node degrees.}
 \label{fig:degrees}
 \vspace{-0.2cm}
 \end{figure}
@@ -112,8 +112,8 @@ To analyze how the graph centrality measure changed over time, we can:
 \begin{figure}
 \centering
 \includegraphics[width=3.3in]{figs/snapshotncr.pdf}
+\vspace{-0.4cm}
 \caption{Navigational graph pattern $p_2$.}
-\vspace{-0.2cm}
 \label{fig:snapshotncr}
 \vspace{-0.2cm}
 \end{figure}
@@ -127,13 +127,11 @@ $\ttt_1 = \insql{node}^T_w(\mathsf{w=2~mon},\mathsf{r_v=always},\mathsf{r_e=alwa
 
 \item Compute in-degree of each node with the aggregation operator:  $\ttt_2 = \insql{agg}^T_{p_1}(\ttt_1)$
 
-\item Create a new graph, in which all nodes that are present at a
-  given time point (snapshot) are grouped into a single node with the
-  attribute-based node creation operator, using pattern $p_2$ in
-  Figure~\ref{fig:snapshotncr}.  Accumulate maximum, sum and count of the
-  values of \insql{deg} as properties at that node.
-
-$\ttt_3 =\insql{node}^T_a(p_2,\ttt_2)$
+\item Group all nodes that are present at a given time into a
+  single node with the attribute-based node creation operator, using
+  pattern $p_2$ in Figure~\ref{fig:snapshotncr}.  Accumulate max,
+  sum, and count of \insql{deg} as properties at that
+  node:  $\ttt_3 =\insql{node}^T_a(p_2,\ttt_2)$
 
 %\item Keep only the new nodes using the vertex-subgraph operator.
 %
@@ -167,10 +165,10 @@ below a reasonable threshold, for example of size smaller than two:
 \begin{figure}
 \centering
 \includegraphics[width=3in]{figs/ccp.pdf}
+\vspace{-0.2cm}
 \caption{Connected components pattern $p_3$.}
 \vspace{-0.2cm}
 \label{fig:ccp}
-\vspace{-0.2cm}
 \end{figure}
 }
 \eat{
@@ -214,9 +212,9 @@ that originate the longest edges.
 
 \begin{figure}
 \centering
-\includegraphics[width=3in]{figs/journeys.pdf}
-\caption{A journey pattern $p_7$.}
+\includegraphics[width=2.5in]{figs/journeys.pdf}
 \vspace{-0.2cm}
+\caption{A journey pattern $p_7$.}
 \label{fig:journeysp}
 \vspace{-0.2cm}
 \end{figure}
