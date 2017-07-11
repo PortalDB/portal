@@ -1,0 +1,45 @@
+\section{Related work}
+\label{sec:related}
+
+Structural zoom out is supported in some nontemporal graph systems
+through a node creation operator~\cite{Wood2012}.  Recollect that
+nodes in $G$ have identity.  In order to create new nodes, a mechanism
+to assign new identifiers is required.  One way to accomplish that is
+using a Skolem function, a concept originally used in predicate logic.
+Informally, node creation returns a graph with additional nodes
+representing matches of an input pattern in the graph and identifiers
+assigned by Skolem functions, and new edges connecting the new nodes
+to elements of the matches, as specified by the pattern.  The web-site
+management language StruQL outputs new nodes in a \insql{create}
+clause, corresponding to the node creation operation with a Skolem
+function to create the object
+ids~\cite{Fernandez:1997:QLW:262762.262763}.  The GOOD language, based
+on an object-oriented model, provides an \insql{abstraction} operator
+that allows to create new nodes to represent multiple nodes based on
+shared properties~\cite{Gyssens1994}.  
+
+A temporal generalization of the node creation operator has not been
+proposed for evolving graphs to our knowledge.  However, the G* system
+supports SQL-style aggregation of the data using the
+\insql{AggregateOperator} per graph snapshot, which allows a limited
+version of summarization to be performed~\cite{Labouseur2015}.
+
+Similarly, several variants of temporal aggregation of relational data
+can be found in the literature.  The ``standard'' temporal aggregation
+in \tra is a direct extension of the non-temporal aggregation operator
+that does not change the temporal resolution of the data (see, for
+instance, the discussion and example 10 in the work of Dign{\"{o}}s,
+et al.~\cite{Dignos2012}).  However, Li et al. proposed a nice general
+window aggregate for data streams~\cite{Li2005} that can be easily
+applied to temporal relational data.  The semantics of the window
+aggregates are based on a sliding window specification, consisting of
+a range and slide of the window based on the desired data attribute,
+as long as the attribute has a domain with a total order.  The range
+specifies the width of the window, e.g., 100 seconds or 100 rows.  The
+slide specifies how windows are formed in relation to each other,
+whether overlapping or not.  Since valid time data has total order in
+the time domain, overlapping and non-overlapping time windows can be
+created with this approach.  We are not aware of any proposal for an
+operator capable of changing the temporal resolution of evolving
+graphs, besides our own.
+
