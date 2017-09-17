@@ -1,6 +1,3 @@
-//this is purely for evaluation purposes for now
-//uses parent methods on V&E but is concrete
-//cannot compute analytics
 package edu.drexel.cs.dbgroup.temporalgraph.representations
 
 import java.time.LocalDate
@@ -239,6 +236,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
         .join(newVIds)
         .filter{ case (vid, (e, v)) => e._2._1.intersects(v._1)}
         .map{ case (vid, (e, v)) => TEdge(e._2._2._1, e._1, v._2, Interval(TempGraphOps.maxDate(e._2._1.start, v._1.start), TempGraphOps.minDate(e._2._1.end, v._1.end)), e._2._2._2)}
+      //FIXME: I think this line is unnecessary
       edgesWithIds.flatMap{ e => split(e.interval).map(ii => TEdge(e.eId,e.srcId, e.dstId, ii, e.attr))}
     }
 
@@ -432,7 +430,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
     var newverts: RDD[(VertexId, (Interval, (VD, A)))] = allVertices.leftOuterJoin(messages).flatMap { 
       case (vid, (vdata, Some(msg))) => {
         val contained = TempGraphOps.coalesceIntervals(msg).filter(ii => ii._1.intersects(vdata._1))
-        (contained ::: vdata._1.differenceList(contained.map(_._1)).map(ii => (ii, defVal))).map(ii => (vid, (ii._1, (vdata._2, ii._2))))
+        if (contained.size > 0) (contained ::: vdata._1.differenceList(contained.map(_._1)).map(ii => (ii, defVal))).map(ii => (vid, (ii._1, (vdata._2, ii._2)))) else List((vid, (vdata._1, (vdata._2, defVal))))
       }
       case (vid, (vdata, None)) => Some((vid, (vdata._1, (vdata._2, defVal))))
     }

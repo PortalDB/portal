@@ -150,6 +150,7 @@ object GraphLoader {
   def buildVE(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval): VEGraph[Any, Any] = {
     //get the configuration option for snapshot groups
     val sg = System.getProperty("portal.partitions.sgroup", "")
+    val woptim: Boolean = System.getProperty("portal.vegraph.optim", "false").toBoolean
     //make a filter. VE needs "temporal" layout, i.e. one sorted by id
     val filter = "_t_" + sg
 
@@ -159,7 +160,10 @@ object GraphLoader {
       case _ => false
     }
 
-    VEGraph.fromDataFrames[Any,Any](nodes, edges, deflt, StorageLevel.MEMORY_ONLY_SER, col)
+    if (woptim)
+      VEGraphOptim.fromDataFrames[Any,Any](nodes, edges, deflt, StorageLevel.MEMORY_ONLY_SER, col)
+    else
+      VEGraph.fromDataFrames[Any,Any](nodes, edges, deflt, StorageLevel.MEMORY_ONLY_SER, col)
 
   }
 
