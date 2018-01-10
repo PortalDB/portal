@@ -118,17 +118,17 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
   }
 
   //assumes the data is coalesced
-  override protected def aggregateByChange(c: ChangeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): HybridGraph[VD, ED] = {
+  override protected def createTemporalByChange(c: ChangeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): HybridGraph[VD, ED] = {
     //if we only have the structure, we can do efficient aggregation with the graph
     //otherwise just use the parent
     defaultValue match {
-      case a: StructureOnlyAttr  => aggregateByChangeStructureOnly(c, vquant, equant)
-      case _ => super.aggregateByChange(c, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[HybridGraph[VD,ED]]
+      case a: StructureOnlyAttr  => createTemporalByChangeStructureOnly(c, vquant, equant)
+      case _ => super.createTemporalByChange(c, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[HybridGraph[VD,ED]]
     }
 
   }
  
-  private def aggregateByChangeStructureOnly(c: ChangeSpec, vquant: Quantification, equant: Quantification): HybridGraph[VD, ED] = {
+  private def createTemporalByChangeStructureOnly(c: ChangeSpec, vquant: Quantification, equant: Quantification): HybridGraph[VD, ED] = {
     val size: Integer = c.num
     if (graphs.size < 1) computeGraphs()
 
@@ -225,14 +225,14 @@ class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD
 
   }
 
-  override  protected def aggregateByTime(c: TimeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): HybridGraph[VD, ED] = {
+  override  protected def createTemporalByTime(c: TimeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): HybridGraph[VD, ED] = {
     defaultValue match {
-      case a: StructureOnlyAttr => aggregateByTimeStructureOnly(c, vquant, equant)
-      case _ => super.aggregateByTime(c, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[HybridGraph[VD, ED]]
+      case a: StructureOnlyAttr => createTemporalByTimeStructureOnly(c, vquant, equant)
+      case _ => super.createTemporalByTime(c, vquant, equant, vAggFunc, eAggFunc).asInstanceOf[HybridGraph[VD, ED]]
     }
   }
 
-  private def aggregateByTimeStructureOnly(c: TimeSpec, vquant: Quantification, equant: Quantification): HybridGraph[VD, ED] = {
+  private def createTemporalByTimeStructureOnly(c: TimeSpec, vquant: Quantification, equant: Quantification): HybridGraph[VD, ED] = {
     val start = span.start
     if (graphs.size < 1) computeGraphs()
 
