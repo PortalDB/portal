@@ -32,7 +32,7 @@ libraryDependencies ++= {
 
 dependencyOverrides ++= {
 
-    Seq(
+    Set(
         "org.apache.hadoop" % "hadoop-client" % "2.6.0"
     )
 
