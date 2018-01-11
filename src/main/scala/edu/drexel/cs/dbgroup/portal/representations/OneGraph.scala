@@ -234,7 +234,7 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
       new OneGraph(intervals, newgs, defaultValue, storageLevel, false)
   }
 
-  override protected def aggregateByChange(c: ChangeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): OneGraph[VD, ED] = {
+  override protected def createTemporalByChange(c: ChangeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): OneGraph[VD, ED] = {
     val size: Integer = c.num
     val newIntvs = intervals.grouped(size).map(grp => Interval(grp(0).start, grp.last.end)).toArray
     val newIntvsb = ProgramContext.sc.broadcast(newIntvs)
@@ -279,7 +279,7 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
     
   }
 
-  override protected def aggregateByTime(c: TimeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): OneGraph[VD, ED] = {
+  override protected def createTemporalByTime(c: TimeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): OneGraph[VD, ED] = {
     val start = span.start
     val newIntvs = span.split(c.res, start).map(_._2).reverse.toArray
 

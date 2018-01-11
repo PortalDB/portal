@@ -34,19 +34,19 @@ class OneGraphSuite extends RepresentationsTestSuite {
     testGetSnapshot(empty)
   }
 
-  test("aggregateByTime -w/o structural") {
+  test("createTemporalByTime -w/o structural") {
     testNodeCreateTemporal(empty)
   }
 
-  test("aggregateByTime -with structural") {
+  test("createTemporalByTime -with structural") {
     testNodeCreateTemporal2(OneGraph.emptyGraph(true))
   }
 
-  test("aggregateByChange -w/o structural") {
+  test("createTemporalByChange -w/o structural") {
     testNodeCreateTemporal3(empty)
   }
 
-  test("aggregateByChange -with structural") {
+  test("createTemporalByChange -with structural") {
     testNodeCreateTemporal4(OneGraph.emptyGraph(true))
   }
 

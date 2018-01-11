@@ -27,14 +27,14 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
 
   override def createTemporalNodes(res: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED]={
     res match {
-      case c : ChangeSpec => coalesce().asInstanceOf[TGraphNoSchema[VD,ED]].aggregateByChange(c, vquant, equant, vAggFunc, eAggFunc)
-      case t : TimeSpec => coalesce().asInstanceOf[TGraphNoSchema[VD,ED]].aggregateByTime(t, vquant, equant, vAggFunc, eAggFunc)
+      case c : ChangeSpec => coalesce().asInstanceOf[TGraphNoSchema[VD,ED]].createTemporalByChange(c, vquant, equant, vAggFunc, eAggFunc)
+      case t : TimeSpec => coalesce().asInstanceOf[TGraphNoSchema[VD,ED]].createTemporalByTime(t, vquant, equant, vAggFunc, eAggFunc)
       case _ => throw new IllegalArgumentException("unsupported window specification")
     }
   }
 
-  protected def aggregateByChange(c: ChangeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED]
-  protected def aggregateByTime(c: TimeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED]
+  protected def createTemporalByChange(c: ChangeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED]
+  protected def createTemporalByTime(c: TimeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraphNoSchema[VD, ED]
 
   /**
     * Transforms each vertex attribute in the graph for each time period
@@ -162,6 +162,7 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
 //TODO: can we have a simpler version where there's a predicate on the vertex and a predicate on the edge and the edge direction and the message and the aggregation function
   def aggregateMessages[A: ClassTag](sendMsg: TEdgeTriplet[VD,ED] => Iterator[(VertexId, A)],
     mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): TGraphNoSchema[(VD, A), ED]
+
   protected def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): TGraphNoSchema[V, E]
   def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[TEdge[E]], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): TGraphNoSchema[V,E]
 }

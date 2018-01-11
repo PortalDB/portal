@@ -40,19 +40,19 @@ class SnapshotGraphParallelSuite extends RepresentationsTestSuite {
     testGetSnapshot(empty)
   }
 
-  test("createTemporalNodes aggregateByTime -w/o structural") {
+  test("createTemporalNodes createTemporalByTime -w/o structural") {
     testNodeCreateTemporal(empty)
   }
 
-  test("createTemporalNodes aggregateByTime -with structure only") {
+  test("createTemporalNodes createTemporalByTime -with structure only") {
     testNodeCreateTemporal2(SnapshotGraphParallel.emptyGraph(true))
   }
 
-  test("createTemporalNodes aggregateByChange -w/o structural") {
+  test("createTemporalNodes createTemporalByChange -w/o structural") {
     testNodeCreateTemporal3(empty)
   }
 
-  test("createTemporalNodes aggregateByChange -with structural only") {
+  test("createTemporalNodes createTemporalByChange -with structural only") {
     testNodeCreateTemporal4(SnapshotGraphParallel.emptyGraph(true))
   }
 
