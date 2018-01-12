@@ -2,7 +2,7 @@ package edu.drexel.cs.dbgroup.portal
 
 import java.time.LocalDate
 
-import edu.drexel.cs.dbgroup.portal.representations.SnapshotGraphParallel
+import edu.drexel.cs.dbgroup.portal.representations.RepresentativeGraph
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
@@ -105,7 +105,7 @@ class TGraphNoSchemaSuite extends FunSuite with BeforeAndAfter{
       //partially outside, partially inside
       TEdge[Int](6L, 4L, 9L, Interval(LocalDate.parse("2013-01-01"), LocalDate.parse("2016-01-01")), 22)
     ))
-    val sgp = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER )
+    val sgp = RepresentativeGraph.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER )
 
     val actualEdges = TGraphNoSchema.constrainEdges(users, edges)
 

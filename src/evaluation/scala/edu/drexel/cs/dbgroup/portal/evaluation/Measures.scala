@@ -14,7 +14,7 @@ import org.apache.spark.{SparkConf,SparkContext}
 
 import edu.drexel.cs.dbgroup.portal._
 import edu.drexel.cs.dbgroup.portal.util.GraphLoader
-import edu.drexel.cs.dbgroup.portal.representations.{HybridGraph,SnapshotGraphParallel}
+import edu.drexel.cs.dbgroup.portal.representations.{HybridGraph,RepresentativeGraph}
 
 /**
   * Calculates various evolution measures for the input dataset.

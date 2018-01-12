@@ -5,7 +5,7 @@ import java.sql.Date
 import java.time.LocalDate
 import scala.collection.mutable.ListBuffer
 
-import _root_.edu.drexel.cs.dbgroup.portal.representations.SnapshotGraphParallel
+import _root_.edu.drexel.cs.dbgroup.portal.representations.RepresentativeGraph
 import _root_.edu.drexel.cs.dbgroup.portal.tools.twitterToParquet.Nodes
 import _root_.edu.drexel.cs.dbgroup.portal.{StructureOnlyAttr, Interval, ProgramContext, EdgeId}
 import _root_.edu.drexel.cs.dbgroup.portal.util.GraphLoader

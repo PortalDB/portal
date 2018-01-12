@@ -23,7 +23,7 @@ import java.util.Map
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap
 import org.apache.commons.lang.NotImplementedException
 
-class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grphs: ParSeq[Graph[VD,(EdgeId,ED)]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraphNoSchema[VD, ED](defValue, storLevel, coal) {
+class RepresentativeGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grphs: ParSeq[Graph[VD,(EdgeId,ED)]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraphNoSchema[VD, ED](defValue, storLevel, coal) {
 
   protected var graphs: ParSeq[Graph[VD, (EdgeId,ED)]] = grphs
   val intervals: Array[Interval] = intvs
@@ -81,7 +81,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
       Graph[VD,(EdgeId,ED)](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
   }
 
-  override def coalesce(): SnapshotGraphParallel[VD, ED] = {
+  override def coalesce(): RepresentativeGraph[VD, ED] = {
     if (coalesced)
       this
     else {
@@ -99,21 +99,21 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
             (head._1, Interval(head._2.start, c._2.end)) :: tail
           else c :: r
         }
-        case Nil => 
+        case Nil =>
           if (c._1.vertices.isEmpty) List() else List(c)
       }}.dropWhile(intv => intv._1.vertices.isEmpty)
         .reverse
 
-      new SnapshotGraphParallel(res.map(_._2).toArray, res.map(_._1).par, defaultValue, storageLevel, true)
+      new RepresentativeGraph(res.map(_._2).toArray, res.map(_._1).par, defaultValue, storageLevel, true)
     }
   }
 
   /** Algebraic operations */
 
-  override def slice(bound: Interval): SnapshotGraphParallel[VD, ED] = {
+  override def slice(bound: Interval): RepresentativeGraph[VD, ED] = {
     if (bound.contains(span)) return this
     if (!span.intersects(bound)) {
-      return SnapshotGraphParallel.emptyGraph[VD,ED](defaultValue)
+      return RepresentativeGraph.emptyGraph[VD,ED](defaultValue)
     }
 
     val startBound = if (bound.start.isAfter(span.start)) bound.start else span.start
@@ -128,17 +128,17 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
 
     val newIntvs: Array[Interval] = intervals.slice(selectStart, selectStop+1).map(intv => if (intv.start.isBefore(startBound) || intv.end.isAfter(endBound)) intv.intersection(selectBound).get else intv)
 
-    new SnapshotGraphParallel(newIntvs, graphs.slice(selectStart, selectStop+1), defaultValue, storageLevel, coalesced)
+    new RepresentativeGraph(newIntvs, graphs.slice(selectStart, selectStop+1), defaultValue, storageLevel, coalesced)
 
   }
 
-  override def vsubgraph( pred: (VertexId, VD,Interval) => Boolean): SnapshotGraphParallel[VD,ED] ={
-      new SnapshotGraphParallel(intervals, graphs.map(g => g.subgraph(vpred = (vid:VertexId,vd:VD) => pred(vid,vd,Interval.empty))), defaultValue, storageLevel, false)
+  override def vsubgraph( pred: (VertexId, VD,Interval) => Boolean): RepresentativeGraph[VD,ED] ={
+      new RepresentativeGraph(intervals, graphs.map(g => g.subgraph(vpred = (vid:VertexId,vd:VD) => pred(vid,vd,Interval.empty))), defaultValue, storageLevel, false)
 
   }
 
-  override def esubgraph(pred: TEdgeTriplet[VD,ED] => Boolean, tripletFields: TripletFields = TripletFields.All): SnapshotGraphParallel[VD,ED] = {
-    new SnapshotGraphParallel(intervals, graphs.map(g => g.subgraph (epred = (et:EdgeTriplet[VD,(EdgeId,ED)])  => { 
+  override def esubgraph(pred: TEdgeTriplet[VD,ED] => Boolean, tripletFields: TripletFields = TripletFields.All): RepresentativeGraph[VD,ED] = {
+    new RepresentativeGraph(intervals, graphs.map(g => g.subgraph (epred = (et:EdgeTriplet[VD,(EdgeId,ED)])  => {
       val te = new TEdgeTriplet[VD,ED]
       te.eId = et.attr._1
       te.srcId = et.srcId
@@ -153,7 +153,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
   }
 
   //expects coalesced input
-  override protected def createTemporalByChange(c: ChangeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): SnapshotGraphParallel[VD, ED] = {
+  override protected def createTemporalByChange(c: ChangeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): RepresentativeGraph[VD, ED] = {
     val size: Integer = c.num
     val intervalsc = intervals
     var groups: ParSeq[List[(Graph[VD, (EdgeId,ED)], Interval)]] = if (size > 1)
@@ -193,11 +193,11 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
     }
 
     val newIntervals: Array[Interval] = intervals.grouped(size).map(grp => Interval(grp(0).start, grp.last.end)).toArray
-    new SnapshotGraphParallel(newIntervals, newGraphs, defaultValue, storageLevel, false)
+    new RepresentativeGraph(newIntervals, newGraphs, defaultValue, storageLevel, false)
 
   }
 
-  override def createTemporalByTime(c: TimeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): SnapshotGraphParallel[VD, ED] = {
+  override def createTemporalByTime(c: TimeSpec, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): RepresentativeGraph[VD, ED] = {
     //we need groups of graphs
     //each graph may map into 1 or more new intervals
     val start = span.start
@@ -227,11 +227,11 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
     }
 
     val newIntervals = span.split(c.res, start).map(_._2).reverse.toArray
-    new SnapshotGraphParallel(newIntervals, newGraphs, defaultValue, storageLevel, false)
+    new RepresentativeGraph(newIntervals, newGraphs, defaultValue, storageLevel, false)
 
   }
 
-  override def createAttributeNodes(vAggFunc: (VD, VD) => VD)(vgroupby: (VertexId, VD) => VertexId ): SnapshotGraphParallel[VD, ED]={
+  override def createAttributeNodes(vAggFunc: (VD, VD) => VD)(vgroupby: (VertexId, VD) => VertexId ): RepresentativeGraph[VD, ED]={
     val reduced: ParSeq[(RDD[(VertexId, VD)], RDD[Edge[(EdgeId,ED)]])] = graphs.map(g =>
         (g.vertices.map( v => (vgroupby(v._1, v._2), v._2)).reduceByKey((a,b) => vAggFunc(a,b)),
           g.triplets.map( et => Edge(vgroupby(et.srcId, et.srcAttr), vgroupby(et.dstId, et.dstAttr), et.attr))
@@ -241,25 +241,25 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
     val newGraphs: ParSeq[Graph[VD,(EdgeId,ED)]] =   reduced.map { case (vs, es) =>
       Graph[VD, (EdgeId,ED)](vs, es, null.asInstanceOf[VD], storageLevel, storageLevel)
     }
-    new SnapshotGraphParallel(intervals, newGraphs, defaultValue, storageLevel, false)
+    new RepresentativeGraph(intervals, newGraphs, defaultValue, storageLevel, false)
   }
 
-  override def vmap[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): SnapshotGraphParallel[VD2, ED] = {
-    new SnapshotGraphParallel(intervals, graphs.zip(intervals).map(g => g._1.mapVertices((vid, attr) => map(vid, g._2, attr))), defVal, storageLevel, false)
+  override def vmap[VD2: ClassTag](map: (VertexId, Interval, VD) => VD2, defVal: VD2)(implicit eq: VD =:= VD2 = null): RepresentativeGraph[VD2, ED] = {
+    new RepresentativeGraph(intervals, graphs.zip(intervals).map(g => g._1.mapVertices((vid, attr) => map(vid, g._2, attr))), defVal, storageLevel, false)
   }
 
-  override def emap[ED2: ClassTag](map: TEdge[ED] => ED2): SnapshotGraphParallel[VD, ED2] = {
-    new SnapshotGraphParallel(intervals, graphs.zip(intervals)
+  override def emap[ED2: ClassTag](map: TEdge[ED] => ED2): RepresentativeGraph[VD, ED2] = {
+    new RepresentativeGraph(intervals, graphs.zip(intervals)
       .map(g => g._1.mapEdges{e =>
         val te = TEdge[ED](e.attr._1, e.srcId, e.dstId, g._2, e.attr._2)
         (e.attr._1, map(te))
       }), defaultValue, storageLevel, false)
   }
 
-  override def union(other: TGraphNoSchema[VD, ED],vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): SnapshotGraphParallel[VD, ED] = {
+  override def union(other: TGraphNoSchema[VD, ED],vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): RepresentativeGraph[VD, ED] = {
 
-    var grp2: SnapshotGraphParallel[VD, ED] = other match {
-      case grph: SnapshotGraphParallel[VD, ED] => grph
+    var grp2: RepresentativeGraph[VD, ED] = other match {
+      case grph: RepresentativeGraph[VD, ED] => grph
       case _ => throw new ClassCastException
     }
     if (span.intersects(grp2.span)) {
@@ -297,26 +297,26 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
         }
       }.par
 
-      new SnapshotGraphParallel(newIntvs, newGraphs, defaultValue, storageLevel, false)
+      new RepresentativeGraph(newIntvs, newGraphs, defaultValue, storageLevel, false)
     } else if (span.end == grp2.span.start || span.start == grp2.span.end) {
       //if the two spans are one right after another but do not intersect
       //then we just put them together
       val newIntvs = intervals.union(grp2.intervals).sortBy(c => c)
       //need to update values for all vertices and edges
       val newGraphs = if (span.start.isBefore(grp2.span.start)) graphs ++ grp2.graphs else grp2.graphs ++ graphs
-      new SnapshotGraphParallel(newIntvs, newGraphs, defaultValue, storageLevel, false)
+      new RepresentativeGraph(newIntvs, newGraphs, defaultValue, storageLevel, false)
     } else {
       //if there is no temporal intersection, then we can just add them together
       //no need to worry about coalesce or constraint on E; all still holds
       val newIntvs = intervals.union(grp2.intervals).union(Seq(Interval(span.end, grp2.span.start))).sortBy(c => c)
       val newGraphs = if (span.start.isBefore(grp2.span.start)) graphs ++ Seq(Graph[VD, (EdgeId,ED)](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)) ++ grp2.graphs else grp2.graphs ++ Seq(Graph[VD, (EdgeId,ED)](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)) ++ graphs
-      new SnapshotGraphParallel(newIntvs, newGraphs, defaultValue, storageLevel, coalesced && grp2.coalesced)
+      new RepresentativeGraph(newIntvs, newGraphs, defaultValue, storageLevel, coalesced && grp2.coalesced)
     }
   }
 
-  override def difference(other: TGraphNoSchema[VD, ED]): SnapshotGraphParallel[VD, ED] = {
-    val grp2: SnapshotGraphParallel[VD, ED] = other match {
-      case grph: SnapshotGraphParallel[VD, ED] => grph
+  override def difference(other: TGraphNoSchema[VD, ED]): RepresentativeGraph[VD, ED] = {
+    val grp2: RepresentativeGraph[VD, ED] = other match {
+      case grph: RepresentativeGraph[VD, ED] => grph
       case _ => throw new ClassCastException
     }
 
@@ -356,15 +356,15 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
           throw new SparkException("bug in difference")
         }
       }.par
-      new SnapshotGraphParallel(newIntvs, newGraphs, defaultValue, storageLevel, false)
+      new RepresentativeGraph(newIntvs, newGraphs, defaultValue, storageLevel, false)
     } else {
         this
     }
   }
 
-  override def intersection(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): SnapshotGraphParallel[VD, ED] = {
-    var grp2: SnapshotGraphParallel[VD, ED] = other match {
-      case grph: SnapshotGraphParallel[VD, ED] => grph
+  override def intersection(other: TGraphNoSchema[VD, ED], vFunc: (VD, VD) => VD, eFunc: (ED, ED) => ED): RepresentativeGraph[VD, ED] = {
+    var grp2: RepresentativeGraph[VD, ED] = other match {
+      case grph: RepresentativeGraph[VD, ED] => grph
       case _ => throw new ClassCastException
     }
 
@@ -407,10 +407,10 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
         }
       }.par
 
-      new SnapshotGraphParallel(newIntvs, newGraphs, defaultValue, storageLevel, false)
+      new RepresentativeGraph(newIntvs, newGraphs, defaultValue, storageLevel, false)
 
     } else {
-      SnapshotGraphParallel.emptyGraph(defaultValue)
+      RepresentativeGraph.emptyGraph(defaultValue)
     }
   }
 
@@ -421,8 +421,8 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
        activeDirection: EdgeDirection = EdgeDirection.Either)
      (vprog: (VertexId, VD, A) => VD,
        sendMsg: EdgeTriplet[VD, (EdgeId,ED)] => Iterator[(VertexId, A)],
-       mergeMsg: (A, A) => A): SnapshotGraphParallel[VD, ED] = {
-    new SnapshotGraphParallel(intervals, graphs.map(x => Pregel(x, initialMsg,
+       mergeMsg: (A, A) => A): RepresentativeGraph[VD, ED] = {
+    new RepresentativeGraph(intervals, graphs.map(x => Pregel(x, initialMsg,
       maxIterations, activeDirection)(vprog, sendMsg, mergeMsg)), defaultValue, storageLevel, false)
   }
 
@@ -439,7 +439,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
   }
 
   //run PageRank on each contained snapshot
-  override def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): SnapshotGraphParallel[(VD,Double), ED] = {
+  override def pageRank(uni: Boolean, tol: Double, resetProb: Double = 0.15, numIter: Int = Int.MaxValue): RepresentativeGraph[(VD,Double), ED] = {
     // Define the three functions needed to implement PageRank in the GraphX
     // version of Pregel
     val vertexProgram = (id: VertexId, attr: (Double, Double), msgSum: Double) => {
@@ -501,11 +501,11 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
     val newGraphs = graphs.zip(pranks).map{ case (a,b) =>
       a.outerJoinVertices(b.vertices)((vid, attr, deg) => (attr, deg.getOrElse(0.0)))
     }
-    new SnapshotGraphParallel(intervals, newGraphs, (defaultValue,0.0), storageLevel, coalesced)
+    new RepresentativeGraph(intervals, newGraphs, (defaultValue,0.0), storageLevel, coalesced)
 
   }
 
-  override def connectedComponents(): SnapshotGraphParallel[(VD,VertexId), ED] = {
+  override def connectedComponents(): RepresentativeGraph[(VD,VertexId), ED] = {
     val safeConnectedComponents = (grp: Graph[VD, (EdgeId,ED)]) => {
       if (grp.vertices.isEmpty) {
         Graph[VertexId, ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
@@ -517,11 +517,11 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
     val newGraphs = graphs.zip(cons).map{ case (a,b) =>
       a.outerJoinVertices(b.vertices)((vid, attr, con) => (attr, con.getOrElse(-1L)))
     }
-    new SnapshotGraphParallel(intervals, newGraphs, (defaultValue, -1), storageLevel, coalesced)
+    new RepresentativeGraph(intervals, newGraphs, (defaultValue, -1), storageLevel, coalesced)
 
   }
 
-  override def shortestPaths(uni: Boolean, landmarks: Seq[VertexId]): SnapshotGraphParallel[(VD,Map[VertexId, Int]), ED] = {
+  override def shortestPaths(uni: Boolean, landmarks: Seq[VertexId]): RepresentativeGraph[(VD,Map[VertexId, Int]), ED] = {
     val safeShortestPaths = (grp: Graph[VD, (EdgeId,ED)]) => {
       if (grp.vertices.isEmpty) {
         Graph[Map[VertexId, Int], ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
@@ -537,10 +537,10 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
     val newGraphs = graphs.zip(spaths).map{ case (a,b) =>
       a.outerJoinVertices(b.vertices)((vid, attr, pa) => (attr, pa.getOrElse(defV)))
     }
-    new SnapshotGraphParallel(intervals, newGraphs, (defaultValue, defV), storageLevel, coalesced)
+    new RepresentativeGraph(intervals, newGraphs, (defaultValue, defV), storageLevel, coalesced)
   }
 
-  override def triangleCount: SnapshotGraphParallel[(VD,Int), ED] = {
+  override def triangleCount: RepresentativeGraph[(VD,Int), ED] = {
     val safeTriangleCount = (grp: Graph[VD, (EdgeId,ED)]) => {
       if (grp.vertices.isEmpty) {
         Graph[Int,ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
@@ -553,16 +553,16 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
     val newGraphs = graphs.zip(tcs).map{ case (a,b) =>
       a.outerJoinVertices(b.vertices)((vid, attr, tc) => (attr, tc.getOrElse(defV)))
     }
-    new SnapshotGraphParallel(intervals, newGraphs, (defaultValue, defV), storageLevel, coalesced)
+    new RepresentativeGraph(intervals, newGraphs, (defaultValue, defV), storageLevel, coalesced)
   }
 
-  override def clusteringCoefficient: SnapshotGraphParallel[(VD,Double), ED] = {
+  override def clusteringCoefficient: RepresentativeGraph[(VD,Double), ED] = {
     val safeCCoeff = (grp: Graph[VD, (EdgeId,ED)]) => {
       if (grp.vertices.isEmpty) {
         Graph[Double,ED](ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD)
       } else {
         val degs = grp.degrees
-        grp.triangleCount().outerJoinVertices(degs)((vid, attr, ds) => 
+        grp.triangleCount().outerJoinVertices(degs)((vid, attr, ds) =>
           if (attr > 0) attr/(ds.getOrElse(0)*(ds.getOrElse(0)-1.0))
           else 0.0
         )
@@ -573,11 +573,11 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
     val newGraphs = graphs.zip(tcs).map{ case (a,b) =>
       a.outerJoinVertices(b.vertices)((vid, attr, tc) => (attr, tc.getOrElse(defV)))
     }
-    new SnapshotGraphParallel(intervals, newGraphs, (defaultValue, defV), storageLevel, coalesced)
+    new RepresentativeGraph(intervals, newGraphs, (defaultValue, defV), storageLevel, coalesced)
   }
 
   override def aggregateMessages[A: ClassTag](sendMsg: TEdgeTriplet[VD,ED] => Iterator[(VertexId, A)],
-    mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): SnapshotGraphParallel[(VD, A), ED] = {
+    mergeMsg: (A, A) => A, defVal: A, tripletFields: TripletFields = TripletFields.All): RepresentativeGraph[(VD, A), ED] = {
 
     val toTEdgeTriplet = (ctx: EdgeContext[VD,(EdgeId,ED), A]) => {
       val e = TEdge[ED](ctx.attr._1, ctx.srcId, ctx.dstId, Interval.empty, ctx.attr._2)
@@ -602,7 +602,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
     val newGraphs = graphs.zip(graphs.map(x => x.aggregateMessages(send, mergeMsg, tripletFields))).map{ case (a,b) =>
       a.outerJoinVertices(b)((vid, attr, agg) => (attr, agg.getOrElse(defVal)))
     }
-    new SnapshotGraphParallel(intervals, newGraphs, (defaultValue, defVal), storageLevel, coalesced)
+    new RepresentativeGraph(intervals, newGraphs, (defaultValue, defVal), storageLevel, coalesced)
   }
 
   /** Spark-specific */
@@ -611,7 +611,7 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
     graphs.filterNot(_.edges.isEmpty).map(_.edges.getNumPartitions).reduce(_ + _)
   }
 
-  override def persist(newLevel: StorageLevel = MEMORY_ONLY): SnapshotGraphParallel[VD, ED] = {
+  override def persist(newLevel: StorageLevel = MEMORY_ONLY): RepresentativeGraph[VD, ED] = {
     //persist each graph
     //this will throw an exception if the graphs are already persisted
     //with a different storage level
@@ -619,18 +619,18 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
     this
   }
 
-  override def unpersist(blocking: Boolean = true): SnapshotGraphParallel[VD, ED] = {
+  override def unpersist(blocking: Boolean = true): RepresentativeGraph[VD, ED] = {
     graphs.map(_.unpersist(blocking))
     this
   }
 
-  override def partitionBy(tgp: TGraphPartitioning): SnapshotGraphParallel[VD, ED] = {
+  override def partitionBy(tgp: TGraphPartitioning): RepresentativeGraph[VD, ED] = {
     if (tgp.pst != PartitionStrategyType.None) {
       //not changing the intervals, only the graphs at their indices
       //each partition strategy for SG needs information about the graph
 
       //use that strategy to partition each of the snapshots
-      new SnapshotGraphParallel(intervals, graphs.zipWithIndex.map { case (g,i) =>
+      new RepresentativeGraph(intervals, graphs.zipWithIndex.map { case (g,i) =>
         val numParts: Int = if (tgp.parts > 0) tgp.parts else g.edges.getNumPartitions
         g.partitionBy(PartitionStrategies.makeStrategy(tgp.pst, i, graphs.size, tgp.runs), numParts)
       }, defaultValue, storageLevel, coalesced)
@@ -638,13 +638,13 @@ class SnapshotGraphParallel[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], 
       this
   }
 
-  override protected def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): SnapshotGraphParallel[V, E] = SnapshotGraphParallel.emptyGraph(defVal)
-  override def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[TEdge[E]], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): SnapshotGraphParallel[V, E] = SnapshotGraphParallel.fromRDDs(verts, edgs, defVal, storLevel, coalesced)
+  override protected def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): RepresentativeGraph[V, E] = RepresentativeGraph.emptyGraph(defVal)
+  override def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[TEdge[E]], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): RepresentativeGraph[V, E] = RepresentativeGraph.fromRDDs(verts, edgs, defVal, storLevel, coalesced)
 
 }
 
-object SnapshotGraphParallel extends Serializable {
-  def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[TEdge[E]], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): SnapshotGraphParallel[V, E] = {
+object RepresentativeGraph extends Serializable {
+  def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[TEdge[E]], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): RepresentativeGraph[V, E] = {
     val cverts = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(verts) else verts
     val cedges: RDD[TEdge[E]] = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(edgs.map{e => e.toPaired()}).map{e => TEdge.apply(e._1,e._2)} else edgs
     val coal = coalesced | ProgramContext.eagerCoalesce
@@ -658,10 +658,10 @@ object SnapshotGraphParallel extends Serializable {
         defVal, storLevel, storLevel)
     ).par
 
-    new SnapshotGraphParallel(intervals, graphs, defVal, storLevel, coal)
+    new RepresentativeGraph(intervals, graphs, defVal, storLevel, coal)
   }
 
-  def fromDataFrames[V: ClassTag, E: ClassTag](verts: org.apache.spark.sql.DataFrame, edgs: org.apache.spark.sql.DataFrame, defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): SnapshotGraphParallel[V, E] = {
+  def fromDataFrames[V: ClassTag, E: ClassTag](verts: org.apache.spark.sql.DataFrame, edgs: org.apache.spark.sql.DataFrame, defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): RepresentativeGraph[V, E] = {
     //we can filter directly on dataframe which will do filter pushdown for faster load
     //TODO: check for eagerCoalesce and coalesce if needed
 
@@ -673,9 +673,9 @@ object SnapshotGraphParallel extends Serializable {
         defVal, storLevel, storLevel)
     ).par
 
-    new SnapshotGraphParallel(intervals, graphs, defVal, storLevel, coalesced)
+    new RepresentativeGraph(intervals, graphs, defVal, storLevel, coalesced)
   }
 
-  def emptyGraph[V: ClassTag, E: ClassTag](defVal: V):SnapshotGraphParallel[V, E] = new SnapshotGraphParallel(Array[Interval](), ParSeq[Graph[V,(EdgeId,E)]](), defVal, coal = true)
+  def emptyGraph[V: ClassTag, E: ClassTag](defVal: V):RepresentativeGraph[V, E] = new RepresentativeGraph(Array[Interval](), ParSeq[Graph[V,(EdgeId,E)]](), defVal, coal = true)
  
 }

@@ -627,7 +627,7 @@ object Interpreter {
 
   def convertGraph(gr: TGraphNoSchema[Any,Any], c: Convert) = {
     val (verts, edgs, coal) = gr match {
-      case rg: SnapshotGraphParallel[Any,Any] => (rg.verticesRaw, rg.edgesRaw, false)
+      case rg: RepresentativeGraph[Any,Any] => (rg.verticesRaw, rg.edgesRaw, false)
       case ogc: OneGraphColumn[Any,Any] => (ogc.allVertices, ogc.allEdges, ogc.coalesced)
       case og: OneGraph[Any,Any] => (og.verticesRaw, og.edgesRaw, og.coalesced)
       case hg: HybridGraph[Any,Any] => (hg.allVertices, hg.allEdges, hg.coalesced)
@@ -636,7 +636,7 @@ object Interpreter {
     }
 
     val res = c.ds match {
-      case r: RG => SnapshotGraphParallel.fromRDDs(verts, edgs, gr.defaultValue, gr.storageLevel, coal)
+      case r: RG => RepresentativeGraph.fromRDDs(verts, edgs, gr.defaultValue, gr.storageLevel, coal)
       case o: OG => OneGraph.fromRDDs(verts, edgs, gr.defaultValue, gr.storageLevel, coal)
       case o: OGC => OneGraphColumn.fromRDDs(verts, edgs, gr.defaultValue, gr.storageLevel, coal)
       case h: HG => HybridGraph.fromRDDs(verts, edgs, gr.defaultValue, gr.storageLevel, coal)

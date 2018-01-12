@@ -29,7 +29,7 @@ object GraphLoader {
   //Issue: for the attribute, Node/Link has to be a template, but we don't know
   //its type until we load the schema from the dataset, by which point is too late
 
-  def buildRG(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval): SnapshotGraphParallel[Any, Any] = {
+  def buildRG(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval): RepresentativeGraph[Any, Any] = {
     //get the configuration option for snapshot groups
     val sg = System.getProperty("portal.partitions.sgroup", "")
     //make a filter. RG needs "spatial" layout, i.e. one sorted by time
@@ -41,7 +41,7 @@ object GraphLoader {
       case _ => false
     }
 
-    SnapshotGraphParallel.fromDataFrames[Any,Any](nodes, edges, deflt, StorageLevel.MEMORY_ONLY_SER, col)
+    RepresentativeGraph.fromDataFrames[Any,Any](nodes, edges, deflt, StorageLevel.MEMORY_ONLY_SER, col)
   }
 
   def buildOG(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval): OneGraph[Any, Any] = {

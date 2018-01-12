@@ -21,8 +21,8 @@ import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap
 import collection.JavaConverters._
 
 
-class SnapshotGraphParallelSuite extends RepresentationsTestSuite {
-  lazy val empty = SnapshotGraphParallel.emptyGraph[String,Int]("Default")
+class RepresentativeGraphSuite extends RepresentationsTestSuite {
+  lazy val empty = RepresentativeGraph.emptyGraph[String,Int]("Default")
 
   test("slice function") {
     testSlice(empty)
@@ -45,7 +45,7 @@ class SnapshotGraphParallelSuite extends RepresentationsTestSuite {
   }
 
   test("createTemporalNodes createTemporalByTime -with structure only") {
-    testNodeCreateTemporal2(SnapshotGraphParallel.emptyGraph(true))
+    testNodeCreateTemporal2(RepresentativeGraph.emptyGraph(true))
   }
 
   test("createTemporalNodes createTemporalByChange -w/o structural") {
@@ -53,7 +53,7 @@ class SnapshotGraphParallelSuite extends RepresentationsTestSuite {
   }
 
   test("createTemporalNodes createTemporalByChange -with structural only") {
-    testNodeCreateTemporal4(SnapshotGraphParallel.emptyGraph(true))
+    testNodeCreateTemporal4(RepresentativeGraph.emptyGraph(true))
   }
 
   test("createAttributeNodes") {
@@ -88,7 +88,7 @@ class SnapshotGraphParallelSuite extends RepresentationsTestSuite {
       TEdge[Int](4L, 4L, 4L, Interval(LocalDate.parse("2010-01-01"), LocalDate.parse("2019-01-01")), 42)
     ))
 
-    val SGP = SnapshotGraphParallel.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
+    val SGP = RepresentativeGraph.fromRDDs(users, edges, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     val users2: RDD[(VertexId, (Interval, String))] = ProgramContext.sc.parallelize(Array(
       (1L, (Interval(LocalDate.parse("2015-01-01"), LocalDate.parse("2018-01-01")), "A")),
@@ -106,7 +106,7 @@ class SnapshotGraphParallelSuite extends RepresentationsTestSuite {
       TEdge[Int](5L, 5L, 5L, Interval(LocalDate.parse("2011-01-01"), LocalDate.parse("2012-01-01")), 22)
     ))
 
-    val SGP2 = SnapshotGraphParallel.fromRDDs(users2, edges2, "Default", StorageLevel.MEMORY_ONLY_SER)
+    val SGP2 = RepresentativeGraph.fromRDDs(users2, edges2, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     val resultSGPDifference = SGP.difference(SGP2)
 
@@ -132,7 +132,7 @@ class SnapshotGraphParallelSuite extends RepresentationsTestSuite {
       TEdge[Int](3L, 3L, 3L, Interval(LocalDate.parse("2018-01-01"), LocalDate.parse("2019-01-01")), 42),
       TEdge[Int](4L, 4L, 4L, Interval(LocalDate.parse("2014-01-01"), LocalDate.parse("2019-01-01")), 42)
     ))
-    val expectedSGPDifference = SnapshotGraphParallel.fromRDDs(expectedVerticesDifference, expectedEdgesDifference, "Default", StorageLevel.MEMORY_ONLY_SER)
+    val expectedSGPDifference = RepresentativeGraph.fromRDDs(expectedVerticesDifference, expectedEdgesDifference, "Default", StorageLevel.MEMORY_ONLY_SER)
 
     assert(resultSGPDifference.vertices.collect.toSet === expectedVerticesDifference.collect.toSet)
     assert(resultSGPDifference.edges.collect.toSet === expectedEdgesDifference.collect.toSet)
