@@ -9,7 +9,9 @@
 
 # Directories to ignore
 /bin
-**/project
+/project/*
+!/project/assembly.sbt
+!/project/build.properties
 **/target
 **/refs
 
