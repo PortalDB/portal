@@ -1,0 +1,35 @@
+*.txt.sb*
+**/.DS_Store
+**/*.swp
+**/*.project
+**/*.settings
+**/*.classpath
+**/*.pyc
+**/.idea/
+
+# Directories to ignore
+/bin
+/project/*
+!/project/assembly.sbt
+!/project/build.properties
+**/target
+**/refs
+
+src/main/lib/graphx-extensions_2.10-1.0.jar
+src/graphxext/project
+src/graphxext/target
+src/main/driverUtils/project
+src/main/driverutils/target
+
+# Always-ignore extensions
+*.prefs
+*.iml
+*.log
+*.lck
+*.dat
+*.ctrl
+*.aux
+*.blg
+*.*~
+*.bak
+*.bbl
