@@ -157,10 +157,10 @@ abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLeve
    * @tparam A the type of message to be sent to each vertex
    *
    * @param sendMsg runs on each edge, sending messages to neighboring vertices using the
-   *   [[EdgeContext]].
+   *   [[TEdgeTriplet]].
    * @param mergeMsg used to combine messages from `sendMsg` destined to the same vertex. This
    *   combiner should be commutative and associative.
-   * @param tripletFields which fields should be included in the [[EdgeContext]] passed to the
+   * @param tripletFields which fields should be included in the [[TEdgeTriplet]] passed to the
    *   `sendMsg` function. If not all fields are needed, specifying this can improve performance.
    *
    */

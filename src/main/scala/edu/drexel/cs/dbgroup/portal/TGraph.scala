@@ -11,8 +11,19 @@ import edu.drexel.cs.dbgroup.portal.util.TempGraphOps._
 
 import java.time.LocalDate
 
-//TODO: this really should be a trait but traits do not allow type parameters
-//so this would require defining implicit evidence, etc.
+/**
+  * A TGraph abstractly represents a single evolving graph, consisting
+  * of nodes, node properties, edges, edge properties, and addition,
+  * modification, and deletion of these over time.  The TGraph
+  * provides operations of the temporal algebra and accessors.  Like
+  * Spark and GraphX, the TGraph is immutable -- operations return new
+  * TGraphs.
+  * 
+  * @note [[GraphLoader]] contains convenience operations for loading TGraphs
+  * 
+  * @tparam VD the node/vertex attribute type
+  * @tparam ED the edge attribute type
+  */
 abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
 
   /** A friendly name for this TGraph */
@@ -26,11 +37,13 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
 
   /**
     * The duration the temporal sequence
+    * @return an [[Interval]] from the earliest graph change to the last
     */
   def size(): Interval
 
   /**
-    *  The call to materialize the data structure
+    *  The call to materialize the data structure.
+    *  This is a convenience operation for evaluation purposes.
     */
   def materialize(): Unit
 
@@ -42,7 +55,7 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     * it will appear multiple times in the RDD.
     * The interval is maximal.
     * This is the direct match to our model.
-    * We are returning RDD rather than VertexRDD because VertexRDD
+    * @note An RDD is returned rather than VertexRDD because VertexRDD
     * cannot have duplicates for vid.
     */
   def vertices: RDD[(VertexId,(Interval, VD))]
@@ -55,14 +68,17 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
 
   /**
     * Get the temporal sequence for the representative graphs
-    * composing this tgraph. Intervals are consecutive but
-    * not equally sized.
+    * composing this tgraph. 
+    * @return RDD of [[Interval]]. Intervals are consecutive, nonoverlapping, and
+    * not necessarily equally sized.
     */
   def getTemporalSequence: RDD[Interval]
 
   /**
-    * Get a snapshot for a point in time
-    * if the time is outside the graph bounds, an empty graph is returned
+    * Get a snapshot for a point in time.
+    * @return Single GraphX [[org.apache.spark.graphx.Graph]].
+    * @note If the time is outside the graph bounds, an empty graph is returned.
+    * @note Unless in GraphX, each edge in TGraph has an [[EdgeId]].
     */
   def getSnapshot(time: LocalDate):Graph[VD,(EdgeId,ED)]
 
@@ -78,16 +94,17 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
   def coalesce(): TGraph[VD, ED]
 
   /**
-    * Select a temporal subset of the graph. T-Select.
-    * @param bound Time period to extract. 
-    * @return temporalgraph with the temporal intersection or empty graph if 
+    * Select a temporal subset of the graph.
+    * @param bound Time period to extract. Intervals are closed-open. 
+    * @return TGraph with the temporal intersection or empty graph if 
     * the requested interval is wholely outside of the graph bounds.
     */
   def slice(bound: Interval): TGraph[VD, ED]
 
   /**
     * Select a subgraph based on the vertex attributes.
-    * @param vpred Vertex predicate.
+    * @param vpred Vertex predicate. 
+    * @return new TGraph, with only nodes that pass the predicate are retained.
     * Foreign key constraint is enforced.
     */
   def vsubgraph(pred: (VertexId, VD, Interval ) => Boolean ): TGraph[VD,ED]
@@ -95,36 +112,39 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
 
   /**
     * Select a subgraph based on the edge attributes.
-    * @param epred Edge predicate.
-    * Foreign key constraint is enforced.
+    * @param epred Edge predicate, with access to the attributes of both endpoint 
+    * attributes and the edge attribute, as well as the time interval.
+    * @return new TGraph, with only edges that pass the predicates, but all nodes,
+    * even if those nodes have 0 degree as a result.
     */
   def esubgraph(pred: TEdgeTriplet[VD,ED] => Boolean, tripletFields: TripletFields = TripletFields.All): TGraph[VD,ED]
 
 
   /**
-    * Create a temporal node
+    * Time zoom
     * @param window The desired duration of time intervals in the temporal sequence in sematic units (days, months, years) or number of changes
-    * @param vquant The quantification over vertices
-    * @param equant The quantification over edges
-    * @param vAggFunc The function to apply to vertex attributes during aggregation.
+    * @param vquant The quantification over vertices -- how much of the window must a node appear in to be included.
+    * @param equant The quantification over edges -- how much of the window must an edge appear in to be included.
+    * @param vAggFunc The function to apply to vertex attributes when multiple values exist in a time window.
     * Any associative function can be supported, since the attribute aggregation is
-    * performed in pairs (ala reduce).
-    * @param eAggFunct The function to apply to edge attributes during aggregation.
+    * performed in pairs.
+    * @param eAggFunct The function to apply to edge attributes when multiple values exist in a time widow.
     * Any associative function can be supported, since the attribute aggregation is
-    * performed in pairs (ala reduce).
-    * @return New tgraph 
+    * performed in pairs.
+    * @return New tgraph with a modified temporal resolution. Foreign key constraint is enforced.
     */
 
   def createTemporalNodes(window: WindowSpecification, vquant: Quantification, equant: Quantification, vAggFunc: (VD, VD) => VD, eAggFunc: (ED, ED) => ED): TGraph[VD, ED]
 
   /**
-    * Create nodes from clusters of existing nodes, assigning them new ids.
-    * Edge ids remain unchanged and are all preserved.
-    * @param vgroupby The grouping function for vertices for structural aggregation
-    * @param vAggFunc The function to apply to vertex attributes during aggregation.
+    * Structural zoom. Creates nodes from clusters of existing nodes, assigning 
+    * them new ids. Edge ids remain unchanged and are all preserved.
+    * @param vgroupby The Skolem function that assigns a new node id consistently
+    * @param vAggFunc The function to apply to node attributes when multiple nodes
+    * are mapped by a Skolem function to a single group.
     * Any associative function can be supported, since the attribute aggregation is
     * performed in pairs (ala reduce).
-    * @return New tgraph
+    * @return New tgraph with only the new nodes and edges connecting them. A multigraph.
     */
   def createAttributeNodes( vAggFunc: (VD, VD) => VD)(vgroupby: (VertexId, VD) => VertexId ): TGraph[VD, ED]
 
@@ -133,15 +153,17 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     */
 
   /**
-    * Execute a Pregel-like iterative vertex-parallel abstraction.  The
-    * user-defined vertex-program `vprog` is executed in parallel on
-    * each vertex receiving any inbound messages and computing a new
-    * value for the vertex.  The `sendMsg` function is then invoked on
-    * all out-edges and is used to compute an optional message to the
-    * destination vertex. The `mergeMsg` function is a commutative
-    * associative function used to combine messages destined to the
-    * same vertex. The computation is performed on all time periods consecutively
-    * or all together, depending on the implementation of the graph.
+    * Just as in GraphX, Execute a Pregel-like iterative
+    * vertex-parallel abstraction, but over each time instance of the
+    * TGraph.  The user-defined vertex-program `vprog` is executed in
+    * parallel on each vertex receiving any inbound messages and
+    * computing a new value for the vertex.  The `sendMsg` function is
+    * then invoked on all out-edges and is used to compute an optional
+    * message to the destination vertex. The `mergeMsg` function is a
+    * commutative associative function used to combine messages
+    * destined to the same vertex. The computation is performed on all
+    * time periods consecutively or all together, depending on the
+    * implementation of the graph.
     *
     * On the first iteration all vertices receive the `initialMsg` and
     * on subsequent iterations if a vertex does not receive a message
@@ -206,8 +228,9 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
   def numPartitions(): Int
 
   /**
-   * Caches the vertices and edges associated with this graph at the specified storage level,
-   * ignoring any target storage levels previously set.
+   * Caches the vertices and edges associated with this graph at the
+   * specified storage level, ignoring any target storage levels
+   * previously set.
    *
    * @param newLevel the level at which to cache the graph.
    *
@@ -216,16 +239,15 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
   def persist(newLevel: StorageLevel = StorageLevel.MEMORY_ONLY): TGraph[VD, ED]
 
   /**
-   * Uncaches both vertices and edges of this graph. This is useful in iterative algorithms that
-   * build a new graph in each iteration.
+   * Uncaches both vertices and edges of this graph. This is useful in
+   * iterative algorithms that build a new graph in each iteration.
    */
   def unpersist(blocking: Boolean = true): TGraph[VD, ED]
 
   /**
     * Repartition the edges in the graph according to the strategy.
-    * @param partitionStrategy the partitioning strategy type to use. The strategy
-    * object itself is created by the PartitionStrategies.makeStrategy factory call.
-    * @param tgp The partitioning object including strategy, runs, and number of partitions.
+    * @param tgp The partitioning object including strategy, runs, 
+    * and number of partitions.
     * @return new partitioned graph
     */
   def partitionBy(tgp: TGraphPartitioning): TGraph[VD, ED]
