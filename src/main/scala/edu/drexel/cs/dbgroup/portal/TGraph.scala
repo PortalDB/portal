@@ -153,15 +153,17 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
     */
 
   /**
-    * Execute a Pregel-like iterative vertex-parallel abstraction.  The
-    * user-defined vertex-program `vprog` is executed in parallel on
-    * each vertex receiving any inbound messages and computing a new
-    * value for the vertex.  The `sendMsg` function is then invoked on
-    * all out-edges and is used to compute an optional message to the
-    * destination vertex. The `mergeMsg` function is a commutative
-    * associative function used to combine messages destined to the
-    * same vertex. The computation is performed on all time periods consecutively
-    * or all together, depending on the implementation of the graph.
+    * Just as in GraphX, Execute a Pregel-like iterative
+    * vertex-parallel abstraction, but over each time instance of the
+    * TGraph.  The user-defined vertex-program `vprog` is executed in
+    * parallel on each vertex receiving any inbound messages and
+    * computing a new value for the vertex.  The `sendMsg` function is
+    * then invoked on all out-edges and is used to compute an optional
+    * message to the destination vertex. The `mergeMsg` function is a
+    * commutative associative function used to combine messages
+    * destined to the same vertex. The computation is performed on all
+    * time periods consecutively or all together, depending on the
+    * implementation of the graph.
     *
     * On the first iteration all vertices receive the `initialMsg` and
     * on subsequent iterations if a vertex does not receive a message
@@ -226,8 +228,9 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
   def numPartitions(): Int
 
   /**
-   * Caches the vertices and edges associated with this graph at the specified storage level,
-   * ignoring any target storage levels previously set.
+   * Caches the vertices and edges associated with this graph at the
+   * specified storage level, ignoring any target storage levels
+   * previously set.
    *
    * @param newLevel the level at which to cache the graph.
    *
@@ -236,16 +239,15 @@ abstract class TGraph[VD: ClassTag, ED: ClassTag] extends Serializable {
   def persist(newLevel: StorageLevel = StorageLevel.MEMORY_ONLY): TGraph[VD, ED]
 
   /**
-   * Uncaches both vertices and edges of this graph. This is useful in iterative algorithms that
-   * build a new graph in each iteration.
+   * Uncaches both vertices and edges of this graph. This is useful in
+   * iterative algorithms that build a new graph in each iteration.
    */
   def unpersist(blocking: Boolean = true): TGraph[VD, ED]
 
   /**
     * Repartition the edges in the graph according to the strategy.
-    * @param partitionStrategy the partitioning strategy type to use. The strategy
-    * object itself is created by the PartitionStrategies.makeStrategy factory call.
-    * @param tgp The partitioning object including strategy, runs, and number of partitions.
+    * @param tgp The partitioning object including strategy, runs, 
+    * and number of partitions.
     * @return new partitioned graph
     */
   def partitionBy(tgp: TGraphPartitioning): TGraph[VD, ED]
