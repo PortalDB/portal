@@ -7,6 +7,8 @@ scalacOptions ++= Seq("-unchecked", "-deprecation")
 
 initialCommands in console := "import edu.drexel.cs.dbgroup.temporalgraph._"
 
+scalacOptions in (Compile, doc) := Seq("-doc-title", s"${name.value}", "-doc-version",  s"${version.value}", "-skip-packages", "org")
+
 mainClass in (Compile, packageBin) := Some("edu.drexel.cs.dbgroup.temporalgraph.portal.PortalShell")
 mainClass in (Compile, run) := Some("edu.drexel.cs.dbgroup.temporalgraph.portal.PortalShell")
 
