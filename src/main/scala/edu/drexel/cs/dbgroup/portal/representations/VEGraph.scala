@@ -13,11 +13,12 @@ import org.apache.spark.storage.StorageLevel._
 
 import scala.reflect.ClassTag
 
-class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[TEdge[ED]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraphNoSchema[VD,ED](defValue, storLevel, coal) {
+class VEGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[TEdge[ED]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraphNoSchema[VD,ED](defValue, storLevel, coal) {
 
   val allVertices: RDD[(VertexId, (Interval, VD))] = verts
   val allEdges: RDD[TEdge[ED]] = edgs
   lazy val intervals: RDD[Interval] = TGraphNoSchema.computeIntervals(allVertices, allEdges)
+  protected lazy val collectedIntervals: Array[Interval] = if (intvs.size > 0) intvs else intervals.collect
 
   lazy val span: Interval = computeSpan
 
@@ -156,7 +157,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
 
     //each tuple interval must be split based on the overall intervals
     //TODO: get rid of collect if possible
-    val locali = ProgramContext.sc.broadcast(intervals.collect.grouped(size).map(ii => Interval(ii.head.start, ii.last.end)).toList)
+    val locali = ProgramContext.sc.broadcast(collectedIntervals.grouped(size).map(ii => Interval(ii.head.start, ii.last.end)).toList)
     val split: (Interval => List[(Interval, Interval)]) = (interval: Interval) => {
       locali.value.flatMap{ intv =>
         val res = intv.intersection(interval)
@@ -207,7 +208,7 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
 
   override def createAttributeNodes( vAggFunc: (VD, VD) => VD)(vgroupby: (VertexId, VD) => VertexId ): VEGraph[VD, ED] = {
 
-    val locali = ProgramContext.sc.broadcast(intervals.collect)
+    val locali = ProgramContext.sc.broadcast(collectedIntervals)
     //TODO: splitting entities many times causes partitions that are too big
     //need to repartition
     //TODO: it may be better to calculate intervals within each group
@@ -499,20 +500,33 @@ class VEGraph[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))]
 }
 
 object VEGraph extends Serializable {
-  def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): VEGraph[V, E] = new VEGraph(ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD, defVal, coal = true)
+  def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): VEGraph[V, E] = new VEGraph(Array[Interval](), ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD, defVal, coal = true)
 
   def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[TEdge[E]], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): VEGraph[V, E] = {
     val cverts = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(verts) else verts
     val cedges = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(edgs.map(e => e.toPaired())).map(e => TEdge.apply(e._1,e._2)) else edgs
     val coal = coalesced | ProgramContext.eagerCoalesce
 
-    new VEGraph(cverts, cedges, defVal, storLevel, coal)
+    new VEGraph(Array[Interval](), cverts, cedges, defVal, storLevel, coal)
   }
 
   def fromDataFrames[V: ClassTag, E: ClassTag](verts: org.apache.spark.sql.DataFrame, edgs: org.apache.spark.sql.DataFrame, defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): VEGraph[V, E] = {
     val cverts: RDD[(VertexId, (Interval, V))] = verts.rdd.map(r => (r.getLong(0), (Interval(r.getLong(1), r.getLong(2)), r.getAs[V](3))))
     val ceds: RDD[TEdge[E]] = edgs.rdd.map(r => TEdge[E](r.getLong(0),r.getLong(1), r.getLong(2), Interval(r.getLong(3), r.getLong(4)), r.getAs[E](5)))
     fromRDDs(cverts, ceds, defVal, storLevel, coalesced)
+  }
+
+  def fromDataFramesWithIndex[V: ClassTag, E: ClassTag](verts: org.apache.spark.sql.DataFrame, edgs: org.apache.spark.sql.DataFrame, intvs: Array[Interval], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): VEGraph[V, E] = {
+    val cverts: RDD[(VertexId, (Interval, V))] = verts.rdd.map(r => (r.getLong(0), (Interval(r.getLong(1), r.getLong(2)), r.getAs[V](3))))
+    val ceds: RDD[TEdge[E]] = edgs.rdd.map(r => TEdge[E](r.getLong(0),r.getLong(1), r.getLong(2), Interval(r.getLong(3), r.getLong(4)), r.getAs[E](5)))
+
+    val vertices = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(cverts) else cverts
+    val edges = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(ceds.map(e => e.toPaired())).map(e => TEdge.apply(e._1,e._2)) else ceds
+    val intervals = if (ProgramContext.eagerCoalesce && !coalesced) Array[Interval]() else intvs
+    val coal = coalesced | ProgramContext.eagerCoalesce
+
+    new VEGraph(intervals, vertices, edges, defVal, storLevel, coal)
+
   }
 
 }

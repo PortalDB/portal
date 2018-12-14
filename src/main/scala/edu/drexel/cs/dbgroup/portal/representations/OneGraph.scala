@@ -7,6 +7,8 @@ import scala.collection.breakOut
 import scala.collection.mutable.HashMap
 import scala.reflect.ClassTag
 import scala.util.control._
+import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.ListBuffer
 
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
@@ -15,6 +17,11 @@ import org.apache.spark.graphx.Graph
 import org.apache.spark.rdd._
 import org.apache.spark.mllib.rdd.RDDFunctions._
 import org.apache.spark.graphx.impl.GraphXPartitionExtension._
+import org.apache.spark.sql.functions._
+import org.apache.spark.util.collection.CompactBufferPublic
+import org.apache.spark.Aggregator
+import org.apache.spark.TaskContext
+import org.apache.spark.InterruptibleIterator
 
 import edu.drexel.cs.dbgroup.portal._
 import edu.drexel.cs.dbgroup.portal.util.TempGraphOps
@@ -49,8 +56,8 @@ class OneGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], grps: Graph[A
   override def size(): Interval = span
 
   override def materialize() = {
-    graphs.vertices.count
     graphs.edges.count
+    graphs.vertices.count
   }
 
   override def vertices: RDD[(VertexId, (Interval, VD))] = coalescedVertices
@@ -887,10 +894,44 @@ object OneGraph {
     val coal = coalesced | ProgramContext.eagerCoalesce
 
     val intervals = TGraphNoSchema.computeIntervals(cov, coe.map(e => TEdge(e._1, e._2))).collect
-    val newgs = Graph[Array[(Interval,V)], (EdgeId, Array[(Interval,E)])](cov.groupByKey.mapValues(_.toArray),
-      coe.groupByKey.map{ case (ids, iter) => Edge(ids._2, ids._3, (ids._1, iter.toArray))},
+    val createCombiner = (v: (Interval, V)) => CompactBufferPublic(v)
+    val mergeValue = (buf: CompactBufferPublic[(Interval, V)], v: (Interval, V)) => buf += v
+    val mergeCombiners = (c1: CompactBufferPublic[(Interval, V)], c2: CompactBufferPublic[(Interval, V)]) => c1 ++= c2
+    val createCombiner2 = (v: (Interval, E)) => CompactBufferPublic(v)
+    val mergeValue2 = (buf: CompactBufferPublic[(Interval, E)], v: (Interval, E)) => buf += v
+    val mergeCombiners2 = (c1: CompactBufferPublic[(Interval, E)], c2: CompactBufferPublic[(Interval, E)]) => c1 ++= c2
+
+    val newgs = Graph[Array[(Interval,V)], (EdgeId, Array[(Interval,E)])](cov.combineByKey(createCombiner, mergeValue, mergeCombiners).mapValues(_.toArray),
+      coe.combineByKey(createCombiner2, mergeValue2, mergeCombiners2).map{ case (ids, iter) => Edge(ids._2, ids._3, (ids._1, iter.toArray))},
       Array[(Interval,V)](), storLevel, storLevel)
+    
+    //val newgs = Graph[Array[(Interval,V)], (EdgeId, Array[(Interval,E)])](cov.groupByKey.mapValues(_.toArray),
+    //  coe.groupByKey.map{ case (ids, iter) => Edge(ids._2, ids._3, (ids._1, iter.toArray))},
+    //  Array[(Interval,V)](), storLevel, storLevel)
 
     new OneGraph(intervals, newgs, defVal, storLevel, coal)
   }
+
+  def fromDataFramesWithIndex[V: ClassTag, E: ClassTag](verts: org.apache.spark.sql.DataFrame, edgs: org.apache.spark.sql.DataFrame, intvs: Array[Interval], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): OneGraph[V, E] = {
+    val cverts = verts.rdd.map(r => (r.getLong(0), (Interval(r.getLong(1), r.getLong(2)), r.getAs[V](3))))
+    val cedgs = edgs.rdd.map(r => ((r.getLong(0), r.getLong(1), r.getLong(2)), (Interval(r.getLong(3), r.getLong(4)), r.getAs[E](5))))
+
+    val cov = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(cverts) else cverts
+    val coe = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(cedgs) else cedgs
+    val coal = coalesced | ProgramContext.eagerCoalesce
+
+    val createCombiner = (v: (Interval, V)) => CompactBufferPublic(v)
+    val mergeValue = (buf: CompactBufferPublic[(Interval, V)], v: (Interval, V)) => buf += v
+    val mergeCombiners = (c1: CompactBufferPublic[(Interval, V)], c2: CompactBufferPublic[(Interval, V)]) => c1 ++= c2
+    val createCombiner2 = (v: (Interval, E)) => CompactBufferPublic(v)
+    val mergeValue2 = (buf: CompactBufferPublic[(Interval, E)], v: (Interval, E)) => buf += v
+    val mergeCombiners2 = (c1: CompactBufferPublic[(Interval, E)], c2: CompactBufferPublic[(Interval, E)]) => c1 ++= c2
+
+    val newgs = Graph[Array[(Interval,V)], (EdgeId, Array[(Interval,E)])](cov.combineByKey(createCombiner, mergeValue, mergeCombiners).mapValues(_.toArray),
+      coe.combineByKey(createCombiner2, mergeValue2, mergeCombiners2).map{ case (ids, iter) => Edge(ids._2, ids._3, (ids._1, iter.toArray))},
+      Array[(Interval,V)](), storLevel, storLevel)
+    
+    new OneGraph(intvs, newgs, defVal, storLevel, coal)
+  }
+
 }

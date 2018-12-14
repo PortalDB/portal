@@ -33,15 +33,22 @@ object GraphLoader {
     //get the configuration option for snapshot groups
     val sg = System.getProperty("portal.partitions.sgroup", "")
     //make a filter. RG needs "spatial" layout, i.e. one sorted by time
-    val filter = "_t_" + sg
+    val filter = "_s_" + sg
 
-    val (nodes, edges, deflt) = loadDataParquet(url, vattrcol, eattrcol, bounds, filter)
+    val (nodes, edges, intervals, deflt) = loadDataParquet(url, vattrcol, eattrcol, bounds, filter)
+    //TODO: when loading only one part, having a partition group does not
+    //make it by default uncoalesced
+    //instead, move this logic into loadDataParquet method and see how many
+    //are loaded first
     val col = sg match {
       case "" => true
       case _ => false
     }
 
-    RepresentativeGraph.fromDataFrames[Any,Any](nodes, edges, deflt, StorageLevel.MEMORY_ONLY_SER, col)
+    if (intervals.size > 0)
+      RepresentativeGraph.fromDataFramesWithIndex[Any,Any](nodes, edges, intervals, deflt, StorageLevel.MEMORY_ONLY_SER, col)
+    else
+      RepresentativeGraph.fromDataFrames[Any,Any](nodes, edges, deflt, StorageLevel.MEMORY_ONLY_SER, col)
   }
 
   def buildOG(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval): OneGraph[Any, Any] = {
@@ -50,13 +57,16 @@ object GraphLoader {
     //make a filter. OG needs "temporal" layout, i.e. one sorted by id
     val filter = "_t_" + sg
 
-    val (nodes, edges, deflt) = loadDataParquet(url, vattrcol, eattrcol, bounds, filter)
+    val (nodes, edges, intervals, deflt) = loadDataParquet(url, vattrcol, eattrcol, bounds, filter)
     val col = sg match {
       case "" => true
       case _ => false
     }
 
-    OneGraph.fromDataFrames[Any,Any](nodes, edges, deflt, StorageLevel.MEMORY_ONLY_SER, col)
+    if (intervals.size > 0)
+      OneGraph.fromDataFramesWithIndex[Any,Any](nodes, edges, intervals, deflt, StorageLevel.MEMORY_ONLY_SER, col)
+    else
+      OneGraph.fromDataFrames[Any,Any](nodes, edges, deflt, StorageLevel.MEMORY_ONLY_SER, col)
 
   }
 
@@ -66,16 +76,20 @@ object GraphLoader {
     //make a filter. OG needs "temporal" layout, i.e. one sorted by id
     val filter = "_t_" + sg
 
-    val (nodes, edges, deflt) = loadDataParquet(url, vattrcol, eattrcol, bounds, filter)
+    val (nodes, edges, intervals, deflt) = loadDataParquet(url, vattrcol, eattrcol, bounds, filter)
     val col = sg match {
       case "" => true
       case _ => false
     }
 
-    OneGraphColumn.fromDataFrames[Any,Any](nodes, edges, deflt, StorageLevel.MEMORY_ONLY_SER, col)
+    if (intervals.size > 0)
+      OneGraphColumn.fromDataFramesWithIndex[Any,Any](nodes, edges, intervals, deflt, StorageLevel.MEMORY_ONLY_SER, col)
+    else
+      OneGraphColumn.fromDataFrames[Any,Any](nodes, edges, deflt, StorageLevel.MEMORY_ONLY_SER, col)
 
   }
 
+//TODO: load interval index
   def buildHG(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval): HybridGraph[Any, Any] = {
     //get the configuration option for snapshot groups
     val sg = System.getProperty("portal.partitions.sgroup", "")
@@ -154,25 +168,38 @@ object GraphLoader {
     //make a filter. VE needs "temporal" layout, i.e. one sorted by id
     val filter = "_t_" + sg
 
-    val (nodes, edges, deflt) = loadDataParquet(url, vattrcol, eattrcol, bounds, filter)
+    val (nodes, edges, intervals, deflt) = loadDataParquet(url, vattrcol, eattrcol, bounds, filter)
     val col = sg match {
       case "" => true
       case _ => false
     }
 
-    if (woptim)
-      VEGraphOptim.fromDataFrames[Any,Any](nodes, edges, deflt, StorageLevel.MEMORY_ONLY_SER, col)
-    else
-      VEGraph.fromDataFrames[Any,Any](nodes, edges, deflt, StorageLevel.MEMORY_ONLY_SER, col)
-
+    if (intervals.size > 0) {
+      if (woptim)
+        VEGraphOptim.fromDataFramesWithIndex[Any,Any](nodes, edges, intervals, deflt, StorageLevel.MEMORY_ONLY_SER, col)
+      else
+        VEGraph.fromDataFramesWithIndex[Any,Any](nodes, edges, intervals, deflt, StorageLevel.MEMORY_ONLY_SER, col)
+    } else {
+      if (woptim)
+        VEGraphOptim.fromDataFrames[Any,Any](nodes, edges, deflt, StorageLevel.MEMORY_ONLY_SER, col)
+      else
+        VEGraph.fromDataFrames[Any,Any](nodes, edges, deflt, StorageLevel.MEMORY_ONLY_SER, col)
+    }
   }
 
-  private def loadDataParquet(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval, filter: String): (DataFrame, DataFrame, Any) = {
+  private def loadDataParquet(url: String, vattrcol: Int, eattrcol: Int, bounds: Interval, filter: String): (DataFrame, DataFrame, Array[Interval], Any) = {
     val nodesFiles = getPaths(url, bounds, "nodes" + filter)
     val edgesFiles = getPaths(url, bounds, "edges" + filter)
+    val intervalFiles = url + "/intervals"
 
     var users = ProgramContext.getSession.read.parquet(nodesFiles:_*)
     var links = ProgramContext.getSession.read.parquet(edgesFiles:_*)
+
+    //load the intervals if index option on
+    val withIndex = System.getProperty("portal.index", "false").toBoolean
+    var intervals = if (withIndex) {
+      ProgramContext.getSession.read.parquet(intervalFiles).rdd.map(r => r.getLong(0)).collect.sliding(2).map(lst => Interval(lst(0), lst(1))).toArray
+    } else Array[Interval]()
 
     //select within bounds
     if (bounds.start != LocalDate.MIN || bounds.end != LocalDate.MAX) {
@@ -180,6 +207,16 @@ object GraphLoader {
       val secs2 = math.floor(DateTimeUtils.daysToMillis(bounds.end.toEpochDay().toInt).toDouble / 1000L).toLong
       users = users.filter("NOT (estart >= " + secs2 + " OR eend <= " + secs1 + ")").withColumn("estart", greatest(users("estart"), lit(secs1))).withColumn("eend", least(users("eend"), lit(secs2)))
       links = links.filter("NOT (estart >= " + secs2 + " OR eend <= " + secs1 + ")").withColumn("estart", greatest(links("estart"), lit(secs1))).withColumn("eend", least(links("eend"), lit(secs2)))
+
+      if (intervals.size > 0) {
+        val startBound = if (bounds.start.isAfter(intervals.head.start)) bounds.start else intervals.head.start
+        val endBound = if (bounds.end.isBefore(intervals.last.end)) bounds.end else intervals.last.end
+        val selectBound:Interval = Interval(startBound, endBound)
+        val selectStart:Int = intervals.indexWhere(ii => ii.intersects(selectBound))
+        val selectStop:Int = intervals.lastIndexWhere(ii => ii.intersects(selectBound))
+        val zipped = intervals.zipWithIndex.filter(intv => intv._1.intersects(selectBound))
+        intervals = intervals.slice(selectStart, selectStop+1).map(intv => if (intv.start.isBefore(startBound) || intv.end.isAfter(endBound)) intv.intersection(selectBound).get else intv)
+      }
     }
 
     val vattr = 2 + vattrcol
@@ -200,6 +237,8 @@ object GraphLoader {
     }
 
     //if there are more fields in the schema, add the select statement
+    //FIXME: if there are multiple fields and we only load one
+    //then the data may be uncoalesced
     if (vattrcol == -1) {
       if (users.schema.fields.size > 3)
         users = users.select("vid", "estart", "eend")
@@ -215,7 +254,70 @@ object GraphLoader {
     else if (links.schema.fields.size > 6)
       links = links.select("eid", "vid1", "vid2", "estart", "eend", links.schema.fields(eattr).name)
 
-    (users, links, deflt)
+    (users, links, intervals, deflt)
+  }
+
+  def loadDataPropertyModel(url: String): TGraphWProperties = {
+    val users = ProgramContext.getSession.read.parquet(url + "/nodes.parquet")
+    val links = ProgramContext.getSession.read.parquet(url + "/edges.parquet")
+
+    //load each column as a property with that key
+    //TODO when we have the concrete property bag implementation
+    //for now, empty graph
+    null
+  }
+
+  def loadGraphSpan(url: String): Interval = {
+    var source: scala.io.Source = null
+    var fs: FileSystem = null
+
+    val pt: Path = new Path(url + "/Span.txt")
+    val conf: Configuration = new Configuration()
+    if (System.getenv("HADOOP_CONF_DIR") != "") {
+      conf.addResource(new Path(System.getenv("HADOOP_CONF_DIR") + "/core-site.xml"))
+    }
+    fs = FileSystem.get(conf)
+    source = scala.io.Source.fromInputStream(fs.open(pt))
+
+    val lines = source.getLines
+    val minin = LocalDate.parse(lines.next)
+    val maxin = LocalDate.parse(lines.next)
+    source.close()
+    Interval(minin,maxin)
+  }
+
+  def loadGraphDescription(url: String): GraphSpec = {
+    //there should be a special file called graph.info
+    //which contains the number of attributes and their name/type
+    //TODO: this method should use the schema in the parquet file
+    //instead of a special file
+
+    val pt: Path = new Path(url + "/graph.info")
+    val conf: Configuration = new Configuration()    
+    if (System.getenv("HADOOP_CONF_DIR") != "") {
+      conf.addResource(new Path(System.getenv("HADOOP_CONF_DIR") + "/core-site.xml"))
+    }
+    val fs:FileSystem = FileSystem.get(conf)
+    val source:scala.io.Source = scala.io.Source.fromInputStream(fs.open(pt))
+
+    val lines = source.getLines
+    val numVAttrs: Int = lines.next.toInt
+    val vertexAttrs: Seq[StructField] = (0 until numVAttrs).map { index =>
+      val nextAttr = lines.next.split(':')
+      //the format is name:type
+      StructField(nextAttr.head, TypeParser.parseType(nextAttr.last))
+    }
+
+    val numEAttrs: Int = lines.next.toInt
+    val edgeAttrs: Seq[StructField] = (0 until numEAttrs).map { index =>
+      val nextAttr = lines.next.split(':')
+      //the format is name:type
+      StructField(nextAttr.head, TypeParser.parseType(nextAttr.last))
+    }
+
+    source.close()          
+
+    new GraphSpec(vertexAttrs, edgeAttrs)
   }
 
   /* 

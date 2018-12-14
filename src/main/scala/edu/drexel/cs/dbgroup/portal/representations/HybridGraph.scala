@@ -29,12 +29,12 @@ import edu.drexel.cs.dbgroup.portal.util.TempGraphOps._
 
 import java.time.LocalDate
 
-class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[TEdge[ED]], runs: Seq[Int], gps: ParSeq[Graph[BitSet, (EdgeId,BitSet)]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends VEGraph[VD, ED](verts, edgs, defValue, storLevel, coal) with Serializable {
+class HybridGraph[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[TEdge[ED]], runs: Seq[Int], gps: ParSeq[Graph[BitSet, (EdgeId,BitSet)]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends VEGraph[VD, ED](intvs, verts, edgs, defValue, storLevel, coal) with Serializable {
 
   var graphs: ParSeq[Graph[BitSet, (EdgeId,BitSet)]] = gps
   //this is how many consecutive intervals are in each aggregated graph
   var widths: Seq[Int] = runs
-  private val collectedIntervals: Array[Interval] = intvs
+  override lazy val collectedIntervals: Array[Interval] = intvs
   protected var partitioning = TGraphPartitioning(PartitionStrategyType.None, 1, 0)
 
 /*

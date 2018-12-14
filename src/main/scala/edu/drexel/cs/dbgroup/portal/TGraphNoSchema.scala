@@ -17,11 +17,6 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 
 import edu.drexel.cs.dbgroup.portal.util.TempGraphOps
 
-/**
-  * The abstract TGraph where the attribute for notes and edges is schemaless and
-  * can be any Scala object, just like in GraphX. Provides implementations of some
-  * of the TGraph methods. The concrete classes are in the representations package.
-  */
 abstract class TGraphNoSchema[VD: ClassTag, ED: ClassTag](defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends TGraph[VD, ED] {
   val storageLevel = storLevel
   val defaultValue: VD = defValue

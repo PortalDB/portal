@@ -1,6 +1,8 @@
 package edu.drexel.cs.dbgroup.portal.representations
 
 import scala.reflect.ClassTag
+import java.time.LocalDate
+
 import org.apache.spark.rdd._
 import org.apache.spark.graphx.{VertexId, _}
 import org.apache.spark.storage.StorageLevel
@@ -13,12 +15,13 @@ import edu.drexel.cs.dbgroup.portal.util.{TempGraphOps,TemporalAlgebra}
   * VE with some methods implemented more efficiently
 */
 
-class VEGraphOptim[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[TEdge[ED]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends VEGraph[VD,ED](verts, edgs, defValue, storLevel, coal) {
+class VEGraphOptim[VD: ClassTag, ED: ClassTag](intvs: Array[Interval], verts: RDD[(VertexId, (Interval, VD))], edgs: RDD[TEdge[ED]], defValue: VD, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coal: Boolean = false) extends VEGraph[VD,ED](intvs, verts, edgs, defValue, storLevel, coal) {
 
   override def createAttributeNodes( vAggFunc: (VD, VD) => VD)(vgroupby: (VertexId, VD) => VertexId ): VEGraph[VD, ED] = {
-
+    println("optimization")
     //FIXME? This approach requires each group's list to fit into memory
-    val valIntervals: RDD[(VertexId, List[Interval])] = allVertices.map{ case (vid, (intv, attr)) => (vgroupby(vid, attr), intv)}.aggregateByKey(List[Interval]())(seqOp = (u: List[Interval], v: Interval) => TemporalAlgebra.combOp(u, List[Interval](v)), TemporalAlgebra.combOp)
+    implicit val ord = TempGraphOps.dateOrdering
+    val valIntervals: RDD[(VertexId, List[Interval])] = allVertices.map{ case (vid, (intv, attr)) => (vgroupby(vid, attr), intv)}.aggregateByKey(Set[LocalDate]())(seqOp = (u: Set[LocalDate], v: Interval) => TemporalAlgebra.combOp(u, Set[LocalDate](v.start, v.end)), TemporalAlgebra.combOp).mapValues(v => v.toList.sorted.sliding(2).map(lst => Interval(lst(0), lst(1))).toList)
 
     val newVerts: RDD[(VertexId, (Interval, VD))] = allVertices.map{ case (vid, (intv, attr)) => (vgroupby(vid, attr), (intv, attr))}
       .join(valIntervals)
@@ -50,20 +53,32 @@ class VEGraphOptim[VD: ClassTag, ED: ClassTag](verts: RDD[(VertexId, (Interval, 
 }
 
 object VEGraphOptim extends Serializable {
-  def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): VEGraphOptim[V, E] = new VEGraphOptim(ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD, defVal, coal = true)
+  def emptyGraph[V: ClassTag, E: ClassTag](defVal: V): VEGraphOptim[V, E] = new VEGraphOptim(Array[Interval](), ProgramContext.sc.emptyRDD, ProgramContext.sc.emptyRDD, defVal, coal = true)
 
   def fromRDDs[V: ClassTag, E: ClassTag](verts: RDD[(VertexId, (Interval, V))], edgs: RDD[TEdge[E]], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): VEGraphOptim[V, E] = {
     val cverts = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(verts) else verts
     val cedges = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(edgs.map(e => e.toPaired())).map(e => TEdge.apply(e._1,e._2)) else edgs
     val coal = coalesced | ProgramContext.eagerCoalesce
 
-    new VEGraphOptim(cverts, cedges, defVal, storLevel, coal)
+    new VEGraphOptim(Array[Interval](), cverts, cedges, defVal, storLevel, coal)
   }
 
   def fromDataFrames[V: ClassTag, E: ClassTag](verts: org.apache.spark.sql.DataFrame, edgs: org.apache.spark.sql.DataFrame, defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): VEGraphOptim[V, E] = {
     val cverts: RDD[(VertexId, (Interval, V))] = verts.rdd.map(r => (r.getLong(0), (Interval(r.getLong(1), r.getLong(2)), r.getAs[V](3))))
     val ceds: RDD[TEdge[E]] = edgs.rdd.map(r => TEdge[E](r.getLong(0),r.getLong(1), r.getLong(2), Interval(r.getLong(3), r.getLong(4)), r.getAs[E](5)))
     fromRDDs(cverts, ceds, defVal, storLevel, coalesced)
+  }
+
+  def fromDataFramesWithIndex[V: ClassTag, E: ClassTag](verts: org.apache.spark.sql.DataFrame, edgs: org.apache.spark.sql.DataFrame, intvs: Array[Interval], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): VEGraphOptim[V, E] = {
+    val cverts: RDD[(VertexId, (Interval, V))] = verts.rdd.map(r => (r.getLong(0), (Interval(r.getLong(1), r.getLong(2)), r.getAs[V](3))))
+    val ceds: RDD[TEdge[E]] = edgs.rdd.map(r => TEdge[E](r.getLong(0),r.getLong(1), r.getLong(2), Interval(r.getLong(3), r.getLong(4)), r.getAs[E](5)))
+
+    val vertices = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(cverts) else cverts
+    val edges = if (ProgramContext.eagerCoalesce && !coalesced) TGraphNoSchema.coalesce(ceds.map(e => e.toPaired())).map(e => TEdge.apply(e._1,e._2)) else ceds
+    val coal = coalesced | ProgramContext.eagerCoalesce
+
+    new VEGraphOptim(intvs, vertices, edges, defVal, storLevel, coal)
+
   }
 
 }

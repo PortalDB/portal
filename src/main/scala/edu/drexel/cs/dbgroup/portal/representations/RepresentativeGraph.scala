@@ -667,14 +667,23 @@ object RepresentativeGraph extends Serializable {
 
     val intervals = verts.select(verts("estart"), verts("eend")).rdd.flatMap(r => Seq(r.getLong(0), r.getLong(1))).union(edgs.select(edgs("estart"), edgs("eend")).rdd.flatMap(r => Seq(r.getLong(0), r.getLong(1)))).distinct.collect.sortBy(c => c).sliding(2).map(lst => Interval(lst(0), lst(1))).toArray
 
-    val graphs = intervals.map( p =>
+    fromDataFramesWithIndex(verts, edgs, intervals, defVal, storLevel, coalesced)
+
+  }
+
+  def fromDataFramesWithIndex[V: ClassTag, E: ClassTag](verts: org.apache.spark.sql.DataFrame, edgs: org.apache.spark.sql.DataFrame, intvs: Array[Interval], defVal: V, storLevel: StorageLevel = StorageLevel.MEMORY_ONLY, coalesced: Boolean = false): RepresentativeGraph[V, E] = {
+    //we can filter directly on dataframe which will do filter pushdown for faster load
+    //TODO: check for eagerCoalesce and coalesce if needed
+
+    val graphs = intvs.map( p =>
       Graph(verts.filter("NOT (estart >= " + p.getEndSeconds + " OR eend <= " + p.getStartSeconds + ")").rdd.map(r => (r.getLong(0), r.getAs[V](3))),
         edgs.filter("NOT (estart >= " + p.getEndSeconds + " OR eend <= " + p.getStartSeconds + ")").rdd.map(r => Edge(r.getLong(1), r.getLong(2), (r.getLong(0),r.getAs[E](5)))),
         defVal, storLevel, storLevel)
     ).par
 
-    new RepresentativeGraph(intervals, graphs, defVal, storLevel, coalesced)
+    new RepresentativeGraph(intvs, graphs, defVal, storLevel, coalesced)
   }
+
 
   def emptyGraph[V: ClassTag, E: ClassTag](defVal: V):RepresentativeGraph[V, E] = new RepresentativeGraph(Array[Interval](), ParSeq[Graph[V,(EdgeId,E)]](), defVal, coal = true)
  
